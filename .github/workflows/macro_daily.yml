@@ -1,0 +1,50 @@
+name: Daily Macro Intelligence
+
+on:
+  schedule:
+    # Runs Mon–Fri at 06:30 UTC (adjust to taste)
+    - cron: "30 6 * * 1-5"
+  workflow_dispatch:   # allows manual trigger from GitHub UI for testing
+
+jobs:
+  generate-note:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Macro-Assist (scripts)
+        uses: actions/checkout@v4
+        with:
+          path: macro-assist
+
+      - name: Checkout External-Brain (vault)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ secrets.VAULT_REPO }}   # e.g. GregsterBoe/External-Brain
+          token: ${{ secrets.VAULT_PAT }}
+          path: vault
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: macro-assist/.macro-assist/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r macro-assist/.macro-assist/requirements.txt
+
+      - name: Generate macro note
+        env:
+          FRED_API_KEY:      ${{ secrets.FRED_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          VAULT_ROOT:        ${{ github.workspace }}/vault
+        run: python macro-assist/.macro-assist/collect_and_analyze.py
+
+      - name: Commit and push note to vault
+        run: |
+          cd vault
+          git config user.name  "macro-assist[bot]"
+          git config user.email "macro-assist[bot]@users.noreply.github.com"
+          git add Journal/
+          git diff --cached --quiet || git commit -m "macro: $(date -u +%Y-%m-%d) daily intelligence note"
+          git push
