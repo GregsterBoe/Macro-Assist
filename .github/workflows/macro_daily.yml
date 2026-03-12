@@ -6,6 +6,9 @@ on:
     - cron: "30 6 * * 1-5"
   workflow_dispatch:   # allows manual trigger from GitHub UI for testing
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   generate-note:
     runs-on: ubuntu-latest
