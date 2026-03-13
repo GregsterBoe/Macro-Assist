@@ -10,7 +10,7 @@ Expects env vars: FRED_API_KEY, ANTHROPIC_API_KEY
 import json
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import anthropic
@@ -110,16 +110,20 @@ MARKET_LABELS = {
 def fetch_market_data() -> dict:
     data = {}
     for name, ticker in MARKET_TICKERS.items():
-        hist = yf.Ticker(ticker).history(period="5d")
-        if hist.empty:
-            continue
-        close      = hist["Close"].iloc[-1]
-        prev_close = hist["Close"].iloc[-2] if len(hist) > 1 else close
-        data[name] = {
-            "price":      round(float(close), 2),
-            "change_pct": round(((close - prev_close) / prev_close) * 100, 2),
-            "date":       hist.index[-1].strftime("%Y-%m-%d"),
-        }
+        try:
+            hist = yf.Ticker(ticker).history(period="10d")
+            if hist.empty or len(hist) < 2:
+                print(f"  Warning: no data for {ticker}, skipping.")
+                continue
+            close      = hist["Close"].iloc[-1]
+            prev_close = hist["Close"].iloc[-2]
+            data[name] = {
+                "price":      round(float(close), 2),
+                "change_pct": round(((close - prev_close) / prev_close) * 100, 2),
+                "date":       hist.index[-1].strftime("%Y-%m-%d"),
+            }
+        except Exception as e:
+            print(f"  Warning: failed to fetch {ticker}: {e}")
     return data
 
 
@@ -226,7 +230,7 @@ tags: [macro, daily-note, economics]
 # ---------------------------------------------------------------------------
 
 def main():
-    today = datetime.utcnow()
+    today = datetime.now(timezone.utc)
 
     # Idempotency: skip if today's note already exists
     output_path = get_output_path(today)
