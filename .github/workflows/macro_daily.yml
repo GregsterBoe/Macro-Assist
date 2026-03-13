@@ -48,6 +48,6 @@ jobs:
           cd vault
           git config user.name  "macro-assist[bot]"
           git config user.email "macro-assist[bot]@users.noreply.github.com"
-          git add Journal/
+          git add Economy/
           git diff --cached --quiet || git commit -m "macro: $(date -u +%Y-%m-%d) daily intelligence note"
           git push

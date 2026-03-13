@@ -9,7 +9,8 @@ Expects env vars: FRED_API_KEY, ANTHROPIC_API_KEY
 
 import json
 import os
-from datetime import datetime
+import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import anthropic
@@ -31,9 +32,19 @@ def get_output_path(today: datetime) -> Path:
     year = today.strftime("%Y")
     month_folder = today.strftime("%m-%B")          # e.g. "03-March"
     filename = today.strftime("%Y-%m-%d-%A") + "-macro.md"
-    path = VAULT_ROOT / "Journal" / year / month_folder / filename
+    path = VAULT_ROOT / "Economy" / year / month_folder / filename
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def next_review_date(today: datetime) -> str:
+    """Return the date 5 business days from today (for prediction tracking)."""
+    d, count = today, 0
+    while count < 5:
+        d += timedelta(days=1)
+        if d.weekday() < 5:   # Mon–Fri
+            count += 1
+    return d.strftime("%Y-%m-%d")
 
 
 # ---------------------------------------------------------------------------
@@ -120,7 +131,9 @@ def analyze_with_claude(fred_data: dict, market_data: dict, today: datetime) -> 
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     system_prompt = (PROMPTS_DIR / "system_prompt.md").read_text()
 
+    review_date = next_review_date(today)
     user_message = f"""Today is {today.strftime('%A, %B %d, %Y')}.
+Prediction review date (5 business days): {review_date}
 
 ## FRED Macro Indicators
 {json.dumps(fred_data, indent=2)}
@@ -132,7 +145,7 @@ Generate the macro intelligence note as specified in your instructions."""
 
     response = client.messages.create(
         model="claude-opus-4-6",
-        max_tokens=2000,
+        max_tokens=3000,
         system=system_prompt,
         messages=[{"role": "user", "content": user_message}],
     )
@@ -214,6 +227,13 @@ tags: [macro, daily-note, economics]
 
 def main():
     today = datetime.utcnow()
+
+    # Idempotency: skip if today's note already exists
+    output_path = get_output_path(today)
+    if output_path.exists():
+        print(f"Note already exists for {today.strftime('%Y-%m-%d')}, skipping.")
+        sys.exit(0)
+
     fred  = Fred(api_key=os.environ["FRED_API_KEY"])
 
     print("Fetching FRED data...")
@@ -228,7 +248,6 @@ def main():
     print("Building note...")
     note = build_note(fred_data, market_data, analysis, today)
 
-    output_path = get_output_path(today)
     output_path.write_text(note, encoding="utf-8")
     print(f"Note written to: {output_path}")
 

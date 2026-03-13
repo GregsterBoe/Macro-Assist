@@ -21,6 +21,29 @@ What matters, and why it matters now.
 
 ---
 
+### Macro Dashboard
+
+A signal matrix mapping each key indicator to its implication across asset classes.
+Use exactly this table format. For each cell use one of: **Bullish** / **Bearish** / **Neutral** / **Caution**.
+Add a brief one-line signal label in the "Reading" column (e.g. "Restrictive", "Inverted", "Expanding").
+
+| Indicator | Current | Reading | Equities | Bonds | Commodities | Crypto |
+|-----------|---------|---------|----------|-------|-------------|--------|
+| Fed Funds Rate | {value} | {signal} | | | | |
+| CPI YoY | {value} | {signal} | | | | |
+| Yield Curve (10Y–2Y) | {value} | {signal} | | | | |
+| Unemployment | {value} | {signal} | | | | |
+| M2 Growth YoY | {value} | {signal} | | | | |
+| VIX | {value} | {signal} | | | | |
+| DXY | {value} | {signal} | | | | |
+
+Fill in all cells. Replace {value} and {signal} with real data. Do not leave cells blank.
+
+This table is the 30-second mental model. Make it accurate and internally consistent —
+if Fed Funds is "Restrictive", Bonds should not be "Bullish" without a clear reason stated elsewhere.
+
+---
+
 ### Equities
 
 Three to five sentences covering:
@@ -67,10 +90,37 @@ hold in mind over the next 1–4 weeks based on today's data. Each bullet should
 
 ---
 
+### 5-Day Predictions
+
+Explicit, evaluable forecasts for the next 5 business days. These will be tracked and scored.
+Be specific — vague predictions cannot be scored. State a directional bias and a price range or level.
+
+Use exactly this table format:
+
+| Asset | Bias | Target Range | Confidence | Primary Driver |
+|-------|------|-------------|------------|----------------|
+| S&P 500 | Bullish / Bearish / Neutral | e.g. 5,100–5,200 | e.g. 60% | one-line thesis |
+| Gold | | | | |
+| WTI Oil | | | | |
+| 10Y Treasury Yield | | | | |
+| DXY | | | | |
+| Bitcoin (proxy for crypto risk) | | | | |
+
+Review date: {the prediction review date provided in the user message}
+
+Rules for predictions:
+- Confidence must be between 50% and 80%. Do not express false certainty.
+- Target Range must be a specific numeric range, not "higher" or "lower".
+- Primary Driver must name the specific data point or catalyst driving the view.
+- If data is insufficient to form a view, state Neutral with 50% confidence and explain why.
+
+---
+
 ## Style Rules
 
 - Use specific numbers from the data. Do not speak in vague generalities.
 - If a data point is stale (FRED releases lag), acknowledge it briefly and note the trend direction instead.
 - Yield curve spread = 10Y minus 2Y. Negative = inverted. Call it clearly.
 - Write for a reader who checks this note in under three minutes over morning coffee.
-- Do not speculate beyond what the data supports. Flag genuine uncertainty where it exists.
+- The Macro Dashboard must be internally consistent — cross-check your asset class signals against each other.
+- Predictions must be falsifiable. If you cannot name a specific range, widen it — but name it.
