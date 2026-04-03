@@ -12,12 +12,15 @@ env:
 jobs:
   generate-note:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Macro-Assist (scripts)
         uses: actions/checkout@v4
         with:
           path: macro-assist
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout External-Brain (vault)
         uses: actions/checkout@v4
@@ -41,6 +44,7 @@ jobs:
           FRED_API_KEY:      ${{ secrets.FRED_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           VAULT_ROOT:        ${{ github.workspace }}/vault
+          SUPADATA_API_KEY:  ${{ secrets.SUPADATA_API_KEY }}
         run: python macro-assist/.macro-assist/collect_and_analyze.py
 
       - name: Commit and push note to vault

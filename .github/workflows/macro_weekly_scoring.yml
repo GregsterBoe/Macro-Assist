@@ -12,12 +12,15 @@ env:
 jobs:
   score-and-summarize:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Macro-Assist
         uses: actions/checkout@v4
         with:
           path: macro-assist
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout External-Brain (vault — source of reports)
         uses: actions/checkout@v4
