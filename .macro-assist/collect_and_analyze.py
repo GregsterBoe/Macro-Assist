@@ -23,8 +23,9 @@ from fredapi import Fred
 
 # VAULT_ROOT can be overridden via env var (used by GitHub Actions).
 # Falls back to the parent of .macro-assist/ for local runs.
-VAULT_ROOT = Path(os.environ.get("VAULT_ROOT", Path(__file__).resolve().parent.parent))
-PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
+VAULT_ROOT    = Path(os.environ.get("VAULT_ROOT", Path(__file__).resolve().parent.parent))
+PROMPTS_DIR   = Path(__file__).resolve().parent / "prompts"
+ACCURACY_JSON = Path(__file__).resolve().parent / "data" / "accuracy_summary.json"
 
 
 def get_output_path(today: datetime) -> Path:
@@ -128,6 +129,62 @@ def fetch_market_data() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Accuracy context (self-calibration feedback loop)
+# ---------------------------------------------------------------------------
+
+def load_accuracy_context() -> str:
+    """
+    Read accuracy_summary.json and return a compact text block for injection
+    into the Claude prompt. Returns empty string if no data exists yet.
+    """
+    if not ACCURACY_JSON.exists():
+        return ""
+
+    try:
+        data = json.loads(ACCURACY_JSON.read_text(encoding="utf-8"))
+    except Exception:
+        return ""
+
+    windows = data.get("windows", {})
+    n_total = data.get("n_reports_total", 0)
+    as_of   = data.get("generated_at", "unknown")
+
+    lines = [
+        f"## Your Historical Prediction Accuracy (as of {as_of}, {n_total} reports scored)",
+        "",
+        "Use this to calibrate confidence. 50% = random. >65% with meaningful n = genuine signal.",
+        "Assets where directional accuracy is <40% have systematic bias — consider revising your thesis.",
+        "",
+    ]
+
+    window_labels = {"t5": "T+5 (1 week)", "t10": "T+10 (2 weeks)", "t20": "T+20 (1 month)"}
+    asset_order   = ["S&P 500", "Gold", "WTI Oil", "10Y Treasury Yield", "DXY", "Bitcoin"]
+
+    for wkey, wlabel in window_labels.items():
+        wdata = windows.get(wkey)
+        if not wdata or wdata.get("overall_accuracy") is None:
+            continue
+
+        ov  = wdata["overall_accuracy"]
+        n   = wdata["n_reports"]
+        lines.append(f"**{wlabel}** — overall {ov:.0%} ({n} reports)")
+
+        for asset in asset_order:
+            astat = wdata["by_asset"].get(asset)
+            if not astat:
+                continue
+            acc  = astat["accuracy"]
+            dacc = astat["directional_acc"]
+            dn   = astat["directional_n"]
+            dacc_str = f"{dacc:.0%} (n={dn})" if dacc is not None else "n/a"
+            lines.append(f"  - {asset}: accuracy {acc:.0%}, directional {dacc_str}")
+
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
 # Claude analysis
 # ---------------------------------------------------------------------------
 
@@ -135,7 +192,9 @@ def analyze_with_claude(fred_data: dict, market_data: dict, today: datetime) -> 
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     system_prompt = (PROMPTS_DIR / "system_prompt.md").read_text()
 
-    review_date = next_review_date(today)
+    review_date      = next_review_date(today)
+    accuracy_context = load_accuracy_context()
+
     user_message = f"""Today is {today.strftime('%A, %B %d, %Y')}.
 Prediction review date (5 business days): {review_date}
 
@@ -144,7 +203,7 @@ Prediction review date (5 business days): {review_date}
 
 ## Market Data
 {json.dumps(market_data, indent=2)}
-
+{f"{chr(10)}{accuracy_context}" if accuracy_context else ""}
 Generate the macro intelligence note as specified in your instructions."""
 
     response = client.messages.create(
