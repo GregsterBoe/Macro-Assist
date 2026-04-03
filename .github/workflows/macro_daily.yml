@@ -71,4 +71,5 @@ jobs:
           git config user.email "macro-assist[bot]@users.noreply.github.com"
           git add results/
           git diff --cached --quiet || git commit -m "macro: $(date -u +%Y-%m-%d) daily intelligence note"
+          git pull --rebase origin $(git rev-parse --abbrev-ref HEAD)
           git push
