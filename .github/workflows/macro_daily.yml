@@ -51,3 +51,20 @@ jobs:
           git add Economy/
           git diff --cached --quiet || git commit -m "macro: $(date -u +%Y-%m-%d) daily intelligence note"
           git push
+
+      - name: Copy report to Macro-Assist results
+        run: |
+          MONTH=$(date -u +%m-%B)
+          FILENAME=$(date -u +%Y-%m-%d-%A)-macro.md
+          YEAR=$(date -u +%Y)
+          mkdir -p macro-assist/results/${MONTH}
+          cp vault/Economy/${YEAR}/${MONTH}/${FILENAME} macro-assist/results/${MONTH}/${FILENAME}
+
+      - name: Commit and push report to Macro-Assist
+        run: |
+          cd macro-assist
+          git config user.name  "macro-assist[bot]"
+          git config user.email "macro-assist[bot]@users.noreply.github.com"
+          git add results/
+          git diff --cached --quiet || git commit -m "macro: $(date -u +%Y-%m-%d) daily intelligence note"
+          git push
