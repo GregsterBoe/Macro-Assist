@@ -64,6 +64,8 @@ FRED_SERIES = {
     "treasury_2y":    "DGS2",
     "hy_spread":      "BAMLH0A0HYM2",   # HY corporate bond OAS spread (%)
     "philly_fed_mfg": "GACDFSA066MSFRBPHI",  # Philly Fed Manufacturing Activity (diffusion index; >0 expanding)
+    "real_yield_10y": "DFII10",               # 10Y TIPS real yield (daily)
+    "breakeven_10y":  "T10YIE",               # 10Y inflation breakeven rate (daily)
 }
 
 
@@ -72,7 +74,9 @@ def fetch_fred_data(fred: Fred) -> dict:
     data = {}
     for name, series_id in FRED_SERIES.items():
         try:
-            series = fred.get_series(series_id, observation_start="2024-01-01").dropna()
+            # 5-year history enables historical context computation; daily series return ~1,250 rows
+            observation_start = (datetime.now(timezone.utc).date() - timedelta(days=365 * 5)).isoformat()
+            series = fred.get_series(series_id, observation_start=observation_start).dropna()
         except Exception as e:
             print(f"  Warning: FRED series {series_id} ({name}) unavailable: {e}")
             continue
@@ -89,6 +93,16 @@ def fetch_fred_data(fred: Fred) -> dict:
         if name in ("cpi", "m2") and len(series) >= 13:
             year_ago = series.iloc[-13]
             data[name]["yoy_pct"] = round(((latest - year_ago) / year_ago) * 100, 2)
+        # 5-year mean YoY for CPI and M2 (anchor for "elevated" / "mild" language)
+        if name in ("cpi", "m2") and len(series) >= 25:
+            yoy_series = series.pct_change(12).dropna() * 100
+            if len(yoy_series) >= 12:
+                data[name]["five_yr_mean_yoy"] = round(float(yoy_series.mean()), 2)
+        # 5-year mean of raw value for spread/index/rate series
+        # Note: philly_fed_mfg mean includes COVID-era extremes (~-56 in Apr 2020); treat as context, not target
+        if name in ("hy_spread", "philly_fed_mfg", "real_yield_10y", "breakeven_10y") and len(series) >= 12:
+            data[name]["five_yr_mean"] = round(float(series.mean()), 3)
+            data[name]["vs_mean"]      = round(float(latest) - float(series.mean()), 3)
 
     data["yield_curve_spread"] = round(
         data["treasury_10y"]["value"] - data["treasury_2y"]["value"], 3
@@ -107,6 +121,7 @@ MARKET_TICKERS = {
     "wti_oil": "CL=F",
     "vix":     "^VIX",
     "dxy":     "DX-Y.NYB",
+    "vix3m":   "^VIX3M",   # 3-month VIX; used for term structure ratio only — not in snapshot table
 }
 
 MARKET_LABELS = {
@@ -116,11 +131,37 @@ MARKET_LABELS = {
     "wti_oil": "WTI Oil",
     "vix":     "VIX",
     "dxy":     "DXY",
+    # vix3m intentionally omitted — it's a derived-ratio input, not a standalone snapshot row
+}
+
+SECTOR_TICKERS = {
+    "xle": "XLE",  # Energy
+    "xlk": "XLK",  # Technology
+    "xlf": "XLF",  # Financials
+    "xli": "XLI",  # Industrials
+    "xly": "XLY",  # Consumer Discretionary
+}
+
+SECTOR_LABELS = {
+    "xle": "Energy (XLE)",
+    "xlk": "Technology (XLK)",
+    "xlf": "Financials (XLF)",
+    "xli": "Industrials (XLI)",
+    "xly": "Consumer Discretionary (XLY)",
+}
+
+# Tickers excluded from the notable-move detector (volatility measures are circular to σ-test)
+_NOTABLE_MOVE_EXCLUDE = {"vix", "vix3m"}
+# Minimum absolute % threshold per asset to avoid false flags in low-volatility windows
+_NOTABLE_MOVE_MIN_ABS: dict = {
+    "sp500": 1.5, "nasdaq": 1.5, "gold": 1.5, "wti_oil": 2.0, "dxy": 0.8,
 }
 
 
-def fetch_market_data() -> dict:
-    data = {}
+def fetch_market_data() -> tuple[dict, dict]:
+    """Return (price_data, histories) where histories maps name → Close price Series."""
+    data: dict = {}
+    histories: dict = {}
     for name, ticker in MARKET_TICKERS.items():
         try:
             hist = yf.Ticker(ticker).history(period="10d")
@@ -134,12 +175,65 @@ def fetch_market_data() -> dict:
                 "change_pct": round(((close - prev_close) / prev_close) * 100, 2),
                 "date":       hist.index[-1].strftime("%Y-%m-%d"),
             }
+            histories[name] = hist["Close"]
         except Exception as e:
             print(f"  Warning: failed to fetch {ticker}: {e}")
 
     if not data:
         sys.exit("Market holiday or all tickers unavailable — no market data fetched. Skipping report.")
+    return data, histories
+
+
+def fetch_sector_data() -> dict:
+    """Fetch daily close and % change for sector ETFs."""
+    data = {}
+    for name, ticker in SECTOR_TICKERS.items():
+        try:
+            hist = yf.Ticker(ticker).history(period="5d")
+            if hist.empty or len(hist) < 2:
+                print(f"  Warning: no data for {ticker}, skipping.")
+                continue
+            close      = hist["Close"].iloc[-1]
+            prev_close = hist["Close"].iloc[-2]
+            data[name] = {
+                "price":      round(float(close), 2),
+                "change_pct": round(((close - prev_close) / prev_close) * 100, 2),
+                "date":       hist.index[-1].strftime("%Y-%m-%d"),
+            }
+        except Exception as e:
+            print(f"  Warning: failed to fetch {ticker}: {e}")
     return data
+
+
+def detect_notable_moves(market_data: dict, histories: dict) -> str:
+    """
+    Flag assets where |daily_change| >= 2 * 10-day rolling std AND exceeds
+    the per-asset minimum absolute threshold.
+    Returns a formatted Markdown block or empty string if nothing qualifies.
+    VIX and VIX3M are excluded (circular to volatility testing).
+    """
+    flags = []
+    for name, d in market_data.items():
+        if name in _NOTABLE_MOVE_EXCLUDE:
+            continue
+        hist = histories.get(name)
+        if hist is None or len(hist) < 5:
+            continue
+        pct_changes = hist.pct_change().dropna() * 100
+        std_pct = float(pct_changes.std())
+        if std_pct == 0:
+            continue
+        daily_pct = d["change_pct"]
+        sigma     = abs(daily_pct) / std_pct
+        min_abs   = _NOTABLE_MOVE_MIN_ABS.get(name, 1.5)
+        if sigma >= 2.0 and abs(daily_pct) >= min_abs:
+            label = MARKET_LABELS.get(name, name)
+            sign  = "+" if daily_pct >= 0 else ""
+            flags.append(f"- {label}: {sign}{daily_pct:.2f}% ({sigma:.1f}σ)")
+
+    if not flags:
+        return ""
+    return "## Notable Moves (≥2σ today)\n" + "\n".join(flags)
 
 
 # ---------------------------------------------------------------------------
@@ -366,13 +460,24 @@ def _log_adversarial_diff(original: str, revised: str) -> None:
         print(f"[adversarial] {changes} prediction(s) revised.")
 
 
-def analyze_with_claude(fred_data: dict, market_data: dict, today: datetime) -> str:
+def analyze_with_claude(
+    fred_data: dict,
+    market_data: dict,
+    today: datetime,
+    sector_data: dict | None = None,
+    notable_moves: str = "",
+) -> str:
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     system_prompt = (PROMPTS_DIR / "system_prompt.md").read_text()
 
     review_date      = next_review_date(today)
     accuracy_context = load_accuracy_context()
     events_context   = fetch_upcoming_events(today)
+
+    sector_block = (
+        f"\n\n## Sector ETF Data\n{json.dumps(sector_data, indent=2)}"
+        if sector_data else ""
+    )
 
     user_message = f"""Today is {today.strftime('%A, %B %d, %Y')}.
 Prediction review date (5 business days): {review_date}
@@ -381,7 +486,8 @@ Prediction review date (5 business days): {review_date}
 {json.dumps(fred_data, indent=2)}
 
 ## Market Data
-{json.dumps(market_data, indent=2)}
+{json.dumps(market_data, indent=2)}{sector_block}
+{f"{chr(10)}{notable_moves}" if notable_moves else ""}
 {f"{chr(10)}{events_context}" if events_context else ""}
 {f"{chr(10)}{accuracy_context}" if accuracy_context else ""}
 Generate the macro intelligence note as specified in your instructions."""
@@ -421,11 +527,12 @@ def build_note(
     market_data: dict,
     analysis: str,
     today: datetime,
+    sector_data: dict | None = None,
 ) -> str:
     date_str = today.strftime("%Y-%m-%d")
     day_name = today.strftime("%A")
 
-    # Markets table rows
+    # Markets table rows (vix3m and vix_term_ratio excluded via MARKET_LABELS filter)
     market_rows = "\n".join(
         f"| {MARKET_LABELS[k]} | {d['price']:,.2f} | "
         f"{_arrow(d['change_pct'])} {abs(d['change_pct']):.2f}% |"
@@ -433,17 +540,43 @@ def build_note(
         if k in MARKET_LABELS
     )
 
-    # FRED table rows
+    # Sector ETF table (optional)
+    sector_section = ""
+    if sector_data:
+        sector_rows = "\n".join(
+            f"| {SECTOR_LABELS[k]} | {d['price']:,.2f} | "
+            f"{_arrow(d['change_pct'])} {abs(d['change_pct']):.2f}% |"
+            for k, d in sector_data.items()
+            if k in SECTOR_LABELS
+        )
+        sector_section = f"""
+### Sector ETFs
+
+| Sector | Price | Change |
+|--------|-------|--------|
+{sector_rows}
+"""
+
+    # FRED table rows — build as list to handle optional series cleanly
     fd = fred_data
-    fred_rows = "\n".join([
-        f"| Fed Funds Rate   | {fd['fed_funds_rate']['value']}%  | {fd['fed_funds_rate']['date']} |",
-        f"| 10Y Treasury     | {fd['treasury_10y']['value']}%   | {fd['treasury_10y']['date']} |",
-        f"| 2Y Treasury      | {fd['treasury_2y']['value']}%    | {fd['treasury_2y']['date']} |",
-        f"| Yield Curve (10-2Y) | {fd['yield_curve_spread']}%  | — |",
-        f"| CPI YoY          | {fd['cpi'].get('yoy_pct', 'N/A')}%  | {fd['cpi']['date']} |",
-        f"| Unemployment     | {fd['unemployment']['value']}%  | {fd['unemployment']['date']} |",
-        f"| M2 YoY           | {fd['m2'].get('yoy_pct', 'N/A')}%  | {fd['m2']['date']} |",
-    ])
+    fred_row_list = [
+        f"| Fed Funds Rate      | {fd['fed_funds_rate']['value']}%  | {fd['fed_funds_rate']['date']} |",
+        f"| 10Y Treasury        | {fd['treasury_10y']['value']}%   | {fd['treasury_10y']['date']} |",
+        f"| 2Y Treasury         | {fd['treasury_2y']['value']}%    | {fd['treasury_2y']['date']} |",
+        f"| Yield Curve (10-2Y) | {fd['yield_curve_spread']}%      | — |",
+        f"| CPI YoY             | {fd['cpi'].get('yoy_pct', 'N/A')}%  | {fd['cpi']['date']} |",
+        f"| Unemployment        | {fd['unemployment']['value']}%   | {fd['unemployment']['date']} |",
+        f"| M2 YoY              | {fd['m2'].get('yoy_pct', 'N/A')}%   | {fd['m2']['date']} |",
+    ]
+    if "real_yield_10y" in fd:
+        fred_row_list.append(
+            f"| 10Y Real Yield      | {fd['real_yield_10y']['value']}%  | {fd['real_yield_10y']['date']} |"
+        )
+    if "breakeven_10y" in fd:
+        fred_row_list.append(
+            f"| 10Y Breakeven       | {fd['breakeven_10y']['value']}%  | {fd['breakeven_10y']['date']} |"
+        )
+    fred_rows = "\n".join(fred_row_list)
 
     return f"""---
 date: {date_str}
@@ -465,7 +598,7 @@ tags: [macro, daily-note, economics]
 | Asset | Price | Change |
 |-------|-------|--------|
 {market_rows}
-
+{sector_section}
 ### Macro Indicators
 
 | Indicator | Value | As Of |
@@ -496,13 +629,26 @@ def main():
     fred_data = fetch_fred_data(fred)
 
     print("Fetching market data...")
-    market_data = fetch_market_data()
+    market_data, histories = fetch_market_data()
+
+    # VIX term structure ratio: > 1.0 = backwardation (acute stress), < 1.0 = contango (calm)
+    if "vix" in market_data and "vix3m" in market_data:
+        market_data["vix_term_ratio"] = round(
+            market_data["vix"]["price"] / market_data["vix3m"]["price"], 3
+        )
+
+    notable_moves = detect_notable_moves(market_data, histories)
+    if notable_moves:
+        print(f"Notable moves detected:\n{notable_moves}")
+
+    print("Fetching sector ETF data...")
+    sector_data = fetch_sector_data()
 
     print("Running Claude analysis...")
-    analysis = analyze_with_claude(fred_data, market_data, today)
+    analysis = analyze_with_claude(fred_data, market_data, today, sector_data, notable_moves)
 
     print("Building note...")
-    note = build_note(fred_data, market_data, analysis, today)
+    note = build_note(fred_data, market_data, analysis, today, sector_data)
 
     output_path.write_text(note, encoding="utf-8")
     print(f"Note written to: {output_path}")
