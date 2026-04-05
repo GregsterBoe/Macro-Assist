@@ -9,7 +9,7 @@ tags: [macro, daily-note, economics]
 
 ### Executive Summary
 
-WTI crude surged 11.93% on April 2 to $112.06 — the dominant macro signal of the week — pointing to a supply shock or geopolitical disruption of significant magnitude. That single move is stagflationary in character: it threatens to re-accelerate CPI from its current 2.66% YoY, complicates the Fed's path to further easing, and compresses equity margins. The S&P 500's near-flat close (+0.11% to 6,582) and gold's pullback (-1.68%) suggest markets have not yet fully priced the inflationary consequences of an oil shock at this level.
+WTI crude surged 11.93% on April 2 to $112.06 — the dominant macro event of the week — signaling a major supply disruption or demand shock that is simultaneously inflationary and growth-negative. Gold pulled back 1.68% despite the oil spike, suggesting the move is supply-shock rather than pure safe-haven driven. With CPI already running at 2.66% YoY and oil now materially higher, the Fed's path to further cuts narrows sharply; the market enters the week with a VIX at 23.87, elevated but not panicked, which likely understates the repricing risk ahead.
 
 ---
 
@@ -17,47 +17,47 @@ WTI crude surged 11.93% on April 2 to $112.06 — the dominant macro signal of t
 
 | Indicator | Current | Reading | Equities | Bonds | Commodities | Crypto |
 |-----------|---------|---------|----------|-------|-------------|--------|
-| Fed Funds Rate | 3.64% | Mildly Restrictive | Caution | Caution | Neutral | Neutral |
-| CPI YoY | 2.66% | Elevated, Re-accelerating Risk | Caution | Bearish | Bullish | Caution |
-| Yield Curve (10Y–2Y) | +0.52 | Normalizing / Steepening | Neutral | Neutral | Neutral | Neutral |
-| Unemployment | 4.3% | Slightly Elevated | Neutral | Neutral | Neutral | Neutral |
-| M2 Growth YoY | 4.88% | Modestly Expansionary | Neutral | Bearish | Bullish | Bullish |
-| VIX | 23.87 | Elevated Stress | Bearish | Neutral | Neutral | Bearish |
-| DXY | 100.03 | Weak / At Support | Bullish | Neutral | Bullish | Bullish |
+| Fed Funds Rate | 3.64% | Mildly Restrictive | Caution | Caution | Neutral | Caution |
+| CPI YoY | 2.66% | Above Target, Rising | Caution | Bearish | Bullish | Caution |
+| Yield Curve (10Y–2Y) | +0.52 | Normalizing / Positive | Neutral | Neutral | Neutral | Neutral |
+| Unemployment | 4.3% | Slightly Elevated | Neutral | Bullish | Neutral | Neutral |
+| M2 Growth YoY | 4.88% | Moderate Expansion | Neutral | Caution | Bullish | Bullish |
+| VIX | 23.87 | Elevated Stress | Caution | Neutral | Neutral | Bearish |
+| DXY | 100.03 | Weak Dollar | Bullish | Neutral | Bullish | Bullish |
 
 ---
 
 ### Equities
 
-The S&P 500 essentially flatlined at 6,582 on April 2, and the Nasdaq's +0.18% was equally uninspiring — neither index confirmed risk-on conviction. The move is defensive in character: equities absorbed an 11.93% oil spike without breaking lower, but the lack of any meaningful bid suggests exhaustion rather than resilience. An oil shock of this magnitude historically compresses profit margins across industrials, consumer discretionary, and transportation; energy is the sole unambiguous beneficiary. VIX at 23.87, while down 2.73% on the day, remains well above the 15–17 complacency range — the market is pricing meaningful near-term uncertainty, not calm. Watch for a delayed equity reaction Monday open as the weekend allows traders to fully process the oil move.
+The S&P 500 closed at 6,582.69 (+0.11%) and Nasdaq at 21,879.18 (+0.18%) on April 2 — essentially flat, masking the turbulence implied by an 11.93% oil surge and a VIX still elevated at 23.87. The near-zero index moves on a day of extreme commodity volatility suggest either sector-level offsets (energy bulls vs. consumer/industrial bears) or end-of-week position squaring ahead of the weekend. A VIX at 23.87, while down 2.73% on the day, remains well above complacency territory and signals hedging demand is alive. The risk into Monday open is asymmetric: oil at $112 is a stagflationary input shock, and equities have not yet priced the margin compression and demand destruction that follows.
 
 ---
 
 ### Rates & Fed Policy
 
-The Fed Funds Rate holds at 3.64%, unchanged from March — the Fed is on hold, watching data rather than acting. The 10Y Treasury at 4.31% and the 2Y at 3.79% produce a +52bp positive spread, the curve's most normal configuration since pre-2022 inversion — historically a signal of growth expectations recovering. However, the oil shock complicates this: if crude sustains above $110, CPI re-acceleration becomes the base case, which pushes the Fed's next move from "cut" back to "hold indefinitely" or even a hawkish pivot. The 10Y yield barely moved (-2bp) on April 2, suggesting bond markets are not yet pricing a prolonged inflationary shock from energy — that repricing, if oil holds, is the primary rates risk for the coming week.
+The Fed Funds Rate sits at 3.64%, unchanged since the March data point, reflecting a Fed in a holding pattern. The 10Y Treasury at 4.31% and the 2Y at 3.79% produce a +0.52 spread — a positively sloped curve for the first time in the recent cycle, which normally signals growth recovery expectations, but here the context is complicated by an oil shock that is inflationary rather than demand-driven. Both yields ticked down fractionally on April 2 (10Y from 4.33, 2Y from 3.81), consistent with a mild flight-to-quality bid, but the move was small. An oil price at $112 materially complicates Fed easing: re-accelerating energy CPI reduces room for cuts, while any growth slowdown from the supply shock argues against hikes. The Fed is now pinned — the market should not be pricing aggressive easing in this environment.
 
 ---
 
 ### Inflation & Growth
 
-CPI at 2.66% YoY as of February is above the Fed's 2% target and now faces a hard upside catalyst: WTI at $112.06 will feed directly into gasoline, freight, and utility costs within 2–4 weeks of sustained pricing. GDP growth ($31.44T as of Q4 2025, +$344B from prior) was solid, and unemployment ticking down to 4.3% from 4.4% adds a marginally positive labor read — but both data points are stale relative to the April 2 oil shock. M2 growth at 4.88% YoY is modestly expansionary, providing enough monetary fuel to keep nominal demand alive but not enough to trigger independent re-inflation absent the energy shock. The aggregate picture is stagflationary risk building: growth data is lagged and decent, but a sustained oil spike could simultaneously erode real incomes and push headline CPI back toward 3%+ within two months.
+CPI YoY at 2.66% (February data) was already trending above the 2% target before the oil shock; with WTI now at $112, the next CPI print will almost certainly show acceleration, particularly in energy and transportation components. GDP grew to $31.44T in Q3 2025 (latest available), and unemployment ticked down to 4.3% from 4.4% in March — the labor market is resilient but not tight. M2 growth of 4.88% YoY signals sufficient monetary fuel to sustain nominal demand but also provides no disinflationary relief. The combined picture — oil-driven inflation re-acceleration against a moderately slowing labor market — moves the needle toward stagflation risk rather than soft landing; this is not yet a hard-landing scenario, but the oil shock is the single biggest threat to that benign base case.
 
 ---
 
 ### Commodities
 
-Gold's -1.68% pullback to $4,702 on a day of severe oil stress is counterintuitive but not unprecedented — forced liquidation or margin calls in energy positions can drag gold lower in the near term. The safe-haven bid in gold remains structurally intact at these elevated nominal levels; the dip is a correction within a bull trend, not a reversal. WTI Oil's 11.93% single-day move to $112.06 is the week's defining data point — at this magnitude, the cause is almost certainly supply-side (sanctions, OPEC+ action, infrastructure disruption) rather than demand-driven, which makes it inflationary without being growth-confirming. The DXY at 100.03 is sitting at a psychologically important support level; a weak dollar at current levels amplifies commodity price pressure in USD terms and provides modest tailwind to gold and oil alike.
+Gold at $4,702.70 fell 1.68% on April 2 despite the oil surge — an unusual divergence that suggests profit-taking or margin calls rather than a genuine shift in safe-haven demand; at these price levels, gold remains structurally supported by dollar weakness (DXY at 100.03) and inflation expectations. WTI oil's 11.93% single-day move to $112.06 is the most important commodity signal: a move of this magnitude points to a discrete supply event (OPEC cut, sanctions, geopolitical disruption) rather than gradual demand growth, and at $112 oil becomes a direct tax on consumers and a margin compressor for industrials. The weak dollar (DXY at 100.03) amplifies commodity price levels in USD terms and provides a modest tailwind for both gold and oil on any dollar continuation lower.
 
 ---
 
 ### Key Risks & Themes
 
-- **Oil shock persistence**: If WTI sustains above $110, CPI re-acceleration to 3%+ by June becomes highly probable, forcing the Fed to abandon any residual easing bias.
-- **Equity delayed repricing**: Markets did not sell off on April 2 — Monday open carries meaningful gap-down risk as full implications of $112 oil are absorbed over the weekend.
-- **Bond market complacency on inflation**: 10Y at 4.31% is too low if oil holds; a rapid repricing toward 4.60–4.80% is a credible 2–4 week scenario.
-- **DXY breakdown risk**: Dollar sitting at 100 support — a break lower amplifies commodity inflation and pressures EM debt; watch this level closely.
-- **Gold consolidation before next leg**: The pullback to $4,702 may offer a re-entry for safe-haven positioning if oil-driven stagflation narrative solidifies next week.
+- **Oil shock transmission to CPI**: WTI at $112 will feed into March/April CPI prints over the next 4–6 weeks, directly threatening the Fed's easing trajectory.
+- **Equity repricing lag**: Indices closed flat on April 2 but have not absorbed the full earnings/margin impact of $112 oil — downside gap risk on Monday open is elevated.
+- **Fed policy paralysis**: Stagflationary data (rising inflation + softening unemployment) removes both the cut trigger and the hike justification, extending policy uncertainty.
+- **DXY fragility**: Dollar at 100.03 is at a critical technical level; a break below 100 would amplify commodity inflation and pressure USD-denominated assets.
+- **Gold/risk divergence**: Gold's selloff despite macro stress is a yellow flag — watch whether it recovers early week; failure to reclaim $4,750 suggests broader risk-asset deleveraging.
 
 ---
 
@@ -65,12 +65,12 @@ Gold's -1.68% pullback to $4,702 on a day of severe oil stress is counterintuiti
 
 | Asset | Bias | Target Range | Confidence | Primary Driver |
 |-------|------|-------------|------------|----------------|
-| S&P 500 | Bearish | 6,350–6,520 | 55% | Delayed equity repricing of $112 WTI oil shock compressing margin expectations [Risk: Delayed Repricing] |
-| Gold | Bullish | 4,750–4,900 | 55% | Stagflation narrative solidifies; dip from $4,702 reverses as safe-haven demand returns [Risk: Gold Consolidation] |
-| WTI Oil | Bullish | 108–118 | 50% | Supply shock catalyst likely persists; demand destruction takes weeks to materialize at this price [Risk: Oil Persistence] |
-| 10Y Treasury Yield | Bullish (yield rises) | 4.40–4.60 | 45% | CPI re-acceleration expectations from energy shock drive bond selloff [Risk: Bond Complacency] |
-| DXY | Neutral | 98.50–101.50 | 45% | Competing forces — stagflation fear vs. risk-off dollar bid — leave direction unclear at 100 support [Risk: DXY Breakdown] |
-| Bitcoin (proxy for crypto risk) | Bearish | 78,000–85,000 | 65% | Risk-off character of oil shock and VIX elevation historically pressures BTC in 1-week window |
+| S&P 500 | Bearish | 6,350–6,500 | 55% | Oil shock margin/inflation repricing not yet reflected in April 2 close [Risk: Equity Repricing Lag] |
+| Gold | Bullish | 4,720–4,850 | 60% | Mean reversion after profit-take selloff; oil-driven inflation expectations |
+| WTI Oil | Bullish | 110–118 | 60% | Supply disruption event sustains elevated price; no demand-destruction signal yet |
+| 10Y Treasury Yield | Bearish (yield falls) | 4.15–4.28 | 55% | Flight-to-quality bid if equities reprice lower; offset by inflation pressure |
+| DXY | Bearish | 98.50–100.50 | 55% | Dollar at critical 100 level; oil shock historically pressures USD via trade balance fears |
+| Bitcoin (proxy for crypto risk) | Bearish | 76,000–84,000 | 60% | Risk-off tone from oil shock; elevated VIX historically correlates with crypto drawdown |
 
 Review date: 2026-04-10
 
@@ -102,4 +102,4 @@ Review date: 2026-04-10
 | M2 YoY           | 4.88%  | 2026-02-01 |
 
 ---
-*Generated by Macro-Assist · 2026-04-05 16:59 UTC*
+*Generated by Macro-Assist · 2026-04-05 17:48 UTC*
