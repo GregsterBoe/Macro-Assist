@@ -206,9 +206,19 @@ def adversarial_review(client: anthropic.Anthropic, draft_analysis: str) -> str:
 
 Read the Key Risks & Themes section and the 5-Day Predictions table in the report below.
 
-For each prediction row:
-- If any Key Risk directly contradicts or undermines that prediction's Primary Driver thesis, lower Confidence by 5-10pp and append " [Risk: <2-3 word label>]" to the Primary Driver cell.
-- If no Key Risk conflicts, leave the row unchanged.
+Apply a HIGH bar. For each prediction row, lower Confidence by 5-10pp and append " [Risk: <2-3 word label>]" to the Primary Driver cell ONLY IF both conditions are true:
+1. A listed Key Risk would make the directional call (Bullish/Bearish) OUTRIGHT WRONG if it materialized — not merely add uncertainty or reduce magnitude.
+2. That Key Risk is assessed as a probable near-term scenario, not just a tail risk.
+
+Do NOT lower confidence if:
+- The risk only affects magnitude, not direction.
+- The risk is generic market uncertainty (e.g. "volatility may increase").
+- The prediction is already Neutral.
+- You can construct a counter-argument but the original thesis remains the base case.
+
+Confidence must never go below 50%.
+
+If no prediction meets both conditions, return the table completely unchanged.
 
 Return ONLY the complete revised 5-Day Predictions table (header row + separator row + all asset rows). No preamble, no explanation, no Review date line.
 
@@ -220,10 +230,55 @@ REPORT:
     # Splice the revised table back into the draft, replacing the original
     pattern = r'(\| Asset \| Bias \| Target Range \| Confidence \| Primary Driver \|.*?\n(?:\|[^\n]+\n)+)'
     match = re.search(pattern, draft_analysis, re.DOTALL)
-    if match:
-        return draft_analysis[:match.start()] + revised_table + "\n" + draft_analysis[match.end():]
-    print("  Warning: could not locate predictions table for adversarial review; using original.")
-    return draft_analysis
+    if not match:
+        print("  Warning: could not locate predictions table for adversarial review; using original.")
+        return draft_analysis
+
+    original_table = match.group(1)
+    revised_table = _clamp_confidence_floor(revised_table)
+    _log_adversarial_diff(original_table, revised_table)
+    return draft_analysis[:match.start()] + revised_table + "\n" + draft_analysis[match.end():]
+
+
+def _clamp_confidence_floor(table: str, floor: int = 50) -> str:
+    """Ensure no Confidence cell in the predictions table drops below `floor`%."""
+    def clamp_cell(m: re.Match) -> str:
+        val = int(m.group(1))
+        return f"{max(val, floor)}%"
+    return re.sub(r'\b(\d{2})%', clamp_cell, table)
+
+
+def _log_adversarial_diff(original: str, revised: str) -> None:
+    """Print a compact diff of what the adversarial pass changed."""
+    orig_rows  = [r.strip() for r in original.strip().splitlines() if r.startswith("|") and "---" not in r]
+    rev_rows   = [r.strip() for r in revised.strip().splitlines() if r.startswith("|") and "---" not in r]
+
+    # Skip header row (first row)
+    orig_data = orig_rows[1:]
+    rev_data  = rev_rows[1:] if len(rev_rows) > 1 else rev_rows
+
+    changes = 0
+    for orig_row, rev_row in zip(orig_data, rev_data):
+        if orig_row == rev_row:
+            continue
+        orig_cells = [c.strip() for c in orig_row.split("|")[1:-1]]
+        rev_cells  = [c.strip() for c in rev_row.split("|")[1:-1]]
+        asset = orig_cells[0] if orig_cells else "?"
+        diffs = []
+        labels = ["Bias", "Target Range", "Confidence", "Primary Driver"]
+        for label, o, r in zip(labels, orig_cells[1:], rev_cells[1:]):
+            if o != r:
+                diffs.append(f"  {label}: {o!r} -> {r!r}")
+        if diffs:
+            print(f"[adversarial] {asset}:")
+            for d in diffs:
+                print(d)
+            changes += 1
+
+    if changes == 0:
+        print("[adversarial] No predictions changed.")
+    else:
+        print(f"[adversarial] {changes} prediction(s) revised.")
 
 
 def analyze_with_claude(fred_data: dict, market_data: dict, today: datetime) -> str:
