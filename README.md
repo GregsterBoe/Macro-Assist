@@ -206,6 +206,16 @@ Both workflows support `workflow_dispatch` for manual testing from the GitHub Ac
 
 ---
 
+## Annual Maintenance
+
+| Task | When | Where |
+|------|------|-------|
+| Update FOMC meeting dates | Every January | `FOMC_DATES` list in `.macro-assist/collect_and_analyze.py` |
+
+FOMC dates source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+
+---
+
 ## Local Development
 
 Install dependencies:
