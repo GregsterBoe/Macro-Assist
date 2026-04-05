@@ -9,6 +9,7 @@ Expects env vars: FRED_API_KEY, ANTHROPIC_API_KEY
 
 import json
 import os
+import re
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -125,6 +126,9 @@ def fetch_market_data() -> dict:
             }
         except Exception as e:
             print(f"  Warning: failed to fetch {ticker}: {e}")
+
+    if not data:
+        sys.exit("Market holiday or all tickers unavailable — no market data fetched. Skipping report.")
     return data
 
 
@@ -188,6 +192,40 @@ def load_accuracy_context() -> str:
 # Claude analysis
 # ---------------------------------------------------------------------------
 
+def adversarial_review(client: anthropic.Anthropic, draft_analysis: str) -> str:
+    """
+    Second Claude pass: stress-tests each prediction against the Key Risks section.
+    Lowers Confidence by 5-10pp and annotates Primary Driver for any prediction
+    whose thesis is directly contradicted by a listed Key Risk.
+    Returns the full analysis with the revised predictions table spliced in.
+    """
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=600,
+        messages=[{"role": "user", "content": f"""Adversarial prediction review.
+
+Read the Key Risks & Themes section and the 5-Day Predictions table in the report below.
+
+For each prediction row:
+- If any Key Risk directly contradicts or undermines that prediction's Primary Driver thesis, lower Confidence by 5-10pp and append " [Risk: <2-3 word label>]" to the Primary Driver cell.
+- If no Key Risk conflicts, leave the row unchanged.
+
+Return ONLY the complete revised 5-Day Predictions table (header row + separator row + all asset rows). No preamble, no explanation, no Review date line.
+
+REPORT:
+{draft_analysis}"""}]
+    )
+    revised_table = response.content[0].text.strip()
+
+    # Splice the revised table back into the draft, replacing the original
+    pattern = r'(\| Asset \| Bias \| Target Range \| Confidence \| Primary Driver \|.*?\n(?:\|[^\n]+\n)+)'
+    match = re.search(pattern, draft_analysis, re.DOTALL)
+    if match:
+        return draft_analysis[:match.start()] + revised_table + "\n" + draft_analysis[match.end():]
+    print("  Warning: could not locate predictions table for adversarial review; using original.")
+    return draft_analysis
+
+
 def analyze_with_claude(fred_data: dict, market_data: dict, today: datetime) -> str:
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     system_prompt = (PROMPTS_DIR / "system_prompt.md").read_text()
@@ -207,12 +245,15 @@ Prediction review date (5 business days): {review_date}
 Generate the macro intelligence note as specified in your instructions."""
 
     response = client.messages.create(
-        model="claude-opus-4-6",
+        model="claude-sonnet-4-6",
         max_tokens=3000,
         system=system_prompt,
         messages=[{"role": "user", "content": user_message}],
     )
-    return response.content[0].text
+    draft = response.content[0].text
+
+    print("Running adversarial prediction review...")
+    return adversarial_review(client, draft)
 
 
 # ---------------------------------------------------------------------------
