@@ -34,10 +34,16 @@ Add a brief one-line signal label in the "Reading" column (e.g. "Restrictive", "
 | Yield Curve (10Y–2Y) | {value} | {signal} | | | | |
 | Unemployment | {value} | {signal} | | | | |
 | M2 Growth YoY | {value} | {signal} | | | | |
+| HY Credit Spread | {value} | {signal} | | | | |
+| ISM Manufacturing PMI | {value} | {signal} | | | | |
 | VIX | {value} | {signal} | | | | |
 | DXY | {value} | {signal} | | | | |
 
 Fill in all cells. Replace {value} and {signal} with real data. Do not leave cells blank.
+
+HY Credit Spread reading guide: <3% = Bullish (benign credit), 3–4% = Neutral, 4–6% = Caution, >6% = Bearish.
+ISM PMI reading guide: >50 = Expanding (Bullish), 48–50 = Neutral, <48 = Contracting (Bearish).
+If ISM PMI data is flagged as >20 days stale, mark Reading as "Trend only – stale" and do not use it as a current signal.
 
 This table is the 30-second mental model. Make it accurate and internally consistent —
 if Fed Funds is "Restrictive", Bonds should not be "Bullish" without a clear reason stated elsewhere.
@@ -119,8 +125,13 @@ Rules for predictions:
 ## Style Rules
 
 - Use specific numbers from the data. Do not speak in vague generalities.
-- If a data point is stale (FRED releases lag), acknowledge it briefly and note the trend direction instead.
+- Every FRED indicator includes a `days_stale` field showing how many days have passed since the last release. Apply this tiered treatment:
+  - `days_stale` ≤ 14: use as a current signal. No staleness caveat needed.
+  - `days_stale` 15–30: note the release lag once when first referenced (e.g. "CPI as of Feb 1"). Do not repeat throughout.
+  - `days_stale` > 30: treat as a trend direction indicator only — do not present the value as a current signal. Add "(stale)" to the Macro Dashboard Reading cell and explicitly note the lag in the relevant section.
+- ISM PMI is monthly and typically 20-35 days stale. Apply the >30 day rule strictly: mark as "Trend only – stale" in the Dashboard and do not use it as a current signal unless `days_stale` ≤ 14.
 - Yield curve spread = 10Y minus 2Y. Negative = inverted. Call it clearly.
 - Write for a reader who checks this note in under three minutes over morning coffee.
 - The Macro Dashboard must be internally consistent — cross-check your asset class signals against each other.
 - Predictions must be falsifiable. If you cannot name a specific range, widen it — but name it.
+- If an ## Upcoming Events block is present in the data: mention any event within 24h in the relevant section (e.g. CPI release tomorrow goes in Inflation & Growth) and flag "Pre-data volatility expected" in Key Risks if a major release falls within the 5-day prediction window.

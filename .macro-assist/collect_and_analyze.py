@@ -15,6 +15,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import anthropic
+import requests
 import yfinance as yf
 from fredapi import Fred
 
@@ -61,19 +62,24 @@ FRED_SERIES = {
     "m2":             "M2SL",
     "treasury_10y":   "DGS10",
     "treasury_2y":    "DGS2",
+    "hy_spread":      "BAMLH0A0HYM2",   # HY corporate bond OAS spread (%)
+    "ism_pmi":        "NAPM",           # ISM Manufacturing PMI (monthly)
 }
 
 
 def fetch_fred_data(fred: Fred) -> dict:
+    today_date = datetime.now(timezone.utc).date()
     data = {}
     for name, series_id in FRED_SERIES.items():
         series = fred.get_series(series_id, observation_start="2024-01-01").dropna()
         latest = series.iloc[-1]
         prev   = series.iloc[-2] if len(series) > 1 else latest
+        latest_date = series.index[-1].date()
         data[name] = {
-            "value": round(float(latest), 3),
-            "prev":  round(float(prev), 3),
-            "date":  series.index[-1].strftime("%Y-%m-%d"),
+            "value":      round(float(latest), 3),
+            "prev":       round(float(prev), 3),
+            "date":       latest_date.strftime("%Y-%m-%d"),
+            "days_stale": (today_date - latest_date).days,
         }
         # Year-over-year for CPI and M2
         if name in ("cpi", "m2") and len(series) >= 13:
@@ -130,6 +136,81 @@ def fetch_market_data() -> dict:
     if not data:
         sys.exit("Market holiday or all tickers unavailable — no market data fetched. Skipping report.")
     return data
+
+
+# ---------------------------------------------------------------------------
+# Economic calendar
+# ---------------------------------------------------------------------------
+
+# FOMC meeting dates (start of 2-day meeting; decision on day 2).
+# !! UPDATE THIS LIST EVERY JANUARY !!
+# Source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+FOMC_DATES = [
+    "2026-01-28", "2026-03-18", "2026-05-06", "2026-06-17",
+    "2026-07-29", "2026-09-16", "2026-10-28", "2026-12-09",
+]
+
+# BLS release names to watch (matched as substrings against BLS schedule)
+BLS_RELEASES_OF_INTEREST = {"consumer price index", "employment situation", "producer price index"}
+
+
+def fetch_upcoming_events(today: datetime, lookahead_days: int = 7) -> str:
+    """
+    Returns a formatted ## Upcoming Events block covering:
+    - BLS high-impact releases (CPI, PPI, NFP) within the next `lookahead_days`
+    - FOMC meeting dates within the next `lookahead_days`
+    Returns empty string on any fetch failure so the pipeline never crashes.
+    """
+    today_date = today.date()
+    cutoff     = today_date + timedelta(days=lookahead_days)
+    events     = []
+
+    # --- BLS releases ---
+    try:
+        resp = requests.get(
+            "https://www.bls.gov/schedule/news_release/schedule.json",
+            timeout=10,
+            headers={"User-Agent": "macro-assist/1.0"},
+        )
+        if resp.ok:
+            for item in resp.json().get("releases", []):
+                name     = item.get("release_name", "").lower()
+                date_str = item.get("date", "")
+                if not any(k in name for k in BLS_RELEASES_OF_INTEREST):
+                    continue
+                try:
+                    rel_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+                except ValueError:
+                    continue
+                if today_date <= rel_date <= cutoff:
+                    days_away = (rel_date - today_date).days
+                    label = "TODAY" if days_away == 0 else f"in {days_away}d"
+                    events.append((rel_date, f"BLS: {item.get('release_name')} ({label})"))
+    except Exception as e:
+        print(f"  Warning: BLS calendar fetch failed: {e}")
+
+    # --- FOMC dates ---
+    for date_str in FOMC_DATES:
+        try:
+            fomc_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        # Show the decision day (day after start) and the start day
+        for offset, label in [(0, "FOMC meeting begins"), (1, "FOMC decision day")]:
+            event_date = fomc_date + timedelta(days=offset)
+            if today_date <= event_date <= cutoff:
+                days_away = (event_date - today_date).days
+                tag = "TODAY" if days_away == 0 else f"in {days_away}d"
+                events.append((event_date, f"Fed: {label} ({tag})"))
+
+    if not events:
+        return ""
+
+    events.sort(key=lambda x: x[0])
+    lines = ["## Upcoming Events (next 7 days)"]
+    for _, desc in events:
+        lines.append(f"- {desc}")
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -287,6 +368,7 @@ def analyze_with_claude(fred_data: dict, market_data: dict, today: datetime) -> 
 
     review_date      = next_review_date(today)
     accuracy_context = load_accuracy_context()
+    events_context   = fetch_upcoming_events(today)
 
     user_message = f"""Today is {today.strftime('%A, %B %d, %Y')}.
 Prediction review date (5 business days): {review_date}
@@ -296,8 +378,19 @@ Prediction review date (5 business days): {review_date}
 
 ## Market Data
 {json.dumps(market_data, indent=2)}
+{f"{chr(10)}{events_context}" if events_context else ""}
 {f"{chr(10)}{accuracy_context}" if accuracy_context else ""}
 Generate the macro intelligence note as specified in your instructions."""
+
+    print("=" * 72)
+    print("SYSTEM PROMPT")
+    print("=" * 72)
+    print(system_prompt)
+    print("=" * 72)
+    print("USER MESSAGE")
+    print("=" * 72)
+    print(user_message)
+    print("=" * 72)
 
     response = client.messages.create(
         model="claude-sonnet-4-6",
