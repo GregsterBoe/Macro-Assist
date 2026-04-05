@@ -63,7 +63,7 @@ FRED_SERIES = {
     "treasury_10y":   "DGS10",
     "treasury_2y":    "DGS2",
     "hy_spread":      "BAMLH0A0HYM2",   # HY corporate bond OAS spread (%)
-    "ism_pmi":        "NAPM",           # ISM Manufacturing PMI (monthly)
+    "philly_fed_mfg": "GACDFSA066MSFRBPHI",  # Philly Fed Manufacturing Activity (diffusion index; >0 expanding)
 }
 
 
@@ -71,7 +71,11 @@ def fetch_fred_data(fred: Fred) -> dict:
     today_date = datetime.now(timezone.utc).date()
     data = {}
     for name, series_id in FRED_SERIES.items():
-        series = fred.get_series(series_id, observation_start="2024-01-01").dropna()
+        try:
+            series = fred.get_series(series_id, observation_start="2024-01-01").dropna()
+        except Exception as e:
+            print(f"  Warning: FRED series {series_id} ({name}) unavailable: {e}")
+            continue
         latest = series.iloc[-1]
         prev   = series.iloc[-2] if len(series) > 1 else latest
         latest_date = series.index[-1].date()

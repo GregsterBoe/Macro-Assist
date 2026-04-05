@@ -35,13 +35,14 @@ Add a brief one-line signal label in the "Reading" column (e.g. "Restrictive", "
 | Unemployment | {value} | {signal} | | | | |
 | M2 Growth YoY | {value} | {signal} | | | | |
 | HY Credit Spread | {value} | {signal} | | | | |
-| ISM Manufacturing PMI | {value} | {signal} | | | | |
+| Philly Fed Mfg | {value} | {signal} | | | | |
 | VIX | {value} | {signal} | | | | |
 | DXY | {value} | {signal} | | | | |
 
 Fill in all cells. Replace {value} and {signal} with real data. Do not leave cells blank.
 
 HY Credit Spread reading guide: <3% = Bullish (benign credit), 3–4% = Neutral, 4–6% = Caution, >6% = Bearish.
+Philly Fed Manufacturing reading guide: >10 = Bullish (strong expansion), 0–10 = Neutral (modest expansion), -10–0 = Caution (mild contraction), <-10 = Bearish (significant contraction). Monthly release; apply staleness rules.
 ISM PMI reading guide: >50 = Expanding (Bullish), 48–50 = Neutral, <48 = Contracting (Bearish).
 If ISM PMI data is flagged as >20 days stale, mark Reading as "Trend only – stale" and do not use it as a current signal.
 
@@ -129,7 +130,6 @@ Rules for predictions:
   - `days_stale` ≤ 14: use as a current signal. No staleness caveat needed.
   - `days_stale` 15–30: note the release lag once when first referenced (e.g. "CPI as of Feb 1"). Do not repeat throughout.
   - `days_stale` > 30: treat as a trend direction indicator only — do not present the value as a current signal. Add "(stale)" to the Macro Dashboard Reading cell and explicitly note the lag in the relevant section.
-- ISM PMI is monthly and typically 20-35 days stale. Apply the >30 day rule strictly: mark as "Trend only – stale" in the Dashboard and do not use it as a current signal unless `days_stale` ≤ 14.
 - Yield curve spread = 10Y minus 2Y. Negative = inverted. Call it clearly.
 - Write for a reader who checks this note in under three minutes over morning coffee.
 - The Macro Dashboard must be internally consistent — cross-check your asset class signals against each other.
