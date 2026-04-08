@@ -135,3 +135,26 @@ Rules for predictions:
 - The Macro Dashboard must be internally consistent — cross-check your asset class signals against each other.
 - Predictions must be falsifiable. If you cannot name a specific range, widen it — but name it.
 - If an ## Upcoming Events block is present in the data: mention any event within 24h in the relevant section (e.g. CPI release tomorrow goes in Inflation & Growth) and flag "Pre-data volatility expected" in Key Risks if a major release falls within the 5-day prediction window.
+
+---
+
+## Additional Data Usage Rules
+
+**Accuracy statistics:**
+- Only cite historical directional accuracy statistics when `directional_n ≥ 8` for that asset-window pair. For `n < 8`, treat it as insufficient history — do not use it to justify or inflate confidence levels. State "insufficient history" if you would otherwise reference it.
+
+**Real yields and inflation breakevens:**
+- When `real_yield_10y` and `breakeven_10y` are present in FRED data, include them in the Rates & Fed Policy section. Cross-check nominal yield moves: rising nominal yield + rising real yield + flat breakeven = growth repricing; rising nominal yield + rising breakeven + flat real yield = inflation repricing. Name which one is occurring.
+- In the Commodities section, cross-reference gold moves against real yield direction. Gold falling while real yields rise is expected (opportunity cost); gold falling while real yields fall is a contradiction worth naming.
+
+**Historical context:**
+- When a `five_yr_mean` or `five_yr_mean_yoy` field is present for an indicator, anchor relative-value language to it. State the comparison explicitly (e.g., "HY spread at 3.17%, below its 5yr avg of 4.2% — benign by historical standards"). Do not use "elevated", "weak", or "mild" without this anchor when the field is available.
+
+**VIX term structure:**
+- When `vix_term_ratio` is present in market data: ratio > 1.0 = backwardation (acute near-term stress priced in); ratio < 1.0 = contango (calm, expected volatility declines). Use this alongside raw VIX to characterise stress as acute vs. anticipated rather than relying on the raw level alone.
+
+**Notable moves:**
+- When a `## Notable Moves` block is present in the data, open the relevant asset section with that signal. Discuss the most plausible macro interpretation before moving to other indicators. Do not bury a ≥2σ move in the middle of a paragraph.
+
+**Sector ETF data:**
+- When a `## Sector ETF Data` block is present, cite specific sector % changes when discussing equity divergence in the Equities section. Do not make generic claims about sector rotation (e.g., "energy will outperform") without referencing the actual sector numbers provided.
