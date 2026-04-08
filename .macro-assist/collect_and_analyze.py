@@ -29,6 +29,17 @@ VAULT_ROOT    = Path(os.environ.get("VAULT_ROOT", Path(__file__).resolve().paren
 PROMPTS_DIR   = Path(__file__).resolve().parent / "prompts"
 ACCURACY_JSON = Path(__file__).resolve().parent / "data" / "accuracy_summary.json"
 
+# ---------------------------------------------------------------------------
+# YouTube channel configuration
+# Each entry: (channel_id, display_name)
+# Run: python .macro-assist/youtube_data.py --resolve <channel_url>
+# to find the channel ID for any channel.
+# ---------------------------------------------------------------------------
+
+YOUTUBE_CHANNELS = [
+    ("UCOHxDwCcOzBaLkeTazanwcw", "Bravos Research"),
+]
+
 
 def get_output_path(today: datetime) -> Path:
     """Return the output path, creating parent dirs as needed."""
@@ -371,6 +382,66 @@ def load_accuracy_context() -> str:
 # Claude analysis
 # ---------------------------------------------------------------------------
 
+TRANSCRIPT_SUMMARY_PROMPT = """\
+Extract the 6-8 most important macro-relevant insights from this analyst video transcript.
+
+Focus exclusively on:
+- Specific data points and market levels cited (include the numbers)
+- Cause-and-effect arguments about macro dynamics
+- Forward-looking implications for bonds, equities, commodities, or Fed policy
+
+Ignore completely: stock picks, fund promotions, subscription pitches, calls to action.
+
+Format as a concise bullet list. Be specific — keep every number mentioned.\
+"""
+
+
+def summarize_transcript(client: anthropic.Anthropic, title: str, transcript: str) -> str:
+    """Use Claude Haiku to extract macro signal from a raw transcript."""
+    response = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=600,
+        messages=[{
+            "role": "user",
+            "content": f"Video title: {title}\n\nTranscript:\n{transcript}",
+        }],
+        system=TRANSCRIPT_SUMMARY_PROMPT,
+    )
+    return response.content[0].text.strip()
+
+
+def fetch_youtube_context(client: anthropic.Anthropic) -> str:
+    """
+    Fetch recent transcripts from configured channels, summarize each with Haiku,
+    and return a formatted context block. Returns empty string if nothing found.
+    """
+    from youtube_data import get_recent_transcripts
+    blocks = []
+
+    for channel_id, channel_name in YOUTUBE_CHANNELS:
+        print(f"  Checking YouTube: {channel_name}...")
+        videos = get_recent_transcripts(channel_id)
+
+        if not videos:
+            print(f"    -> no new videos in last 36h")
+            continue
+
+        print(f"    -> {len(videos)} video(s) found, summarizing...")
+        for video in videos:
+            summary = summarize_transcript(client, video["title"], video["transcript"])
+            blocks.append(
+                f"### {channel_name}: \"{video['title']}\"\n"
+                f"*Published: {video['published'][:10]} | {video['url']}*\n\n"
+                f"{summary}"
+            )
+
+    if not blocks:
+        return ""
+
+    header = "## Analyst Video Insights"
+    return header + "\n\n" + "\n\n---\n\n".join(blocks)
+
+
 def adversarial_review(client: anthropic.Anthropic, draft_analysis: str) -> str:
     """
     Second Claude pass: stress-tests each prediction against the Key Risks section.
@@ -472,6 +543,7 @@ def analyze_with_claude(
 
     review_date      = next_review_date(today)
     accuracy_context = load_accuracy_context()
+    youtube_context  = fetch_youtube_context(client)
     events_context   = fetch_upcoming_events(today)
 
     sector_block = (
@@ -486,6 +558,8 @@ Prediction review date (5 business days): {review_date}
 {json.dumps(fred_data, indent=2)}
 
 ## Market Data
+{json.dumps(market_data, indent=2)}
+{f"{chr(10)}{youtube_context}" if youtube_context else ""}
 {json.dumps(market_data, indent=2)}{sector_block}
 {f"{chr(10)}{notable_moves}" if notable_moves else ""}
 {f"{chr(10)}{events_context}" if events_context else ""}

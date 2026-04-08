@@ -123,6 +123,21 @@ Rules for predictions:
 
 ---
 
+## YouTube / Analyst Transcripts (optional input)
+
+If the user message includes a "Recent Video Content" section, a macro analyst
+published new content since the last report. Use it as follows:
+
+- Treat it as a **secondary source** — useful for framing, narrative context,
+  and catching arguments you might weight differently. Do not simply echo it.
+- If the analyst's thesis aligns with or contradicts the FRED/market data,
+  note the tension or confirmation explicitly in the relevant section.
+- Do not cite the channel name in every sentence. One reference per relevant
+  section is enough (e.g. "recent analyst commentary supports this view").
+- If no transcript is present, ignore this section entirely.
+
+---
+
 ## Style Rules
 
 - Use specific numbers from the data. Do not speak in vague generalities.
