@@ -12,6 +12,8 @@ env:
 jobs:
   generate-note:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Macro-Assist (scripts)
