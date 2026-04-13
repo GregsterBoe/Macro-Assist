@@ -54,7 +54,7 @@ jobs:
           git config user.email "macro-assist[bot]@users.noreply.github.com"
           git add Economy/
           git diff --cached --quiet || git commit -m "macro: $(date -u +%Y-%m-%d) daily intelligence note"
-          git push
+          git push origin HEAD
 
       - name: Copy report to Macro-Assist results
         run: |
@@ -72,4 +72,4 @@ jobs:
           git add results/
           git diff --cached --quiet || git commit -m "macro: $(date -u +%Y-%m-%d) daily intelligence note"
           git pull --rebase origin $(git rev-parse --abbrev-ref HEAD)
-          git push
+          git push origin HEAD
