@@ -52,7 +52,7 @@ jobs:
           cd macro-assist
           git config user.name  "macro-assist[bot]"
           git config user.email "macro-assist[bot]@users.noreply.github.com"
-          git add .macro-assist/data/
+          git add .macro-assist/data/ results/accuracy_report.md
           git diff --cached --quiet || git commit -m "accuracy: $(date -u +%Y-%m-%d) weekly scoring update"
           git push origin HEAD
 
