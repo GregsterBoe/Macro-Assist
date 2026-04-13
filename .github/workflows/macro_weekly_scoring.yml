@@ -54,7 +54,7 @@ jobs:
           git config user.email "macro-assist[bot]@users.noreply.github.com"
           git add .macro-assist/data/
           git diff --cached --quiet || git commit -m "accuracy: $(date -u +%Y-%m-%d) weekly scoring update"
-          git push
+          git push origin HEAD
 
       - name: Copy and push accuracy report to vault
         run: |
@@ -65,4 +65,4 @@ jobs:
           git config user.email "macro-assist[bot]@users.noreply.github.com"
           git add Economy/Analysis/prediction-accuracy.md
           git diff --cached --quiet || git commit -m "accuracy: $(date -u +%Y-%m-%d) prediction accuracy report"
-          git push
+          git push origin HEAD
