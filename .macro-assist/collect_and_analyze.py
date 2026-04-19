@@ -193,6 +193,35 @@ def _ticker_snapshot(ticker: str, period: str) -> tuple[dict | None, object]:
         return None, None
 
 
+def fetch_equity_momentum() -> dict | None:
+    """Fetch SPX 50dma vs 200dma and 1-month return for structural trend context."""
+    try:
+        hist = yf.Ticker("^GSPC").history(period="1y")
+        if hist.empty or len(hist) < 50:
+            print("  Warning: insufficient SPX history for momentum calculation.")
+            return None
+        close = hist["Close"]
+        price = float(close.iloc[-1])
+        ma50  = float(close.rolling(50).mean().iloc[-1])
+        one_month_return = round(
+            ((price - float(close.iloc[-21])) / float(close.iloc[-21])) * 100, 2
+        ) if len(close) >= 21 else None
+        result: dict = {"ma50": round(ma50, 2), "one_month_return": one_month_return}
+        if len(close) >= 200:
+            ma200 = float(close.rolling(200).mean().iloc[-1])
+            result["ma200"] = round(ma200, 2)
+            if price > ma50 > ma200:
+                result["trend"] = "uptrend"
+            elif price < ma50 < ma200:
+                result["trend"] = "downtrend"
+            else:
+                result["trend"] = "mixed"
+        return result
+    except Exception as e:
+        print(f"  Warning: failed to fetch SPX momentum: {e}")
+        return None
+
+
 def fetch_market_data() -> tuple[dict, dict]:
     """Return (price_data, histories) where histories maps name → Close price Series."""
     data: dict = {}
@@ -205,6 +234,11 @@ def fetch_market_data() -> tuple[dict, dict]:
 
     if not data:
         sys.exit("Market holiday or all tickers unavailable — no market data fetched. Skipping report.")
+
+    momentum = fetch_equity_momentum()
+    if momentum and "sp500" in data:
+        data["sp500"]["momentum"] = momentum
+
     return data, histories
 
 
@@ -349,7 +383,10 @@ def load_accuracy_context() -> str:
         f"## Your Historical Prediction Accuracy (as of {as_of}, {n_total} reports scored)",
         "",
         "Use this to calibrate confidence. 50% = random. >65% with meaningful n = genuine signal.",
-        "Assets where directional accuracy is <40% have systematic bias — consider revising your thesis.",
+        "MANDATORY BIAS CORRECTION: If directional accuracy for an asset at any window is <40% with n≥8,",
+        "your natural lean on that asset is systematically wrong. You MUST weight market structure and",
+        "momentum at least equally to macro indicators. Do not repeat a bearish call that has been wrong",
+        "8+ times — that is not caution, it is miscalibration.",
         "",
     ]
 
@@ -468,7 +505,7 @@ Do NOT lower confidence if:
 - The prediction is already Neutral.
 - You can construct a counter-argument but the original thesis remains the base case.
 
-Confidence must never go below 50%.
+Confidence must never go below 50% or above 70%.
 
 If no prediction meets both conditions, return the table completely unchanged.
 
@@ -492,11 +529,11 @@ REPORT:
     return draft_analysis[:match.start()] + revised_table + "\n" + draft_analysis[match.end():]
 
 
-def _clamp_confidence_floor(table: str, floor: int = 50) -> str:
-    """Ensure no Confidence cell in the predictions table drops below `floor`%."""
+def _clamp_confidence_floor(table: str, floor: int = 50, ceiling: int = 70) -> str:
+    """Clamp all Confidence cells to [floor, ceiling]%."""
     def clamp_cell(m: re.Match) -> str:
         val = int(m.group(1))
-        return f"{max(val, floor)}%"
+        return f"{max(floor, min(val, ceiling))}%"
     return re.sub(r'\b(\d{2})%', clamp_cell, table)
 
 

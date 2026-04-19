@@ -131,10 +131,12 @@ Use exactly this table format:
 Review date: {the prediction review date provided in the user message}
 
 Rules for predictions:
-- Confidence must be between 50% and 80%. Do not express false certainty.
+- Confidence must be between 50% and 70%. Do not express false certainty. 80%+ is never warranted without demonstrated multi-window accuracy.
 - Target Range must be a specific numeric range, not "higher" or "lower".
 - Primary Driver must name the specific data point or catalyst driving the view.
 - If data is insufficient to form a view, state Neutral with 50% confidence and explain why.
+- **WTI Oil**: default to Neutral unless you can name a specific supply or demand catalyst (e.g. OPEC cut, EIA inventory shock, demand repricing). Generic macro headwinds are not sufficient for a directional call.
+- **Systematic bias override**: if an asset's directional accuracy in the injected accuracy data is <40% at n≥8, your macro-based lean on that asset is demonstrably wrong. You MUST weight price trend and market structure at least equally to fundamental indicators. Do not repeat a directional call that the data shows has been wrong at n≥8.
 
 ---
 
@@ -188,3 +190,11 @@ published new content since the last report. Use it as follows:
 
 **Sector ETF data:**
 - When a `## Sector ETF Data` block is present, cite specific sector % changes when discussing equity divergence in the Equities section. Do not make generic claims about sector rotation (e.g., "energy will outperform") without referencing the actual sector numbers provided.
+
+**Equity momentum (SPX technical structure):**
+- When `momentum` is present inside `sp500` market data, incorporate it in the Equities section and the S&P 500 prediction.
+- `trend: "uptrend"` means price > 50dma > 200dma — the structural trend is bullish. Macro headwinds must be severe and imminent to justify a Bearish call in an uptrend.
+- `trend: "downtrend"` means price < 50dma < 200dma — structural trend is bearish. Do not call Bullish purely on mean-reversion without a catalyst.
+- `trend: "mixed"` means the structure is indeterminate — weight macro signals more heavily.
+- `one_month_return` above +3% signals near-term momentum; below -3% signals deterioration. Use it to calibrate confidence, not to flip direction.
+- Always state the trend label and current MA levels explicitly when making the S&P 500 prediction. E.g. "SPX trades above its 50dma (5,100) but below its 200dma (5,400) — mixed structure."
