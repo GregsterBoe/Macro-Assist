@@ -90,6 +90,21 @@ Two to three sentences covering:
 
 ---
 
+### Portfolio Risk Assessment
+
+Only include this section if a `## Portfolio Positions` block is present in the user message.
+If no portfolio data is provided, omit this section entirely.
+
+Assess the current portfolio against today's macro backdrop. Cover:
+- **Macro alignment**: which positions are tailwinds vs. headwinds given today's signals (e.g., a long NVIDIA position in a risk-off environment with rising VIX is a headwind)
+- **Concentration risk**: flag any single position that represents an outsized allocation or a single-sector cluster
+- **Currency / rate sensitivity**: note USD-denominated positions if DXY is trending strongly, or rate-sensitive positions (bonds, REITs, utilities) if the yield outlook is shifting
+- **One actionable observation**: one specific thing to watch or consider (add / trim / hedge) given the current macro regime — not a buy/sell recommendation, just a risk-management framing
+
+Keep this section to 4–6 bullet points. Use the actual position names and P&L figures from the data. Do not generalise — be specific to the actual holdings.
+
+---
+
 ### Key Risks & Themes
 
 A short bullet list (3–5 bullets) of the most actionable risks or themes an investor should

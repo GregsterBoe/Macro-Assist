@@ -25,9 +25,11 @@ from fredapi import Fred
 
 # VAULT_ROOT can be overridden via env var (used by GitHub Actions).
 # Falls back to the parent of .macro-assist/ for local runs.
-VAULT_ROOT    = Path(os.environ.get("VAULT_ROOT", Path(__file__).resolve().parent.parent))
-PROMPTS_DIR   = Path(__file__).resolve().parent / "prompts"
-ACCURACY_JSON = Path(__file__).resolve().parent / "data" / "accuracy_summary.json"
+VAULT_ROOT     = Path(os.environ.get("VAULT_ROOT", Path(__file__).resolve().parent.parent))
+PROMPTS_DIR    = Path(__file__).resolve().parent / "prompts"
+ACCURACY_JSON  = Path(__file__).resolve().parent / "data" / "accuracy_summary.json"
+REPO_ROOT      = Path(__file__).resolve().parent.parent
+POSITIONS_CSV  = Path(os.environ.get("POSITIONS_CSV", REPO_ROOT / "data" / "tr_positions.csv"))
 
 # ---------------------------------------------------------------------------
 # YouTube channel configuration
@@ -169,26 +171,37 @@ _NOTABLE_MOVE_MIN_ABS: dict = {
 }
 
 
+def _ticker_snapshot(ticker: str, period: str) -> tuple[dict | None, object]:
+    """
+    Fetch latest close and daily % change for a single ticker.
+    Returns (snapshot_dict, close_series). Either may be None on failure.
+    """
+    try:
+        hist = yf.Ticker(ticker).history(period=period)
+        if hist.empty or len(hist) < 2:
+            print(f"  Warning: no data for {ticker}, skipping.")
+            return None, None
+        close = hist["Close"]
+        c, p  = float(close.iloc[-1]), float(close.iloc[-2])
+        return {
+            "price":      round(c, 2),
+            "change_pct": round(((c - p) / p) * 100, 2),
+            "date":       hist.index[-1].strftime("%Y-%m-%d"),
+        }, close
+    except Exception as e:
+        print(f"  Warning: failed to fetch {ticker}: {e}")
+        return None, None
+
+
 def fetch_market_data() -> tuple[dict, dict]:
     """Return (price_data, histories) where histories maps name → Close price Series."""
     data: dict = {}
     histories: dict = {}
     for name, ticker in MARKET_TICKERS.items():
-        try:
-            hist = yf.Ticker(ticker).history(period="10d")
-            if hist.empty or len(hist) < 2:
-                print(f"  Warning: no data for {ticker}, skipping.")
-                continue
-            close      = hist["Close"].iloc[-1]
-            prev_close = hist["Close"].iloc[-2]
-            data[name] = {
-                "price":      round(float(close), 2),
-                "change_pct": round(((close - prev_close) / prev_close) * 100, 2),
-                "date":       hist.index[-1].strftime("%Y-%m-%d"),
-            }
-            histories[name] = hist["Close"]
-        except Exception as e:
-            print(f"  Warning: failed to fetch {ticker}: {e}")
+        snapshot, close = _ticker_snapshot(ticker, "10d")
+        if snapshot:
+            data[name] = snapshot
+            histories[name] = close
 
     if not data:
         sys.exit("Market holiday or all tickers unavailable — no market data fetched. Skipping report.")
@@ -199,20 +212,9 @@ def fetch_sector_data() -> dict:
     """Fetch daily close and % change for sector ETFs."""
     data = {}
     for name, ticker in SECTOR_TICKERS.items():
-        try:
-            hist = yf.Ticker(ticker).history(period="5d")
-            if hist.empty or len(hist) < 2:
-                print(f"  Warning: no data for {ticker}, skipping.")
-                continue
-            close      = hist["Close"].iloc[-1]
-            prev_close = hist["Close"].iloc[-2]
-            data[name] = {
-                "price":      round(float(close), 2),
-                "change_pct": round(((close - prev_close) / prev_close) * 100, 2),
-                "date":       hist.index[-1].strftime("%Y-%m-%d"),
-            }
-        except Exception as e:
-            print(f"  Warning: failed to fetch {ticker}: {e}")
+        snapshot, _ = _ticker_snapshot(ticker, "5d")
+        if snapshot:
+            data[name] = snapshot
     return data
 
 
@@ -541,10 +543,15 @@ def analyze_with_claude(
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     system_prompt = (PROMPTS_DIR / "system_prompt.md").read_text()
 
+    from parse_positions import get_portfolio_summary, format_portfolio_for_prompt
+
     review_date      = next_review_date(today)
     accuracy_context = load_accuracy_context()
     youtube_context  = fetch_youtube_context(client)
     events_context   = fetch_upcoming_events(today)
+
+    portfolio_summary = get_portfolio_summary(str(POSITIONS_CSV))
+    portfolio_context = format_portfolio_for_prompt(portfolio_summary) if portfolio_summary else ""
 
     sector_block = (
         f"\n\n## Sector ETF Data\n{json.dumps(sector_data, indent=2)}"
@@ -559,11 +566,12 @@ Prediction review date (5 business days): {review_date}
 
 ## Market Data
 {json.dumps(market_data, indent=2)}
-{f"{chr(10)}{youtube_context}" if youtube_context else ""}
-{json.dumps(market_data, indent=2)}{sector_block}
+{f"{chr(10)}{sector_block}" if sector_block else ""}
 {f"{chr(10)}{notable_moves}" if notable_moves else ""}
 {f"{chr(10)}{events_context}" if events_context else ""}
+{f"{chr(10)}{youtube_context}" if youtube_context else ""}
 {f"{chr(10)}{accuracy_context}" if accuracy_context else ""}
+{f"{chr(10)}{portfolio_context}" if portfolio_context else ""}
 Generate the macro intelligence note as specified in your instructions."""
 
     print("=" * 72)

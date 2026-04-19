@@ -22,13 +22,6 @@ jobs:
           path: macro-assist
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Checkout External-Brain (vault — source of reports)
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ secrets.VAULT_REPO }}
-          token: ${{ secrets.VAULT_PAT }}
-          path: vault
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -40,35 +33,23 @@ jobs:
         run: pip install -r macro-assist/.macro-assist/requirements.txt
 
       - name: Score predictions
-        env:
-          # Point scorer at the vault so it finds Economy/YYYY/MM/reports
-          MACRO_REPORTS_DIR: ${{ github.workspace }}/vault
-        run: python macro-assist/.macro-assist/score_predictions.py
+        run: |
+          set -e
+          python macro-assist/.macro-assist/score_predictions.py
 
       - name: Summarize accuracy
-        run: python macro-assist/.macro-assist/summarize_accuracy.py
+        run: |
+          set -e
+          python macro-assist/.macro-assist/summarize_accuracy.py
 
       - name: Commit accuracy summary to Macro-Assist
         run: |
+          set -e
           cd macro-assist
           git config user.name  "macro-assist[bot]"
           git config user.email "macro-assist[bot]@users.noreply.github.com"
-
-          # Make sure we're up-to-date BEFORE creating a commit
           git pull --rebase --autostash origin "$(git rev-parse --abbrev-ref HEAD)"
-
-          git add .macro-assist/data/
+          git add .macro-assist/data/ results/scores/
           git diff --cached --quiet || git commit -m "accuracy: $(date -u +%Y-%m-%d) weekly scoring update"
-
           git push origin HEAD
 
-      - name: Copy and push accuracy report to vault
-        run: |
-          cd vault
-          mkdir -p Economy/Analysis
-          cp ${{ github.workspace }}/macro-assist/results/accuracy_report.md Economy/Analysis/prediction-accuracy.md
-          git config user.name  "macro-assist[bot]"
-          git config user.email "macro-assist[bot]@users.noreply.github.com"
-          git add Economy/Analysis/prediction-accuracy.md
-          git diff --cached --quiet || git commit -m "accuracy: $(date -u +%Y-%m-%d) prediction accuracy report"
-          git push origin HEAD
