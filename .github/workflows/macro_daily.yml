@@ -49,27 +49,36 @@ jobs:
 
       - name: Commit and push note to vault
         run: |
+          set -e
           cd vault
           git config user.name  "macro-assist[bot]"
           git config user.email "macro-assist[bot]@users.noreply.github.com"
+          git pull --rebase --autostash origin HEAD
           git add Economy/
           git diff --cached --quiet || git commit -m "macro: $(date -u +%Y-%m-%d) daily intelligence note"
           git push origin HEAD
 
       - name: Copy report to Macro-Assist results
         run: |
+          set -e
           MONTH=$(date -u +%m-%B)
           FILENAME=$(date -u +%Y-%m-%d-%A)-macro.md
           YEAR=$(date -u +%Y)
+          VAULT_FILE="vault/Economy/${YEAR}/${MONTH}/${FILENAME}"
+          if [ ! -f "${VAULT_FILE}" ]; then
+            echo "ERROR: expected report not found at ${VAULT_FILE}" >&2
+            exit 1
+          fi
           mkdir -p macro-assist/results/${MONTH}
-          cp vault/Economy/${YEAR}/${MONTH}/${FILENAME} macro-assist/results/${MONTH}/${FILENAME}
+          cp "${VAULT_FILE}" macro-assist/results/${MONTH}/${FILENAME}
 
       - name: Commit and push report to Macro-Assist
         run: |
+          set -e
           cd macro-assist
           git config user.name  "macro-assist[bot]"
           git config user.email "macro-assist[bot]@users.noreply.github.com"
-          git add results/
+          git add results/ data/
           git diff --cached --quiet || git commit -m "macro: $(date -u +%Y-%m-%d) daily intelligence note"
           git pull --rebase --autostash origin $(git rev-parse --abbrev-ref HEAD)
           git push origin HEAD

@@ -6,7 +6,8 @@
       "Bash(python .macro-assist/summarize_accuracy.py)",
       "Bash(python -c ':*)",
       "Bash(python .macro-assist/youtube_data.py --resolve \"https://www.youtube.com/c/GameofTrades\")",
-      "Bash(python -c \"import youtube_transcript_api; print\\(youtube_transcript_api.__version__\\); print\\(dir\\(youtube_transcript_api.YouTubeTranscriptApi\\)\\)\")"
+      "Bash(python -c \"import youtube_transcript_api; print\\(youtube_transcript_api.__version__\\); print\\(dir\\(youtube_transcript_api.YouTubeTranscriptApi\\)\\)\")",
+      "Bash(python .macro-assist/parse_positions.py data/tr_positions.csv)"
     ]
   }
 }

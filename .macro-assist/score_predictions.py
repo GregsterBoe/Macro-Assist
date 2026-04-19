@@ -159,25 +159,36 @@ def parse_predictions(path: Path) -> dict | None:
 
 def fetch_price_series(start: date, end: date) -> dict[str, pd.Series]:
     """Download daily closing prices for all tracked assets over a date range."""
+    tickers = list(ASSET_TICKERS.values())
+    try:
+        raw = yf.download(
+            tickers,
+            start=start.isoformat(),
+            end=(end + timedelta(days=1)).isoformat(),
+            progress=False,
+            auto_adjust=True,
+        )
+    except Exception as exc:
+        print(f"  Warning: batch price fetch failed: {exc}")
+        return {}
+
+    if raw.empty:
+        print("  Warning: no price data returned for any ticker.")
+        return {}
+
+    close_block = raw["Close"]
     series = {}
     for asset, ticker in ASSET_TICKERS.items():
         try:
-            raw = yf.download(
-                ticker,
-                start=start.isoformat(),
-                end=(end + timedelta(days=1)).isoformat(),
-                progress=False,
-                auto_adjust=True,
-            )
-            if raw.empty:
+            col = close_block[ticker] if hasattr(close_block, "columns") else close_block
+            col = col.dropna()
+            if col.empty:
                 print(f"  Warning: no data for {ticker}")
                 continue
-            close = raw["Close"].squeeze().dropna()
-            # Normalise index to timezone-naive dates
-            close.index = pd.to_datetime(close.index).tz_localize(None).normalize()
-            series[asset] = close
-        except Exception as exc:
-            print(f"  Warning: fetch failed for {ticker}: {exc}")
+            col.index = pd.to_datetime(col.index).tz_localize(None).normalize()
+            series[asset] = col
+        except KeyError:
+            print(f"  Warning: {ticker} missing from batch download result")
     return series
 
 
