@@ -1,6 +1,6 @@
 {
   "report_date": "2026-04-10",
-  "scored_at": "2026-04-23",
+  "scored_at": "2026-04-27",
   "windows": {
     "t5": {
       "eval_date": "2026-04-17",
@@ -57,6 +57,69 @@
           "eval_price": 77126.875,
           "eval_date": "2026-04-17",
           "pct_change": 5.684,
+          "score": 1.0
+        }
+      },
+      "summary": {
+        "n_scored": 6,
+        "accuracy": 0.5
+      }
+    },
+    "t10": {
+      "eval_date": "2026-04-24",
+      "assets": {
+        "S&P 500": {
+          "bias": "Neutral",
+          "confidence": 62,
+          "entry_price": 6816.8901,
+          "eval_price": 7165.0801,
+          "eval_date": "2026-04-24",
+          "pct_change": 5.108,
+          "score": 0.5
+        },
+        "Gold": {
+          "bias": "Neutral",
+          "confidence": 55,
+          "entry_price": 4761.8999,
+          "eval_price": 4722.2998,
+          "eval_date": "2026-04-24",
+          "pct_change": -0.832,
+          "score": 0.5
+        },
+        "WTI Oil": {
+          "bias": "Bullish",
+          "confidence": 60,
+          "entry_price": 96.57,
+          "eval_price": 94.4,
+          "eval_date": "2026-04-24",
+          "pct_change": -2.247,
+          "score": 0.0
+        },
+        "10Y Treasury Yield": {
+          "bias": "Neutral",
+          "confidence": 55,
+          "entry_price": 4.317,
+          "eval_price": 4.31,
+          "eval_date": "2026-04-24",
+          "pct_change": -0.162,
+          "score": 0.5
+        },
+        "DXY": {
+          "bias": "Neutral",
+          "confidence": 52,
+          "entry_price": 98.65,
+          "eval_price": 98.51,
+          "eval_date": "2026-04-24",
+          "pct_change": -0.142,
+          "score": 0.5
+        },
+        "Bitcoin": {
+          "bias": "Bullish",
+          "confidence": 65,
+          "entry_price": 72979.0469,
+          "eval_price": 77455.3125,
+          "eval_date": "2026-04-24",
+          "pct_change": 6.134,
           "score": 1.0
         }
       },

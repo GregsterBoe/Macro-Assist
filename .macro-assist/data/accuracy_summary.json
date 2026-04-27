@@ -1,151 +1,151 @@
 {
-  "generated_at": "2026-04-23",
-  "n_reports_total": 24,
+  "generated_at": "2026-04-27",
+  "n_reports_total": 26,
   "windows": {
     "t5": {
-      "n_reports": 24,
-      "overall_accuracy": 0.497,
-      "overall_dir_acc": 0.493,
+      "n_reports": 26,
+      "overall_accuracy": 0.484,
+      "overall_dir_acc": 0.469,
       "by_asset": {
         "S&P 500": {
-          "n": 24,
-          "accuracy": 0.396,
+          "n": 26,
+          "accuracy": 0.404,
           "directional_acc": 0.353,
           "directional_n": 17,
-          "avg_confidence": 61.0
+          "avg_confidence": 60.2
         },
         "Gold": {
-          "n": 24,
-          "accuracy": 0.604,
-          "directional_acc": 0.632,
-          "directional_n": 19,
-          "avg_confidence": 62.4
+          "n": 26,
+          "accuracy": 0.558,
+          "directional_acc": 0.571,
+          "directional_n": 21,
+          "avg_confidence": 62.6
         },
         "WTI Oil": {
-          "n": 24,
-          "accuracy": 0.438,
-          "directional_acc": 0.385,
-          "directional_n": 13,
-          "avg_confidence": 57.5
+          "n": 26,
+          "accuracy": 0.404,
+          "directional_acc": 0.333,
+          "directional_n": 15,
+          "avg_confidence": 57.3
         },
         "10Y Treasury Yield": {
-          "n": 24,
-          "accuracy": 0.479,
+          "n": 26,
+          "accuracy": 0.481,
           "directional_acc": 0.0,
           "directional_n": 1,
-          "avg_confidence": 58.0
+          "avg_confidence": 57.4
         },
         "DXY": {
-          "n": 24,
-          "accuracy": 0.5,
-          "directional_acc": 0.5,
-          "directional_n": 10,
-          "avg_confidence": 56.4
+          "n": 26,
+          "accuracy": 0.481,
+          "directional_acc": 0.455,
+          "directional_n": 11,
+          "avg_confidence": 56.2
         },
         "Bitcoin": {
-          "n": 24,
-          "accuracy": 0.562,
-          "directional_acc": 0.6,
-          "directional_n": 15,
-          "avg_confidence": 56.9
+          "n": 26,
+          "accuracy": 0.577,
+          "directional_acc": 0.625,
+          "directional_n": 16,
+          "avg_confidence": 57.1
         }
       }
     },
     "t10": {
-      "n_reports": 19,
-      "overall_accuracy": 0.548,
-      "overall_dir_acc": 0.59,
+      "n_reports": 21,
+      "overall_accuracy": 0.532,
+      "overall_dir_acc": 0.561,
       "by_asset": {
         "S&P 500": {
-          "n": 19,
-          "accuracy": 0.263,
-          "directional_acc": 0.2,
-          "directional_n": 15,
-          "avg_confidence": 62.1
+          "n": 21,
+          "accuracy": 0.262,
+          "directional_acc": 0.188,
+          "directional_n": 16,
+          "avg_confidence": 62.0
         },
         "Gold": {
-          "n": 19,
-          "accuracy": 0.763,
-          "directional_acc": 0.812,
-          "directional_n": 16,
-          "avg_confidence": 63.1
+          "n": 21,
+          "accuracy": 0.714,
+          "directional_acc": 0.765,
+          "directional_n": 17,
+          "avg_confidence": 62.8
         },
         "WTI Oil": {
-          "n": 19,
-          "accuracy": 0.5,
-          "directional_acc": 0.5,
-          "directional_n": 10,
-          "avg_confidence": 58.2
+          "n": 21,
+          "accuracy": 0.452,
+          "directional_acc": 0.417,
+          "directional_n": 12,
+          "avg_confidence": 57.9
         },
         "10Y Treasury Yield": {
-          "n": 19,
-          "accuracy": 0.526,
+          "n": 21,
+          "accuracy": 0.524,
           "directional_acc": 1.0,
           "directional_n": 1,
-          "avg_confidence": 59.4
+          "avg_confidence": 59.0
         },
         "DXY": {
-          "n": 19,
-          "accuracy": 0.711,
+          "n": 21,
+          "accuracy": 0.69,
           "directional_acc": 1.0,
           "directional_n": 8,
-          "avg_confidence": 57.5
+          "avg_confidence": 57.1
         },
         "Bitcoin": {
-          "n": 19,
-          "accuracy": 0.526,
-          "directional_acc": 0.545,
-          "directional_n": 11,
-          "avg_confidence": 56.2
+          "n": 21,
+          "accuracy": 0.548,
+          "directional_acc": 0.583,
+          "directional_n": 12,
+          "avg_confidence": 56.4
         }
       }
     },
     "t20": {
-      "n_reports": 9,
-      "overall_accuracy": 0.426,
-      "overall_dir_acc": 0.375,
+      "n_reports": 11,
+      "overall_accuracy": 0.447,
+      "overall_dir_acc": 0.415,
       "by_asset": {
         "S&P 500": {
-          "n": 9,
-          "accuracy": 0.056,
+          "n": 11,
+          "accuracy": 0.045,
           "directional_acc": 0.0,
-          "directional_n": 8,
-          "avg_confidence": 60.7
+          "directional_n": 10,
+          "avg_confidence": 61.2
         },
         "Gold": {
-          "n": 9,
-          "accuracy": 0.556,
-          "directional_acc": 0.571,
-          "directional_n": 7,
-          "avg_confidence": 63.1
+          "n": 11,
+          "accuracy": 0.636,
+          "directional_acc": 0.667,
+          "directional_n": 9,
+          "avg_confidence": 63.3
         },
         "WTI Oil": {
-          "n": 9,
-          "accuracy": 0.389,
-          "directional_acc": 0.25,
-          "directional_n": 4,
-          "avg_confidence": 58.7
-        },
-        "10Y Treasury Yield": {
-          "n": 9,
-          "accuracy": 0.556,
-          "directional_acc": 1.0,
-          "directional_n": 1,
+          "n": 11,
+          "accuracy": 0.409,
+          "directional_acc": 0.333,
+          "directional_n": 6,
           "avg_confidence": 59.4
         },
+        "10Y Treasury Yield": {
+          "n": 11,
+          "accuracy": 0.545,
+          "directional_acc": 1.0,
+          "directional_n": 1,
+          "avg_confidence": 59.5
+        },
         "DXY": {
-          "n": 9,
-          "accuracy": 0.667,
-          "directional_acc": 0.714,
-          "directional_n": 7,
-          "avg_confidence": 57.6
+          "n": 11,
+          "accuracy": 0.727,
+          "directional_acc": 0.778,
+          "directional_n": 9,
+          "avg_confidence": 57.7
         },
         "Bitcoin": {
-          "n": 9,
-          "accuracy": 0.333,
-          "directional_acc": 0.2,
-          "directional_n": 5,
-          "avg_confidence": 55.7
+          "n": 11,
+          "accuracy": 0.318,
+          "directional_acc": 0.167,
+          "directional_n": 6,
+          "avg_confidence": 55.1
         }
       }
     }
