@@ -49,7 +49,7 @@ jobs:
           git config user.name  "macro-assist[bot]"
           git config user.email "macro-assist[bot]@users.noreply.github.com"
           git pull --rebase --autostash origin "$(git rev-parse --abbrev-ref HEAD)"
-          git add .macro-assist/data/ results/scores/ results/accuracy_report.md
+          git add .macro-assist/data/ results/scores/ results/accuracy_report.md results/accuracy_summary.json
           git diff --cached --quiet || git commit -m "accuracy: $(date -u +%Y-%m-%d) weekly scoring update"
           git push origin HEAD
 
