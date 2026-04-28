@@ -3,8 +3,9 @@ summarize_accuracy.py — Aggregate prediction scores into accuracy stats.
 
 Reads all JSON score files from results/scores/, computes per-asset and
 per-window accuracy, and writes:
-  - results/accuracy_summary.json  (machine-readable, fed to Claude)
-  - results/accuracy_report.md     (human-readable, optional vault note)
+  - .macro-assist/data/accuracy_summary.json  (machine-readable, read by daily pipeline)
+  - results/accuracy_summary.json             (copy for human review / vault)
+  - results/accuracy_report.md                (human-readable markdown)
 
 Usage:
     python .macro-assist/summarize_accuracy.py
@@ -24,9 +25,10 @@ SCORES_DIR = BASE_DIR / "results" / "scores"
 
 # accuracy_summary.json lives in .macro-assist/data/ so it is tracked in git
 # and available to collect_and_analyze.py in the daily CI workflow.
-DATA_DIR     = Path(__file__).resolve().parent / "data"
-SUMMARY_JSON = DATA_DIR / "accuracy_summary.json"
-SUMMARY_MD   = BASE_DIR / "results" / "accuracy_report.md"
+DATA_DIR          = Path(__file__).resolve().parent / "data"
+SUMMARY_JSON      = DATA_DIR / "accuracy_summary.json"
+SUMMARY_JSON_COPY = BASE_DIR / "results" / "accuracy_summary.json"
+SUMMARY_MD        = BASE_DIR / "results" / "accuracy_report.md"
 
 WINDOWS = ["t5", "t10", "t20"]
 WINDOW_LABELS = {"t5": "T+5 (1 week)", "t10": "T+10 (2 weeks)", "t20": "T+20 (1 month)"}
@@ -134,8 +136,11 @@ def write_json(stats: dict, n_reports: int) -> None:
             "it measures signal quality on clear directional bets."
         ),
     }
-    SUMMARY_JSON.write_text(json.dumps(output, indent=2), encoding="utf-8")
+    payload = json.dumps(output, indent=2)
+    SUMMARY_JSON.write_text(payload, encoding="utf-8")
     print(f"Summary JSON written to: {SUMMARY_JSON}")
+    SUMMARY_JSON_COPY.write_text(payload, encoding="utf-8")
+    print(f"Summary JSON copy written to: {SUMMARY_JSON_COPY}")
 
 
 # ---------------------------------------------------------------------------
