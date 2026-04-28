@@ -15,6 +15,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import anthropic
+import pandas as pd
 import requests
 import yfinance as yf
 from fredapi import Fred
@@ -68,26 +69,82 @@ def next_review_date(today: datetime) -> str:
 # ---------------------------------------------------------------------------
 
 FRED_SERIES = {
-    "fed_funds_rate": "FEDFUNDS",
-    "cpi":            "CPIAUCSL",
-    "gdp":            "GDP",
-    "unemployment":   "UNRATE",
-    "m2":             "M2SL",
-    "treasury_10y":   "DGS10",
-    "treasury_2y":    "DGS2",
-    "hy_spread":      "BAMLH0A0HYM2",   # HY corporate bond OAS spread (%)
-    "philly_fed_mfg": "GACDFSA066MSFRBPHI",  # Philly Fed Manufacturing Activity (diffusion index; >0 expanding)
-    "real_yield_10y": "DFII10",               # 10Y TIPS real yield (daily)
-    "breakeven_10y":  "T10YIE",               # 10Y inflation breakeven rate (daily)
+    "fed_funds_rate":    "FEDFUNDS",
+    "cpi":               "CPIAUCSL",
+    "gdp":               "GDP",
+    "unemployment":      "UNRATE",
+    "m2":                "M2SL",
+    "treasury_10y":      "DGS10",
+    "treasury_2y":       "DGS2",
+    "hy_spread":         "BAMLH0A0HYM2",        # HY corporate bond OAS spread (%)
+    "philly_fed_mfg":    "GACDFSA066MSFRBPHI",  # Philly Fed diffusion index; >0 expanding
+    "real_yield_10y":    "DFII10",              # 10Y TIPS real yield (daily)
+    "breakeven_10y":     "T10YIE",              # 10Y inflation breakeven rate (daily)
+    # --- Phase 1 additions ---
+    "fed_total_assets":  "WALCL",       # Fed balance sheet (millions USD; scaled ÷1000 → billions)
+    "treasury_gen_acct": "WTREGEN",     # Treasury General Account (billions USD)
+    "reverse_repo":      "RRPONTSYD",   # Overnight reverse repo (billions USD)
+    "jobless_claims":    "ICSA",        # Initial jobless claims (weekly, thousands)
+    "nfci":              "NFCI",        # Chicago Fed National Financial Conditions Index
 }
+
+# Keys whose raw Series are retained after the fetch loop for net-liquidity calculation
+_NET_LIQ_KEYS = {"fed_total_assets", "treasury_gen_acct", "reverse_repo"}
+
+
+def _compute_net_liquidity(raw_series: dict) -> dict | None:
+    """
+    Net Liquidity = (WALCL / 1000) - WTREGEN - RRPONTSYD  (all in billions USD).
+    WALCL is reported in millions on FRED; the other two in billions.
+    Resamples to weekly frequency so all three series align cleanly.
+    Returns a signal dict or None if data is insufficient.
+    """
+    if not all(k in raw_series for k in _NET_LIQ_KEYS):
+        return None
+
+    combined = pd.DataFrame({
+        "walcl": raw_series["fed_total_assets"] / 1000,   # millions → billions
+        "tga":   raw_series["treasury_gen_acct"],
+        "rrp":   raw_series["reverse_repo"],
+    }).resample("W").last().ffill().dropna()
+
+    if len(combined) < 5:
+        return None
+
+    combined["nl"] = combined["walcl"] - combined["tga"] - combined["rrp"]
+    nl = combined["nl"]
+
+    current = float(nl.iloc[-1])
+    wow_ref = float(nl.iloc[-2])
+    mom_ref = float(nl.iloc[-5]) if len(nl) >= 5 else None
+
+    wow_pct = round(((current - wow_ref) / abs(wow_ref)) * 100, 2) if wow_ref != 0 else None
+    mom_pct = round(((current - mom_ref) / abs(mom_ref)) * 100, 2) if mom_ref and mom_ref != 0 else None
+
+    trend  = "Expanding" if (wow_pct or 0) > 0 else "Contracting"
+    parts  = [trend]
+    if wow_pct is not None:
+        parts.append(f"{'+' if wow_pct >= 0 else ''}{wow_pct:.1f}% WoW")
+    if mom_pct is not None:
+        parts.append(f"{'+' if mom_pct >= 0 else ''}{mom_pct:.1f}% MoM")
+
+    return {
+        "value_bn":      round(current, 1),
+        "wow_pct":       wow_pct,
+        "mom_pct":       mom_pct,
+        "trend":         trend,
+        "trend_summary": ", ".join(parts),
+        "date":          combined.index[-1].strftime("%Y-%m-%d"),
+    }
 
 
 def fetch_fred_data(fred: Fred) -> dict:
     today_date = datetime.now(timezone.utc).date()
-    data = {}
+    data: dict = {}
+    _raw_series: dict = {}   # raw Series retained for net-liquidity calculation
+
     for name, series_id in FRED_SERIES.items():
         try:
-            # 5-year history enables historical context computation; daily series return ~1,250 rows
             observation_start = (datetime.now(timezone.utc).date() - timedelta(days=365 * 5)).isoformat()
             series = fred.get_series(series_id, observation_start=observation_start).dropna()
         except Exception as e:
@@ -106,20 +163,33 @@ def fetch_fred_data(fred: Fred) -> dict:
         if name in ("cpi", "m2") and len(series) >= 13:
             year_ago = series.iloc[-13]
             data[name]["yoy_pct"] = round(((latest - year_ago) / year_ago) * 100, 2)
-        # 5-year mean YoY for CPI and M2 (anchor for "elevated" / "mild" language)
+        # 5-year mean YoY for CPI and M2
         if name in ("cpi", "m2") and len(series) >= 25:
             yoy_series = series.pct_change(12).dropna() * 100
             if len(yoy_series) >= 12:
                 data[name]["five_yr_mean_yoy"] = round(float(yoy_series.mean()), 2)
         # 5-year mean of raw value for spread/index/rate series
-        # Note: philly_fed_mfg mean includes COVID-era extremes (~-56 in Apr 2020); treat as context, not target
+        # Note: philly_fed_mfg mean includes COVID-era extremes (~-56 in Apr 2020)
         if name in ("hy_spread", "philly_fed_mfg", "real_yield_10y", "breakeven_10y") and len(series) >= 12:
             data[name]["five_yr_mean"] = round(float(series.mean()), 3)
             data[name]["vs_mean"]      = round(float(latest) - float(series.mean()), 3)
+        # WoW % change for jobless claims (trend direction matters more than level)
+        if name == "jobless_claims" and len(series) >= 2:
+            wow = round(((float(latest) - float(prev)) / float(prev)) * 100, 2)
+            data[name]["wow_pct"] = wow
+            data[name]["trend"]   = "Rising" if wow > 0 else "Falling"
+        # Retain raw series for net-liquidity components
+        if name in _NET_LIQ_KEYS:
+            _raw_series[name] = series
 
     data["yield_curve_spread"] = round(
         data["treasury_10y"]["value"] - data["treasury_2y"]["value"], 3
     )
+
+    net_liq = _compute_net_liquidity(_raw_series)
+    if net_liq:
+        data["net_liquidity"] = net_liq
+
     return data
 
 
@@ -134,7 +204,8 @@ MARKET_TICKERS = {
     "wti_oil": "CL=F",
     "vix":     "^VIX",
     "dxy":     "DX-Y.NYB",
-    "vix3m":   "^VIX3M",   # 3-month VIX; used for term structure ratio only — not in snapshot table
+    "vix3m":   "^VIX3M",   # 3-month VIX; used for term structure ratio only
+    "bitcoin": "BTC-USD",  # added Phase 2: enables technical indicators + direct price context
 }
 
 MARKET_LABELS = {
@@ -144,6 +215,7 @@ MARKET_LABELS = {
     "wti_oil": "WTI Oil",
     "vix":     "VIX",
     "dxy":     "DXY",
+    "bitcoin": "Bitcoin",
     # vix3m intentionally omitted — it's a derived-ratio input, not a standalone snapshot row
 }
 
@@ -167,8 +239,11 @@ SECTOR_LABELS = {
 _NOTABLE_MOVE_EXCLUDE = {"vix", "vix3m"}
 # Minimum absolute % threshold per asset to avoid false flags in low-volatility windows
 _NOTABLE_MOVE_MIN_ABS: dict = {
-    "sp500": 1.5, "nasdaq": 1.5, "gold": 1.5, "wti_oil": 2.0, "dxy": 0.8,
+    "sp500": 1.5, "nasdaq": 1.5, "gold": 1.5, "wti_oil": 2.0, "dxy": 0.8, "bitcoin": 3.0,
 }
+
+# Assets for which technical indicators (RSI, 50dMA, Z-score) are computed — Phase 2
+_TECHNICAL_ASSETS = {"sp500", "gold", "wti_oil", "dxy", "bitcoin"}
 
 
 def _ticker_snapshot(ticker: str, period: str) -> tuple[dict | None, object]:
@@ -227,7 +302,7 @@ def fetch_market_data() -> tuple[dict, dict]:
     data: dict = {}
     histories: dict = {}
     for name, ticker in MARKET_TICKERS.items():
-        snapshot, close = _ticker_snapshot(ticker, "10d")
+        snapshot, close = _ticker_snapshot(ticker, "90d")  # 90d needed for RSI/50dMA/Z-score
         if snapshot:
             data[name] = snapshot
             histories[name] = close
@@ -254,8 +329,8 @@ def fetch_sector_data() -> dict:
 
 def detect_notable_moves(market_data: dict, histories: dict) -> str:
     """
-    Flag assets where |daily_change| >= 2 * 10-day rolling std AND exceeds
-    the per-asset minimum absolute threshold.
+    Flag assets where today's move is ≥2σ of the 60-day return distribution AND
+    exceeds the per-asset minimum absolute threshold.
     Returns a formatted Markdown block or empty string if nothing qualifies.
     VIX and VIX3M are excluded (circular to volatility testing).
     """
@@ -264,10 +339,11 @@ def detect_notable_moves(market_data: dict, histories: dict) -> str:
         if name in _NOTABLE_MOVE_EXCLUDE:
             continue
         hist = histories.get(name)
-        if hist is None or len(hist) < 5:
+        if hist is None or len(hist) < 10:
             continue
         pct_changes = hist.pct_change().dropna() * 100
-        std_pct = float(pct_changes.std())
+        window_60 = pct_changes.iloc[-60:] if len(pct_changes) >= 60 else pct_changes
+        std_pct = float(window_60.std())
         if std_pct == 0:
             continue
         daily_pct = d["change_pct"]
@@ -276,11 +352,93 @@ def detect_notable_moves(market_data: dict, histories: dict) -> str:
         if sigma >= 2.0 and abs(daily_pct) >= min_abs:
             label = MARKET_LABELS.get(name, name)
             sign  = "+" if daily_pct >= 0 else ""
-            flags.append(f"- {label}: {sign}{daily_pct:.2f}% ({sigma:.1f}σ)")
+            flags.append(f"- {label}: {sign}{daily_pct:.2f}% ({sigma:.1f}σ, 60d basis)")
 
     if not flags:
         return ""
     return "## Notable Moves (≥2σ today)\n" + "\n".join(flags)
+
+
+# ---------------------------------------------------------------------------
+# Technical indicators (Phase 2)
+# ---------------------------------------------------------------------------
+
+def _compute_rsi(close: pd.Series, period: int = 14) -> float | None:
+    """14-period RSI using Wilder's smoothed average method."""
+    if len(close) < period + 1:
+        return None
+    delta = close.diff().dropna()
+    gain  = delta.clip(lower=0).rolling(period).mean()
+    loss  = (-delta.clip(upper=0)).rolling(period).mean()
+    if float(loss.iloc[-1]) == 0:
+        return 100.0
+    rs = float(gain.iloc[-1]) / float(loss.iloc[-1])
+    return round(100 - (100 / (1 + rs)), 1)
+
+
+def compute_technicals(histories: dict) -> dict:
+    """
+    For each asset in _TECHNICAL_ASSETS compute:
+    - 14-day RSI with Overbought/Oversold/Neutral label
+    - % distance from 50-day MA
+    - 60-day Z-score of today's daily return
+    Returns a dict of {asset_name: indicator_dict}.
+    """
+    results: dict = {}
+    for name in _TECHNICAL_ASSETS:
+        close = histories.get(name)
+        if close is None or len(close) < 15:
+            continue
+        t: dict = {}
+
+        rsi = _compute_rsi(close)
+        if rsi is not None:
+            t["rsi"] = rsi
+            t["rsi_label"] = "Overbought" if rsi > 70 else ("Oversold" if rsi < 30 else "Neutral")
+
+        if len(close) >= 50:
+            ma50  = float(close.rolling(50).mean().iloc[-1])
+            price = float(close.iloc[-1])
+            dist  = round(((price - ma50) / ma50) * 100, 2)
+            t["ma50_dist_pct"]   = dist
+            t["ma50_dist_label"] = f"{'+' if dist >= 0 else ''}{dist:.1f}% vs 50dMA"
+
+        if len(close) >= 61:
+            returns  = close.pct_change().dropna()
+            window60 = returns.iloc[-60:]
+            std60    = float(window60.std())
+            if std60 > 0:
+                t["z60"] = round(float(returns.iloc[-1]) / std60, 2)
+
+        if t:
+            results[name] = t
+    return results
+
+
+def format_technicals_block(technicals: dict) -> str:
+    """Return a Markdown ## Technical & Positioning State table, or empty string if no data."""
+    if not technicals:
+        return ""
+
+    _labels = {"sp500": "S&P 500", "gold": "Gold", "wti_oil": "WTI Oil",
+               "dxy": "DXY", "bitcoin": "Bitcoin"}
+
+    lines = [
+        "## Technical & Positioning State",
+        "",
+        "| Asset | RSI (14d) | vs 50dMA | 60d Z-Score |",
+        "|-------|-----------|----------|-------------|",
+    ]
+    for name, label in _labels.items():
+        t = technicals.get(name)
+        if not t:
+            lines.append(f"| {label} | n/a | n/a | n/a |")
+            continue
+        rsi_str = f"{t['rsi']} ({t['rsi_label']})" if "rsi" in t else "n/a"
+        ma_str  = t.get("ma50_dist_label", "n/a")
+        z_str   = f"{t['z60']:+.2f}σ" if "z60" in t else "n/a"
+        lines.append(f"| {label} | {rsi_str} | {ma_str} | {z_str} |")
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -576,6 +734,7 @@ def analyze_with_claude(
     today: datetime,
     sector_data: dict | None = None,
     notable_moves: str = "",
+    histories: dict | None = None,
 ) -> str:
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     system_prompt = (PROMPTS_DIR / "system_prompt.md").read_text()
@@ -589,6 +748,11 @@ def analyze_with_claude(
 
     portfolio_summary = get_portfolio_summary(str(POSITIONS_CSV))
     portfolio_context = format_portfolio_for_prompt(portfolio_summary) if portfolio_summary else ""
+
+    technicals_block = ""
+    if histories:
+        technicals = compute_technicals(histories)
+        technicals_block = format_technicals_block(technicals)
 
     sector_block = (
         f"\n\n## Sector ETF Data\n{json.dumps(sector_data, indent=2)}"
@@ -604,6 +768,7 @@ Prediction review date (5 business days): {review_date}
 ## Market Data
 {json.dumps(market_data, indent=2)}
 {f"{chr(10)}{sector_block}" if sector_block else ""}
+{f"{chr(10)}{technicals_block}" if technicals_block else ""}
 {f"{chr(10)}{notable_moves}" if notable_moves else ""}
 {f"{chr(10)}{events_context}" if events_context else ""}
 {f"{chr(10)}{youtube_context}" if youtube_context else ""}
@@ -695,6 +860,21 @@ def build_note(
         fred_row_list.append(
             f"| 10Y Breakeven       | {fd['breakeven_10y']['value']}%  | {fd['breakeven_10y']['date']} |"
         )
+    if "net_liquidity" in fd:
+        nl = fd["net_liquidity"]
+        fred_row_list.append(
+            f"| Fed Net Liquidity   | ${nl['value_bn'] / 1000:.2f}T ({nl['trend_summary']}) | {nl['date']} |"
+        )
+    if "jobless_claims" in fd:
+        jc = fd["jobless_claims"]
+        wow_str = f", {'+' if jc.get('wow_pct', 0) >= 0 else ''}{jc.get('wow_pct', 0):.1f}% WoW" if "wow_pct" in jc else ""
+        fred_row_list.append(
+            f"| Initial Claims      | {jc['value']:,.0f}k ({jc.get('trend', '')+wow_str}) | {jc['date']} |"
+        )
+    if "nfci" in fd:
+        fred_row_list.append(
+            f"| NFCI                | {fd['nfci']['value']} (0=neutral, +tight, -loose) | {fd['nfci']['date']} |"
+        )
     fred_rows = "\n".join(fred_row_list)
 
     return f"""---
@@ -764,7 +944,7 @@ def main():
     sector_data = fetch_sector_data()
 
     print("Running Claude analysis...")
-    analysis = analyze_with_claude(fred_data, market_data, today, sector_data, notable_moves)
+    analysis = analyze_with_claude(fred_data, market_data, today, sector_data, notable_moves, histories)
 
     print("Building note...")
     note = build_note(fred_data, market_data, analysis, today, sector_data)
