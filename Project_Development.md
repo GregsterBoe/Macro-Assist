@@ -305,3 +305,83 @@ Non-trading rows (dividends, interest, transfers, card transactions) are ignored
 | Update FOMC meeting dates | Every January | `FOMC_DATES` list in `collect_and_analyze.py` |
 
 Source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+
+---
+
+## Improvement Roadmap
+
+All phases are implementable at $0 cost using existing API keys (FRED, yfinance) plus one new free provider (Nasdaq Data Link for Phase 3).
+
+### Phase 1 — Expand the Free Data Pipeline *(Completed 2026-04-28)*
+
+**Goal:** Bring in high-frequency economic and liquidity data.
+
+**New FRED series to add in `collect_and_analyze.py`:**
+
+| Series | Description | Frequency |
+|--------|-------------|-----------|
+| `WALCL` | Fed Total Assets | Weekly |
+| `WTREGEN` | Treasury General Account | Weekly |
+| `RRPONTSYD` | Reverse Repo | Daily |
+| `ICSA` | Initial Jobless Claims | Weekly |
+| `NFCI` | Chicago Fed National Financial Conditions Index | Weekly |
+
+**Fed Net Liquidity calculation (Python, before Claude call):**
+```
+Net Liquidity = WALCL - WTREGEN - RRPONTSYD
+```
+Compute WoW and MoM % change. Pass only the derived signal to Claude — e.g. `"Net Liquidity: Expanding, +1.2% WoW"`.
+
+---
+
+### Phase 2 — Shift the "Quant" Burden to Python *(Completed 2026-04-28)*
+
+**Goal:** Stop asking Claude to infer trends from raw prices. Feed it pre-calculated technical states.
+
+1. **Expand yfinance history window** from 10 days → **90 days** in `collect_and_analyze.py`. No cost difference.
+
+2. **Add technical indicators** (via `pandas` or `pandas_ta`) for S&P 500, Gold, Oil, DXY, Bitcoin:
+   - **14-day RSI** — flag as `Overbought` (>70), `Oversold` (<30), or `Neutral`
+   - **Distance from 50-day MA** — e.g. `"+3.2% above 50d MA"`
+   - **60-day Z-Score** — replace the simple notable-move detector
+
+3. **New prompt block:** Structure output as `## Technical & Positioning State` table injected before Claude's analysis sections.
+
+---
+
+### Phase 3 — Add Free Positioning Data (COT)
+
+**Goal:** Get institutional positioning data for Commodities and Currencies.
+
+**Requires:** Free [Nasdaq Data Link](https://data.nasdaq.com/) API key → add as `NASDAQ_DATA_LINK_KEY` secret in GitHub Actions.
+
+- Add `nasdaq-data-link` to `requirements.txt`
+- Fetch **Net Non-Commercial** positioning (hedge fund speculators) for WTI Crude and Gold from CFTC via Nasdaq Data Link
+- Compute percentile of current positioning vs. 1-year lookback
+- Signal to Claude: `"Maximally Long"` (contrarian bearish headwind) or `"Maximally Short"` (contrarian bullish signal)
+
+---
+
+### Phase 4 — Overhaul System Prompt & Guardrails
+
+**Goal:** Force Claude to use the new data correctly and cure observed doom bias in equity predictions.
+
+**Rules to add to `prompts/system_prompt.md`:**
+
+> **RULE (Equities):** Fed Net Liquidity and Technical Trend supersede lagging economic indicators (like GDP). Do not predict an equity correction based solely on poor macro data if Net Liquidity is expanding and the index is above its 50-day MA.
+
+> **RULE (Commodities):** Heavily weight COT speculative positioning. If speculators are extremely long, treat this as a contrarian headwind.
+
+**Optional — Quantitative Override for T+20 S&P 500:**
+If `accuracy_summary.json` still shows S&P 500 T+20 directional accuracy below 35% after several weeks with the new data, implement a hard override in `collect_and_analyze.py`: after Claude generates the prediction table, check historical directional accuracy for that asset; if systematically wrong, flip `Bearish` → `Bullish` and annotate: `"Call inverted programmatically due to historical model bias."` The S&P 500 T+20 directional accuracy is currently **0%** (n=11), making this the strongest candidate for the override.
+
+---
+
+### Suggested Execution Order
+
+| Priority | Phase | Effort | Prerequisite | Status |
+|----------|-------|--------|--------------|--------|
+| 1 | Phase 1 (FRED liquidity + jobless claims) | Low | None | ✅ Done |
+| 2 | Phase 2 (90d history + RSI/MA/Z-score) | Medium | None | ✅ Done |
+| 3 | Phase 4 (system prompt rules) | Low | Phases 1 & 2 deployed | Pending |
+| 4 | Phase 3 (COT via Nasdaq Data Link) | Medium | New API key | Pending |

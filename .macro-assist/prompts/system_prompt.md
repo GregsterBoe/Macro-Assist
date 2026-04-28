@@ -191,6 +191,13 @@ published new content since the last report. Use it as follows:
 **Sector ETF data:**
 - When a `## Sector ETF Data` block is present, cite specific sector % changes when discussing equity divergence in the Equities section. Do not make generic claims about sector rotation (e.g., "energy will outperform") without referencing the actual sector numbers provided.
 
+**Technical & Positioning State:**
+- When a `## Technical & Positioning State` table is present, use it in the relevant asset sections and in predictions. Do not ignore it.
+- RSI interpretation: >70 = Overbought (mean-reversion risk, reduce conviction on bullish calls); <30 = Oversold (potential support, reduce conviction on bearish calls); 40–60 = Neutral momentum.
+- 50dMA distance: an asset >5% above its 50dMA is extended and more vulnerable to pullback; an asset >3% below its 50dMA may find near-term support. State the exact figure when making directional calls.
+- 60d Z-Score: a daily move of |Z| ≥ 2.0 is statistically unusual (top ~5% of days). A large positive Z-score at overbought RSI is a short-term exhaustion signal; a large negative Z-score at oversold RSI may signal a washout low.
+- When Fed Net Liquidity `trend` is "Expanding" in the FRED data, do not call S&P 500 Bearish based solely on lagging economic indicators (GDP, unemployment) if RSI is below 70 and price is above its 50dMA. Liquidity regime supersedes lagging indicators for short-term equity direction.
+
 **Equity momentum (SPX technical structure):**
 - When `momentum` is present inside `sp500` market data, incorporate it in the Equities section and the S&P 500 prediction.
 - `trend: "uptrend"` means price > 50dma > 200dma — the structural trend is bullish. Macro headwinds must be severe and imminent to justify a Bearish call in an uptrend.
