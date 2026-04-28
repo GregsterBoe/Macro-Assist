@@ -45,6 +45,8 @@ HY Credit Spread reading guide: <3% = Bullish (benign credit), 3–4% = Neutral,
 Philly Fed Manufacturing reading guide: >10 = Bullish (strong expansion), 0–10 = Neutral (modest expansion), -10–0 = Caution (mild contraction), <-10 = Bearish (significant contraction). Monthly release; apply staleness rules.
 ISM PMI reading guide: >50 = Expanding (Bullish), 48–50 = Neutral, <48 = Contracting (Bearish).
 If ISM PMI data is flagged as >20 days stale, mark Reading as "Trend only – stale" and do not use it as a current signal.
+NFCI reading guide: < -0.5 = Loose (accommodative financial conditions, Bullish for risk assets); -0.5 to 0.5 = Neutral; 0.5 to 1.0 = Tight (Caution for risk assets); > 1.0 = Significantly Tight (Bearish for risk). Anchor to `five_yr_mean` when available.
+Initial Claims (ICSA) reading guide: Rising trend = leading recessionary signal; falling trend = pro-growth. Anchor level to `five_yr_mean` when available (e.g. "claims at 220k, below 5yr avg of 245k — labor market resilient"). Do not treat a single week's print as a trend — use the `trend` field (Rising/Falling).
 
 This table is the 30-second mental model. Make it accurate and internally consistent —
 if Fed Funds is "Restrictive", Bonds should not be "Bullish" without a clear reason stated elsewhere.

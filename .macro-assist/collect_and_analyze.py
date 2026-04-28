@@ -121,7 +121,12 @@ def _compute_net_liquidity(raw_series: dict) -> dict | None:
     wow_pct = round(((current - wow_ref) / abs(wow_ref)) * 100, 2) if wow_ref != 0 else None
     mom_pct = round(((current - mom_ref) / abs(mom_ref)) * 100, 2) if mom_ref and mom_ref != 0 else None
 
-    trend  = "Expanding" if (wow_pct or 0) > 0 else "Contracting"
+    # 4-week rolling mean trend is more stable than single-week WoW
+    roll4 = nl.rolling(4).mean().dropna()
+    if len(roll4) >= 2:
+        trend = "Expanding" if float(roll4.iloc[-1]) > float(roll4.iloc[-2]) else "Contracting"
+    else:
+        trend = "Expanding" if (wow_pct or 0) > 0 else "Contracting"
     parts  = [trend]
     if wow_pct is not None:
         parts.append(f"{'+' if wow_pct >= 0 else ''}{wow_pct:.1f}% WoW")
@@ -170,7 +175,9 @@ def fetch_fred_data(fred: Fred) -> dict:
                 data[name]["five_yr_mean_yoy"] = round(float(yoy_series.mean()), 2)
         # 5-year mean of raw value for spread/index/rate series
         # Note: philly_fed_mfg mean includes COVID-era extremes (~-56 in Apr 2020)
-        if name in ("hy_spread", "philly_fed_mfg", "real_yield_10y", "breakeven_10y") and len(series) >= 12:
+        # Note: jobless_claims 5yr window (starts ~2021) excludes COVID spike — post-crisis baseline
+        if name in ("hy_spread", "philly_fed_mfg", "real_yield_10y", "breakeven_10y",
+                    "nfci", "jobless_claims") and len(series) >= 12:
             data[name]["five_yr_mean"] = round(float(series.mean()), 3)
             data[name]["vs_mean"]      = round(float(latest) - float(series.mean()), 3)
         # WoW % change for jobless claims (trend direction matters more than level)
@@ -243,7 +250,9 @@ _NOTABLE_MOVE_MIN_ABS: dict = {
 }
 
 # Assets for which technical indicators (RSI, 50dMA, Z-score) are computed — Phase 2
-_TECHNICAL_ASSETS = {"sp500", "gold", "wti_oil", "dxy", "bitcoin"}
+_TECHNICAL_ASSETS = {"sp500", "nasdaq", "gold", "wti_oil", "dxy", "bitcoin"}
+# sp500 50dMA already computed from 1y history in fetch_equity_momentum — skip recompute from 90d
+_SKIP_MA50 = {"sp500"}
 
 
 def _ticker_snapshot(ticker: str, period: str) -> tuple[dict | None, object]:
@@ -364,12 +373,12 @@ def detect_notable_moves(market_data: dict, histories: dict) -> str:
 # ---------------------------------------------------------------------------
 
 def _compute_rsi(close: pd.Series, period: int = 14) -> float | None:
-    """14-period RSI using Wilder's smoothed average method."""
+    """14-period Wilder's RSI using exponential smoothing (com = period - 1)."""
     if len(close) < period + 1:
         return None
     delta = close.diff().dropna()
-    gain  = delta.clip(lower=0).rolling(period).mean()
-    loss  = (-delta.clip(upper=0)).rolling(period).mean()
+    gain  = delta.clip(lower=0).ewm(com=period - 1, min_periods=period).mean()
+    loss  = (-delta.clip(upper=0)).ewm(com=period - 1, min_periods=period).mean()
     if float(loss.iloc[-1]) == 0:
         return 100.0
     rs = float(gain.iloc[-1]) / float(loss.iloc[-1])
@@ -396,7 +405,7 @@ def compute_technicals(histories: dict) -> dict:
             t["rsi"] = rsi
             t["rsi_label"] = "Overbought" if rsi > 70 else ("Oversold" if rsi < 30 else "Neutral")
 
-        if len(close) >= 50:
+        if len(close) >= 50 and name not in _SKIP_MA50:
             ma50  = float(close.rolling(50).mean().iloc[-1])
             price = float(close.iloc[-1])
             dist  = round(((price - ma50) / ma50) * 100, 2)
@@ -420,8 +429,8 @@ def format_technicals_block(technicals: dict) -> str:
     if not technicals:
         return ""
 
-    _labels = {"sp500": "S&P 500", "gold": "Gold", "wti_oil": "WTI Oil",
-               "dxy": "DXY", "bitcoin": "Bitcoin"}
+    _labels = {"sp500": "S&P 500", "nasdaq": "Nasdaq", "gold": "Gold",
+               "wti_oil": "WTI Oil", "dxy": "DXY", "bitcoin": "Bitcoin"}
 
     lines = [
         "## Technical & Positioning State",
