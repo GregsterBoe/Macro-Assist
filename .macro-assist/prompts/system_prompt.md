@@ -193,6 +193,10 @@ published new content since the last report. Use it as follows:
 **Sector ETF data:**
 - When a `## Sector ETF Data` block is present, cite specific sector % changes when discussing equity divergence in the Equities section. Do not make generic claims about sector rotation (e.g., "energy will outperform") without referencing the actual sector numbers provided.
 
+**COT positioning data:**
+- When a `## COT Positioning` block is present, treat speculative (non-commercial) positioning as a contrarian signal. Percentile ≥80 = crowded long → mean-reversion/bearish headwind; percentile ≤20 = crowded short → potential squeeze/contrarian bullish signal. Use this to temper or reinforce directional calls in the Commodities section and in predictions.
+- Do not make a directional commodity call purely on COT without a confirming catalyst (price trend, supply/demand event). COT is positioning context, not a standalone entry signal. If COT and fundamentals conflict, name the tension explicitly.
+
 **Technical & Positioning State:**
 - When a `## Technical & Positioning State` table is present, use it in the relevant asset sections and in predictions. Do not ignore it.
 - RSI interpretation: >70 = Overbought (mean-reversion risk, reduce conviction on bullish calls); <30 = Oversold (potential support, reduce conviction on bearish calls); 40–60 = Neutral momentum.
