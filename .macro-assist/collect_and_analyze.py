@@ -11,6 +11,7 @@ import json
 import os
 import re
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -31,6 +32,16 @@ PROMPTS_DIR    = Path(__file__).resolve().parent / "prompts"
 ACCURACY_JSON  = Path(__file__).resolve().parent / "data" / "accuracy_summary.json"
 REPO_ROOT      = Path(__file__).resolve().parent.parent
 POSITIONS_CSV  = Path(os.environ.get("POSITIONS_CSV", REPO_ROOT / "data" / "tr_positions.csv"))
+
+# ---------------------------------------------------------------------------
+# Pipeline logger
+# ---------------------------------------------------------------------------
+
+def _log(section: str, level: str, msg: str) -> None:
+    """Structured one-line logger. level: OK | WARN | FAIL | INFO"""
+    icons = {"OK": "✓", "WARN": "⚠", "FAIL": "✗", "INFO": "→"}
+    print(f"[{section:<10}] {icons.get(level, ' ')} {msg}", flush=True)
+
 
 # ---------------------------------------------------------------------------
 # YouTube channel configuration
@@ -147,13 +158,15 @@ def fetch_fred_data(fred: Fred) -> dict:
     today_date = datetime.now(timezone.utc).date()
     data: dict = {}
     _raw_series: dict = {}   # raw Series retained for net-liquidity calculation
+    _fetched, _failed, _stale_30d = 0, [], []
 
     for name, series_id in FRED_SERIES.items():
         try:
             observation_start = (datetime.now(timezone.utc).date() - timedelta(days=365 * 5)).isoformat()
             series = fred.get_series(series_id, observation_start=observation_start).dropna()
         except Exception as e:
-            print(f"  Warning: FRED series {series_id} ({name}) unavailable: {e}")
+            _log("FRED", "WARN", f"series {series_id} ({name}) unavailable: {e}")
+            _failed.append(name)
             continue
         latest = series.iloc[-1]
         prev   = series.iloc[-2] if len(series) > 1 else latest
@@ -164,6 +177,9 @@ def fetch_fred_data(fred: Fred) -> dict:
             "date":       latest_date.strftime("%Y-%m-%d"),
             "days_stale": (today_date - latest_date).days,
         }
+        _fetched += 1
+        if data[name]["days_stale"] > 30:
+            _stale_30d.append(f"{name}({data[name]['days_stale']}d)")
         # Year-over-year for CPI and M2
         if name in ("cpi", "m2") and len(series) >= 13:
             year_ago = series.iloc[-13]
@@ -189,9 +205,17 @@ def fetch_fred_data(fred: Fred) -> dict:
         if name in _NET_LIQ_KEYS:
             _raw_series[name] = series
 
-    data["yield_curve_spread"] = round(
-        data["treasury_10y"]["value"] - data["treasury_2y"]["value"], 3
-    )
+    _stale_str = f" | stale>30d: {', '.join(_stale_30d)}" if _stale_30d else ""
+    _fail_str  = f" | missing: {', '.join(_failed)}"      if _failed    else ""
+    _log("FRED", "WARN" if _failed else "OK",
+         f"{_fetched}/{len(FRED_SERIES)} series{_fail_str}{_stale_str}")
+
+    if "treasury_10y" in data and "treasury_2y" in data:
+        data["yield_curve_spread"] = round(
+            data["treasury_10y"]["value"] - data["treasury_2y"]["value"], 3
+        )
+    else:
+        _log("FRED", "WARN", "yield_curve_spread skipped — treasury data incomplete")
 
     net_liq = _compute_net_liquidity(_raw_series)
     if net_liq:
@@ -316,6 +340,11 @@ def fetch_market_data() -> tuple[dict, dict]:
             data[name] = snapshot
             histories[name] = close
 
+    _missing = [k for k in MARKET_TICKERS if k not in data]
+    _log("MARKET", "WARN" if _missing else "OK",
+         f"{len(data)}/{len(MARKET_TICKERS)} tickers"
+         + (f" | missing: {', '.join(_missing)}" if _missing else ""))
+
     if not data:
         sys.exit("Market holiday or all tickers unavailable — no market data fetched. Skipping report.")
 
@@ -334,6 +363,22 @@ def fetch_sector_data() -> dict:
         if snapshot:
             data[name] = snapshot
     return data
+
+
+_CRITICAL_FRED   = ["fed_funds_rate", "treasury_10y", "treasury_2y", "cpi", "unemployment", "m2"]
+_CRITICAL_MARKET = ["sp500", "vix", "gold"]
+
+
+def validate_data(fred_data: dict, market_data: dict) -> None:
+    """Log warnings for missing critical series or high staleness."""
+    missing_f = [k for k in _CRITICAL_FRED   if k not in fred_data]
+    missing_m = [k for k in _CRITICAL_MARKET if k not in market_data]
+    if missing_f:
+        _log("VALIDATE", "FAIL", f"critical FRED series missing: {', '.join(missing_f)}")
+    if missing_m:
+        _log("VALIDATE", "FAIL", f"critical market data missing: {', '.join(missing_m)}")
+    if not missing_f and not missing_m:
+        _log("VALIDATE", "OK", "core data integrity check passed")
 
 
 # ---------------------------------------------------------------------------
@@ -357,14 +402,14 @@ def fetch_cot_data() -> str:
     """
     api_key = os.environ.get("NASDAQ_DATA_LINK_KEY")
     if not api_key:
-        print("  NASDAQ_DATA_LINK_KEY not set — skipping COT data.")
+        _log("COT", "INFO", "skipped — NASDAQ_DATA_LINK_KEY not set")
         return ""
 
     try:
         import nasdaqdatalink
         nasdaqdatalink.ApiConfig.api_key = api_key
     except ImportError:
-        print("  nasdaq-data-link not installed — skipping COT data.")
+        _log("COT", "INFO", "skipped — nasdaq-data-link not installed")
         return ""
 
     today_date = datetime.now(timezone.utc).date()
@@ -374,6 +419,7 @@ def fetch_cot_data() -> str:
         "| Asset | Net Long | Percentile (1yr) | Signal | As Of |",
         "|-------|----------|-----------------|--------|-------|",
     ]
+    _cot_ok = 0
 
     for label, dataset in COT_SERIES.items():
         try:
@@ -383,7 +429,7 @@ def fetch_cot_data() -> str:
             long_col  = next((c for c in df.columns if "noncomm" in c.lower() and "long" in c.lower()), None)
             short_col = next((c for c in df.columns if "noncomm" in c.lower() and "short" in c.lower()), None)
             if long_col is None or short_col is None:
-                print(f"  Warning: COT column names not found for {label}. Columns: {list(df.columns)}")
+                _log("COT", "WARN", f"column names not found for {label}. Available: {list(df.columns)[:5]}")
                 rows.append(f"| {label} | n/a | n/a | n/a | n/a |")
                 continue
 
@@ -407,11 +453,14 @@ def fetch_cot_data() -> str:
             rows.append(
                 f"| {label} | {current:,.0f} | {pct}th pct | {signal} | {as_of_date}{stale_note} |"
             )
+            _cot_ok += 1
 
         except Exception as e:
-            print(f"  Warning: COT fetch failed for {label} ({dataset}): {e}")
+            _log("COT", "WARN", f"fetch failed for {label}: {e}")
             rows.append(f"| {label} | n/a | n/a | fetch failed | n/a |")
 
+    _log("COT", "OK" if _cot_ok == len(COT_SERIES) else "WARN",
+         f"{_cot_ok}/{len(COT_SERIES)} assets fetched")
     return "\n".join(rows)
 
 
@@ -704,14 +753,13 @@ def fetch_youtube_context(client: anthropic.Anthropic) -> str:
     blocks = []
 
     for channel_id, channel_name in YOUTUBE_CHANNELS:
-        print(f"  Checking YouTube: {channel_name}...")
         videos = get_recent_transcripts(channel_id)
 
         if not videos:
-            print(f"    -> no new videos in last 36h")
+            _log("YOUTUBE", "INFO", f"{channel_name}: no new videos (last 36h)")
             continue
 
-        print(f"    -> {len(videos)} video(s) found, summarizing...")
+        _log("YOUTUBE", "INFO", f"{channel_name}: {len(videos)} video(s) found, summarizing...")
         for video in videos:
             summary = summarize_transcript(client, video["title"], video["transcript"])
             blocks.append(
@@ -723,6 +771,7 @@ def fetch_youtube_context(client: anthropic.Anthropic) -> str:
     if not blocks:
         return ""
 
+    _log("YOUTUBE", "OK", f"{len(blocks)} video summary/summaries added")
     header = "## Analyst Video Insights"
     return header + "\n\n" + "\n\n---\n\n".join(blocks)
 
@@ -766,7 +815,7 @@ REPORT:
     pattern = r'(\| Asset \| Bias \| Target Range \| Confidence \| Primary Driver \|.*?\n(?:\|[^\n]+\n)+)'
     match = re.search(pattern, draft_analysis, re.DOTALL)
     if not match:
-        print("  Warning: could not locate predictions table for adversarial review; using original.")
+        _log("REVIEW", "WARN", "could not locate predictions table — using original")
         return draft_analysis
 
     original_table = match.group(1)
@@ -805,15 +854,15 @@ def _log_adversarial_diff(original: str, revised: str) -> None:
             if o != r:
                 diffs.append(f"  {label}: {o!r} -> {r!r}")
         if diffs:
-            print(f"[adversarial] {asset}:")
+            _log("REVIEW", "WARN", f"{asset} revised:")
             for d in diffs:
-                print(d)
+                _log("REVIEW", "INFO", f"  {d.strip()}")
             changes += 1
 
     if changes == 0:
-        print("[adversarial] No predictions changed.")
+        _log("REVIEW", "OK", "no predictions revised")
     else:
-        print(f"[adversarial] {changes} prediction(s) revised.")
+        _log("REVIEW", "WARN", f"{changes} prediction(s) revised")
 
 
 def _apply_accuracy_override(analysis: str) -> str:
@@ -826,7 +875,7 @@ def _apply_accuracy_override(analysis: str) -> str:
     Flipping to Neutral would freeze the scoring sample and lock in the bad stats.
     """
     if not ACCURACY_JSON.exists():
-        print("[accuracy-override] No accuracy data — skipping.")
+        _log("OVERRIDE", "INFO", "no accuracy data — skipping")
         return analysis
     try:
         acc_data = json.loads(ACCURACY_JSON.read_text(encoding="utf-8"))
@@ -840,7 +889,7 @@ def _apply_accuracy_override(analysis: str) -> str:
     table_pattern = r'(\| Asset \| Bias \| Target Range \| Confidence \| Primary Driver \|.*?\n(?:\|[^\n]+\n)+)'
     match = re.search(table_pattern, analysis, re.DOTALL)
     if not match:
-        print("[accuracy-override] Could not locate predictions table.")
+        _log("OVERRIDE", "WARN", "could not locate predictions table")
         return analysis
 
     table    = match.group(0)
@@ -874,11 +923,11 @@ def _apply_accuracy_override(analysis: str) -> str:
         )
         new_row  = "|".join(cells) + "\n"
         modified = modified.replace(original_row, new_row, 1)
-        print(f"[accuracy-override] {asset}: confidence floored at 50% (T+5 Bearish {dacc:.0%}, n={dn})")
+        _log("OVERRIDE", "WARN", f"{asset}: confidence floored (T+5 Bearish {dacc:.0%}, n={dn})")
         overrides += 1
 
     if overrides == 0:
-        print("[accuracy-override] No accuracy-based overrides applied.")
+        _log("OVERRIDE", "OK", "no accuracy-based overrides applied")
         return analysis
 
     return analysis[: match.start()] + modified + analysis[match.end():]
@@ -898,19 +947,35 @@ def analyze_with_claude(
     from parse_positions import get_portfolio_summary, format_portfolio_for_prompt
 
     review_date      = next_review_date(today)
+
     accuracy_context = load_accuracy_context()
-    youtube_context  = fetch_youtube_context(client)
-    events_context   = fetch_upcoming_events(today)
+    if accuracy_context:
+        _log("ACCURACY", "OK", "accuracy history loaded")
+    else:
+        _log("ACCURACY", "INFO", "no accuracy history yet — first run")
+
+    youtube_context = fetch_youtube_context(client)
+
+    events_context = fetch_upcoming_events(today)
+    if events_context:
+        _n_events = sum(1 for ln in events_context.splitlines() if ln.startswith("- "))
+        _log("EVENTS", "OK", f"{_n_events} event(s) in next 7 days")
+    else:
+        _log("EVENTS", "OK", "no scheduled events in next 7 days")
 
     portfolio_summary = get_portfolio_summary(str(POSITIONS_CSV))
     portfolio_context = format_portfolio_for_prompt(portfolio_summary) if portfolio_summary else ""
+    if portfolio_summary:
+        _log("PORTFOLIO", "OK", "portfolio positions loaded")
+    else:
+        _log("PORTFOLIO", "INFO", "no portfolio data (POSITIONS_CSV absent or empty)")
 
     technicals_block = ""
     if histories:
         technicals = compute_technicals(histories)
         technicals_block = format_technicals_block(technicals)
+        _log("TECHNICALS", "OK", f"{len(technicals)}/{len(_TECHNICAL_ASSETS)} assets computed")
 
-    print("Fetching COT positioning data...")
     cot_block = fetch_cot_data()
 
     sector_block = (
@@ -936,16 +1001,12 @@ Prediction review date (5 business days): {review_date}
 {f"{chr(10)}{portfolio_context}" if portfolio_context else ""}
 Generate the macro intelligence note as specified in your instructions."""
 
-    print("=" * 72)
-    print("SYSTEM PROMPT")
-    print("=" * 72)
-    print(system_prompt)
-    print("=" * 72)
-    print("USER MESSAGE")
-    print("=" * 72)
-    print(user_message)
-    print("=" * 72)
+    if os.environ.get("MACRO_DEBUG"):
+        print("=" * 72 + "\nUSER MESSAGE\n" + "=" * 72)
+        print(user_message)
+        print("=" * 72)
 
+    _log("CLAUDE", "INFO", "generating analysis (main pass)...")
     response = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=3000,
@@ -953,10 +1014,11 @@ Generate the macro intelligence note as specified in your instructions."""
         messages=[{"role": "user", "content": user_message}],
     )
     draft = response.content[0].text
+    _log("CLAUDE", "OK", f"analysis complete ({response.usage.output_tokens} tokens out)")
 
-    print("Running adversarial prediction review...")
+    _log("CLAUDE", "INFO", "running adversarial review...")
     reviewed = adversarial_review(client, draft)
-    print("Applying accuracy-based override check...")
+    _log("OVERRIDE", "INFO", "checking accuracy-based overrides...")
     return _apply_accuracy_override(reviewed)
 
 
@@ -1077,20 +1139,21 @@ tags: [macro, daily-note, economics]
 
 def main():
     today = datetime.now(timezone.utc)
+    _t0   = time.monotonic()
+    _log("PIPELINE", "INFO", f"Macro-Assist starting — {today.strftime('%Y-%m-%d %H:%M')} UTC")
 
     # Idempotency: skip if today's note already exists
     output_path = get_output_path(today)
     if output_path.exists():
-        print(f"Note already exists for {today.strftime('%Y-%m-%d')}, skipping.")
+        _log("PIPELINE", "INFO", f"note already exists for {today.strftime('%Y-%m-%d')} — skipping")
         sys.exit(0)
 
-    fred  = Fred(api_key=os.environ["FRED_API_KEY"])
-
-    print("Fetching FRED data...")
+    fred      = Fred(api_key=os.environ["FRED_API_KEY"])
     fred_data = fetch_fred_data(fred)
 
-    print("Fetching market data...")
     market_data, histories = fetch_market_data()
+
+    validate_data(fred_data, market_data)
 
     # VIX term structure ratio: > 1.0 = backwardation (acute stress), < 1.0 = contango (calm)
     if "vix" in market_data and "vix3m" in market_data:
@@ -1100,19 +1163,22 @@ def main():
 
     notable_moves = detect_notable_moves(market_data, histories)
     if notable_moves:
-        print(f"Notable moves detected:\n{notable_moves}")
+        _n_moves = sum(1 for ln in notable_moves.splitlines() if ln.startswith("- "))
+        _log("NOTABLE", "WARN", f"{_n_moves} σ-move(s) detected")
+    else:
+        _log("NOTABLE", "OK", "no notable σ-moves today")
 
-    print("Fetching sector ETF data...")
     sector_data = fetch_sector_data()
+    _log("SECTORS", "WARN" if len(sector_data) < len(SECTOR_TICKERS) else "OK",
+         f"{len(sector_data)}/{len(SECTOR_TICKERS)} sector ETFs fetched")
 
-    print("Running Claude analysis...")
     analysis = analyze_with_claude(fred_data, market_data, today, sector_data, notable_moves, histories)
 
-    print("Building note...")
     note = build_note(fred_data, market_data, analysis, today, sector_data)
-
     output_path.write_text(note, encoding="utf-8")
-    print(f"Note written to: {output_path}")
+    _elapsed = int(time.monotonic() - _t0)
+    _log("OUTPUT", "OK",
+         f"note written → {output_path.relative_to(VAULT_ROOT)} ({_elapsed}s)")
 
 
 if __name__ == "__main__":
