@@ -55,7 +55,7 @@ Fetched via `fredapi`. 5-year history is pulled for each series to enable histor
 Derived: `yield_curve_spread` = 10Y minus 2Y (computed inline).
 
 ### Market Data (yfinance)
-10-day history fetched for notable-move detection (rolling std). A `vix_term_ratio` (VIX / VIX3M) is computed to distinguish acute stress (backwardation) from anticipated volatility (contango).
+90-day history fetched to support technical indicators. A `vix_term_ratio` (VIX / VIX3M) is computed to distinguish acute stress (backwardation) from anticipated volatility (contango). SPX also fetches 1-year history separately for 200dMA calculation.
 
 | Key | Ticker | Notes |
 |-----|--------|-------|
@@ -65,11 +65,20 @@ Derived: `yield_curve_spread` = 10Y minus 2Y (computed inline).
 | `wti_oil` | CL=F | |
 | `vix` | ^VIX | |
 | `dxy` | DX-Y.NYB | |
+| `bitcoin` | BTC-USD | |
 | `vix3m` | ^VIX3M | Used only for term ratio; not in snapshot table |
 
 **Sector ETFs** (5-day history): XLE, XLK, XLF, XLI, XLY. Injected as a separate block to enable sector-level divergence analysis in the Equities section.
 
-**Notable Moves detector**: flags any asset where `|daily_change| >= 2 * 10d rolling std` AND exceeds a per-asset minimum absolute threshold (e.g. 1.5% for equities, 2.0% for oil). VIX and VIX3M excluded. Output is a `## Notable Moves` block prepended to the prompt, with a system prompt rule to open the relevant section with that signal.
+**Technical indicators** (`## Technical & Positioning State` block): computed for S&P 500, Nasdaq, Gold, WTI Oil, DXY, Bitcoin.
+- 14-day Wilder's RSI (Overbought >70 / Oversold <30 / Neutral)
+- % distance from 50-day MA (SPX uses the 1y-history MA from `fetch_equity_momentum`)
+- 60-day Z-score of today's daily return (|Z| ≥ 2.0 = statistically unusual)
+
+**Notable Moves detector**: flags any asset where `|daily_change| >= 2 * 60d rolling std` AND exceeds a per-asset minimum absolute threshold (e.g. 1.5% for equities, 2.0% for oil). VIX and VIX3M excluded. Output is a `## Notable Moves` block prepended to the prompt.
+
+### COT Positioning (Nasdaq Data Link / CFTC)
+Weekly CFTC Commitments of Traders data for WTI Crude and Gold. Computes net non-commercial (speculative) positioning and its percentile vs 1-year range. Injected as `## COT Positioning` block. Pipeline skips gracefully if `NASDAQ_DATA_LINK_KEY` is absent.
 
 ### Economic Calendar
 - **BLS releases**: fetched live from `https://www.bls.gov/schedule/news_release/schedule.json`. Filters for CPI, PPI, Employment Situation within the next 7 days.
@@ -206,6 +215,7 @@ Outputs:
 | `FRED_API_KEY` | Daily |
 | `ANTHROPIC_API_KEY` | Daily |
 | `SUPADATA_API_KEY` | Daily (YouTube transcripts) |
+| `NASDAQ_DATA_LINK_KEY` | Daily (COT positioning — optional; pipeline skips gracefully if absent) |
 | `VAULT_PAT` | Both (External-Brain checkout) |
 | `GITHUB_TOKEN` | Both (Macro-Assist push, auto-provided) |
 
@@ -349,31 +359,34 @@ Compute WoW and MoM % change. Pass only the derived signal to Claude — e.g. `"
 
 ---
 
-### Phase 3 — Add Free Positioning Data (COT)
+### Phase 3 — Add Free Positioning Data (COT) *(Completed 2026-04-28)*
 
 **Goal:** Get institutional positioning data for Commodities and Currencies.
 
-**Requires:** Free [Nasdaq Data Link](https://data.nasdaq.com/) API key → add as `NASDAQ_DATA_LINK_KEY` secret in GitHub Actions.
+**Requires:** Free [Nasdaq Data Link](https://data.nasdaq.com/) API key → add as `NASDAQ_DATA_LINK_KEY` secret in GitHub Actions. Pipeline skips this block gracefully if the key is absent.
 
-- Add `nasdaq-data-link` to `requirements.txt`
-- Fetch **Net Non-Commercial** positioning (hedge fund speculators) for WTI Crude and Gold from CFTC via Nasdaq Data Link
-- Compute percentile of current positioning vs. 1-year lookback
-- Signal to Claude: `"Maximally Long"` (contrarian bearish headwind) or `"Maximally Short"` (contrarian bullish signal)
+- `nasdaq-data-link>=1.0.0` added to `requirements.txt`
+- `fetch_cot_data()` fetches CFTC net non-commercial positioning for WTI Crude (`CFTC/067651_FUT_ALL_CR`) and Gold (`CFTC/088691_FUT_ALL_CR`) — ~52 weeks of weekly data
+- Computes percentile of current net long vs 1-year min/max range
+- Injected as `## COT Positioning` block: percentile ≥80 = "Crowded Long — contrarian bearish"; ≤20 = "Crowded Short — contrarian bullish"; else "Neutral"
+- System prompt rule added: COT is a contrarian signal, not a standalone entry — must confirm with price trend or fundamental catalyst
 
 ---
 
-### Phase 4 — Overhaul System Prompt & Guardrails
+### Phase 4 — Overhaul System Prompt & Guardrails *(Completed 2026-04-28)*
 
 **Goal:** Force Claude to use the new data correctly and cure observed doom bias in equity predictions.
 
-**Rules to add to `prompts/system_prompt.md`:**
+**System prompt rules added (`prompts/system_prompt.md`):**
+- Equity/liquidity rule: Fed Net Liquidity Expanding + RSI <70 + price above 50dMA → do not call S&P 500 Bearish on lagging indicators alone
+- COT weighting rule: percentile ≥80 = contrarian bearish; ≤20 = contrarian bullish; COT must confirm with a catalyst
+- NFCI and ICSA reading guides with level thresholds (matching HY Spread / Philly Fed pattern)
 
-> **RULE (Equities):** Fed Net Liquidity and Technical Trend supersede lagging economic indicators (like GDP). Do not predict an equity correction based solely on poor macro data if Net Liquidity is expanding and the index is above its 50-day MA.
-
-> **RULE (Commodities):** Heavily weight COT speculative positioning. If speculators are extremely long, treat this as a contrarian headwind.
-
-**Optional — Quantitative Override for T+20 S&P 500:**
-If `accuracy_summary.json` still shows S&P 500 T+20 directional accuracy below 35% after several weeks with the new data, implement a hard override in `collect_and_analyze.py`: after Claude generates the prediction table, check historical directional accuracy for that asset; if systematically wrong, flip `Bearish` → `Bullish` and annotate: `"Call inverted programmatically due to historical model bias."` The S&P 500 T+20 directional accuracy is currently **0%** (n=11), making this the strongest candidate for the override.
+**Quantitative accuracy override — `_apply_accuracy_override()` in `collect_and_analyze.py`:**
+- Runs after adversarial review on every daily note
+- Reads `accuracy_summary.json`; if T+5 directional accuracy for any asset is <40% at n≥8 and the current call is Bearish, floors confidence at 50% and appends a bias warning to the Primary Driver cell
+- Direction is intentionally kept (not flipped to Neutral) so calls remain scoreable and accuracy stats can recover naturally — flipping to Neutral would freeze the sample and lock in the bad stats permanently
+- Currently fires on: S&P 500 (35%, n=17) and WTI Oil (33%, n=15)
 
 ---
 
@@ -383,5 +396,5 @@ If `accuracy_summary.json` still shows S&P 500 T+20 directional accuracy below 3
 |----------|-------|--------|--------------|--------|
 | 1 | Phase 1 (FRED liquidity + jobless claims) | Low | None | ✅ Done |
 | 2 | Phase 2 (90d history + RSI/MA/Z-score) | Medium | None | ✅ Done |
-| 3 | Phase 4 (system prompt rules) | Low | Phases 1 & 2 deployed | Pending |
-| 4 | Phase 3 (COT via Nasdaq Data Link) | Medium | New API key | Pending |
+| 3 | Phase 4 (system prompt rules + accuracy override) | Low | Phases 1 & 2 deployed | ✅ Done |
+| 4 | Phase 3 (COT via Nasdaq Data Link) | Medium | New API key | ✅ Done — awaiting `NASDAQ_DATA_LINK_KEY` secret |

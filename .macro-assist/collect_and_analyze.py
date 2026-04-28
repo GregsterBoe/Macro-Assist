@@ -336,6 +336,85 @@ def fetch_sector_data() -> dict:
     return data
 
 
+# ---------------------------------------------------------------------------
+# COT positioning data (Phase 3 — Nasdaq Data Link / CFTC)
+# ---------------------------------------------------------------------------
+
+# CFTC commodity codes for Nasdaq Data Link CFTC dataset
+# Source: https://data.nasdaq.com/data/CFTC
+COT_SERIES = {
+    "WTI Oil": "CFTC/067651_FUT_ALL_CR",
+    "Gold":    "CFTC/088691_FUT_ALL_CR",
+}
+
+
+def fetch_cot_data() -> str:
+    """
+    Fetch CFTC Commitments of Traders net non-commercial positioning for
+    WTI Crude and Gold via Nasdaq Data Link (free tier, ~weekly frequency).
+    Returns a ## COT Positioning Markdown block, or empty string if the
+    API key is absent or any fetch fails. The pipeline never crashes on COT failure.
+    """
+    api_key = os.environ.get("NASDAQ_DATA_LINK_KEY")
+    if not api_key:
+        print("  NASDAQ_DATA_LINK_KEY not set — skipping COT data.")
+        return ""
+
+    try:
+        import nasdaqdatalink
+        nasdaqdatalink.ApiConfig.api_key = api_key
+    except ImportError:
+        print("  nasdaq-data-link not installed — skipping COT data.")
+        return ""
+
+    today_date = datetime.now(timezone.utc).date()
+    rows = [
+        "## COT Positioning (CFTC Non-Commercial, Net)",
+        "",
+        "| Asset | Net Long | Percentile (1yr) | Signal | As Of |",
+        "|-------|----------|-----------------|--------|-------|",
+    ]
+
+    for label, dataset in COT_SERIES.items():
+        try:
+            df = nasdaqdatalink.get(dataset, rows=54)   # ~1 yr of weekly data
+            df = df.sort_index()
+
+            long_col  = next((c for c in df.columns if "noncomm" in c.lower() and "long" in c.lower()), None)
+            short_col = next((c for c in df.columns if "noncomm" in c.lower() and "short" in c.lower()), None)
+            if long_col is None or short_col is None:
+                print(f"  Warning: COT column names not found for {label}. Columns: {list(df.columns)}")
+                rows.append(f"| {label} | n/a | n/a | n/a | n/a |")
+                continue
+
+            df["net_long"] = df[long_col] - df[short_col]
+            current  = float(df["net_long"].iloc[-1])
+            min_val  = float(df["net_long"].min())
+            max_val  = float(df["net_long"].max())
+            pct      = round(((current - min_val) / (max_val - min_val)) * 100) if max_val > min_val else 50
+
+            as_of_date  = df.index[-1].date()
+            days_stale  = (today_date - as_of_date).days
+
+            if pct >= 80:
+                signal = "Crowded Long — contrarian bearish"
+            elif pct <= 20:
+                signal = "Crowded Short — contrarian bullish"
+            else:
+                signal = "Neutral"
+
+            stale_note = f" ({days_stale}d stale)" if days_stale > 10 else ""
+            rows.append(
+                f"| {label} | {current:,.0f} | {pct}th pct | {signal} | {as_of_date}{stale_note} |"
+            )
+
+        except Exception as e:
+            print(f"  Warning: COT fetch failed for {label} ({dataset}): {e}")
+            rows.append(f"| {label} | n/a | n/a | fetch failed | n/a |")
+
+    return "\n".join(rows)
+
+
 def detect_notable_moves(market_data: dict, histories: dict) -> str:
     """
     Flag assets where today's move is ≥2σ of the 60-day return distribution AND
@@ -737,6 +816,74 @@ def _log_adversarial_diff(original: str, revised: str) -> None:
         print(f"[adversarial] {changes} prediction(s) revised.")
 
 
+def _apply_accuracy_override(analysis: str) -> str:
+    """
+    Code-level bias correction applied after adversarial review.
+    If T+5 directional accuracy for an asset is <40% at n>=8 and the current
+    prediction is Bearish, floor confidence at 50% and annotate — but keep the
+    direction so the call remains scoreable. This allows accuracy stats to evolve
+    naturally; once they recover above 40% the override stops firing automatically.
+    Flipping to Neutral would freeze the scoring sample and lock in the bad stats.
+    """
+    if not ACCURACY_JSON.exists():
+        print("[accuracy-override] No accuracy data — skipping.")
+        return analysis
+    try:
+        acc_data = json.loads(ACCURACY_JSON.read_text(encoding="utf-8"))
+    except Exception:
+        return analysis
+
+    t5_by_asset = acc_data.get("windows", {}).get("t5", {}).get("by_asset", {})
+    if not t5_by_asset:
+        return analysis
+
+    table_pattern = r'(\| Asset \| Bias \| Target Range \| Confidence \| Primary Driver \|.*?\n(?:\|[^\n]+\n)+)'
+    match = re.search(table_pattern, analysis, re.DOTALL)
+    if not match:
+        print("[accuracy-override] Could not locate predictions table.")
+        return analysis
+
+    table    = match.group(0)
+    modified = table
+    overrides = 0
+
+    for asset, stat in t5_by_asset.items():
+        dacc = stat.get("directional_acc")
+        dn   = stat.get("directional_n", 0)
+        if dacc is None or dn < 8 or dacc >= 0.40:
+            continue
+
+        row_pat   = re.compile(
+            rf'(\|\s*{re.escape(asset)}\s*\|\s*)Bearish(\s*\|[^\n]+\n)',
+            re.IGNORECASE,
+        )
+        row_match = row_pat.search(modified)
+        if not row_match:
+            continue
+
+        original_row = row_match.group(0)
+        cells = original_row.rstrip("\n").split("|")
+        if len(cells) < 6:
+            continue
+
+        # Keep direction (scoreable); floor confidence; annotate driver
+        cells[4] = " 50% "
+        cells[5] = (
+            f" {cells[5].strip()} "
+            f"[Caution: T+5 Bearish dir. acc. {dacc:.0%} n={dn} — historical bias flagged] "
+        )
+        new_row  = "|".join(cells) + "\n"
+        modified = modified.replace(original_row, new_row, 1)
+        print(f"[accuracy-override] {asset}: confidence floored at 50% (T+5 Bearish {dacc:.0%}, n={dn})")
+        overrides += 1
+
+    if overrides == 0:
+        print("[accuracy-override] No accuracy-based overrides applied.")
+        return analysis
+
+    return analysis[: match.start()] + modified + analysis[match.end():]
+
+
 def analyze_with_claude(
     fred_data: dict,
     market_data: dict,
@@ -763,6 +910,9 @@ def analyze_with_claude(
         technicals = compute_technicals(histories)
         technicals_block = format_technicals_block(technicals)
 
+    print("Fetching COT positioning data...")
+    cot_block = fetch_cot_data()
+
     sector_block = (
         f"\n\n## Sector ETF Data\n{json.dumps(sector_data, indent=2)}"
         if sector_data else ""
@@ -778,6 +928,7 @@ Prediction review date (5 business days): {review_date}
 {json.dumps(market_data, indent=2)}
 {f"{chr(10)}{sector_block}" if sector_block else ""}
 {f"{chr(10)}{technicals_block}" if technicals_block else ""}
+{f"{chr(10)}{cot_block}" if cot_block else ""}
 {f"{chr(10)}{notable_moves}" if notable_moves else ""}
 {f"{chr(10)}{events_context}" if events_context else ""}
 {f"{chr(10)}{youtube_context}" if youtube_context else ""}
@@ -804,7 +955,9 @@ Generate the macro intelligence note as specified in your instructions."""
     draft = response.content[0].text
 
     print("Running adversarial prediction review...")
-    return adversarial_review(client, draft)
+    reviewed = adversarial_review(client, draft)
+    print("Applying accuracy-based override check...")
+    return _apply_accuracy_override(reviewed)
 
 
 # ---------------------------------------------------------------------------
