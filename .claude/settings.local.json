@@ -8,7 +8,10 @@
       "Bash(python .macro-assist/youtube_data.py --resolve \"https://www.youtube.com/c/GameofTrades\")",
       "Bash(python -c \"import youtube_transcript_api; print\\(youtube_transcript_api.__version__\\); print\\(dir\\(youtube_transcript_api.YouTubeTranscriptApi\\)\\)\")",
       "Bash(python .macro-assist/parse_positions.py data/tr_positions.csv)",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(pip show *)",
+      "Bash(pip3 show *)",
+      "Bash(python3 -c \"import anthropic; print\\(anthropic.__version__\\)\")"
     ]
   }
 }

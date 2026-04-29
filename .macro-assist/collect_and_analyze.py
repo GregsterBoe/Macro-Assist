@@ -387,32 +387,63 @@ def validate_data(fred_data: dict, market_data: dict) -> None:
 
 # CFTC commodity codes for Nasdaq Data Link CFTC dataset
 # Source: https://data.nasdaq.com/data/CFTC
+# CFTC futures codes used to filter the public COT CSV
+# Source: https://www.cftc.gov/dea/futures/deacmesf.htm (no API key required)
 COT_SERIES = {
-    "WTI Oil": "CFTC/067651_FUT_ALL_CR",
-    "Gold":    "CFTC/088691_FUT_ALL_CR",
+    "WTI Oil": "067651",   # Light Sweet Crude Oil (CL), NYMEX
+    "Gold":    "088691",   # Gold (GC), COMEX
 }
 
 
 def fetch_cot_data() -> str:
     """
     Fetch CFTC Commitments of Traders net non-commercial positioning for
-    WTI Crude and Gold via Nasdaq Data Link (free tier, ~weekly frequency).
-    Returns a ## COT Positioning Markdown block, or empty string if the
-    API key is absent or any fetch fails. The pipeline never crashes on COT failure.
+    WTI Crude and Gold from the CFTC's public annual CSV (no API key required).
+    Falls back to the prior year's file if the current year file isn't available yet.
+    Returns a ## COT Positioning Markdown block, or empty string on failure.
     """
-    api_key = os.environ.get("NASDAQ_DATA_LINK_KEY")
-    if not api_key:
-        _log("COT", "INFO", "skipped — NASDAQ_DATA_LINK_KEY not set")
+    # CFTC publishes one CSV per year; column layout is fixed across years.
+    # https://www.cftc.gov/MarketReports/CommitmentsofTraders/index.htm
+    today = datetime.now(timezone.utc)
+    today_date = today.date()
+
+    def _fetch_year(year: int) -> pd.DataFrame | None:
+        url = f"https://www.cftc.gov/files/dea/history/fut_fin_xls_{year}.zip"
+        try:
+            resp = requests.get(url, timeout=30)
+            resp.raise_for_status()
+            import io, zipfile
+            with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
+                csv_name = next(n for n in zf.namelist() if n.endswith(".csv") or n.endswith(".xls"))
+                with zf.open(csv_name) as f:
+                    return pd.read_csv(f, low_memory=False)
+        except Exception as e:
+            _log("COT", "WARN", f"could not fetch {year} CFTC file: {e}")
+            return None
+
+    df = _fetch_year(today.year)
+    if df is None:
+        df = _fetch_year(today.year - 1)
+    if df is None:
+        _log("COT", "WARN", "CFTC data unavailable — skipping COT block")
         return ""
 
-    try:
-        import nasdaqdatalink
-        nasdaqdatalink.ApiConfig.api_key = api_key
-    except ImportError:
-        _log("COT", "INFO", "skipped — nasdaq-data-link not installed")
+    # Normalise column names to lowercase for robust matching
+    df.columns = [c.strip().lower() for c in df.columns]
+
+    # Identify the key columns we need
+    code_col   = next((c for c in df.columns if "cftc" in c and "code" in c), None)
+    date_col   = next((c for c in df.columns if "report" in c and "date" in c), None)
+    long_col   = next((c for c in df.columns if "noncomm" in c and "long" in c and "all" in c), None)
+    short_col  = next((c for c in df.columns if "noncomm" in c and "short" in c and "all" in c), None)
+
+    if not all([code_col, date_col, long_col, short_col]):
+        _log("COT", "WARN",
+             f"unexpected column layout — found: {[c for c in [code_col, date_col, long_col, short_col]]}")
         return ""
 
-    today_date = datetime.now(timezone.utc).date()
+    df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
+
     rows = [
         "## COT Positioning (CFTC Non-Commercial, Net)",
         "",
@@ -421,43 +452,42 @@ def fetch_cot_data() -> str:
     ]
     _cot_ok = 0
 
-    for label, dataset in COT_SERIES.items():
-        try:
-            df = nasdaqdatalink.get(dataset, rows=54)   # ~1 yr of weekly data
-            df = df.sort_index()
+    for label, code in COT_SERIES.items():
+        subset = df[df[code_col].astype(str).str.startswith(code)].copy()
+        if subset.empty:
+            _log("COT", "WARN", f"no rows found for {label} (code {code})")
+            rows.append(f"| {label} | n/a | n/a | code not found | n/a |")
+            continue
 
-            long_col  = next((c for c in df.columns if "noncomm" in c.lower() and "long" in c.lower()), None)
-            short_col = next((c for c in df.columns if "noncomm" in c.lower() and "short" in c.lower()), None)
-            if long_col is None or short_col is None:
-                _log("COT", "WARN", f"column names not found for {label}. Available: {list(df.columns)[:5]}")
-                rows.append(f"| {label} | n/a | n/a | n/a | n/a |")
-                continue
+        subset = subset.sort_values(date_col)
+        # Last 54 rows ≈ 1 year of weekly data
+        subset = subset.tail(54)
+        subset["net_long"] = pd.to_numeric(subset[long_col], errors="coerce") \
+                           - pd.to_numeric(subset[short_col], errors="coerce")
+        subset = subset.dropna(subset=["net_long"])
+        if subset.empty:
+            rows.append(f"| {label} | n/a | n/a | parse error | n/a |")
+            continue
 
-            df["net_long"] = df[long_col] - df[short_col]
-            current  = float(df["net_long"].iloc[-1])
-            min_val  = float(df["net_long"].min())
-            max_val  = float(df["net_long"].max())
-            pct      = round(((current - min_val) / (max_val - min_val)) * 100) if max_val > min_val else 50
+        current   = float(subset["net_long"].iloc[-1])
+        min_val   = float(subset["net_long"].min())
+        max_val   = float(subset["net_long"].max())
+        pct       = round(((current - min_val) / (max_val - min_val)) * 100) if max_val > min_val else 50
+        as_of     = subset[date_col].iloc[-1].date()
+        days_stale = (today_date - as_of).days
 
-            as_of_date  = df.index[-1].date()
-            days_stale  = (today_date - as_of_date).days
+        if pct >= 80:
+            signal = "Crowded Long — contrarian bearish"
+        elif pct <= 20:
+            signal = "Crowded Short — contrarian bullish"
+        else:
+            signal = "Neutral"
 
-            if pct >= 80:
-                signal = "Crowded Long — contrarian bearish"
-            elif pct <= 20:
-                signal = "Crowded Short — contrarian bullish"
-            else:
-                signal = "Neutral"
-
-            stale_note = f" ({days_stale}d stale)" if days_stale > 10 else ""
-            rows.append(
-                f"| {label} | {current:,.0f} | {pct}th pct | {signal} | {as_of_date}{stale_note} |"
-            )
-            _cot_ok += 1
-
-        except Exception as e:
-            _log("COT", "WARN", f"fetch failed for {label}: {e}")
-            rows.append(f"| {label} | n/a | n/a | fetch failed | n/a |")
+        stale_note = f" ({days_stale}d stale)" if days_stale > 10 else ""
+        rows.append(
+            f"| {label} | {current:,.0f} | {pct}th pct | {signal} | {as_of}{stale_note} |"
+        )
+        _cot_ok += 1
 
     _log("COT", "OK" if _cot_ok == len(COT_SERIES) else "WARN",
          f"{_cot_ok}/{len(COT_SERIES)} assets fetched")
