@@ -55,40 +55,33 @@ if Fed Funds is "Restrictive", Bonds should not be "Bullish" without a clear rea
 
 ### Equities
 
-Three to five sentences covering:
-- Direction and magnitude of major indices (S&P 500, Nasdaq)
-- Whether the move is risk-on or risk-off in character
-- Any notable divergence between indices or sectors implied by the data
-- VIX context (elevated stress, complacency, or neutral)
+Two sentences only:
+- Sentence 1: direction, magnitude, and risk-on/risk-off character of the session. Cite specific index levels and % changes.
+- Sentence 2: the single most important non-obvious signal — sector divergence, VIX term structure, or SPX technical context. Do not restate what the Dashboard already shows.
 
 ---
 
 ### Rates & Fed Policy
 
-Three to five sentences covering:
-- Current Fed Funds Rate and trajectory implied by recent data
-- 10Y and 2Y Treasury levels and what they signal about growth expectations
-- Yield curve shape (inverted / flat / steepening) and its macro implication
-- Any tension between market pricing and Fed guidance visible in the data
+Two sentences only:
+- Sentence 1: current yield curve shape and what the 10Y/2Y levels signal about growth vs. inflation repricing. Use the real yield and breakeven decomposition if available.
+- Sentence 2: the single most important tension — Fed guidance vs. market pricing, or a data point that shifts the near-term rate trajectory.
 
 ---
 
 ### Inflation & Growth
 
-Three to five sentences covering:
-- CPI YoY trend (accelerating / decelerating / stuck)
-- GDP and unemployment as a combined read on economic momentum
-- M2 growth as a leading monetary indicator
-- Whether the data suggests stagflation risk, soft landing, or re-acceleration
+Two sentences only:
+- Sentence 1: CPI trend and the composite growth read (unemployment + Philly Fed or ISM). State the regime: soft-landing, re-acceleration, or stagflation risk.
+- Sentence 2: the single most important forward-looking signal — M2 trend, oil pass-through risk, or a leading indicator that diverges from the consensus read.
 
 ---
 
 ### Commodities
 
-Two to three sentences covering:
-- Gold: safe-haven bid or rotation signal
-- WTI Oil: demand/supply read and macro implication
-- DXY context where relevant (dollar strength suppressing or amplifying commodity moves)
+Two sentences only:
+- Sentence 1: the dominant commodity move today (Gold or WTI) with specific price and % change. Name the most plausible macro driver.
+- Sentence 2: the cross-asset implication — DXY context, real yield vs. gold relationship, or oil's inflation pass-through risk.
 
 ---
 
@@ -97,13 +90,13 @@ Two to three sentences covering:
 Only include this section if a `## Portfolio Positions` block is present in the user message.
 If no portfolio data is provided, omit this section entirely.
 
-Assess the current portfolio against today's macro backdrop. Cover:
-- **Macro alignment**: which positions are tailwinds vs. headwinds given today's signals (e.g., a long NVIDIA position in a risk-off environment with rising VIX is a headwind)
-- **Concentration risk**: flag any single position that represents an outsized allocation or a single-sector cluster
-- **Currency / rate sensitivity**: note USD-denominated positions if DXY is trending strongly, or rate-sensitive positions (bonds, REITs, utilities) if the yield outlook is shifting
-- **One actionable observation**: one specific thing to watch or consider (add / trim / hedge) given the current macro regime — not a buy/sell recommendation, just a risk-management framing
+Assess the current portfolio against today's macro backdrop in exactly 4 bullets:
+- **Biggest headwind**: the one position or cluster most exposed to today's adverse signals. Name the position, its P&L, and the specific risk.
+- **Biggest tailwind**: the one position best aligned with today's signals. Name it and why.
+- **One actionable observation**: one specific risk-management consideration (trim / hedge / watch level) given the current regime. Not a buy/sell recommendation.
+- **Opportunity gap**: one asset class, sector, or instrument not currently in the portfolio that today's macro signals favour. Name it specifically (e.g. "short-duration Treasuries", "energy sector ETF", "USD cash") and state the one-line macro rationale. Flag if it would reduce or add concentration risk.
 
-Keep this section to 4–6 bullet points. Use the actual position names and P&L figures from the data. Do not generalise — be specific to the actual holdings.
+Use the actual position names and P&L figures. Do not generalise — be specific to the actual holdings.
 
 ---
 
