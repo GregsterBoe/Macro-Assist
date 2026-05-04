@@ -1,6 +1,6 @@
 # Prediction Accuracy Report
 
-*Generated: 2026-04-28 | Reports scored: 27*
+*Generated: 2026-05-04 | Reports scored: 28*
 
 > Accuracy scale: 0% = always wrong, 50% = random, 100% = always right.
 > **Directional accuracy** excludes flat moves and Neutral calls — it is the
@@ -8,42 +8,42 @@
 
 ## T+5 (1 week)
 
-**Overall accuracy:** 48%  |  **Directional:** 47%  |  **Reports:** 27
+**Overall accuracy:** 48%  |  **Directional:** 46%  |  **Reports:** 28
 
 | Asset | Accuracy | Directional | n | Avg Confidence |
 |-------|----------|-------------|---|----------------|
-| S&P 500 | 41% | 35% (n=17) | 27 | 60% |
-| Gold | 54% | 55% (n=22) | 27 | 62% |
-| WTI Oil | 41% | 33% (n=15) | 27 | 57% |
-| 10Y Treasury Yield | 48% | 0% (n=1) | 27 | 57% |
-| DXY | 48% | 46% (n=11) | 27 | 56% |
-| Bitcoin | 59% | 65% (n=17) | 27 | 57% |
+| S&P 500 | 41% | 35% (n=17) | 28 | 60% |
+| Gold | 52% | 52% (n=23) | 28 | 62% |
+| WTI Oil | 41% | 33% (n=15) | 28 | 57% |
+| 10Y Treasury Yield | 48% | 0% (n=1) | 28 | 57% |
+| DXY | 50% | 50% (n=12) | 28 | 56% |
+| Bitcoin | 57% | 61% (n=18) | 28 | 57% |
 
 ## T+10 (2 weeks)
 
-**Overall accuracy:** 52%  |  **Directional:** 53%  |  **Reports:** 22
+**Overall accuracy:** 50%  |  **Directional:** 49%  |  **Reports:** 26
 
 | Asset | Accuracy | Directional | n | Avg Confidence |
 |-------|----------|-------------|---|----------------|
-| S&P 500 | 25% | 18% (n=17) | 22 | 62% |
-| Gold | 68% | 72% (n=18) | 22 | 63% |
-| WTI Oil | 43% | 38% (n=13) | 22 | 58% |
-| 10Y Treasury Yield | 52% | 100% (n=1) | 22 | 59% |
-| DXY | 68% | 100% (n=8) | 22 | 57% |
-| Bitcoin | 52% | 54% (n=13) | 22 | 57% |
+| S&P 500 | 29% | 18% (n=17) | 26 | 60% |
+| Gold | 58% | 59% (n=22) | 26 | 63% |
+| WTI Oil | 38% | 31% (n=16) | 26 | 57% |
+| 10Y Treasury Yield | 52% | 100% (n=1) | 26 | 57% |
+| DXY | 62% | 80% (n=10) | 26 | 56% |
+| Bitcoin | 60% | 65% (n=17) | 26 | 57% |
 
 ## T+20 (1 month)
 
-**Overall accuracy:** 44%  |  **Directional:** 41%  |  **Reports:** 12
+**Overall accuracy:** 42%  |  **Directional:** 36%  |  **Reports:** 17
 
 | Asset | Accuracy | Directional | n | Avg Confidence |
 |-------|----------|-------------|---|----------------|
-| S&P 500 | 4% | 0% (n=11) | 12 | 62% |
-| Gold | 67% | 70% (n=10) | 12 | 64% |
-| WTI Oil | 42% | 33% (n=6) | 12 | 59% |
-| 10Y Treasury Yield | 54% | 100% (n=1) | 12 | 60% |
-| DXY | 71% | 78% (n=9) | 12 | 58% |
-| Bitcoin | 29% | 14% (n=7) | 12 | 56% |
+| S&P 500 | 3% | 0% (n=16) | 17 | 62% |
+| Gold | 47% | 47% (n=15) | 17 | 64% |
+| WTI Oil | 41% | 29% (n=7) | 17 | 58% |
+| 10Y Treasury Yield | 53% | 100% (n=1) | 17 | 60% |
+| DXY | 74% | 83% (n=12) | 17 | 58% |
+| Bitcoin | 32% | 20% (n=10) | 17 | 56% |
 
 ---
 

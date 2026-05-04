@@ -1,6 +1,6 @@
 {
   "report_date": "2026-04-13",
-  "scored_at": "2026-04-28",
+  "scored_at": "2026-05-04",
   "windows": {
     "t5": {
       "eval_date": "2026-04-20",
@@ -117,9 +117,9 @@
           "bias": "Bearish",
           "confidence": 60,
           "entry_price": 74484.6406,
-          "eval_price": 76945.0703,
+          "eval_price": 77366.625,
           "eval_date": "2026-04-27",
-          "pct_change": 3.303,
+          "pct_change": 3.869,
           "score": 0.0
         }
       },
