@@ -397,4 +397,98 @@ Compute WoW and MoM % change. Pass only the derived signal to Claude — e.g. `"
 | 1 | Phase 1 (FRED liquidity + jobless claims) | Low | None | ✅ Done |
 | 2 | Phase 2 (90d history + RSI/MA/Z-score) | Medium | None | ✅ Done |
 | 3 | Phase 4 (system prompt rules + accuracy override) | Low | Phases 1 & 2 deployed | ✅ Done |
-| 4 | Phase 3 (COT via Nasdaq Data Link) | Medium | New API key | ✅ Done — awaiting `NASDAQ_DATA_LINK_KEY` secret |
+| 4 | Phase 3 (COT via CFTC direct) | Medium | None | ✅ Done — no API key required |
+| 5 | Phase 5 (DXY window-aware predictions) | Low | 30+ scored reports | ✅ Done |
+| 6 | Phase 6 (break Neutral collapse) | Low | Phase 5 | ✅ Done |
+| 7 | Phase 7 (Sector Opportunity Research) | High | Phase 6 + fundamentals data | ✅ Done (7d scoring deferred) |
+
+---
+
+### Phase 5 — Window-Aware Prediction Calibration *(Planned)*
+
+**Goal:** Stop wasting the DXY signal. After 30 scored reports, the accuracy data is clear:
+
+| Asset | T+5 dir. | T+10 dir. | T+20 dir. | Verdict |
+|-------|----------|-----------|-----------|---------|
+| DXY | 50% (n=12) | **82% (n=11)** | **87% (n=15)** | Best signal — currently discarded |
+| Bitcoin | 63% (n=19) | 68% (n=19) | 25% (n=12) | Solid short/mid; degrades at 1 month |
+| S&P 500 | 35% (n=17) | 18% (n=17) | **0% (n=18)** | Systematic inverse signal |
+| WTI Oil | 33% (n=15) | 31% (n=16) | 27% (n=11) | Wrong at all horizons |
+
+The current accuracy override anchors every asset to its *T+5* directional accuracy. DXY is called "Neutral, no edge" at T+5 (50%) even though it has an 87% signal at T+20 — the model's strongest read by far.
+
+**Changes:**
+
+1. **System prompt — predictions section:** Inject the accuracy table broken out by window (T+5 / T+10 / T+20). Instruct Claude to anchor confidence to the *window where directional accuracy is highest at n≥8*, and to name that window explicitly in the Primary Driver cell.
+
+2. **Accuracy override (`_apply_accuracy_override`):** Pass window-level stats, not just T+5. Add a DXY conviction rule: if T+10 or T+20 directional accuracy ≥70% at n≥10, permit a directional call at ≥55% confidence even if T+5 is weak.
+
+3. **Predictions table footnote:** Add a `Best Window` implicit note — Claude should state the horizon it is most confident about for each asset, especially when T+5 and T+20 diverge significantly.
+
+---
+
+### Phase 6 — Break the Neutral Collapse *(Done)*
+
+**Goal:** Prevent all-Neutral reports. The accuracy override system overcorrected — reports now frequently show 5 of 6 assets at Neutral/50%, which produces no actionable signal.
+
+**Problem:** The current override floors bad calls (Bearish S&P 500) at 50% Neutral. This is correct, but with no corresponding floor on the upside, the model defaults to Neutral as the safe answer for every uncertain asset.
+
+**Changes:**
+
+1. **Require at least one conviction call per report.** System prompt rule: the predictions table must contain at least one Bullish or Bearish call with confidence ≥57%. If all assets are Neutral, the model must identify which single asset has the strongest macro case and make a directional call on it, explicitly naming the uncertainty.
+
+2. **Signed contrarian override for systematic inverse assets.** For assets where T+5 directional accuracy is <40% at n≥12 (currently S&P 500 and WTI Oil), allow a *low-confidence contrarian* call (50-53% confidence, labelled `[Contrarian — bias correction]`) rather than forcing Neutral. An asset that's been wrong 80% of the time carries information — inverting it weakly is more honest than pretending there is no signal.
+
+3. **Confidence differentiation rule:** Prohibit more than 3 assets sharing the same confidence figure in one table. Forces the model to differentiate real signals from noise.
+
+---
+
+### Phase 7 — Sector Opportunity Research *(Done — 7d scoring deferred)*
+
+**Goal:** Replace the repetitive "buy short-duration Treasuries" Opportunity Gap with a dedicated, scored section identifying sector- and stock-level opportunities aligned with current macro signals.
+
+**Why the current Opportunity Gap fails:** It is one bullet inside Portfolio Risk Assessment with no data forcing depth or variety. The model reliably defaults to the always-defensible macro-cash trade. Without valuation data in the prompt, any stock name would be hallucinated as "undervalued."
+
+#### 7a. Data Infrastructure (prerequisite)
+
+Add `fetch_sector_fundamentals()` to `collect_and_analyze.py`:
+
+- **Expand sector ETF coverage** from 5 → 11 ETFs: add XLV (Health Care), XLU (Utilities), XLP (Consumer Staples), XLB (Materials), XLRE (Real Estate), XLC (Communication Services).
+- **Per-ETF fundamentals via yfinance:** forward P/E, trailing P/E, 52-week return, 1-month return, % above/below 52-week high. yfinance `.info` dict provides these without additional API keys.
+- **Relative valuation:** rank all 11 ETFs by forward P/E percentile vs. their own 5yr average (yfinance `.info["forwardPE"]` vs a computed trailing mean). Flag any ETF whose fwd P/E is >1 std below its 5yr mean as "potentially undervalued."
+- **Stock-level candidates (top 3–5 per sector):** pull fwd P/E, market cap, and 1yr return for the top 5 holdings of each flagged ETF (hardcoded holding lists per ETF, updated quarterly). No LLM hallucination — every number comes from yfinance.
+
+#### 7b. New Prompt Section
+
+Add `### Sector Opportunity Research` to `system_prompt.md`, placed between Portfolio Risk Assessment and Key Risks & Themes.
+
+**Instructions to Claude:**
+
+```
+### Sector Opportunity Research
+
+Identify 2–3 sectors where current macro signals (from the Dashboard and FRED data)
+create a structural tailwind. For each sector:
+- Name the ETF, its 1-month return vs. S&P 500, and its forward P/E vs. its 5yr average.
+- State the one macro signal that drives the tailwind (specific data point, not generality).
+- If the sector's fwd P/E is flagged as below 5yr average: name 1–2 specific stock
+  tickers from the injected holdings list, their fwd P/E, and why the macro tailwind
+  applies to that name specifically. Label every name explicitly:
+  "Research candidate — not a recommendation. Verify independently."
+
+Hard rules:
+- Do not name a sector that lacks a specific data-driven macro rationale.
+- Do not repeat the same lead sector on consecutive days (checked via injected prior note).
+- Do not use the word "undervalued" without citing the fwd P/E vs. 5yr average figure.
+- Maximum 200 words for this section. It must fit within the token budget.
+```
+
+#### 7c. Token Budget
+
+Raise `max_tokens` from 4000 → 5000. The truncation-detection warning added in the code review will catch any remaining overflow.
+
+#### 7d. Scoring (Accountability)
+
+Extend `score_predictions.py` to score the 2–3 sector ETFs named each day as implicit directional calls at T+10 and T+20. This gives the section the same accountability as the predictions table and will surface whether the macro → sector mapping is actually predictive.
+
+**Key design principle:** every number cited in this section is fetched by Python and injected — Claude synthesises, it does not invent. This is the lesson from the SPX accuracy failure: macro narrative without grounded data produces confident noise.

@@ -100,6 +100,26 @@ Use the actual position names and P&L figures. Do not generalise — be specific
 
 ---
 
+### Sector Opportunity Research
+
+Only include this section if a `## Sector Fundamentals` block is present in the user message.
+If no sector fundamentals data is provided, omit this section entirely.
+
+Identify 2–3 sectors where today's macro signals create a structural tailwind. For each:
+- Name the ETF ticker and sector, its 1-month return vs. S&P 500, and its trailing P/E vs. the reference.
+- State the one macro signal that drives the tailwind — name the specific data point, not a generality.
+- If the sector's trailing P/E is flagged as "Below avg" in the injected data: name 1–2 specific tickers
+  from the injected holdings table, their forward P/E, and why the macro tailwind applies to that name.
+  Label every name explicitly: "Research candidate — not a recommendation. Verify independently."
+
+Hard rules:
+- Do not name a sector that lacks a specific data-driven macro rationale from today's FRED or market data.
+- Do not use the word "undervalued" without citing the P/E figure and the reference from the injected data.
+- Do not name tickers from outside the injected holdings tables — every name must be in the data.
+- Maximum 200 words for this section.
+
+---
+
 ### Key Risks & Themes
 
 A short bullet list (3–5 bullets) of the most actionable risks or themes an investor should
@@ -126,12 +146,17 @@ Use exactly this table format:
 Review date: {the prediction review date provided in the user message}
 
 Rules for predictions:
-- Confidence must be between 50% and 70%. Do not express false certainty. 80%+ is never warranted without demonstrated multi-window accuracy.
+- Confidence must be between 50% and 70% by default.
 - Target Range must be a specific numeric range, not "higher" or "lower".
 - Primary Driver must name the specific data point or catalyst driving the view.
 - If data is insufficient to form a view, state Neutral with 50% confidence and explain why.
 - **WTI Oil**: default to Neutral unless you can name a specific supply or demand catalyst (e.g. OPEC cut, EIA inventory shock, demand repricing). Generic macro headwinds are not sufficient for a directional call.
-- **Systematic bias override**: if an asset's directional accuracy in the injected accuracy data is <40% at n≥8, your macro-based lean on that asset is demonstrably wrong. You MUST weight price trend and market structure at least equally to fundamental indicators. Do not repeat a directional call that the data shows has been wrong at n≥8.
+- **Systematic bias override**: if an asset's directional accuracy is <40% at n≥8 in ANY window, your macro lean is demonstrably wrong. Weight market structure and momentum at least equally. Do not repeat a call the data shows has been wrong 8+ times.
+- **Best-window rule**: the injected accuracy data includes a "Best Prediction Window" table. Anchor confidence to the window where YOUR directional accuracy is highest at n≥8 — not uniformly to T+5. If T+5 and T+20 diverge by ≥15pp, state which horizon you are calling in the Primary Driver cell (e.g. "T+10 bias: Bullish").
+- **High-signal assets**: if an asset's best-window directional accuracy is ≥70% at n≥10, you MUST make a directional call when the macro evidence supports one. Neutral at 50% on a high-signal asset wastes a demonstrated edge and will be flagged in the pipeline. Confidence may be up to 65% for assets with ≥70% best-window accuracy.
+- **Minimum conviction requirement**: the predictions table must contain at least one Bullish or Bearish call with confidence ≥57%. An all-Neutral table is not acceptable — it signals analysis paralysis, not caution. If every view feels uncertain, identify the single highest-conviction asset and make a directional call, even at 53%. State the reason in Primary Driver.
+- **Confidence diversity**: do not assign the same confidence figure to more than two assets. If three or more assets land at 55%, you have not differentiated — recalibrate. Each asset has a different evidence base; reflect that in the confidence spread.
+- **Contrarian call for bias-inverse assets**: assets flagged as SYSTEMATIC BIAS (directional accuracy <40% in any window) mean your natural macro lean is historically wrong for that asset. Do not default to Neutral@50%. If macro evidence points Bearish but historical accuracy shows you are systematically wrong when Bearish, make the explicit contrarian Bullish call at 50–53% confidence and state "contrarian bias correction" in Primary Driver. A low-confidence contrarian call is more honest and more useful than a Neutral that pretends you have no view.
 
 ---
 
