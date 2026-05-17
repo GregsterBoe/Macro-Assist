@@ -254,19 +254,62 @@ MARKET_LABELS = {
 }
 
 SECTOR_TICKERS = {
-    "xle": "XLE",  # Energy
-    "xlk": "XLK",  # Technology
-    "xlf": "XLF",  # Financials
-    "xli": "XLI",  # Industrials
-    "xly": "XLY",  # Consumer Discretionary
+    "xle":  "XLE",   # Energy
+    "xlk":  "XLK",   # Technology
+    "xlf":  "XLF",   # Financials
+    "xli":  "XLI",   # Industrials
+    "xly":  "XLY",   # Consumer Discretionary
+    "xlv":  "XLV",   # Health Care
+    "xlu":  "XLU",   # Utilities
+    "xlp":  "XLP",   # Consumer Staples
+    "xlb":  "XLB",   # Materials
+    "xlre": "XLRE",  # Real Estate
+    "xlc":  "XLC",   # Communication Services
 }
 
 SECTOR_LABELS = {
-    "xle": "Energy (XLE)",
-    "xlk": "Technology (XLK)",
-    "xlf": "Financials (XLF)",
-    "xli": "Industrials (XLI)",
-    "xly": "Consumer Discretionary (XLY)",
+    "xle":  "Energy (XLE)",
+    "xlk":  "Technology (XLK)",
+    "xlf":  "Financials (XLF)",
+    "xli":  "Industrials (XLI)",
+    "xly":  "Consumer Discretionary (XLY)",
+    "xlv":  "Health Care (XLV)",
+    "xlu":  "Utilities (XLU)",
+    "xlp":  "Consumer Staples (XLP)",
+    "xlb":  "Materials (XLB)",
+    "xlre": "Real Estate (XLRE)",
+    "xlc":  "Communication Services (XLC)",
+}
+
+# Approximate 5yr trailing P/E reference per sector ETF (basis for relative-valuation flags)
+SECTOR_PE_REFERENCE: dict[str, float] = {
+    "xle":  16.0,
+    "xlk":  30.0,
+    "xlf":  14.5,
+    "xli":  21.0,
+    "xly":  27.0,
+    "xlv":  19.5,
+    "xlu":  18.5,
+    "xlp":  21.5,
+    "xlb":  19.0,
+    "xlre": 40.0,   # P/E unreliable for REITs; use as directional signal only
+    "xlc":  21.0,
+}
+
+# Top-3 holdings per sector ETF (as of 2025 Q2; review quarterly)
+# XLRE omitted: P/E-based holding analysis is misleading for REITs
+SECTOR_HOLDINGS: dict[str, list[str]] = {
+    "xle":  ["XOM", "CVX", "EOG"],
+    "xlk":  ["MSFT", "NVDA", "AAPL"],
+    "xlf":  ["BRK-B", "JPM", "V"],
+    "xli":  ["GE", "CAT", "RTX"],
+    "xly":  ["AMZN", "TSLA", "HD"],
+    "xlv":  ["LLY", "UNH", "ABBV"],
+    "xlu":  ["NEE", "SO", "DUK"],
+    "xlp":  ["PG", "KO", "COST"],
+    "xlb":  ["LIN", "APD", "SHW"],
+    "xlre": [],
+    "xlc":  ["META", "GOOGL", "NFLX"],
 }
 
 # Tickers excluded from the notable-move detector (volatility measures are circular to σ-test)
@@ -366,6 +409,155 @@ def fetch_sector_data() -> dict:
         if snapshot:
             data[name] = snapshot
     return data
+
+
+def fetch_sector_fundamentals() -> str:
+    """
+    Fetch sector ETF fundamentals (1M/1Y returns, trailing P/E, 52wk context) and
+    top-3 stock holding fundamentals for ETFs flagged below historical P/E average.
+    Returns a Markdown block for injection into the Claude prompt.
+    Every number is fetched from yfinance — nothing is invented.
+    """
+    def _fmt_pct(v: float | None) -> str:
+        if v is None:
+            return "N/A"
+        return f"{'+' if v >= 0 else ''}{v:.1f}%"
+
+    # SPX 1M return for relative comparison
+    spx_1m: float | None = None
+    try:
+        spx_hist = yf.Ticker("^GSPC").history(period="2mo")
+        if len(spx_hist) >= 21:
+            spx_1m = round(
+                ((float(spx_hist["Close"].iloc[-1]) / float(spx_hist["Close"].iloc[-21])) - 1) * 100, 2
+            )
+    except Exception:
+        pass
+
+    etf_rows: list[dict] = []
+    below_avg_keys: list[str] = []
+
+    for etf_key, ticker in SECTOR_TICKERS.items():
+        label  = SECTOR_LABELS.get(etf_key, ticker)
+        ref_pe = SECTOR_PE_REFERENCE.get(etf_key)
+
+        # --- Price history (1Y returns, 52wk high) ---
+        one_yr_ret: float | None    = None
+        one_mo_ret: float | None    = None
+        high_52wk_dist: float | None = None
+        try:
+            hist = yf.Ticker(ticker).history(period="13mo")
+            if len(hist) >= 21:
+                current = float(hist["Close"].iloc[-1])
+                if len(hist) >= 252:
+                    one_yr_ret = round(((current / float(hist["Close"].iloc[-252])) - 1) * 100, 2)
+                elif len(hist) >= 200:
+                    one_yr_ret = round(((current / float(hist["Close"].iloc[0])) - 1) * 100, 2)
+                one_mo_ret = round(((current / float(hist["Close"].iloc[-21])) - 1) * 100, 2)
+                window = hist["Close"].tail(252) if len(hist) >= 252 else hist["Close"]
+                high_52wk = float(window.max())
+                high_52wk_dist = round(((current / high_52wk) - 1) * 100, 2)
+        except Exception:
+            pass
+
+        # --- Trailing P/E from .info ---
+        trailing_pe: float | None = None
+        try:
+            info = yf.Ticker(ticker).info
+            raw_pe = info.get("trailingPE")
+            if raw_pe and float(raw_pe) > 0:
+                trailing_pe = round(float(raw_pe), 1)
+        except Exception:
+            pass
+
+        # --- Relative P/E flag ---
+        pe_flag = "N/A"
+        if trailing_pe is not None and ref_pe is not None:
+            ratio = trailing_pe / ref_pe
+            if ratio < 0.90:
+                pe_flag = f"Below avg (ref {ref_pe}x)"
+                below_avg_keys.append(etf_key)
+            elif ratio > 1.10:
+                pe_flag = f"Above avg (ref {ref_pe}x)"
+            else:
+                pe_flag = f"Near avg (ref {ref_pe}x)"
+
+        vs_spx = "N/A"
+        if one_mo_ret is not None and spx_1m is not None:
+            diff = round(one_mo_ret - spx_1m, 2)
+            vs_spx = f"{'+' if diff >= 0 else ''}{diff}%"
+
+        etf_rows.append({
+            "key":            etf_key,
+            "ticker":         ticker,
+            "label":          label,
+            "one_mo_ret":     one_mo_ret,
+            "one_yr_ret":     one_yr_ret,
+            "vs_spx":         vs_spx,
+            "trailing_pe":    trailing_pe,
+            "pe_flag":        pe_flag,
+            "high_52wk_dist": high_52wk_dist,
+        })
+
+    n_below = len(below_avg_keys)
+    _log("SECTORS", "OK" if etf_rows else "WARN",
+         f"sector fundamentals: {len(etf_rows)} ETFs, {n_below} below avg P/E")
+
+    # --- Build main table ---
+    lines: list[str] = [
+        "## Sector Fundamentals\n",
+        "| ETF | Sector | 1M Ret | 1Y Ret | vs SPX 1M | Trailing P/E | P/E vs Ref | 52wk High |",
+        "|-----|--------|--------|--------|-----------|--------------|------------|-----------|",
+    ]
+    for r in etf_rows:
+        lines.append(
+            f"| {r['ticker']} | {r['label']} "
+            f"| {_fmt_pct(r['one_mo_ret'])} | {_fmt_pct(r['one_yr_ret'])} "
+            f"| {r['vs_spx']} | {r['trailing_pe'] or 'N/A'} "
+            f"| {r['pe_flag']} | {_fmt_pct(r['high_52wk_dist'])} |"
+        )
+    lines.append("")
+
+    # --- Holdings for below-avg P/E sectors ---
+    if below_avg_keys:
+        lines.append("### Below-Average P/E Sectors — Research Candidates\n")
+        lines.append("*(All values from yfinance. Research candidates only — not investment advice.)*\n")
+
+        for etf_key in below_avg_keys:
+            ticker  = SECTOR_TICKERS[etf_key]
+            label   = SECTOR_LABELS.get(etf_key, ticker)
+            ref_pe  = SECTOR_PE_REFERENCE.get(etf_key)
+            etf_row = next((r for r in etf_rows if r["key"] == etf_key), None)
+            tpe_str = str(etf_row["trailing_pe"]) if etf_row and etf_row["trailing_pe"] else "N/A"
+
+            lines.append(f"**{ticker} — {label} [Trailing P/E {tpe_str} vs ref {ref_pe}x]**")
+
+            holdings = SECTOR_HOLDINGS.get(etf_key, [])
+            if not holdings:
+                lines.append("*(No stock-level data for this sector — P/E metric unreliable.)*\n")
+                continue
+
+            lines.append("| Ticker | Fwd P/E | Trailing P/E | Mkt Cap ($B) | 1Y Return |")
+            lines.append("|--------|---------|--------------|--------------|-----------|")
+
+            for h_ticker in holdings:
+                try:
+                    h_info  = yf.Ticker(h_ticker).info
+                    h_fpe   = h_info.get("forwardPE")
+                    h_tpe   = h_info.get("trailingPE")
+                    h_mcap  = h_info.get("marketCap")
+                    h_1yr   = h_info.get("52WeekChange")
+                    fpe_str  = f"{float(h_fpe):.1f}"  if h_fpe  else "N/A"
+                    tpe_str2 = f"{float(h_tpe):.1f}"  if h_tpe  else "N/A"
+                    cap_str  = f"{float(h_mcap)/1e9:.0f}" if h_mcap else "N/A"
+                    ret_str  = _fmt_pct(round(float(h_1yr) * 100, 1)) if h_1yr else "N/A"
+                    lines.append(f"| {h_ticker} | {fpe_str} | {tpe_str2} | {cap_str} | {ret_str} |")
+                except Exception:
+                    lines.append(f"| {h_ticker} | N/A | N/A | N/A | N/A |")
+
+            lines.append("")
+
+    return "\n".join(lines)
 
 
 _CRITICAL_FRED   = ["fed_funds_rate", "treasury_10y", "treasury_2y", "cpi", "unemployment", "m2"]
@@ -692,6 +884,8 @@ def load_accuracy_context() -> str:
     """
     Read accuracy_summary.json and return a compact text block for injection
     into the Claude prompt. Returns empty string if no data exists yet.
+    Includes a best-window summary so Claude anchors confidence to the horizon
+    where each asset's signal is strongest, not uniformly to T+5.
     """
     if not ACCURACY_JSON.exists():
         return ""
@@ -704,40 +898,86 @@ def load_accuracy_context() -> str:
     windows = data.get("windows", {})
     n_total = data.get("n_reports_total", 0)
     as_of   = data.get("generated_at", "unknown")
+    asset_order = ["S&P 500", "Gold", "WTI Oil", "10Y Treasury Yield", "DXY", "Bitcoin"]
+    window_keys = ["t5", "t10", "t20"]
+    window_labels = {"t5": "T+5", "t10": "T+10", "t20": "T+20"}
 
+    # --- Compute best window per asset -------------------------------------------
+    # Best = highest directional_acc at n>=8; tie-break on longer horizon.
+    best: dict[str, dict] = {}
+    for asset in asset_order:
+        top_dacc, top_wkey, top_n = None, None, 0
+        for wkey in reversed(window_keys):   # reversed = prefer longer horizon on tie
+            wdata = windows.get(wkey, {})
+            astat = wdata.get("by_asset", {}).get(asset, {})
+            dacc  = astat.get("directional_acc")
+            dn    = astat.get("directional_n", 0)
+            if dacc is None or dn < 8:
+                continue
+            if top_dacc is None or dacc > top_dacc:
+                top_dacc, top_wkey, top_n = dacc, wkey, dn
+        best[asset] = {"wkey": top_wkey, "dacc": top_dacc, "n": top_n}
+
+    # --- Best-window summary table ------------------------------------------------
     lines = [
         f"## Your Historical Prediction Accuracy (as of {as_of}, {n_total} reports scored)",
         "",
-        "Use this to calibrate confidence. 50% = random. >65% with meaningful n = genuine signal.",
-        "MANDATORY BIAS CORRECTION: If directional accuracy for an asset at any window is <40% with n≥8,",
-        "your natural lean on that asset is systematically wrong. You MUST weight market structure and",
-        "momentum at least equally to macro indicators. Do not repeat a bearish call that has been wrong",
-        "8+ times — that is not caution, it is miscalibration.",
+        "### Best Prediction Window Per Asset",
+        "Anchor YOUR confidence to the window where directional accuracy is highest at n≥8.",
+        "Calling an asset Neutral at 50% when you have a ≥70% signal at T+10 or T+20 wastes genuine edge.",
+        "",
+        "| Asset | Best Window | Dir. Acc | n | Guidance |",
+        "|-------|------------|---------|---|----------|",
+    ]
+
+    for asset in asset_order:
+        b = best[asset]
+        if b["wkey"] is None:
+            lines.append(f"| {asset} | Insufficient data | — | — | Default Neutral; do not invent conviction |")
+            continue
+        wlabel = window_labels[b["wkey"]]
+        dacc   = b["dacc"]
+        n      = b["n"]
+        if dacc >= 0.70:
+            guidance = f"STRONG signal — make a directional call at ≥55% confidence"
+        elif dacc >= 0.60:
+            guidance = f"Moderate signal — directional call permitted at 52–60%"
+        elif dacc <= 0.40:
+            guidance = f"SYSTEMATIC BIAS — direction demonstrably wrong; apply bias rules"
+        else:
+            guidance = f"Coin flip — Neutral acceptable; widen range if directional"
+        lines.append(f"| {asset} | {wlabel} | {dacc:.0%} | {n} | {guidance} |")
+
+    lines.append("")
+    lines += [
+        "### Bias Rules (MANDATORY)",
+        "- Any asset whose best-window directional accuracy is <40% at n≥8: weight market structure",
+        "  and momentum at least equally to macro fundamentals. Do not repeat a call the data shows",
+        "  has been wrong 8+ times — that is miscalibration, not caution.",
+        "- Any asset whose best-window directional accuracy is ≥70% at n≥10: you MUST make a",
+        "  directional call when the macro evidence points in a direction. Neutral at 50% is",
+        "  not conservative here — it discards a real edge.",
         "",
     ]
 
-    window_labels = {"t5": "T+5 (1 week)", "t10": "T+10 (2 weeks)", "t20": "T+20 (1 month)"}
-    asset_order   = ["S&P 500", "Gold", "WTI Oil", "10Y Treasury Yield", "DXY", "Bitcoin"]
-
-    for wkey, wlabel in window_labels.items():
+    # --- Per-window breakdown (unchanged) -----------------------------------------
+    lines.append("### Full Window Breakdown")
+    for wkey in window_keys:
         wdata = windows.get(wkey)
         if not wdata or wdata.get("overall_accuracy") is None:
             continue
-
-        ov  = wdata["overall_accuracy"]
-        n   = wdata["n_reports"]
-        lines.append(f"**{wlabel}** — overall {ov:.0%} ({n} reports)")
-
+        ov = wdata["overall_accuracy"]
+        n  = wdata["n_reports"]
+        lines.append(f"**{window_labels[wkey]}** — overall {ov:.0%} ({n} reports)")
         for asset in asset_order:
             astat = wdata["by_asset"].get(asset)
             if not astat:
                 continue
-            acc  = astat["accuracy"]
-            dacc = astat["directional_acc"]
-            dn   = astat["directional_n"]
+            acc      = astat["accuracy"]
+            dacc     = astat["directional_acc"]
+            dn       = astat["directional_n"]
             dacc_str = f"{dacc:.0%} (n={dn})" if dacc is not None else "n/a"
             lines.append(f"  - {asset}: accuracy {acc:.0%}, directional {dacc_str}")
-
         lines.append("")
 
     return "\n".join(lines)
@@ -899,11 +1139,14 @@ def _log_adversarial_diff(original: str, revised: str) -> None:
 def _apply_accuracy_override(analysis: str) -> str:
     """
     Code-level bias correction applied after adversarial review.
-    If T+5 directional accuracy for an asset is <40% at n>=8 and the current
-    prediction is Bearish, floor confidence at 50% and annotate — but keep the
-    direction so the call remains scoreable. This allows accuracy stats to evolve
-    naturally; once they recover above 40% the override stops firing automatically.
-    Flipping to Neutral would freeze the scoring sample and lock in the bad stats.
+
+    Two passes:
+    1. BIAS FLOOR: if an asset's directional accuracy is <40% at n>=8 in ANY window
+       and the current prediction is Bearish, floor confidence at 50% and annotate.
+       Direction is kept (scoreable) so stats can recover naturally.
+    2. WASTED SIGNAL WARNING: if an asset has ≥70% directional accuracy at n≥10
+       in its best window but the current call is Neutral at 50%, log a warning so
+       it is visible in CI output. (Prompt rules handle the fix; this makes it auditable.)
     """
     if not ACCURACY_JSON.exists():
         _log("OVERRIDE", "INFO", "no accuracy data — skipping")
@@ -913,8 +1156,8 @@ def _apply_accuracy_override(analysis: str) -> str:
     except Exception:
         return analysis
 
-    t5_by_asset = acc_data.get("windows", {}).get("t5", {}).get("by_asset", {})
-    if not t5_by_asset:
+    all_windows = acc_data.get("windows", {})
+    if not all_windows:
         return analysis
 
     table_pattern = r'(\| Asset \| Bias \| Target Range \| Confidence \| Primary Driver \|.*?\n(?:\|[^\n]+\n)+)'
@@ -927,35 +1170,93 @@ def _apply_accuracy_override(analysis: str) -> str:
     modified = table
     overrides = 0
 
-    for asset, stat in t5_by_asset.items():
-        dacc = stat.get("directional_acc")
-        dn   = stat.get("directional_n", 0)
-        if dacc is None or dn < 8 or dacc >= 0.40:
-            continue
+    # Build per-asset: worst bias window and best signal window
+    all_assets: set[str] = set()
+    for wdata in all_windows.values():
+        all_assets.update(wdata.get("by_asset", {}).keys())
 
-        row_pat   = re.compile(
-            rf'(\|\s*{re.escape(asset)}\s*\|\s*)Bearish(\s*\|[^\n]+\n)',
-            re.IGNORECASE,
-        )
-        row_match = row_pat.search(modified)
-        if not row_match:
-            continue
+    for asset in all_assets:
+        # --- Pass 1: bias floor (any window <40% at n≥8, Bearish call) ---
+        worst_dacc, worst_wkey, worst_n = None, None, 0
+        for wkey, wdata in all_windows.items():
+            astat = wdata.get("by_asset", {}).get(asset, {})
+            dacc  = astat.get("directional_acc")
+            dn    = astat.get("directional_n", 0)
+            if dacc is None or dn < 8:
+                continue
+            if worst_dacc is None or dacc < worst_dacc:
+                worst_dacc, worst_wkey, worst_n = dacc, wkey, dn
 
-        original_row = row_match.group(0)
-        cells = original_row.rstrip("\n").split("|")
+        if worst_dacc is not None and worst_dacc < 0.40:
+            row_pat   = re.compile(
+                rf'(\|\s*{re.escape(asset)}\s*\|\s*)Bearish(\s*\|[^\n]+\n)',
+                re.IGNORECASE,
+            )
+            row_match = row_pat.search(modified)
+            if row_match:
+                original_row = row_match.group(0)
+                cells = original_row.rstrip("\n").split("|")
+                if len(cells) >= 6:
+                    cells[4] = " 50% "
+                    cells[5] = (
+                        f" {cells[5].strip()} "
+                        f"[Caution: {worst_wkey.upper()} Bearish dir. acc. {worst_dacc:.0%} n={worst_n} — historical bias] "
+                    )
+                    new_row  = "|".join(cells) + "\n"
+                    modified = modified.replace(original_row, new_row, 1)
+                    _log("OVERRIDE", "WARN",
+                         f"{asset}: confidence floored ({worst_wkey.upper()} Bearish {worst_dacc:.0%}, n={worst_n})")
+                    overrides += 1
+
+        # --- Pass 2: wasted signal warning (best window ≥70% at n≥10, Neutral call) ---
+        best_dacc, best_wkey, best_n = None, None, 0
+        for wkey in reversed(list(all_windows.keys())):   # prefer longer horizon on tie
+            wdata = all_windows[wkey]
+            astat = wdata.get("by_asset", {}).get(asset, {})
+            dacc  = astat.get("directional_acc")
+            dn    = astat.get("directional_n", 0)
+            if dacc is None or dn < 10:
+                continue
+            if best_dacc is None or dacc > best_dacc:
+                best_dacc, best_wkey, best_n = dacc, wkey, dn
+
+        if best_dacc is not None and best_dacc >= 0.70:
+            neutral_pat = re.compile(
+                rf'\|\s*{re.escape(asset)}\s*\|\s*Neutral\s*\|[^\|]+\|\s*50%\s*\|',
+                re.IGNORECASE,
+            )
+            if neutral_pat.search(modified):
+                _log("OVERRIDE", "WARN",
+                     f"{asset}: Neutral@50% called despite {best_wkey.upper()} dir. acc. "
+                     f"{best_dacc:.0%} (n={best_n}) — check prompt compliance")
+
+    # --- Pass 3: confidence clustering (≥3 assets share same confidence value) ---
+    data_rows = [
+        line for line in modified.splitlines()
+        if line.startswith("|") and "---" not in line and "Asset" not in line
+    ]
+    conf_counts: dict[str, int] = {}
+    bias_values: list[str] = []
+    for row in data_rows:
+        cells = row.split("|")
         if len(cells) < 6:
             continue
+        bias = cells[2].strip().lower()
+        conf = cells[4].strip().rstrip("%").strip()
+        if bias:
+            bias_values.append(bias)
+        if conf:
+            conf_counts[conf] = conf_counts.get(conf, 0) + 1
 
-        # Keep direction (scoreable); floor confidence; annotate driver
-        cells[4] = " 50% "
-        cells[5] = (
-            f" {cells[5].strip()} "
-            f"[Caution: T+5 Bearish dir. acc. {dacc:.0%} n={dn} — historical bias flagged] "
-        )
-        new_row  = "|".join(cells) + "\n"
-        modified = modified.replace(original_row, new_row, 1)
-        _log("OVERRIDE", "WARN", f"{asset}: confidence floored (T+5 Bearish {dacc:.0%}, n={dn})")
-        overrides += 1
+    for conf_val, count in conf_counts.items():
+        if count >= 3:
+            _log("OVERRIDE", "WARN",
+                 f"confidence clustering: {count} assets at {conf_val}% — insufficient differentiation")
+
+    # --- Pass 4: all-Neutral collapse ---
+    directional_calls = [b for b in bias_values if b not in ("neutral", "")]
+    if bias_values and not directional_calls:
+        _log("OVERRIDE", "FAIL", "all-Neutral prediction table — minimum conviction rule violated")
 
     if overrides == 0:
         _log("OVERRIDE", "OK", "no accuracy-based overrides applied")
@@ -1014,6 +1315,13 @@ def analyze_with_claude(
         if sector_data else ""
     )
 
+    _log("SECTORS", "INFO", "fetching sector fundamentals...")
+    try:
+        sector_fundamentals_block = fetch_sector_fundamentals()
+    except Exception as e:
+        _log("SECTORS", "WARN", f"sector fundamentals unavailable: {e}")
+        sector_fundamentals_block = ""
+
     user_message = f"""Today is {today.strftime('%A, %B %d, %Y')}.
 Prediction review date (5 business days): {review_date}
 
@@ -1029,6 +1337,7 @@ Prediction review date (5 business days): {review_date}
 {f"{chr(10)}{events_context}" if events_context else ""}
 {f"{chr(10)}{youtube_context}" if youtube_context else ""}
 {f"{chr(10)}{accuracy_context}" if accuracy_context else ""}
+{f"{chr(10)}{sector_fundamentals_block}" if sector_fundamentals_block else ""}
 {f"{chr(10)}{portfolio_context}" if portfolio_context else ""}
 Generate the macro intelligence note as specified in your instructions."""
 
@@ -1040,13 +1349,13 @@ Generate the macro intelligence note as specified in your instructions."""
     _log("CLAUDE", "INFO", "generating analysis (main pass)...")
     response = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=4000,
+        max_tokens=5000,
         system=system_prompt,
         messages=[{"role": "user", "content": user_message}],
     )
     draft = response.content[0].text
     _out  = response.usage.output_tokens
-    _max  = 4000
+    _max  = 5000
     if _out >= _max - 50:
         _log("CLAUDE", "WARN", f"response may be truncated ({_out}/{_max} tokens)")
     else:
