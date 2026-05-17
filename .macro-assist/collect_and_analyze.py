@@ -7,13 +7,16 @@ companion note into the Obsidian vault (Journal/YYYY/MM-Month/).
 Expects env vars: FRED_API_KEY, ANTHROPIC_API_KEY
 """
 
+import io
 import json
 import os
 import re
 import sys
 import time
+import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Optional
 
 import anthropic
 import pandas as pd
@@ -370,24 +373,23 @@ _CRITICAL_MARKET = ["sp500", "vix", "gold"]
 
 
 def validate_data(fred_data: dict, market_data: dict) -> None:
-    """Log warnings for missing critical series or high staleness."""
+    """Abort on missing critical series; log OK otherwise."""
     missing_f = [k for k in _CRITICAL_FRED   if k not in fred_data]
     missing_m = [k for k in _CRITICAL_MARKET if k not in market_data]
-    if missing_f:
-        _log("VALIDATE", "FAIL", f"critical FRED series missing: {', '.join(missing_f)}")
-    if missing_m:
-        _log("VALIDATE", "FAIL", f"critical market data missing: {', '.join(missing_m)}")
-    if not missing_f and not missing_m:
-        _log("VALIDATE", "OK", "core data integrity check passed")
+    if missing_f or missing_m:
+        if missing_f:
+            _log("VALIDATE", "FAIL", f"critical FRED series missing: {', '.join(missing_f)}")
+        if missing_m:
+            _log("VALIDATE", "FAIL", f"critical market data missing: {', '.join(missing_m)}")
+        sys.exit("Aborting — critical data unavailable.")
+    _log("VALIDATE", "OK", "core data integrity check passed")
 
 
 # ---------------------------------------------------------------------------
 # COT positioning data (Phase 3 — Nasdaq Data Link / CFTC)
 # ---------------------------------------------------------------------------
 
-# CFTC commodity codes for Nasdaq Data Link CFTC dataset
-# Source: https://data.nasdaq.com/data/CFTC
-# CFTC futures codes used to filter the public COT CSV
+# CFTC futures-only codes used to filter the public annual COT CSV
 # Source: https://www.cftc.gov/dea/futures/deacmesf.htm (no API key required)
 COT_SERIES = {
     "WTI Oil": "067651",   # Light Sweet Crude Oil (CL), NYMEX
@@ -407,12 +409,11 @@ def fetch_cot_data() -> str:
     today = datetime.now(timezone.utc)
     today_date = today.date()
 
-    def _fetch_year(year: int) -> pd.DataFrame | None:
+    def _fetch_year(year: int) -> Optional[pd.DataFrame]:
         url = f"https://www.cftc.gov/files/dea/history/fut_fin_xls_{year}.zip"
         try:
             resp = requests.get(url, timeout=30)
             resp.raise_for_status()
-            import io, zipfile
             with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
                 csv_name = next(n for n in zf.namelist() if n.endswith(".csv") or n.endswith(".xls"))
                 with zf.open(csv_name) as f:
@@ -453,7 +454,7 @@ def fetch_cot_data() -> str:
     _cot_ok = 0
 
     for label, code in COT_SERIES.items():
-        subset = df[df[code_col].astype(str).str.startswith(code)].copy()
+        subset = df[df[code_col].astype(str).str.strip() == code].copy()
         if subset.empty:
             _log("COT", "WARN", f"no rows found for {label} (code {code})")
             rows.append(f"| {label} | n/a | n/a | code not found | n/a |")
@@ -1044,7 +1045,12 @@ Generate the macro intelligence note as specified in your instructions."""
         messages=[{"role": "user", "content": user_message}],
     )
     draft = response.content[0].text
-    _log("CLAUDE", "OK", f"analysis complete ({response.usage.output_tokens} tokens out)")
+    _out  = response.usage.output_tokens
+    _max  = 4000
+    if _out >= _max - 50:
+        _log("CLAUDE", "WARN", f"response may be truncated ({_out}/{_max} tokens)")
+    else:
+        _log("CLAUDE", "OK", f"analysis complete ({_out} tokens out)")
 
     _log("CLAUDE", "INFO", "running adversarial review...")
     reviewed = adversarial_review(client, draft)
