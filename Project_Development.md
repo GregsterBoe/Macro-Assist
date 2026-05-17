@@ -390,20 +390,6 @@ Compute WoW and MoM % change. Pass only the derived signal to Claude — e.g. `"
 
 ---
 
-### Suggested Execution Order
-
-| Priority | Phase | Effort | Prerequisite | Status |
-|----------|-------|--------|--------------|--------|
-| 1 | Phase 1 (FRED liquidity + jobless claims) | Low | None | ✅ Done |
-| 2 | Phase 2 (90d history + RSI/MA/Z-score) | Medium | None | ✅ Done |
-| 3 | Phase 4 (system prompt rules + accuracy override) | Low | Phases 1 & 2 deployed | ✅ Done |
-| 4 | Phase 3 (COT via CFTC direct) | Medium | None | ✅ Done — no API key required |
-| 5 | Phase 5 (DXY window-aware predictions) | Low | 30+ scored reports | ✅ Done |
-| 6 | Phase 6 (break Neutral collapse) | Low | Phase 5 | ✅ Done |
-| 7 | Phase 7 (Sector Opportunity Research) | High | Phase 6 + fundamentals data | ✅ Done (7d scoring deferred) |
-
----
-
 ### Phase 5 — Window-Aware Prediction Calibration *(Planned)*
 
 **Goal:** Stop wasting the DXY signal. After 30 scored reports, the accuracy data is clear:
@@ -492,3 +478,664 @@ Raise `max_tokens` from 4000 → 5000. The truncation-detection warning added in
 Extend `score_predictions.py` to score the 2–3 sector ETFs named each day as implicit directional calls at T+10 and T+20. This gives the section the same accountability as the predictions table and will surface whether the macro → sector mapping is actually predictive.
 
 **Key design principle:** every number cited in this section is fetched by Python and injected — Claude synthesises, it does not invent. This is the lesson from the SPX accuracy failure: macro narrative without grounded data produces confident noise.
+
+---
+
+## Quantitative Statistical Layer — Roadmap Extension (Phases 8–15)
+
+**Strategic context.** Phases 1–7 enriched the data Claude sees and disciplined how it interprets that data. The next stage adds a **structured statistical layer** that feeds Claude pre-computed probabilistic context: volatility forecasts, regime classifications, and historical conditional return distributions. The goal is **not** to replace Claude's narrative analysis — it's to anchor the model's predictions to calibrated statistical reality, in the same spirit as the Phase 2 technical indicators but at a higher abstraction level.
+
+**Compute footprint:** All math in Phases 8–15 is lightweight (HAR-RV is pandas operations; HMM training ~30s; conditional distributions are groupby + percentiles). It runs comfortably in GitHub Actions — **no local GPU or compute required**. Trained models and lookup tables are committed to the repo as small pickle/JSON files.
+
+**Validation philosophy:** at each phase, no module is considered working until it (a) passes synthetic-data round-trip tests, (b) beats a naive baseline in backtest, and (c) survives visual inspection against known historical periods.
+
+---
+
+### Phase 8 — Validation Infrastructure *(To Implement — prerequisite for all subsequent phases)*
+
+**Goal:** Build the backtest framework that lets every later phase be objectively validated. Without this, no module can be proven to work — it MUST be implemented before Phases 9–13.
+
+**New dependencies:** none (uses existing `fredapi`, `requests`, `pandas`, `pytest`).
+
+#### Phase 8.1 — Point-in-Time Data Layer
+
+**New file:** `.macro-assist/point_in_time.py`
+**New file:** `.macro-assist/tests/test_point_in_time.py`
+
+**Function to implement:**
+```python
+def historical_snapshot(snapshot_date: date) -> dict:
+    """
+    Returns same structure as fetch_fred_data() output, but using ALFRED vintage data.
+    ALFRED endpoint: https://api.stlouisfed.org/fred/series/observations
+        ?series_id=X&realtime_start=YYYY-MM-DD&realtime_end=YYYY-MM-DD&api_key=...
+    
+    For each FRED series in FRED_SERIES, query the vintage that was published as of snapshot_date.
+    yfinance market data: reuse existing fetch_market_data() — close prices don't revise materially.
+    
+    Returns dict with same keys as current fetch_fred_data() + a 'snapshot_date' meta field.
+    """
+```
+
+**Validation tests (in `test_point_in_time.py`):**
+- `test_no_future_leakage`: for 10 randomly sampled historical dates between 2020-01 and today, no returned series has a release_date > snapshot_date
+- `test_schema_matches_current`: returned dict has same keys and types as live `fetch_fred_data()`
+- `test_pre_alfred_raises`: calling with date < 1997 raises `ValueError` (most series lack ALFRED coverage before then)
+- `test_market_data_present`: market data is fetched for the snapshot date (use yfinance with end=snapshot_date+1)
+
+**Claude Code prompt:**
+> In `.macro-assist/`, add a new module `point_in_time.py`. Expose `historical_snapshot(snapshot_date: date) -> dict` that returns FRED data as it was knowable on `snapshot_date` using ALFRED (FRED's archival API at `https://api.stlouisfed.org/fred/series/observations`). For each series in the existing `FRED_SERIES` dict, set `realtime_start` and `realtime_end` to `snapshot_date.isoformat()` so the returned observations represent the data available on that date. Reuse the existing `fetch_market_data()` logic for yfinance market series, but constrain it to data ending at `snapshot_date`. Output shape must match the current `fetch_fred_data()` output plus a `snapshot_date` meta key. Add unit tests in `.macro-assist/tests/test_point_in_time.py` covering: (1) no future leakage on 10 random sampled dates, (2) schema parity with current `fetch_fred_data()`, (3) ValueError when called with a date before ALFRED coverage, (4) market data is correctly truncated to snapshot_date. Run tests with `pytest .macro-assist/tests/test_point_in_time.py -v`.
+
+---
+
+#### Phase 8.2 — Backtest Harness
+
+**New file:** `.macro-assist/backtest.py`
+**New file:** `.macro-assist/tests/test_backtest.py`
+
+**Function to implement:**
+```python
+def run_backtest(
+    start_date: date,
+    end_date: date,
+    strategy: Callable[[dict], dict],
+    output_dir: Path,
+    skip_weekends: bool = True,
+) -> dict:
+    """
+    Walk-forward simulator.
+    For each date d in [start_date, end_date]:
+        - Calls historical_snapshot(d) to get the data knowable on d
+        - Calls strategy(snapshot) which must return a predictions dict matching
+          the format that score_predictions.py expects
+        - Writes predictions to output_dir / f"{d.isoformat()}.json"
+    
+    Returns aggregate metadata: {dates_processed, errors, output_dir}.
+    """
+
+# Baseline strategies (also in backtest.py):
+def strategy_neutral(snapshot: dict) -> dict: ...
+def strategy_random_walk(snapshot: dict) -> dict: ...
+def strategy_existing_pipeline(snapshot: dict) -> dict: ...
+```
+
+**Validation tests:**
+- `test_neutral_strategy_scores_random`: running neutral strategy over 6 months and scoring with `score_predictions.py` should produce ~50% directional accuracy (within ±5pp)
+- `test_existing_pipeline_reproduces_history`: running existing pipeline as strategy over the past 30 scored days should reproduce `accuracy_summary.json` within ±2pp per asset
+
+**Claude Code prompt:**
+> In `.macro-assist/backtest.py`, implement `run_backtest(start_date, end_date, strategy, output_dir)` that walks day-by-day through the range, calls `historical_snapshot(d)` from `point_in_time.py`, then calls `strategy(snapshot)` and writes the prediction JSON to `output_dir`. The prediction dict format must match what `score_predictions.py` consumes (Bias / Target Range / Confidence / Primary Driver per asset). Include three baseline strategies in the same module: `strategy_neutral` (returns Neutral 50% for all assets), `strategy_random_walk` (predicts continuation of last 5d direction), and `strategy_existing_pipeline` (wraps the current `collect_and_analyze.main()` logic). Add tests verifying that neutral scores ~50% directional accuracy and that the existing-pipeline strategy reproduces current `accuracy_summary.json` numbers within ±2pp.
+
+---
+
+#### Phase 8.3 — Synthetic Data Generators
+
+**New file:** `.macro-assist/synthetic.py`
+**New file:** `.macro-assist/tests/test_synthetic.py`
+
+**Functions to implement:**
+```python
+def synthetic_garch(n: int, omega: float, alpha: float, beta: float, seed: int = 42) -> np.ndarray:
+    """GARCH(1,1) return series with known parameters."""
+
+def synthetic_regime_switching(
+    n: int,
+    transition_matrix: np.ndarray,  # shape (k, k), rows sum to 1
+    state_means: np.ndarray,        # shape (k,)
+    state_vols: np.ndarray,         # shape (k,)
+    seed: int = 42,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Returns (series, true_state_labels)."""
+
+def synthetic_conditional(
+    n: int,
+    state_fn: Callable[[int], int],     # maps t -> macro state
+    forward_means: dict[int, float],    # state -> mean forward return
+    forward_vols: dict[int, float],     # state -> vol of forward return
+    seed: int = 42,
+) -> pd.DataFrame:
+    """Returns DataFrame with columns: date, macro_state, forward_5d_return."""
+```
+
+**Validation tests:** round-trip — fit a GARCH/HMM/empirical-bucketing recovery procedure on synthetic output, verify recovered parameters match true parameters within statistical tolerance.
+
+**Claude Code prompt:**
+> Add `.macro-assist/synthetic.py` with three generators: (1) `synthetic_garch(n, omega, alpha, beta, seed)` producing a GARCH(1,1) return series; (2) `synthetic_regime_switching(n, transition_matrix, state_means, state_vols, seed)` producing a return series and a true state label series; (3) `synthetic_conditional(n, state_fn, forward_means, forward_vols, seed)` producing a DataFrame mapping macro state to forward returns. All use numpy + a seeded RNG for reproducibility. Tests in `.macro-assist/tests/test_synthetic.py` should verify: (a) GARCH series exhibits volatility clustering (autocorrelation of squared returns > 0.1 at lag 1), (b) regime-switching output state proportions match stationary distribution of the transition matrix within 5%, (c) conditional output respects forward_means within sampling tolerance.
+
+---
+
+### Phase 9 — Volatility Forecasting Layer *(To Implement — depends on Phase 8)*
+
+**Goal:** Predict 5/10/20-day realized volatility per asset and compute the Variance Risk Premium against VIX. Inject as one block of pre-computed quantitative context.
+
+**New dependencies:** `arch>=6.3.0` (add to `requirements.txt`).
+
+#### Phase 9.1 — HAR-RV Model
+
+**New file:** `.macro-assist/vol_forecast.py`
+**New file:** `.macro-assist/tests/test_vol_forecast.py`
+
+**Algorithm:** HAR-RV (Heterogeneous Autoregressive Realized Variance, Corsi 2009) is chosen over GARCH for three reasons: (a) simpler and more interpretable, (b) often outperforms GARCH on financial data per the literature, (c) easy to fit with plain pandas — no `arch` dependency needed for the core model (we still add `arch` for VRP utilities).
+
+The model: `RV_{t+1} = β₀ + β₁·RV_daily + β₂·RV_weekly + β₃·RV_monthly + ε`
+
+Where:
+- `RV_daily` = today's squared return
+- `RV_weekly` = mean of last 5 days' squared returns
+- `RV_monthly` = mean of last 22 days' squared returns
+
+**Function to implement:**
+```python
+def har_rv_forecast(returns: pd.Series, horizon: int = 5) -> dict:
+    """
+    Fits HAR-RV on `returns` (daily log returns) and forecasts `horizon`-day-ahead RV.
+    Returns:
+    {
+        'forecast_daily_vol': float,           # annualized %
+        'forecast_horizon_vol': float,         # annualized %, scaled to horizon
+        'percentile_60d': float,               # rank of forecast vs trailing 60d realized vol
+        'r_squared': float,                    # in-sample R²
+        'params': {'beta_0', 'beta_d', 'beta_w', 'beta_m'},
+    }
+    """
+```
+
+Apply to: sp500, nasdaq, gold, wti_oil, bitcoin (skip dxy and vix themselves).
+
+**Validation tests:**
+- `test_recover_garch_vol`: on synthetic_garch(2000, ...), out-of-sample RMSE on last 500 obs should beat naive ("yesterday's RV = today's RV") by ≥10%
+- `test_real_sp500_outperforms_naive`: fit on 2022-2024 SP500 returns, evaluate on 2025, RMSE should beat naive by ≥10%
+- `test_r_squared_in_range`: in-sample R² should be in [0.2, 0.7] for SP500 (RV is genuinely predictable in this range)
+
+**Claude Code prompt:**
+> Implement `.macro-assist/vol_forecast.py` with `har_rv_forecast(returns: pd.Series, horizon: int = 5)`. The model is HAR-RV: `RV_{t+1} = β₀ + β₁·RV_daily + β₂·RV_weekly + β₃·RV_monthly`. Compute RV components from squared daily returns (RV_daily = r²ₜ, RV_weekly = mean of last 5, RV_monthly = mean of last 22). Fit via OLS (statsmodels or sklearn). Return forecasted volatility annualized to %, the 60-day percentile of the forecast vs trailing realized vol, R², and fitted parameters. Add `.macro-assist/tests/test_vol_forecast.py` with three tests: (a) on synthetic GARCH(1,1) data with omega=0.00001, alpha=0.1, beta=0.85, HAR-RV out-of-sample RMSE on last 500 obs beats naive by ≥10%; (b) on real SP500 data 2022-2024 (fit) / 2025 (test), RMSE beats naive by ≥10%; (c) in-sample R² for SP500 falls in [0.2, 0.7]. Use the `synthetic_garch` generator from Phase 8.3.
+
+---
+
+#### Phase 9.2 — Variance Risk Premium
+
+**Extend:** `.macro-assist/vol_forecast.py`
+
+**Function to implement:**
+```python
+def variance_risk_premium(vix: float, harrv_forecast: dict, history: pd.DataFrame = None) -> dict:
+    """
+    Computes VRP = VIX - HAR-RV annualized forecast for SP500.
+    Returns:
+    {
+        'vrp': float,
+        'vrp_60d_percentile': float,
+        'interpretation': str,  # 'Compressed' / 'Normal' / 'Elevated'
+    }
+    """
+```
+
+**Validation tests:**
+- `test_vrp_positive_on_average`: on full historical sample, mean VRP > 0 (well-documented stylized fact)
+- `test_vrp_compressed_in_crisis`: VRP percentile during March 2020 and October 2022 should be < 30 (crisis compression)
+
+**Claude Code prompt:**
+> Extend `.macro-assist/vol_forecast.py` with `variance_risk_premium(vix, harrv_forecast, history=None)`. VRP = VIX − annualized HAR-RV forecast. Compute the 60-day percentile of current VRP vs its trailing distribution (history dataframe must include columns 'date', 'vix', 'realized_vol'). Interpretation thresholds: percentile ≤25 = 'Compressed', ≥75 = 'Elevated', else 'Normal'. Tests: (a) mean VRP positive on full historical 2020-2025 sample; (b) VRP percentile in March 2020 and October 2022 < 30.
+
+---
+
+### Phase 10 — Regime Classification Layer *(To Implement — depends on Phase 8)*
+
+**Goal:** Classify the current macro regime (4 states) using a Hidden Markov Model on normalized macro features. Persist the trained model in the repo, refit weekly.
+
+**New dependencies:** `hmmlearn>=0.3.0` (add to `requirements.txt`).
+
+#### Phase 10.1 — Feature Engineering
+
+**New file:** `.macro-assist/regime_features.py`
+**New file:** `.macro-assist/tests/test_regime_features.py`
+
+**Function to implement:**
+```python
+def regime_features(snapshot: dict) -> np.ndarray:
+    """
+    Extracts a 4-feature vector from a FRED+market snapshot:
+        [0] nfci_percentile      (normalized 0-1 over historical range)
+        [1] yield_curve_slope    (10Y - 2Y, in bps, raw)
+        [2] hy_spread_zscore     (vs 5yr mean from snapshot)
+        [3] realized_vol_pct     (60d annualized realized SP500 vol percentile)
+    Returns numpy array shape (4,).
+    """
+```
+
+**Validation tests:**
+- `test_no_nan_on_recent_snapshots`: for 5 historical snapshots across 2024-2025, returned vector has no NaN
+- `test_feature_distributions`: across 1000 historical snapshots, each feature's mean ∈ [-1, 1] and std ∈ [0.5, 2.0] (sanity check for normalization)
+
+**Claude Code prompt:**
+> In `.macro-assist/regime_features.py`, implement `regime_features(snapshot: dict) -> np.ndarray` returning a 4-feature vector: NFCI percentile (0-1 vs historical range), yield curve slope in bps (10Y minus 2Y, raw), HY spread Z-score (current vs 5yr mean from snapshot), 60-day realized SP500 vol percentile. All features should be roughly normalized to support HMM fitting. Add tests verifying no NaN on 5 historical snapshots and reasonable distributions (means/stds) across 1000 historical days.
+
+---
+
+#### Phase 10.2 — HMM Fitting and Inference
+
+**New file:** `.macro-assist/regime.py`
+**New file:** `.macro-assist/tests/test_regime.py`
+**New artifact:** `.macro-assist/data/regime_model.pkl` (committed; refit weekly)
+
+**Functions to implement:**
+```python
+def fit_regime_model(
+    historical_features: np.ndarray,    # shape (n_days, 4)
+    n_states: int = 4,
+    random_state: int = 42,
+) -> GaussianHMM:
+    """Fits hmmlearn.GaussianHMM with full covariance. Returns fitted model."""
+
+def predict_regime(model: GaussianHMM, current_features: np.ndarray) -> dict:
+    """
+    Returns:
+    {
+        'state': int,
+        'state_label': str,            # human-readable
+        'posterior': list[float],      # length n_states
+        'transition_probs_from_current': dict[int, float],
+    }
+    """
+
+def label_states(model: GaussianHMM) -> dict[int, str]:
+    """
+    Assigns labels by inspecting state means:
+    - Lowest realized_vol_pct + lowest NFCI percentile -> 'Risk-On Low-Vol'
+    - Highest realized_vol_pct + highest NFCI percentile -> 'Risk-Off High-Vol'
+    - etc. for the remaining 2 states.
+    """
+```
+
+**Validation tests:**
+- `test_recover_synthetic_regimes`: on `synthetic_regime_switching(2000, known_transition_matrix, ...)`, fitted HMM's transition matrix should match the true matrix within ±0.1 per cell
+- `test_historical_alignment`: print regime labels by month for 2020-present; manually verify that March-May 2020 is labeled 'Risk-Off High-Vol' and most of 2021 is 'Risk-On Low-Vol' (visual / assert-list test)
+- `test_regime_persistence`: median dwell time across historical data should be 10-60 trading days
+
+**Claude Code prompt:**
+> Implement `.macro-assist/regime.py` with three functions: (1) `fit_regime_model(historical_features, n_states=4)` using `hmmlearn.GaussianHMM` with full covariance — fit and pickle to `.macro-assist/data/regime_model.pkl`; (2) `predict_regime(model, current_features)` returning state, label, posterior probability vector, and transition probabilities from the current state; (3) `label_states(model)` assigning 'Risk-On Low-Vol', 'Risk-On High-Vol', 'Risk-Off Low-Vol', 'Risk-Off High-Vol' to the 4 states based on inspection of state means (lower realized_vol_pct/NFCI = Risk-On; higher = Risk-Off; the second axis is vol). Add tests: (a) on `synthetic_regime_switching` with a known 4-state transition matrix, recovered matrix should match within ±0.1 per cell; (b) historical regime labels should mark March-May 2020 as 'Risk-Off High-Vol'; (c) median regime dwell time on 2020-2025 historical data is 10-60 trading days.
+
+---
+
+#### Phase 10.3 — Anti-Flicker Layer
+
+**Extend:** `.macro-assist/regime.py`
+
+**Function to implement:**
+```python
+def stable_regime_label(
+    posteriors_history: list[np.ndarray],
+    min_posterior: float = 0.7,
+    min_dwell: int = 3,
+) -> int:
+    """
+    Returns the regime label only if:
+    - the top-posterior state has posterior > min_posterior
+    - that state has been the top-posterior state for >= min_dwell consecutive days
+    Otherwise returns the last stable label.
+    Used to prevent daily label flipping that would confuse the LLM.
+    """
+```
+
+**Validation tests:**
+- `test_switch_count_reasonable`: applied over 2020-2025, total regime switches should be 4-12 (not 50+)
+
+**Claude Code prompt:**
+> Extend `.macro-assist/regime.py` with `stable_regime_label(posteriors_history, min_posterior=0.7, min_dwell=3)` that smooths raw HMM posterior labels by requiring both a confidence threshold and a minimum dwell time before relabeling. Test: applied over 2020-01 to today, total number of regime switches should fall in [4, 12].
+
+---
+
+### Phase 11 — Conditional Distribution Layer *(To Implement — depends on Phase 8)*
+
+**Goal:** Build empirical lookup tables of forward returns conditional on macro state. Given the current state, retrieve the historical distribution of 5/10/20-day returns per asset.
+
+**New dependencies:** none.
+
+#### Phase 11.1 — State Bucketing
+
+**New file:** `.macro-assist/conditional.py`
+**New file:** `.macro-assist/tests/test_conditional.py`
+
+**Functions to implement:**
+```python
+def assign_bucket(snapshot: dict) -> str:
+    """
+    Returns a bucket label like 'NFCI:high|YC:inverted|HY:wide'.
+    Uses:
+    - NFCI percentile tertile (low / mid / high)
+    - Yield curve sign (positive / inverted)
+    - HY spread tertile (tight / mid / wide)
+    Total possible buckets: 3 × 2 × 3 = 18.
+    """
+
+def build_bucket_index(historical_snapshots: list[tuple[date, dict]]) -> dict[str, list[date]]:
+    """Labels every historical date with its bucket; returns inverted index."""
+```
+
+**Validation tests:**
+- `test_bucket_occupancy`: on 5 years of historical data, most buckets should have n ≥ 20; sparse buckets should be flagged for collapse to parent (e.g. drop the HY tertile dimension)
+
+**Claude Code prompt:**
+> Implement `.macro-assist/conditional.py` with `assign_bucket(snapshot)` returning a string like `'NFCI:high|YC:inverted|HY:wide'` using NFCI percentile tertiles, yield curve sign, and HY spread tertiles. Tertile cuts computed from full historical 2010-present sample (commit the cut points as constants in the module). Also implement `build_bucket_index(historical_snapshots)` returning dict mapping bucket -> list of dates. Test that across 2020-2025 daily snapshots, every bucket has n ≥ 20 OR is flagged in a `SPARSE_BUCKETS` constant for parent-bucket collapse.
+
+---
+
+#### Phase 11.2 — Lookup Engine
+
+**Extend:** `.macro-assist/conditional.py`
+**New artifact:** `.macro-assist/data/conditional_distributions.json` (committed; refit weekly)
+
+**Functions to implement:**
+```python
+def build_distribution_table(
+    historical_snapshots: list[tuple[date, dict]],
+    forward_returns: dict[str, dict[date, dict[int, float]]],
+    min_n: int = 10,
+) -> dict:
+    """
+    Schema:
+    {
+        bucket_label: {
+            asset: {
+                horizon_int: {
+                    'p10': float, 'p25': float, 'p50': float,
+                    'p75': float, 'p90': float, 'n': int
+                }
+            }
+        }
+    }
+    Buckets with n < min_n collapse to parent (drop the most granular dimension).
+    Persist as JSON.
+    """
+
+def lookup_distribution(
+    current_bucket: str,
+    asset: str,
+    horizon: int,
+    table: dict,
+) -> dict | None:
+    """Returns the distribution dict or None if no data even after parent fallback."""
+```
+
+**Validation tests:**
+- `test_distinct_distributions`: median forward 5d SP500 return in `'NFCI:high|YC:inverted|HY:wide'` should differ from `'NFCI:low|YC:positive|HY:tight'` by ≥0.5pp
+- `test_full_coverage`: every date in the last 12 months should map to a bucket with n ≥ 10
+
+**Claude Code prompt:**
+> Extend `.macro-assist/conditional.py` with `build_distribution_table(historical_snapshots, forward_returns, min_n=10)` producing a nested dict keyed by bucket → asset → horizon → percentile stats. Use pandas groupby on bucket labels and compute p10/p25/p50/p75/p90 + n. Buckets below `min_n` collapse to parent (drop HY tertile, then drop yield-curve sign, then drop NFCI tertile). Persist to `.macro-assist/data/conditional_distributions.json`. Implement `lookup_distribution(current_bucket, asset, horizon, table)` returning the distribution or None after parent fallback. Test: (a) `'NFCI:high|YC:inverted|HY:wide'` shows median forward 5d SP500 return ≥0.5pp lower than `'NFCI:low|YC:positive|HY:tight'`; (b) every date in the last 12 months maps to a bucket with n ≥ 10 after fallback.
+
+---
+
+#### Phase 11.3 — Lookahead-Safe Computation
+
+**Extend:** `.macro-assist/conditional.py`
+
+The critical invariant: when computing the distribution lookup for date D, the table can ONLY include rows where the forward-return observation date (the date at which the realized forward return is known) is ≤ D − max_horizon. Otherwise the backtest leaks future information.
+
+**Function to implement:**
+```python
+def build_distribution_table_for_backtest(
+    historical_snapshots: list[tuple[date, dict]],
+    forward_returns: dict[str, dict[date, dict[int, float]]],
+    as_of_date: date,
+    max_horizon: int = 20,
+    min_n: int = 10,
+) -> dict:
+    """
+    Same as build_distribution_table but only uses observations where 
+    snapshot_date + max_horizon <= as_of_date.
+    Used inside the backtest harness.
+    """
+```
+
+**Validation tests:**
+- `test_subset_monotone`: for two backtest dates D1 < D2, the bucket sample size at D1 is ≤ at D2 (table grows monotonically)
+- `test_no_future_leak`: for any backtest date D, no row used in the lookup has snapshot_date + 20 days > D
+
+**Claude Code prompt:**
+> Extend `.macro-assist/conditional.py` with `build_distribution_table_for_backtest(historical_snapshots, forward_returns, as_of_date, max_horizon=20, min_n=10)` that filters historical observations so only those where the forward return was known by `as_of_date` are included (snapshot_date + max_horizon ≤ as_of_date). Tests: (a) for D1 < D2, the n values per bucket at D1 ≤ those at D2; (b) no observation used at as_of_date D has snapshot_date + max_horizon > D.
+
+---
+
+### Phase 12 — Quantitative Context Integration *(To Implement — depends on 9, 10, 11)*
+
+**Goal:** Combine vol forecasts, regime classifications, and conditional distributions into a single markdown block injected into the Claude prompt. Update the system prompt to instruct Claude on how to use this new context.
+
+#### Phase 12.1 — Context Assembly
+
+**New file:** `.macro-assist/quant_context.py`
+**Modify:** `.macro-assist/collect_and_analyze.py`
+
+**Function to implement:**
+```python
+def build_quant_context(snapshot: dict, snapshot_date: date) -> str:
+    """
+    Calls vol_forecast (Phase 9), regime (Phase 10), and conditional (Phase 11) modules.
+    Returns a markdown block formatted like existing ## Sector Fundamentals.
+    """
+```
+
+**Output format (target):**
+```markdown
+## Quantitative Context
+
+**Volatility (HAR-RV, 5d ahead):**
+- SP500: 0.78% daily (60d pct 35); VIX implies 0.88% → VRP 0.10 (60d pct 60, Normal)
+- Gold: 0.55% daily (60d pct 50)
+- WTI Oil: 1.42% daily (60d pct 78, Elevated)
+- Bitcoin: 2.31% daily (60d pct 45)
+
+**Regime (HMM, 4-state):**
+Current: Risk-Off High-Vol (posterior 0.82, dwell 14 trading days)
+Transition probabilities: stay 0.91 | Risk-On Low-Vol 0.04 | Risk-Off Low-Vol 0.05
+
+**Conditional return distribution (bucket: NFCI:high|YC:inverted|HY:wide, n=47):**
+| Asset | Horizon | P25 | Median | P75 |
+|-------|---------|-----|--------|-----|
+| SP500 | 5d | -1.2% | +0.1% | +1.4% |
+| SP500 | 20d | -3.8% | -0.6% | +3.1% |
+| Gold | 5d | -0.4% | +0.6% | +1.7% |
+...
+```
+
+**Integration in `collect_and_analyze.py`:** add `quant_context = build_quant_context(snapshot, today)` after data fetch, before Claude call. Prepend to the user message just after the Notable Moves block.
+
+**Validation:** add unit test that runs `build_quant_context` on a synthetic snapshot and asserts the output contains all three sub-sections (Volatility / Regime / Conditional).
+
+**Claude Code prompt:**
+> Implement `.macro-assist/quant_context.py` with `build_quant_context(snapshot, snapshot_date)` that calls `har_rv_forecast` + `variance_risk_premium` from `vol_forecast.py`, `predict_regime` + `stable_regime_label` from `regime.py`, and `assign_bucket` + `lookup_distribution` from `conditional.py`, then formats the combined output as a markdown block titled `## Quantitative Context` with three subsections (Volatility / Regime / Conditional return distribution). Match the formatting style of the existing `## Sector Fundamentals` block in the prompt. Modify `.macro-assist/collect_and_analyze.py` to call `build_quant_context` after data fetching and prepend its output to the user message right after the Notable Moves block. Add a unit test running `build_quant_context` on a synthetic snapshot and asserting all three subsections appear.
+
+---
+
+#### Phase 12.2 — System Prompt Updates
+
+**Modify:** `.macro-assist/prompts/system_prompt.md`
+
+**New rules to add (after existing rules, before predictions section):**
+
+```
+## Quantitative Context Block
+
+A `## Quantitative Context` block is injected before your analysis sections. It contains:
+- HAR-RV volatility forecasts per asset, with the Variance Risk Premium (VRP) for SP500
+- Current HMM regime label, posterior probability, dwell time, and transition probabilities
+- Historical forward return distribution conditional on the current macro state bucket
+
+Rules for use:
+1. Anchor confidence in the 5-Day Predictions table to the conditional distribution.
+   Bullish/Bearish calls should sit within the 10-90 percentile range of the conditional
+   distribution at the matching horizon. Calls outside this range MUST justify the
+   deviation explicitly in the Primary Driver cell.
+
+2. Regime persistence informs confidence: if the current regime has high posterior
+   (>0.8) and long dwell (>10 trading days), regime-consistent calls warrant up to
+   +5pp confidence vs the base accuracy-driven floor.
+
+3. Variance Risk Premium informs equity risk character: VRP 'Compressed' means options
+   markets are pricing less risk than the model expects — interpret as latent
+   fragility in the Equities section. VRP 'Elevated' means options are richly priced
+   relative to model expectations — interpret as fear that may unwind.
+
+4. Conditional distribution sample size matters: if `n < 20` for the current bucket,
+   note the small sample explicitly in any prediction that references it.
+```
+
+**Claude Code prompt:**
+> In `.macro-assist/prompts/system_prompt.md`, add a new top-level section `## Quantitative Context Block` (place it after the existing Phase-4 rules block, before the predictions section). The section describes the new injected block from Phase 12.1 and gives four rules: (1) predictions should sit within the 10-90 percentile of the conditional distribution unless explicitly justified; (2) regime persistence informs confidence; (3) VRP informs equity risk character; (4) small-sample buckets (n<20) must be noted explicitly. Use the exact wording from Phase 12.2 of `Project_Development.md`.
+
+---
+
+### Phase 13 — End-to-End Validation *(To Implement — depends on 12)*
+
+**Goal:** Validate that the new quant context actually improves prediction accuracy before deploying to production.
+
+#### Phase 13.1 — Shadow Mode
+
+**Modify:** `.macro-assist/collect_and_analyze.py`
+**Modify:** `.github/workflows/macro_daily.yml`
+
+Add environment flag `MACRO_SHADOW=1`. When set:
+- Pipeline writes prediction JSON to `results/shadow/YYYY-MM-DD.json` instead of writing the markdown note to the vault
+- Quant context IS included
+- All other side effects (vault push, copy to results/) are suppressed
+
+Workflow change: add a second job to `macro_daily.yml` that runs after the main job with `MACRO_SHADOW=1` set in env. The shadow job uses the SAME data fetch but the SHADOW pipeline.
+
+**Validation:** after 4 weeks (≥20 trading days), score shadow vs production predictions side by side. Manually inspect 10 random divergence days; divergences should be explicable in terms of the quant context block.
+
+**Claude Code prompt:**
+> Modify `.macro-assist/collect_and_analyze.py` to support `MACRO_SHADOW=1`: when set, skip the vault push and `results/` copy, instead write the prediction JSON to `results/shadow/YYYY-MM-DD.json` (gitignore this directory). Modify `.github/workflows/macro_daily.yml` to add a second job `shadow-pipeline` that runs after the main job, depends on its outputs being already pushed (`needs: generate-note`), checks out the same repos, and runs the same script with `MACRO_SHADOW=1` in env. Both jobs use the same FRED + Anthropic + Vault secrets.
+
+---
+
+#### Phase 13.2 — Historical Backtest
+
+**New file:** `.macro-assist/backtest_e2e.py`
+**New output:** `results/backtest/`
+
+End-to-end backtest script that:
+1. Iterates 2024-01-01 to today using `historical_snapshot()` from Phase 8.1
+2. For each date: builds quant context (new pipeline) AND skips quant context (old pipeline)
+3. Calls Claude in both modes (this DOES burn API tokens — expect $20-40 for full backtest)
+4. Saves both prediction JSONs to `results/backtest/{new,old}/YYYY-MM-DD.json`
+5. Scores both using existing `score_predictions.py` machinery
+6. Outputs comparison report to `results/backtest/comparison_report.md`
+
+**Validation criterion to deploy:** integrated system shows ≥3pp improvement in directional accuracy at n ≥ 30 calls per asset across at least 4 of 6 assets. If <3pp or fails on majority of assets: do NOT deploy; iterate.
+
+**Claude Code prompt:**
+> Implement `.macro-assist/backtest_e2e.py` running both the new pipeline (with quant context) and the old pipeline (without) over 2024-01-01 to yesterday. Use `historical_snapshot()` for data. Save prediction JSONs to `results/backtest/new/` and `results/backtest/old/`. After all dates run, score both directories using the same logic as `score_predictions.py` and write a comparison report to `results/backtest/comparison_report.md` showing per-asset per-window directional accuracy delta. Add a CLI flag `--dry-run` that uses cached/stubbed Claude responses for testing the harness without API spend.
+
+---
+
+#### Phase 13.3 — Ablation Study
+
+**Extend:** `.macro-assist/backtest_e2e.py`
+
+Run the backtest 4 additional times with each individual quant context subsection disabled:
+- Vol forecast only (regime + conditional disabled)
+- Regime only (vol + conditional disabled)
+- Conditional only (vol + regime disabled)
+- None (baseline = old pipeline)
+
+Produces per-module attribution: which subsection contributes how much to the total improvement?
+
+**Claude Code prompt:**
+> Extend `.macro-assist/backtest_e2e.py` with an ablation mode (`--ablate vol|regime|conditional|none`) that disables individual quant context subsections by passing flags through to `build_quant_context`. Run the four ablation backtests and write per-module attribution to `results/backtest/ablation_report.md`.
+
+---
+
+### Phase 14 — Production Hardening *(To Implement — depends on 13 passing)*
+
+**Goal:** Deploy the validated quant context to production, with weekly model refresh and graceful degradation.
+
+#### Phase 14.1 — Weekly Refit Workflow
+
+**New file:** `.github/workflows/macro_weekly_refit.yml`
+**New file:** `.macro-assist/refit_models.py`
+
+The refit script:
+1. Pulls 5 years of historical FRED+market data
+2. Refits HMM, saves new `data/regime_model.pkl`
+3. Rebuilds `data/conditional_distributions.json` using all data through yesterday
+4. Commits both back to the repo
+
+Schedule: Sunday 22:00 UTC. Monday's daily run uses fresh models.
+
+**Claude Code prompt:**
+> Add `.github/workflows/macro_weekly_refit.yml` scheduled at Sunday 22:00 UTC. The workflow checks out Macro-Assist with write permissions, installs deps, runs `python .macro-assist/refit_models.py`, then commits any changes to `.macro-assist/data/regime_model.pkl` and `.macro-assist/data/conditional_distributions.json`. Implement `refit_models.py` that pulls 5 years of historical data via existing helpers, calls `fit_regime_model()` from Phase 10, calls `build_distribution_table()` from Phase 11, and saves both artifacts. The script must be idempotent (re-running same week produces identical output).
+
+---
+
+#### Phase 14.2 — Failure Modes
+
+**Modify:** `.macro-assist/collect_and_analyze.py`
+
+Wrap `build_quant_context()` in a try/except. If it fails (model file missing, distribution lookup empty, any exception): log a warning to stdout, skip the block, continue pipeline without it. The daily note must NEVER fail because of the quant layer.
+
+**Claude Code prompt:**
+> Wrap the `build_quant_context()` call in `collect_and_analyze.py` with try/except. On any exception, log a warning with the exception type and message, set `quant_context = ""`, and continue. Add a CI check that runs the pipeline with a deliberately corrupted `regime_model.pkl` and asserts the daily note is still produced (just without the Quantitative Context block).
+
+---
+
+#### Phase 14.3 — Monitoring
+
+**New artifact:** `results/quant_context_log/YYYY-MM-DD.jsonl`
+
+Each day, log the raw outputs of the three subsections (vol forecast, regime label + posterior, current bucket + distribution) to a JSONL file. Enables retrospective analysis: did vol forecast correlate with realized vol? Did regime change as predicted by transition probabilities? Were predictions consistent with conditional distribution?
+
+**Claude Code prompt:**
+> In `collect_and_analyze.py`, after `build_quant_context()` runs successfully, also append a JSONL row to `results/quant_context_log/YYYY-MM-DD.jsonl` with the raw outputs of each subsection (vol forecasts dict, regime state + posterior + dwell, current bucket + n + p50 returns). Track this in git. Add no analysis logic — just collection. Later phases will mine these logs.
+
+---
+
+### Phase 15 — Optional Extensions *(Backlog — only after 8-14 are deployed and validated)*
+
+Not on critical path. Listed for future planning.
+
+| Extension | Description | Trigger |
+|-----------|-------------|---------|
+| Cross-asset correlation regime | Detect when SP500-gold, SP500-10Y, or SP500-DXY correlations break vs 60d baseline. Inject as `## Correlation Regime` block. | After 8-14 deployed; useful when conditional distributions show low n |
+| Event-window prediction | Restrict prediction to FOMC/CPI/NFP windows; use higher-confidence framework only on event days. | Requires Phase 5 (window-aware calibration) first |
+| Sentence-transformer embeddings on news | Use FinBERT or sentence-transformers to extract daily news sentiment vector from GDELT / Reddit. Inject as additional regime feature. | After regime classifier is validated |
+| Sector rotation conditional probs | Conditional distribution layer applied to sector ETF relative performance, not absolute returns. | After 7d sector ETF scoring is implemented |
+| Bayesian confidence calibration | Replace point-confidence with Beta-distributed posterior; track calibration via reliability diagrams. | After 12 months of scored predictions |
+
+---
+
+## Updated Suggested Execution Order
+
+| Priority | Phase | Effort | Prerequisite | Status |
+|----------|-------|--------|--------------|--------|
+| 1 | Phase 1 (FRED liquidity + jobless claims) | Low | None | ✅ Done |
+| 2 | Phase 2 (90d history + RSI/MA/Z-score) | Medium | None | ✅ Done |
+| 3 | Phase 4 (system prompt rules + accuracy override) | Low | Phases 1 & 2 deployed | ✅ Done |
+| 4 | Phase 3 (COT via CFTC direct) | Medium | None | ✅ Done — no API key required |
+| 5 | Phase 5 (DXY window-aware predictions) | Low | 30+ scored reports | ✅ Done |
+| 6 | Phase 6 (break Neutral collapse) | Low | Phase 5 | ✅ Done |
+| 7 | Phase 7 (Sector Opportunity Research) | High | Phase 6 + fundamentals data | ✅ Done (7d scoring deferred) |
+| 8 | **Phase 8 (Validation Infrastructure)** | **Medium** | **None — prerequisite for 9-13** | 🔲 **To Implement** |
+| 9 | **Phase 9 (Volatility Forecasting)** | **Medium** | **Phase 8** | 🔲 **To Implement** |
+| 10 | **Phase 10 (Regime Classification)** | **Medium** | **Phase 8** | 🔲 **To Implement** |
+| 11 | **Phase 11 (Conditional Distributions)** | **Medium** | **Phase 8** | 🔲 **To Implement** |
+| 12 | **Phase 12 (Quant Context Integration)** | **Low** | **Phases 9, 10, 11** | 🔲 **To Implement** |
+| 13 | **Phase 13 (End-to-End Validation)** | **High** | **Phase 12** | 🔲 **To Implement** |
+| 14 | **Phase 14 (Production Hardening)** | **Low** | **Phase 13 passing** | 🔲 **To Implement** |
+| 15 | Phase 15 (Optional Extensions) | Varies | All above | 🔲 Backlog |
+
+---
+
+## Implementation Notes for Phases 8–15
+
+**Working environment.** All compute fits comfortably in GitHub Actions (HMM training ~30s, HAR-RV ~ms, conditional distributions ~seconds). The full backtest in Phase 13.2 takes ~30 minutes and ~$20-40 in Claude API tokens; run it locally if preferred, but it works in CI too.
+
+**Development order strictly enforced.** Phase 8 must be done first — without the point-in-time data layer and backtest harness, Phases 9-12 cannot be validated. Without Phase 13 passing, Phase 14 must not be deployed.
+
+**Decision gates.** After Phase 13 (end-to-end validation), there are three possible outcomes:
+- **≥3pp improvement on both shadow + backtest** → proceed to Phase 14 deployment
+- **Improvement on backtest but not shadow** → suspect overfitting, iterate (likely culprit: regime labeler instability, bucket sparsity, or feature drift)
+- **No improvement** → keep the layer as additional context in the prompt but lower priors; the value may emerge over months of more data, or the architecture may need revision
+
+**Testing infrastructure.** Add `pytest` to `requirements.txt` if not already present. Create `.macro-assist/tests/` directory and `.macro-assist/tests/__init__.py`. Each phase's tests should run independently; CI test runner should be added to a new `.github/workflows/tests.yml` that runs on every push to a feature branch.
+
+**Claude Code workflow recommendation.** Tackle one phase per Claude Code session, run its tests before moving to the next. Phases 9, 10, 11 can be parallelized in separate feature branches if desired (each only depends on Phase 8). Phase 12 integrates them — do it last in this group.
