@@ -96,7 +96,7 @@ FRED_SERIES = {
     "breakeven_10y":     "T10YIE",              # 10Y inflation breakeven rate (daily)
     # --- Phase 1 additions ---
     "fed_total_assets":  "WALCL",       # Fed balance sheet (millions USD; scaled ÷1000 → billions)
-    "treasury_gen_acct": "WTREGEN",     # Treasury General Account (billions USD)
+    "treasury_gen_acct": "WTREGEN",     # Treasury General Account (millions USD → ÷1000 = billions)
     "reverse_repo":      "RRPONTSYD",   # Overnight reverse repo (billions USD)
     "jobless_claims":    "ICSA",        # Initial jobless claims (weekly, thousands)
     "nfci":              "NFCI",        # Chicago Fed National Financial Conditions Index
@@ -104,6 +104,26 @@ FRED_SERIES = {
 
 # Keys whose raw Series are retained after the fetch loop for net-liquidity calculation
 _NET_LIQ_KEYS = {"fed_total_assets", "treasury_gen_acct", "reverse_repo"}
+
+# Release frequency per series — injected as metadata so Claude applies the right staleness threshold
+FRED_SERIES_FREQUENCY = {
+    "fed_funds_rate":    "monthly",    # FOMC sets rate at ~6-week intervals; data dated month-start
+    "cpi":               "monthly",
+    "gdp":               "quarterly",
+    "unemployment":      "monthly",
+    "m2":                "monthly",
+    "treasury_10y":      "daily",
+    "treasury_2y":       "daily",
+    "hy_spread":         "daily",
+    "philly_fed_mfg":    "monthly",
+    "real_yield_10y":    "daily",
+    "breakeven_10y":     "daily",
+    "fed_total_assets":  "weekly",
+    "treasury_gen_acct": "weekly",
+    "reverse_repo":      "daily",
+    "jobless_claims":    "weekly",
+    "nfci":              "weekly",
+}
 
 
 def _compute_net_liquidity(raw_series: dict) -> dict | None:
@@ -117,9 +137,9 @@ def _compute_net_liquidity(raw_series: dict) -> dict | None:
         return None
 
     combined = pd.DataFrame({
-        "walcl": raw_series["fed_total_assets"] / 1000,   # millions → billions
-        "tga":   raw_series["treasury_gen_acct"],
-        "rrp":   raw_series["reverse_repo"],
+        "walcl": raw_series["fed_total_assets"] / 1000,    # millions → billions
+        "tga":   raw_series["treasury_gen_acct"] / 1000,   # millions → billions (WTREGEN is in millions, same as WALCL)
+        "rrp":   raw_series["reverse_repo"],                # already in billions
     }).resample("W").last().ffill().dropna()
 
     if len(combined) < 5:
@@ -129,6 +149,14 @@ def _compute_net_liquidity(raw_series: dict) -> dict | None:
     nl = combined["nl"]
 
     current = float(nl.iloc[-1])
+    # Sanity check: Fed net liquidity should be in the range $0–$20T (0–20,000 B).
+    # Values outside this range indicate a unit mismatch in one of the component series.
+    if not (0 <= current <= 20_000):
+        _log("FRED", "WARN",
+             f"net liquidity sanity check FAILED: {current:.1f}B — possible unit mismatch; "
+             f"walcl={combined['walcl'].iloc[-1]:.0f}B, tga={combined['tga'].iloc[-1]:.0f}B, "
+             f"rrp={combined['rrp'].iloc[-1]:.0f}B")
+        return None
     wow_ref = float(nl.iloc[-2])
     mom_ref = float(nl.iloc[-5]) if len(nl) >= 5 else None
 
@@ -179,6 +207,7 @@ def fetch_fred_data(fred: Fred) -> dict:
             "prev":       round(float(prev), 3),
             "date":       latest_date.strftime("%Y-%m-%d"),
             "days_stale": (today_date - latest_date).days,
+            "frequency":  FRED_SERIES_FREQUENCY.get(name, "unknown"),
         }
         _fetched += 1
         if data[name]["days_stale"] > 30:
@@ -609,7 +638,15 @@ def fetch_cot_data() -> str:
             with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
                 csv_name = next(n for n in zf.namelist() if n.endswith(".csv") or n.endswith(".xls"))
                 with zf.open(csv_name) as f:
-                    return pd.read_csv(f, low_memory=False)
+                    raw = f.read()
+            # CFTC files use Windows-1252 encoding, not UTF-8
+            for enc in ("utf-8", "cp1252", "latin-1"):
+                try:
+                    return pd.read_csv(io.StringIO(raw.decode(enc)), low_memory=False)
+                except (UnicodeDecodeError, ValueError):
+                    continue
+            _log("COT", "WARN", f"could not decode {year} CFTC file with any known encoding")
+            return None
         except Exception as e:
             _log("COT", "WARN", f"could not fetch {year} CFTC file: {e}")
             return None
@@ -812,6 +849,19 @@ FOMC_DATES = [
     "2026-01-28", "2026-03-18", "2026-05-06", "2026-06-17",
     "2026-07-29", "2026-09-16", "2026-10-28", "2026-12-09",
 ]
+
+
+def _check_fomc_dates_expiry(today: datetime) -> None:
+    """Warn in CI if the hardcoded FOMC list runs out within 60 days."""
+    if not FOMC_DATES:
+        _log("EVENTS", "WARN", "FOMC_DATES list is empty — update required")
+        return
+    last = datetime.strptime(FOMC_DATES[-1], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    days_remaining = (last - today).days
+    if days_remaining < 60:
+        _log("EVENTS", "WARN",
+             f"FOMC_DATES expires in {days_remaining}d ({FOMC_DATES[-1]}) — "
+             "update list from https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm")
 
 # BLS release names to watch (matched as substrings against BLS schedule)
 BLS_RELEASES_OF_INTEREST = {"consumer price index", "employment situation", "producer price index"}
@@ -1486,6 +1536,7 @@ def main():
     today = datetime.now(timezone.utc)
     _t0   = time.monotonic()
     _log("PIPELINE", "INFO", f"Macro-Assist starting — {today.strftime('%Y-%m-%d %H:%M')} UTC")
+    _check_fomc_dates_expiry(today)
 
     # Idempotency: skip if today's note already exists
     output_path = get_output_path(today)

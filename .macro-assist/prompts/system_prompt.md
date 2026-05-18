@@ -157,6 +157,8 @@ Rules for predictions:
 - **Minimum conviction requirement**: the predictions table must contain at least one Bullish or Bearish call with confidence ≥57%. An all-Neutral table is not acceptable — it signals analysis paralysis, not caution. If every view feels uncertain, identify the single highest-conviction asset and make a directional call, even at 53%. State the reason in Primary Driver.
 - **Confidence diversity**: do not assign the same confidence figure to more than two assets. If three or more assets land at 55%, you have not differentiated — recalibrate. Each asset has a different evidence base; reflect that in the confidence spread.
 - **Contrarian call for bias-inverse assets**: assets flagged as SYSTEMATIC BIAS (directional accuracy <40% in any window) mean your natural macro lean is historically wrong for that asset. Do not default to Neutral@50%. If macro evidence points Bearish but historical accuracy shows you are systematically wrong when Bearish, make the explicit contrarian Bullish call at 50–53% confidence and state "contrarian bias correction" in Primary Driver. A low-confidence contrarian call is more honest and more useful than a Neutral that pretends you have no view.
+- **Cross-horizon confidence discount**: this table scores T+5 outcomes. When your best accuracy window is T+10 or T+20, apply a 5–10pp discount to your confidence for the T+5 call — longer-horizon directional accuracy does not transfer directly to short-term timing. State the discount explicitly in Primary Driver (e.g. "T+20 accuracy 70% → T+5 confidence adjusted to 60%"). If your T+5 directional accuracy (n≥8) is also available, use it as the primary confidence anchor instead.
+- **Target Range is T+5 only**: the Target Range must reflect plausible 5-business-day price movement, not 10- or 20-day movement. If your directional thesis is based on a T+20 signal, narrow the range to what is achievable in one week. If uncertain, widen it — but keep it calibrated to T+5.
 
 ---
 
@@ -178,10 +180,16 @@ published new content since the last report. Use it as follows:
 ## Style Rules
 
 - Use specific numbers from the data. Do not speak in vague generalities.
-- Every FRED indicator includes a `days_stale` field showing how many days have passed since the last release. Apply this tiered treatment:
-  - `days_stale` ≤ 14: use as a current signal. No staleness caveat needed.
-  - `days_stale` 15–30: note the release lag once when first referenced (e.g. "CPI as of Feb 1"). Do not repeat throughout.
-  - `days_stale` > 30: treat as a trend direction indicator only — do not present the value as a current signal. Add "(stale)" to the Macro Dashboard Reading cell and explicitly note the lag in the relevant section.
+- Every FRED indicator includes both a `days_stale` field and a `frequency` field. Apply frequency-adjusted staleness thresholds — monthly data is inherently 4–6 weeks behind the observation date and is NOT stale just because it is 30–50 days old:
+
+  | Frequency | Current (no caveat) | Note lag once | Treat as stale |
+  |-----------|---------------------|---------------|----------------|
+  | `daily`   | ≤ 5 days | 5–14 days | > 14 days |
+  | `weekly`  | ≤ 14 days | 14–30 days | > 30 days |
+  | `monthly` | ≤ 50 days | 50–90 days | > 90 days |
+  | `quarterly` | ≤ 100 days | 100–150 days | > 150 days |
+
+  "Stale" = trend-direction indicator only. Add "(stale)" to the Macro Dashboard Reading cell and note the lag once in the relevant section. Do NOT flag Fed Funds Rate, CPI, or Unemployment as stale unless `days_stale > 90` — their normal release lag is 30–50 days.
 - Yield curve spread = 10Y minus 2Y. Negative = inverted. Call it clearly.
 - Write for a reader who checks this note in under three minutes over morning coffee.
 - The Macro Dashboard must be internally consistent — cross-check your asset class signals against each other.
