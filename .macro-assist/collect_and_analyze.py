@@ -636,11 +636,26 @@ def fetch_cot_data() -> str:
             resp = requests.get(url, timeout=30)
             resp.raise_for_status()
             with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
-                csv_name = next(n for n in zf.namelist() if n.endswith(".csv") or n.endswith(".xls"))
+                names = zf.namelist()
+                # Prefer named data files; fall back to first entry in archive
+                csv_name = next(
+                    (n for n in names if n.lower().endswith((".csv", ".xls", ".xlsx", ".txt"))),
+                    names[0] if names else None,
+                )
+                if csv_name is None:
+                    _log("COT", "WARN", f"ZIP archive for {year} is empty")
+                    return None
                 with zf.open(csv_name) as f:
                     raw = f.read()
-            # CFTC files use Windows-1252 encoding, not UTF-8
-            for enc in ("utf-8", "cp1252", "latin-1"):
+            # XLS/XLSX: binary Excel format — must use read_excel, not read_csv
+            if csv_name.lower().endswith((".xls", ".xlsx")):
+                try:
+                    return pd.read_excel(io.BytesIO(raw))
+                except Exception as exc:
+                    _log("COT", "WARN", f"could not parse {year} CFTC Excel file: {exc}")
+                    return None
+            # CSV/TXT: CFTC uses Windows-1252 — try that before UTF-8
+            for enc in ("cp1252", "latin-1", "utf-8"):
                 try:
                     return pd.read_csv(io.StringIO(raw.decode(enc)), low_memory=False)
                 except (UnicodeDecodeError, ValueError):
@@ -1097,35 +1112,86 @@ def fetch_youtube_context(client: anthropic.Anthropic) -> str:
     return header + "\n\n" + "\n\n---\n\n".join(blocks)
 
 
-def adversarial_review(client: anthropic.Anthropic, draft_analysis: str) -> str:
+def _build_immutable_anchors(fred_data: dict, market_data: dict) -> dict:
+    """Extract live numerical values that Pass 2 must not alter."""
+    anchors: dict = {}
+    for key, label in [
+        ("real_yield_10y", "10Y Real Yield"),
+        ("breakeven_10y",  "10Y Breakeven"),
+        ("treasury_10y",   "10Y Treasury Yield"),
+        ("treasury_2y",    "2Y Treasury Yield"),
+        ("fed_funds_rate", "Fed Funds Rate"),
+        ("hy_spread",      "HY Spread"),
+    ]:
+        entry = fred_data.get(key)
+        if entry and "value" in entry:
+            anchors[label] = f"{entry['value']}%"
+    cpi_entry = fred_data.get("cpi", {})
+    if "yoy_pct" in cpi_entry:
+        anchors["CPI YoY"] = f"{cpi_entry['yoy_pct']}%"
+    m2_entry = fred_data.get("m2", {})
+    if "yoy_pct" in m2_entry:
+        anchors["M2 YoY"] = f"{m2_entry['yoy_pct']}%"
+    for key, label in [
+        ("sp500",   "S&P 500"),
+        ("gold",    "Gold"),
+        ("wti_oil", "WTI Oil"),
+        ("dxy",     "DXY"),
+        ("bitcoin", "Bitcoin"),
+        ("vix",     "VIX"),
+    ]:
+        entry = market_data.get(key)
+        if entry and "price" in entry:
+            anchors[label] = entry["price"]
+    return anchors
+
+
+def adversarial_review(
+    client: anthropic.Anthropic,
+    draft_analysis: str,
+    immutable_anchors: dict,
+) -> str:
     """
     Second Claude pass: stress-tests each prediction against the Key Risks section.
     Lowers Confidence by 5-10pp and annotates Primary Driver for any prediction
     whose thesis is directly contradicted by a listed Key Risk.
     Returns the full analysis with the revised predictions table spliced in.
     """
+    anchors_json = json.dumps(immutable_anchors, indent=2)
     response = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=600,
         messages=[{"role": "user", "content": f"""Adversarial prediction review.
 
+[IMMUTABLE BASELINE DATA — DO NOT ALTER THESE VALUES]
+{anchors_json}
+
+These numbers are ground truth from live data feeds. Any metric from this block that appears
+in the report must be reproduced exactly as listed above — do not round, adjust, or correct them.
+
 Read the Key Risks & Themes section and the 5-Day Predictions table in the report below.
 
-Apply a HIGH bar. For each prediction row, lower Confidence by 5-10pp and append " [Risk: <2-3 word label>]" to the Primary Driver cell ONLY IF both conditions are true:
-1. A listed Key Risk would make the directional call (Bullish/Bearish) OUTRIGHT WRONG if it materialized — not merely add uncertainty or reduce magnitude.
+Apply a HIGH bar. For each prediction row, lower Confidence by 5-10pp and append
+" [Risk: <2-3 word label>]" to the END of the existing Primary Driver cell ONLY IF both
+conditions are true:
+1. A listed Key Risk would make the directional call (Bullish/Bearish) OUTRIGHT WRONG if it
+   materialized — not merely add uncertainty or reduce magnitude.
 2. That Key Risk is assessed as a probable near-term scenario, not just a tail risk.
 
-Do NOT lower confidence if:
-- The risk only affects magnitude, not direction.
-- The risk is generic market uncertainty (e.g. "volatility may increase").
-- The prediction is already Neutral.
-- You can construct a counter-argument but the original thesis remains the base case.
-
-Confidence must never go below 50% or above 70%.
+STRICT CONSTRAINTS — violations corrupt the pipeline:
+- ONLY permitted change to Primary Driver: append " [Risk: <label>]" at the very end.
+  Do NOT rewrite, rephrase, or alter any other part of the existing Primary Driver text.
+- Do NOT change any numerical value already present in Primary Driver (accuracy stats,
+  percentages, price levels). Reproduce them character-for-character.
+- Do NOT change Bias, Target Range, or Asset columns — ever.
+- Do NOT lower confidence if the risk only affects magnitude, not direction.
+- Do NOT lower if the risk is generic market uncertainty or the prediction is already Neutral.
+- Confidence must never go below 50% or above 70%.
 
 If no prediction meets both conditions, return the table completely unchanged.
 
-Return ONLY the complete revised 5-Day Predictions table (header row + separator row + all asset rows). No preamble, no explanation, no Review date line.
+Return ONLY the complete revised 5-Day Predictions table (header row + separator row + all
+asset rows). No preamble, no explanation, no Review date line.
 
 REPORT:
 {draft_analysis}"""}]
@@ -1133,7 +1199,7 @@ REPORT:
     revised_table = response.content[0].text.strip()
 
     # Splice the revised table back into the draft, replacing the original
-    pattern = r'(\| Asset \| Bias \| Target Range \| Confidence \| Primary Driver \|.*?\n(?:\|[^\n]+\n)+)'
+    pattern = r'(\| Asset \| Bias \| Primary Driver \| Confidence \| Target Range \|.*?\n(?:\|[^\n]+\n)+)'
     match = re.search(pattern, draft_analysis, re.DOTALL)
     if not match:
         _log("REVIEW", "WARN", "could not locate predictions table — using original")
@@ -1170,7 +1236,7 @@ def _log_adversarial_diff(original: str, revised: str) -> None:
         rev_cells  = [c.strip() for c in rev_row.split("|")[1:-1]]
         asset = orig_cells[0] if orig_cells else "?"
         diffs = []
-        labels = ["Bias", "Target Range", "Confidence", "Primary Driver"]
+        labels = ["Bias", "Primary Driver", "Confidence", "Target Range"]
         for label, o, r in zip(labels, orig_cells[1:], rev_cells[1:]):
             if o != r:
                 diffs.append(f"  {label}: {o!r} -> {r!r}")
@@ -1210,7 +1276,7 @@ def _apply_accuracy_override(analysis: str) -> str:
     if not all_windows:
         return analysis
 
-    table_pattern = r'(\| Asset \| Bias \| Target Range \| Confidence \| Primary Driver \|.*?\n(?:\|[^\n]+\n)+)'
+    table_pattern = r'(\| Asset \| Bias \| Primary Driver \| Confidence \| Target Range \|.*?\n(?:\|[^\n]+\n)+)'
     match = re.search(table_pattern, analysis, re.DOTALL)
     if not match:
         _log("OVERRIDE", "WARN", "could not locate predictions table")
@@ -1248,8 +1314,8 @@ def _apply_accuracy_override(analysis: str) -> str:
                 cells = original_row.rstrip("\n").split("|")
                 if len(cells) >= 6:
                     cells[4] = " 50% "
-                    cells[5] = (
-                        f" {cells[5].strip()} "
+                    cells[3] = (
+                        f" {cells[3].strip()} "
                         f"[Caution: {worst_wkey.upper()} Bearish dir. acc. {worst_dacc:.0%} n={worst_n} — historical bias] "
                     )
                     new_row  = "|".join(cells) + "\n"
@@ -1412,7 +1478,8 @@ Generate the macro intelligence note as specified in your instructions."""
         _log("CLAUDE", "OK", f"analysis complete ({_out} tokens out)")
 
     _log("CLAUDE", "INFO", "running adversarial review...")
-    reviewed = adversarial_review(client, draft)
+    immutable_anchors = _build_immutable_anchors(fred_data, market_data)
+    reviewed = adversarial_review(client, draft, immutable_anchors)
     _log("OVERRIDE", "INFO", "checking accuracy-based overrides...")
     return _apply_accuracy_override(reviewed)
 
