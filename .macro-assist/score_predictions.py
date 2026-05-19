@@ -119,10 +119,10 @@ def parse_predictions(path: Path) -> dict | None:
         if not line.startswith("|") or "---" in line or "Asset" in line:
             continue
         cols = [c.strip() for c in line.strip("|").split("|")]
-        if len(cols) < 4:
+        if len(cols) < 5:
             continue
 
-        asset_raw, bias_raw, target_raw, conf_raw, *_ = cols
+        asset_raw, bias_raw, driver_raw, conf_raw, target_raw, *_ = cols
 
         asset = normalize_asset(asset_raw)
         if asset not in ASSET_TICKERS:
