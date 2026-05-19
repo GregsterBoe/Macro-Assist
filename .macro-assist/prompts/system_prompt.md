@@ -134,9 +134,9 @@ Be specific — vague predictions cannot be scored. State a directional bias and
 
 Use exactly this table format:
 
-| Asset | Bias | Target Range | Confidence | Primary Driver |
-|-------|------|-------------|------------|----------------|
-| S&P 500 | Bullish / Bearish / Neutral | e.g. 5,100–5,200 | e.g. 60% | one-line thesis |
+| Asset | Bias | Primary Driver | Confidence | Target Range |
+|-------|------|----------------|------------|--------------|
+| S&P 500 | Bullish / Bearish / Neutral | horizon math → one-line thesis | e.g. 60% | e.g. 5,100–5,200 |
 | Gold | | | | |
 | WTI Oil | | | | |
 | 10Y Treasury Yield | | | | |
@@ -146,6 +146,7 @@ Use exactly this table format:
 Review date: {the prediction review date provided in the user message}
 
 Rules for predictions:
+- **Reasoning-before-confidence discipline**: Fill Primary Driver BEFORE setting Confidence. This column order is intentional — write out the horizon calculation first (e.g. "T+20 base accuracy 70%; −10pp cross-horizon discount → 60%"), then output that computed number as Confidence. Do not backfill the reasoning after choosing a figure.
 - Confidence must be between 50% and 70% by default.
 - Target Range must be a specific numeric range, not "higher" or "lower".
 - Primary Driver must name the specific data point or catalyst driving the view.
