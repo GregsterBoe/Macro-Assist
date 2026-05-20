@@ -1146,77 +1146,126 @@ def _build_immutable_anchors(fred_data: dict, market_data: dict) -> dict:
     return anchors
 
 
+_ADVERSARIAL_PROMPT = """\
+Adversarial prediction review — return JSON ONLY.
+
+Read the Key Risks & Themes and 5-Day Predictions sections in the report.
+
+For each asset, decide: would a listed Key Risk make the directional call OUTRIGHT WRONG if it materialised?
+HIGH bar: only flag when a risk directly negates the direction entirely — not merely adds uncertainty.
+
+Rules:
+- "append_risk": "[Risk: 2-3 word label]" to add to Primary Driver for Bullish/Bearish calls only. null otherwise.
+- "confidence_delta": -5 or -10 when a risk directly contradicts the directional call. 0 for everything else.
+  Do NOT apply a delta to Neutral calls. Do NOT apply a delta that would push below 51% for a directional call.
+- Do NOT reference, restate, invent, or modify any numbers, accuracy stats, prices, or percentages.
+
+Return ONLY this JSON structure — no text outside it:
+{
+  "S&P 500": {"append_risk": null, "confidence_delta": 0},
+  "Gold": {"append_risk": null, "confidence_delta": 0},
+  "WTI Oil": {"append_risk": null, "confidence_delta": 0},
+  "10Y Treasury Yield": {"append_risk": null, "confidence_delta": 0},
+  "DXY": {"append_risk": null, "confidence_delta": 0},
+  "Bitcoin (proxy for crypto risk)": {"append_risk": null, "confidence_delta": 0}
+}
+"""
+
+
 def adversarial_review(
     client: anthropic.Anthropic,
     draft_analysis: str,
-    immutable_anchors: dict,
+    immutable_anchors: dict | None = None,  # retained for API compatibility
 ) -> str:
     """
-    Second Claude pass: stress-tests each prediction against the Key Risks section.
-    Lowers Confidence by 5-10pp and annotates Primary Driver for any prediction
-    whose thesis is directly contradicted by a listed Key Risk.
-    Returns the full analysis with the revised predictions table spliced in.
+    Second Claude pass: outputs a JSON delta {asset: {append_risk, confidence_delta}}.
+    Python applies the changes programmatically — numbers in the Primary Driver are
+    never touched by the model, eliminating autoregressive drift/hallucination.
+    Directional calls (Bullish/Bearish) are clamped to ≥51% confidence.
     """
-    anchors_json = json.dumps(immutable_anchors, indent=2)
-    response = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=600,
-        messages=[{"role": "user", "content": f"""Adversarial prediction review.
-
-[IMMUTABLE BASELINE DATA — DO NOT ALTER THESE VALUES]
-{anchors_json}
-
-These numbers are ground truth from live data feeds. Any metric from this block that appears
-in the report must be reproduced exactly as listed above — do not round, adjust, or correct them.
-
-Read the Key Risks & Themes section and the 5-Day Predictions table in the report below.
-
-Apply a HIGH bar. For each prediction row, lower Confidence by 5-10pp and append
-" [Risk: <2-3 word label>]" to the END of the existing Primary Driver cell ONLY IF both
-conditions are true:
-1. A listed Key Risk would make the directional call (Bullish/Bearish) OUTRIGHT WRONG if it
-   materialized — not merely add uncertainty or reduce magnitude.
-2. That Key Risk is assessed as a probable near-term scenario, not just a tail risk.
-
-STRICT CONSTRAINTS — violations corrupt the pipeline:
-- ONLY permitted change to Primary Driver: append " [Risk: <label>]" at the very end.
-  Do NOT rewrite, rephrase, or alter any other part of the existing Primary Driver text.
-- Do NOT change any numerical value already present in Primary Driver (accuracy stats,
-  percentages, price levels). Reproduce them character-for-character.
-- Do NOT change Bias, Target Range, or Asset columns — ever.
-- Do NOT lower confidence if the risk only affects magnitude, not direction.
-- Do NOT lower if the risk is generic market uncertainty or the prediction is already Neutral.
-- Confidence must never go below 50% or above 70%.
-
-If no prediction meets both conditions, return the table completely unchanged.
-
-Return ONLY the complete revised 5-Day Predictions table (header row + separator row + all
-asset rows). No preamble, no explanation, no Review date line.
-
-REPORT:
-{draft_analysis}"""}]
-    )
-    revised_table = response.content[0].text.strip()
-
-    # Splice the revised table back into the draft, replacing the original
-    pattern = r'(\| Asset \| Bias \| Primary Driver \| Confidence \| Target Range \|.*?\n(?:\|[^\n]+\n)+)'
-    match = re.search(pattern, draft_analysis, re.DOTALL)
+    table_pattern = r'(\| Asset \| Bias \| Primary Driver \| Confidence \| Target Range \|.*?\n(?:\|[^\n]+\n)+)'
+    match = re.search(table_pattern, draft_analysis, re.DOTALL)
     if not match:
-        _log("REVIEW", "WARN", "could not locate predictions table — using original")
+        _log("REVIEW", "WARN", "could not locate predictions table — skipping adversarial review")
         return draft_analysis
 
     original_table = match.group(1)
-    revised_table = _clamp_confidence_floor(revised_table)
-    _log_adversarial_diff(original_table, revised_table)
-    return draft_analysis[:match.start()] + revised_table + "\n" + draft_analysis[match.end():]
+
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=250,
+        messages=[{"role": "user", "content": f"{_ADVERSARIAL_PROMPT}\n\nREPORT:\n{draft_analysis}"}],
+    )
+    raw_output = response.content[0].text.strip()
+
+    try:
+        json_match = re.search(r'\{[\s\S]+\}', raw_output)
+        if not json_match:
+            raise ValueError("no JSON object found")
+        revisions = json.loads(json_match.group(0))
+    except Exception as e:
+        _log("REVIEW", "WARN", f"could not parse adversarial JSON ({e}) — using original table")
+        return draft_analysis
+
+    modified_table = _apply_adversarial_revisions(original_table, revisions)
+    _log_adversarial_diff(original_table, modified_table)
+    return draft_analysis[:match.start()] + modified_table + draft_analysis[match.end():]
 
 
-def _clamp_confidence_floor(table: str, floor: int = 50, ceiling: int = 70) -> str:
-    """Clamp all Confidence cells to [floor, ceiling]%."""
-    def clamp_cell(m: re.Match) -> str:
-        val = int(m.group(1))
-        return f"{max(floor, min(val, ceiling))}%"
-    return re.sub(r'\b(\d{2})%', clamp_cell, table)
+def _apply_adversarial_revisions(table: str, revisions: dict) -> str:
+    """Apply adversarial JSON deltas to the predictions table rows.
+    Column order: Asset | Bias | Primary Driver | Confidence | Target Range
+    Directional (Bullish/Bearish) confidence is clamped to [51%, 70%].
+    """
+    lines = table.rstrip("\n").split("\n")
+    result = []
+    for line in lines:
+        if not line.startswith("|") or "---" in line or "Asset" in line:
+            result.append(line)
+            continue
+        cells = line.split("|")
+        if len(cells) < 6:
+            result.append(line)
+            continue
+        asset  = cells[1].strip()
+        bias   = cells[2].strip().lower()
+        is_dir = bias in ("bullish", "bearish")
+        # Column indices for new order: [0]="" [1]=Asset [2]=Bias [3]=PD [4]=Conf [5]=TR [6]=""
+        pd_col, conf_col = 3, 4
+
+        rev = next(
+            (v for k, v in revisions.items()
+             if k.lower() in asset.lower() or asset.lower() in k.lower()),
+            None,
+        )
+        if rev is None:
+            result.append(line)
+            continue
+
+        # Apply confidence delta
+        conf_str = cells[conf_col].strip().rstrip("%").strip()
+        try:
+            conf_val = int(conf_str)
+        except ValueError:
+            result.append(line)
+            continue
+        delta    = int(rev.get("confidence_delta", 0) or 0)
+        new_conf = conf_val + delta
+        if is_dir:
+            new_conf = max(51, min(70, new_conf))  # directional calls: never below 51%
+        # Neutral calls stay unchanged (50%)
+
+        cells[conf_col] = f" {new_conf}% "
+
+        # Append risk tag to Primary Driver (never replace — append only)
+        risk_tag = rev.get("append_risk")
+        if risk_tag and is_dir:
+            driver = cells[pd_col].strip()
+            if risk_tag not in driver:
+                cells[pd_col] = f" {driver} {risk_tag} "
+
+        result.append("|".join(cells))
+    return "\n".join(result)
 
 
 def _log_adversarial_diff(original: str, revised: str) -> None:
@@ -1313,7 +1362,7 @@ def _apply_accuracy_override(analysis: str) -> str:
                 original_row = row_match.group(0)
                 cells = original_row.rstrip("\n").split("|")
                 if len(cells) >= 6:
-                    cells[4] = " 50% "
+                    cells[4] = " 51% "   # 51% not 50%: directional calls must be ≥51% to distinguish from Neutral
                     cells[3] = (
                         f" {cells[3].strip()} "
                         f"[Caution: {worst_wkey.upper()} Bearish dir. acc. {worst_dacc:.0%} n={worst_n} — historical bias] "
@@ -1346,12 +1395,13 @@ def _apply_accuracy_override(analysis: str) -> str:
                      f"{asset}: Neutral@50% called despite {best_wkey.upper()} dir. acc. "
                      f"{best_dacc:.0%} (n={best_n}) — check prompt compliance")
 
-    # --- Pass 3: confidence clustering (≥3 assets share same confidence value) ---
+    # --- Pass 3: confidence clustering and directional@50 check ---
     data_rows = [
         line for line in modified.splitlines()
         if line.startswith("|") and "---" not in line and "Asset" not in line
     ]
-    conf_counts: dict[str, int] = {}
+    directional_conf_counts: dict[str, int] = {}
+    directional_at_50 = 0
     bias_values: list[str] = []
     for row in data_rows:
         cells = row.split("|")
@@ -1361,13 +1411,19 @@ def _apply_accuracy_override(analysis: str) -> str:
         conf = cells[4].strip().rstrip("%").strip()
         if bias:
             bias_values.append(bias)
-        if conf:
-            conf_counts[conf] = conf_counts.get(conf, 0) + 1
+        # Only count directional calls for clustering — Neutral@50% is structurally expected
+        if conf and bias in ("bullish", "bearish"):
+            directional_conf_counts[conf] = directional_conf_counts.get(conf, 0) + 1
+            if conf == "50":
+                directional_at_50 += 1
 
-    for conf_val, count in conf_counts.items():
+    for conf_val, count in directional_conf_counts.items():
         if count >= 3:
             _log("OVERRIDE", "WARN",
-                 f"confidence clustering: {count} assets at {conf_val}% — insufficient differentiation")
+                 f"confidence clustering: {count} directional calls at {conf_val}% — insufficient differentiation")
+    if directional_at_50 >= 2:
+        _log("OVERRIDE", "WARN",
+             f"{directional_at_50} directional (Bullish/Bearish) calls at 50% — indistinguishable from Neutral; min 51%")
 
     # --- Pass 4: all-Neutral collapse ---
     directional_calls = [b for b in bias_values if b not in ("neutral", "")]
