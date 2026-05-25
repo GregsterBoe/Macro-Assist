@@ -1311,6 +1311,84 @@ def _log_adversarial_diff(original: str, revised: str) -> None:
         _log("REVIEW", "WARN", f"{changes} prediction(s) revised")
 
 
+def _adversarial_review_structured(
+    client: anthropic.Anthropic,
+    output: "AnalysisOutput",
+) -> "AnalysisOutput":
+    """
+    Adversarial calibration pass for the structured path (MA-2).
+    Receives only predictions + key_risks — not the full prose — to avoid
+    the model reading back its own reasoning and rubber-stamping it.
+    Returns an updated AnalysisOutput with confidence deltas and risk tags applied.
+    """
+    pred_rows = "\n".join(
+        f"| {p.asset} | {p.bias} | {p.primary_driver} | {p.confidence_pct}% | {p.target_range} |"
+        for p in output.predictions
+    )
+    pred_table = (
+        "| Asset | Bias | Primary Driver | Confidence | Target Range |\n"
+        "|-------|------|----------------|------------|-------------|\n"
+        + pred_rows + "\n"
+    )
+    risks_text = "\n".join(f"- {r}" for r in output.key_risks)
+    context = f"## Key Risks\n{risks_text}\n\n## 5-Day Predictions\n{pred_table}"
+
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=250,
+        messages=[{"role": "user", "content": f"{_ADVERSARIAL_PROMPT}\n\nREPORT:\n{context}"}],
+    )
+    raw_output = response.content[0].text.strip()
+
+    try:
+        json_match = re.search(r'\{[\s\S]+\}', raw_output)
+        if not json_match:
+            raise ValueError("no JSON object found")
+        revisions = json.loads(json_match.group(0))
+    except Exception as e:
+        _log("REVIEW", "WARN", f"could not parse adversarial JSON ({e}) — using original predictions")
+        return output
+
+    new_predictions = []
+    for p in output.predictions:
+        rev = next(
+            (v for k, v in revisions.items()
+             if k.lower() in p.asset.lower() or p.asset.lower() in k.lower()),
+            None,
+        )
+        if rev is None or p.bias == "Neutral":
+            new_predictions.append(p)
+            continue
+
+        delta    = int(rev.get("confidence_delta", 0) or 0)
+        new_conf = max(51, min(70, p.confidence_pct + delta))
+
+        new_driver = p.primary_driver
+        risk_tag   = rev.get("append_risk")
+        if risk_tag and risk_tag not in new_driver:
+            candidate = f"{new_driver} {risk_tag}"
+            new_driver = candidate[:497] + "..." if len(candidate) > 500 else candidate
+
+        new_predictions.append(p.model_copy(update={
+            "confidence_pct": new_conf,
+            "primary_driver": new_driver,
+        }))
+
+    # Reuse the free-text diff logger via reconstructed table strings
+    revised_rows = "\n".join(
+        f"| {p.asset} | {p.bias} | {p.primary_driver} | {p.confidence_pct}% | {p.target_range} |"
+        for p in new_predictions
+    )
+    revised_table = (
+        "| Asset | Bias | Primary Driver | Confidence | Target Range |\n"
+        "|-------|------|----------------|------------|-------------|\n"
+        + revised_rows + "\n"
+    )
+    _log_adversarial_diff(pred_table, revised_table)
+
+    return output.model_copy(update={"predictions": new_predictions})
+
+
 _BULLISH_CONTRADICTIONS = frozenset({"fade", "fade the", "short ", "expect decline"})
 _BEARISH_CONTRADICTIONS = frozenset({"short squeeze", "relief rally", "buy the dip"})
 
@@ -1782,8 +1860,9 @@ def analyze_with_claude(
         _log("SECTORS", "WARN", f"sector fundamentals unavailable: {e}")
         sector_fundamentals_block = ""
 
-    # accuracy_context is included for the free-text path only (MA-2 will remove it
-    # from the analysis agent entirely; for now it stays out of the structured message).
+    # Structured path: accuracy_context is excluded from the analysis agent (MA-2).
+    # The analysis agent sees only market/macro data; the adversarial pass handles
+    # calibration separately, eliminating the pre-emptive hedging root cause.
     user_message_structured = f"""Today is {today.strftime('%A, %B %d, %Y')}.
 Prediction review date (5 business days): {review_date}
 
@@ -1798,11 +1877,15 @@ Prediction review date (5 business days): {review_date}
 {f"{chr(10)}{notable_moves}" if notable_moves else ""}
 {f"{chr(10)}{events_context}" if events_context else ""}
 {f"{chr(10)}{youtube_context}" if youtube_context else ""}
-{f"{chr(10)}{accuracy_context}" if accuracy_context else ""}
 {f"{chr(10)}{sector_fundamentals_block}" if sector_fundamentals_block else ""}
 {f"{chr(10)}{portfolio_context}" if portfolio_context else ""}"""
 
-    user_message = user_message_structured + "\nGenerate the macro intelligence note as specified in your instructions."
+    # Free-text fallback: accuracy_context stays so the single-pass model has calibration context.
+    user_message = (
+        user_message_structured
+        + (f"\n{accuracy_context}" if accuracy_context else "")
+        + "\nGenerate the macro intelligence note as specified in your instructions."
+    )
 
     if os.environ.get("MACRO_DEBUG"):
         print("=" * 72 + "\nUSER MESSAGE\n" + "=" * 72)
@@ -1817,6 +1900,8 @@ Prediction review date (5 business days): {review_date}
         if structured is not None:
             _log("OVERRIDE", "INFO", "checking accuracy-based overrides (structured path)...")
             structured = _apply_accuracy_override_structured(structured)
+            _log("CLAUDE", "INFO", "running adversarial review (structured path)...")
+            structured = _adversarial_review_structured(client, structured)
             return structured
 
     # --- Free-text fallback path (pre-MA-1 behaviour, unchanged) ---
