@@ -1966,14 +1966,20 @@ tags: [macro, daily-note, economics]
 # ---------------------------------------------------------------------------
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--force", action="store_true",
+                        help="overwrite today's note if it already exists")
+    args = parser.parse_args()
+
     today = datetime.now(timezone.utc)
     _t0   = time.monotonic()
     _log("PIPELINE", "INFO", f"Macro-Assist starting — {today.strftime('%Y-%m-%d %H:%M')} UTC")
     _check_fomc_dates_expiry(today)
 
-    # Idempotency: skip if today's note already exists
+    # Idempotency: skip if today's note already exists (bypass with --force)
     output_path = get_output_path(today)
-    if output_path.exists():
+    if output_path.exists() and not args.force:
         _log("PIPELINE", "INFO", f"note already exists for {today.strftime('%Y-%m-%d')} — skipping")
         sys.exit(0)
 
