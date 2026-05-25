@@ -13,7 +13,6 @@ import os
 import re
 import sys
 import time
-import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
@@ -610,11 +609,15 @@ def validate_data(fred_data: dict, market_data: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# COT positioning data (Phase 3 — Nasdaq Data Link / CFTC)
+# COT positioning data — CFTC Legacy Futures-Only (deafut.txt)
 # ---------------------------------------------------------------------------
 
-# CFTC futures-only codes used to filter the public annual COT CSV
-# Source: https://www.cftc.gov/dea/futures/deacmesf.htm (no API key required)
+# Source: https://www.cftc.gov/dea/newcot/deafut.txt  (updated each Friday, no key required)
+# WTI and Gold are commodity futures — they appear in the Legacy report, not Financial Traders.
+COT_URL = "https://www.cftc.gov/dea/newcot/deafut.txt"
+COT_HISTORY_FILE = ACCURACY_JSON.parent / "cot_history.json"
+COT_HISTORY_WEEKS = 54  # rolling window for percentile (~1 year)
+
 COT_SERIES = {
     "WTI Oil": "067651",   # Light Sweet Crude Oil (CL), NYMEX
     "Gold":    "088691",   # Gold (GC), COMEX
@@ -623,98 +626,62 @@ COT_SERIES = {
 
 def fetch_cot_data() -> str:
     """
-    Fetch CFTC Commitments of Traders net non-commercial positioning for
-    WTI Crude and Gold from the CFTC's public annual CSV (no API key required).
-    Falls back to the prior year's file if the current year file isn't available yet.
+    Fetch CFTC COT net non-commercial positioning for WTI and Gold.
+    Uses the current-week Legacy Futures-Only plain-text file (deafut.txt).
+    Maintains a rolling 54-week JSON cache to compute 1-year percentile.
     Returns a ## COT Positioning Markdown block, or empty string on failure.
     """
-    # CFTC publishes one CSV per year; column layout is fixed across years.
-    # https://www.cftc.gov/MarketReports/CommitmentsofTraders/index.htm
-    today = datetime.now(timezone.utc)
-    today_date = today.date()
+    today_date = datetime.now(timezone.utc).date()
 
-    def _fetch_year(year: int) -> Optional[pd.DataFrame]:
-        url = f"https://www.cftc.gov/files/dea/history/fut_fin_xls_{year}.zip"
-        try:
-            resp = requests.get(url, timeout=30)
-            resp.raise_for_status()
-            with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
-                names = zf.namelist()
-                # Prefer named data files; fall back to first entry in archive
-                csv_name = next(
-                    (n for n in names if n.lower().endswith((".csv", ".xls", ".xlsx", ".txt"))),
-                    names[0] if names else None,
-                )
-                if csv_name is None:
-                    _log("COT", "WARN", f"ZIP archive for {year} is empty")
-                    return None
-                with zf.open(csv_name) as f:
-                    raw = f.read()
-            # XLS/XLSX: binary Excel format — must use read_excel, not read_csv
-            if csv_name.lower().endswith((".xls", ".xlsx")):
-                try:
-                    return pd.read_excel(io.BytesIO(raw))
-                except Exception as exc:
-                    _log("COT", "WARN", f"could not parse {year} CFTC Excel file: {exc}")
-                    return None
-            # CSV/TXT: CFTC uses Windows-1252 — try that before UTF-8
-            for enc in ("cp1252", "latin-1", "utf-8"):
-                try:
-                    return pd.read_csv(io.StringIO(raw.decode(enc)), low_memory=False)
-                except (UnicodeDecodeError, ValueError):
-                    continue
-            _log("COT", "WARN", f"could not decode {year} CFTC file with any known encoding")
-            return None
-        except Exception as e:
-            _log("COT", "WARN", f"could not fetch {year} CFTC file: {e}")
-            return None
-
-    df = _fetch_year(today.year)
-    if df is None:
-        df = _fetch_year(today.year - 1)
-    if df is None:
-        _log("COT", "WARN", "CFTC data unavailable — skipping COT block")
+    # Fetch plain-text CSV (CFTC uses Windows-1252 encoding)
+    try:
+        resp = requests.get(COT_URL, timeout=30)
+        resp.raise_for_status()
+        df = None
+        for enc in ("cp1252", "latin-1", "utf-8"):
+            try:
+                df = pd.read_csv(io.StringIO(resp.content.decode(enc)), low_memory=False)
+                break
+            except (UnicodeDecodeError, ValueError):
+                continue
+        if df is None:
+            _log("COT", "WARN", "could not decode CFTC deafut.txt")
+            return ""
+    except Exception as e:
+        _log("COT", "WARN", f"could not fetch CFTC deafut.txt: {e}")
         return ""
 
-    # Normalise column names to lowercase for robust matching
     df.columns = [c.strip().lower() for c in df.columns]
 
-    # Identify the key columns we need.
-    # Legacy format uses "noncomm" (non-commercial); Financial Traders format uses "lev_money"
-    # (leveraged funds — hedge funds, the closest speculative-positioning equivalent).
-    code_col  = next((c for c in df.columns if "cftc" in c and "code" in c), None)
+    code_col  = next((c for c in df.columns if "cftc_contract_market_code" in c), None) \
+                or next((c for c in df.columns if "cftc" in c and "code" in c), None)
     date_col  = next((c for c in df.columns if "report" in c and "date" in c), None)
-    long_col  = (
-        next((c for c in df.columns if "noncomm" in c and "long" in c and "all" in c), None)
-        or next((c for c in df.columns if "noncomm" in c and "long" in c and "spread" not in c), None)
-        or next((c for c in df.columns if "lev_money" in c and "long" in c and "spread" not in c), None)
-    )
-    short_col = (
-        next((c for c in df.columns if "noncomm" in c and "short" in c and "all" in c), None)
-        or next((c for c in df.columns if "noncomm" in c and "short" in c and "spread" not in c), None)
-        or next((c for c in df.columns if "lev_money" in c and "short" in c and "spread" not in c), None)
-    )
+    long_col  = next((c for c in df.columns if "noncomm" in c and "long" in c and "all" in c), None)
+    short_col = next((c for c in df.columns if "noncomm" in c and "short" in c and "all" in c), None)
 
     if not all([code_col, date_col, long_col, short_col]):
-        sample_cols = list(df.columns[:20])
         _log("COT", "WARN",
              f"unexpected column layout — found: {[code_col, date_col, long_col, short_col]}"
-             f" | first 20 cols: {sample_cols}")
+             f" | first 20 cols: {list(df.columns[:20])}")
         return ""
-
-    # Label the section header to reflect which positioning series was resolved
-    _is_lev_money = long_col is not None and "lev_money" in long_col
-    _pos_label = "Leveraged Money (Financial Traders)" if _is_lev_money else "Non-Commercial"
 
     df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
 
+    # Load rolling history cache (keyed by asset label)
+    try:
+        history: dict = json.loads(COT_HISTORY_FILE.read_text(encoding="utf-8")) \
+                        if COT_HISTORY_FILE.exists() else {}
+    except Exception:
+        history = {}
+
     rows = [
-        f"## COT Positioning (CFTC {_pos_label}, Net)",
+        "## COT Positioning (CFTC Non-Commercial, Net)",
         "",
         "| Asset | Net Long | Percentile (1yr) | Signal | As Of |",
         "|-------|----------|-----------------|--------|-------|",
     ]
     _cot_ok = 0
+    _history_updated = False
 
     for label, code in COT_SERIES.items():
         subset = df[df[code_col].astype(str).str.strip() == code].copy()
@@ -723,22 +690,38 @@ def fetch_cot_data() -> str:
             rows.append(f"| {label} | n/a | n/a | code not found | n/a |")
             continue
 
-        subset = subset.sort_values(date_col)
-        # Last 54 rows ≈ 1 year of weekly data
-        subset = subset.tail(54)
-        subset["net_long"] = pd.to_numeric(subset[long_col], errors="coerce") \
-                           - pd.to_numeric(subset[short_col], errors="coerce")
-        subset = subset.dropna(subset=["net_long"])
+        subset["net_long"] = (
+            pd.to_numeric(subset[long_col], errors="coerce")
+            - pd.to_numeric(subset[short_col], errors="coerce")
+        )
+        subset = subset.dropna(subset=["net_long"]).sort_values(date_col)
         if subset.empty:
             rows.append(f"| {label} | n/a | n/a | parse error | n/a |")
             continue
 
-        current   = float(subset["net_long"].iloc[-1])
-        min_val   = float(subset["net_long"].min())
-        max_val   = float(subset["net_long"].max())
-        pct       = round(((current - min_val) / (max_val - min_val)) * 100) if max_val > min_val else 50
-        as_of     = subset[date_col].iloc[-1].date()
-        days_stale = (today_date - as_of).days
+        current_net = float(subset["net_long"].iloc[-1])
+        as_of_ts    = subset[date_col].iloc[-1]
+        as_of       = as_of_ts.date() if pd.notna(as_of_ts) else today_date
+        days_stale  = (today_date - as_of).days
+
+        # Append to rolling cache if this week isn't already stored
+        asset_history = history.get(label, [])
+        date_str = str(as_of)
+        if not asset_history or asset_history[-1]["date"] != date_str:
+            asset_history.append({"date": date_str, "net_long": current_net})
+            asset_history = asset_history[-COT_HISTORY_WEEKS:]
+            history[label] = asset_history
+            _history_updated = True
+
+        # Percentile from cache (need ≥4 weeks for a meaningful rank)
+        net_series = [e["net_long"] for e in asset_history]
+        if len(net_series) >= 4:
+            min_v, max_v = min(net_series), max(net_series)
+            pct = round(((current_net - min_v) / (max_v - min_v)) * 100) if max_v > min_v else 50
+            pct_label = f"{pct}th pct"
+        else:
+            pct = 50
+            pct_label = "n/a (building history)"
 
         if pct >= 80:
             signal = "Crowded Long — contrarian bearish"
@@ -749,9 +732,17 @@ def fetch_cot_data() -> str:
 
         stale_note = f" ({days_stale}d stale)" if days_stale > 10 else ""
         rows.append(
-            f"| {label} | {current:,.0f} | {pct}th pct | {signal} | {as_of}{stale_note} |"
+            f"| {label} | {current_net:,.0f} | {pct_label} | {signal} | {as_of}{stale_note} |"
         )
         _cot_ok += 1
+
+    # Persist updated cache alongside accuracy data
+    if _history_updated:
+        try:
+            COT_HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+            COT_HISTORY_FILE.write_text(json.dumps(history, indent=2), encoding="utf-8")
+        except Exception as e:
+            _log("COT", "WARN", f"could not save COT history cache: {e}")
 
     _log("COT", "OK" if _cot_ok == len(COT_SERIES) else "WARN",
          f"{_cot_ok}/{len(COT_SERIES)} assets fetched")
