@@ -623,7 +623,7 @@ class AnalysisOutput(BaseModel):
 
 ---
 
-### Phase MA-2 — Analysis / Calibration Split *(depends on MA-1)*
+### Phase MA-2 — Analysis / Calibration Split *(Done — 2026-05-25)*
 
 **Goal.** Remove the accuracy history from the analysis agent's information diet. The analysis agent makes its authentic data-driven call. Calibration is applied to the structured output separately, in Python.
 
@@ -650,7 +650,7 @@ class AnalysisOutput(BaseModel):
 
 ---
 
-### Phase MA-3 — Risk Agent + Synthesis Agent *(depends on MA-2)*
+### Phase MA-3 — Risk Agent + Synthesis Agent *(MA-3a Done — 2026-05-25; MA-3b pending)*
 
 **Goal.** Add a dedicated portfolio risk agent and a synthesis agent that composes the final report from structured inputs alone, completing the 3-agent architecture.
 
@@ -1339,8 +1339,8 @@ Not on critical path. Listed for future planning.
 | 7 | Phase 7 (Sector Opportunity Research) | High | Phase 6 + fundamentals data | ✅ Done (7d scoring deferred) |
 | 8 | **Phase MA-0 (Bug fixes: time-travel, leakage, contradiction detector)** | **Low** | **None — ship immediately** | ✅ **Done** |
 | 9 | **Phase MA-1 (Structured output contract + schemas.py)** | **Medium** | **MA-0** | ✅ **Done** |
-| 10 | **Phase MA-2 (Analysis / calibration split)** | **Medium** | **MA-1** | 🔲 **To Implement** |
-| 11 | **Phase MA-3a (Risk agent — Haiku)** | **Low** | **MA-1** | 🔲 **To Implement** |
+| 10 | **Phase MA-2 (Analysis / calibration split)** | **Medium** | **MA-1** | ✅ **Done** |
+| 11 | **Phase MA-3a (Risk agent — Haiku)** | **Low** | **MA-1** | ✅ **Done** |
 | 12 | **Phase MA-3b (Synthesis agent — retire free-text build_note)** | **Medium** | **MA-2 + MA-3a stable** | 🔲 **To Implement** |
 | 13 | **Phase 8 (Validation Infrastructure)** | **Medium** | **MA-3b complete** | 🔲 **To Implement** |
 | 14 | **Phase 9 (Volatility Forecasting)** | **Medium** | **Phase 8** | 🔲 **To Implement** |
