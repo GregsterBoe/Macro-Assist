@@ -23,7 +23,7 @@ _FADE_WORDS = frozenset({"fade", "fade the", "expect decline", "downside risk if
 class AssetPrediction(BaseModel):
     asset: str
     bias: Literal["Bullish", "Bearish", "Neutral"]
-    primary_driver: str = Field(min_length=10, max_length=350)
+    primary_driver: str = Field(min_length=10, max_length=500)
     confidence_pct: int = Field(ge=50, le=80)
     target_range: str
     horizon_days: int = Field(default=5)
@@ -41,14 +41,14 @@ class AssetPrediction(BaseModel):
 
 
 class AnalysisOutput(BaseModel):
-    executive_summary: str = Field(max_length=600)
+    executive_summary: str = Field(max_length=1000)
     macro_regime: Literal["Risk-On", "Risk-Off", "Stagflation", "Reflation", "Neutral/Mixed"]
-    macro_dashboard_text: Optional[str] = Field(default=None, max_length=1400)
-    equities_note: str = Field(max_length=600)
-    rates_note: str = Field(max_length=600)
-    inflation_growth_note: str = Field(max_length=600)
-    commodities_note: str = Field(max_length=600)
+    macro_dashboard_text: Optional[str] = Field(default=None, max_length=1800)
+    equities_note: str = Field(max_length=900)
+    rates_note: str = Field(max_length=900)
+    inflation_growth_note: str = Field(max_length=900)
+    commodities_note: str = Field(max_length=900)
     key_risks: list[str] = Field(min_length=3, max_length=5)
     predictions: list[AssetPrediction] = Field(min_length=6, max_length=6)
-    sector_opportunity: Optional[str] = Field(default=None, max_length=1400)
-    portfolio_risk: Optional[str] = Field(default=None, max_length=1000)
+    sector_opportunity: Optional[str] = Field(default=None, max_length=1800)
+    portfolio_risk: Optional[str] = Field(default=None, max_length=1600)
