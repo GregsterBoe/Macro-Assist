@@ -1,0 +1,38 @@
+name: Data Fetch Check
+
+on:
+  schedule:
+    # Run Mon–Fri at 06:00 UTC — 30 min before the daily note, catches broken sources early
+    - cron: "0 6 * * 1-5"
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  data-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Macro-Assist
+        uses: actions/checkout@v4
+        with:
+          path: macro-assist
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: macro-assist/.macro-assist/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r macro-assist/.macro-assist/requirements.txt
+
+      - name: Run data fetch check
+        env:
+          FRED_API_KEY:     ${{ secrets.FRED_API_KEY }}
+          SUPADATA_API_KEY: ${{ secrets.SUPADATA_API_KEY }}
+          # No ANTHROPIC_API_KEY — LLM is never called in --fetch-only mode
+          # No VAULT_ROOT — fetch check does not write any files
+        run: python macro-assist/.macro-assist/collect_and_analyze.py --fetch-only
