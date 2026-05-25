@@ -680,16 +680,19 @@ def fetch_cot_data() -> str:
     df.columns = [c.strip().lower() for c in df.columns]
 
     # Identify the key columns we need.
-    # Try strict match first ("all" suffix); fall back to any non-spreading noncomm col.
+    # Legacy format uses "noncomm" (non-commercial); Financial Traders format uses "lev_money"
+    # (leveraged funds — hedge funds, the closest speculative-positioning equivalent).
     code_col  = next((c for c in df.columns if "cftc" in c and "code" in c), None)
     date_col  = next((c for c in df.columns if "report" in c and "date" in c), None)
     long_col  = (
         next((c for c in df.columns if "noncomm" in c and "long" in c and "all" in c), None)
         or next((c for c in df.columns if "noncomm" in c and "long" in c and "spread" not in c), None)
+        or next((c for c in df.columns if "lev_money" in c and "long" in c and "spread" not in c), None)
     )
     short_col = (
         next((c for c in df.columns if "noncomm" in c and "short" in c and "all" in c), None)
         or next((c for c in df.columns if "noncomm" in c and "short" in c and "spread" not in c), None)
+        or next((c for c in df.columns if "lev_money" in c and "short" in c and "spread" not in c), None)
     )
 
     if not all([code_col, date_col, long_col, short_col]):
@@ -699,10 +702,14 @@ def fetch_cot_data() -> str:
              f" | first 20 cols: {sample_cols}")
         return ""
 
+    # Label the section header to reflect which positioning series was resolved
+    _is_lev_money = long_col is not None and "lev_money" in long_col
+    _pos_label = "Leveraged Money (Financial Traders)" if _is_lev_money else "Non-Commercial"
+
     df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
 
     rows = [
-        "## COT Positioning (CFTC Non-Commercial, Net)",
+        f"## COT Positioning (CFTC {_pos_label}, Net)",
         "",
         "| Asset | Net Long | Percentile (1yr) | Signal | As Of |",
         "|-------|----------|-----------------|--------|-------|",
