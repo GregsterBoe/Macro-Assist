@@ -175,13 +175,16 @@ def _compute_net_liquidity(raw_series: dict) -> dict | None:
     if mom_pct is not None:
         parts.append(f"{'+' if mom_pct >= 0 else ''}{mom_pct:.1f}% MoM")
 
+    # Cap at today — weekly resampling (resample("W")) assigns period-end Sunday,
+    # which places the date in the future when the pipeline runs mid-week.
+    as_of = min(combined.index[-1].date(), datetime.now(timezone.utc).date())
     return {
         "value_bn":      round(current, 1),
         "wow_pct":       wow_pct,
         "mom_pct":       mom_pct,
         "trend":         trend,
         "trend_summary": ", ".join(parts),
-        "date":          combined.index[-1].strftime("%Y-%m-%d"),
+        "date":          as_of.strftime("%Y-%m-%d"),
     }
 
 
@@ -1301,6 +1304,32 @@ def _log_adversarial_diff(original: str, revised: str) -> None:
         _log("REVIEW", "WARN", f"{changes} prediction(s) revised")
 
 
+_BULLISH_CONTRADICTIONS = frozenset({"fade", "fade the", "short ", "expect decline"})
+_BEARISH_CONTRADICTIONS = frozenset({"short squeeze", "relief rally", "buy the dip"})
+
+
+def _check_prediction_consistency(analysis: str) -> None:
+    """Log a WARN when Bias and Primary Driver text directly contradict each other."""
+    match = re.search(
+        r'\| Asset \| Bias \| Primary Driver \|.*?\n(?:\|[^\n]+\n)+', analysis, re.DOTALL
+    )
+    if not match:
+        return
+    for line in match.group(0).splitlines():
+        if not line.startswith("|") or "---" in line or "Asset" in line:
+            continue
+        cells = line.split("|")
+        if len(cells) < 5:
+            continue
+        asset  = cells[1].strip()
+        bias   = cells[2].strip().lower()
+        driver = cells[3].strip().lower()
+        if bias == "bullish" and any(w in driver for w in _BULLISH_CONTRADICTIONS):
+            _log("VALIDATE", "WARN", f"{asset}: Bullish bias contradicted by driver text (contains fade/short language)")
+        elif bias == "bearish" and any(w in driver for w in _BEARISH_CONTRADICTIONS):
+            _log("VALIDATE", "WARN", f"{asset}: Bearish bias contradicted by driver text (contains squeeze/rally language)")
+
+
 def _apply_accuracy_override(analysis: str) -> str:
     """
     Code-level bias correction applied after adversarial review.
@@ -1313,6 +1342,8 @@ def _apply_accuracy_override(analysis: str) -> str:
        in its best window but the current call is Neutral at 50%, log a warning so
        it is visible in CI output. (Prompt rules handle the fix; this makes it auditable.)
     """
+    _check_prediction_consistency(analysis)
+
     if not ACCURACY_JSON.exists():
         _log("OVERRIDE", "INFO", "no accuracy data — skipping")
         return analysis
@@ -1437,6 +1468,239 @@ def _apply_accuracy_override(analysis: str) -> str:
     return analysis[: match.start()] + modified + analysis[match.end():]
 
 
+_ARTIFACT_PATTERNS = [
+    re.compile(r'\*?Maximum \d+ words[^\n]*\*?', re.IGNORECASE),
+    re.compile(r'\*?[Ss]ection complete\.?\*?', re.IGNORECASE),
+    re.compile(r'\*?Token budget[^\n]*\*?', re.IGNORECASE),
+]
+
+
+def _scrub_prompt_artifacts(text: str) -> str:
+    """Strip instruction text that the model echoed verbatim into its output."""
+    for pattern in _ARTIFACT_PATTERNS:
+        text = pattern.sub('', text)
+    return re.sub(r'\n{3,}', '\n\n', text)
+
+
+# ---------------------------------------------------------------------------
+# Phase MA-1: Structured output helpers
+# ---------------------------------------------------------------------------
+
+try:
+    from schemas import AnalysisOutput, AssetPrediction
+    from pydantic import ValidationError as PydanticValidationError
+    _STRUCTURED_OUTPUT_AVAILABLE = True
+except ImportError:
+    _STRUCTURED_OUTPUT_AVAILABLE = False
+
+
+def _build_analysis_markdown(output: "AnalysisOutput", today: datetime) -> str:
+    """Assemble the analysis section markdown from a structured AnalysisOutput.
+    Python owns the section order — the model never writes headings or constraints.
+    """
+    parts: list[str] = []
+
+    parts.append(f"### Executive Summary\n\n{output.executive_summary}")
+
+    if output.macro_dashboard_text:
+        parts.append(f"### Macro Dashboard\n\n{output.macro_dashboard_text}")
+
+    parts.append(f"### Equities\n\n{output.equities_note}")
+    parts.append(f"### Rates & Fed Policy\n\n{output.rates_note}")
+    parts.append(f"### Inflation & Growth\n\n{output.inflation_growth_note}")
+    parts.append(f"### Commodities\n\n{output.commodities_note}")
+
+    if output.portfolio_risk:
+        parts.append(f"### Portfolio Risk Assessment\n\n{output.portfolio_risk}")
+
+    if output.sector_opportunity:
+        parts.append(f"### Sector Opportunity Research\n\n{output.sector_opportunity}")
+
+    risks_md = "\n".join(f"- {r}" for r in output.key_risks)
+    parts.append(f"### Key Risks & Themes\n\n{risks_md}")
+
+    review_date = next_review_date(today)
+    table_header = (
+        "| Asset | Bias | Primary Driver | Confidence | Target Range |\n"
+        "|-------|------|----------------|------------|--------------|"
+    )
+    table_rows = "\n".join(
+        f"| {p.asset} | {p.bias} | {p.primary_driver} | {p.confidence_pct}% | {p.target_range} |"
+        for p in output.predictions
+    )
+    parts.append(
+        f"### 5-Day Predictions\n\n{table_header}\n{table_rows}\n\nReview date: {review_date}"
+    )
+
+    return "\n\n".join(parts)
+
+
+def _apply_accuracy_override_structured(output: "AnalysisOutput") -> "AnalysisOutput":
+    """Accuracy-based bias corrections applied directly to AnalysisOutput.predictions.
+    Structured equivalent of _apply_accuracy_override() — no regex, operates on typed fields.
+    """
+    _pred_table_text = (
+        "| Asset | Bias | Primary Driver | Confidence | Target Range |\n"
+        + "\n".join(
+            f"| {p.asset} | {p.bias} | {p.primary_driver} | {p.confidence_pct}% | {p.target_range} |"
+            for p in output.predictions
+        )
+        + "\n"
+    )
+    _check_prediction_consistency(_pred_table_text)
+
+    if not ACCURACY_JSON.exists():
+        _log("OVERRIDE", "INFO", "no accuracy data — skipping")
+        return output
+    try:
+        acc_data = json.loads(ACCURACY_JSON.read_text(encoding="utf-8"))
+    except Exception:
+        return output
+
+    all_windows = acc_data.get("windows", {})
+    if not all_windows:
+        return output
+
+    new_predictions: list["AssetPrediction"] = []
+    for pred in output.predictions:
+        asset = pred.asset
+
+        # Pass 1: bias floor — <40% Bearish directional accuracy in any window
+        worst_dacc, worst_wkey, worst_n = None, None, 0
+        for wkey, wdata in all_windows.items():
+            astat = wdata.get("by_asset", {}).get(asset, {})
+            dacc  = astat.get("directional_acc")
+            dn    = astat.get("directional_n", 0)
+            if dacc is None or dn < 8:
+                continue
+            if worst_dacc is None or dacc < worst_dacc:
+                worst_dacc, worst_wkey, worst_n = dacc, wkey, dn
+
+        if worst_dacc is not None and worst_dacc < 0.40 and pred.bias == "Bearish":
+            note = (
+                f" [Caution: {worst_wkey.upper()} Bearish dir. acc. "
+                f"{worst_dacc:.0%} n={worst_n} — historical bias]"
+            )
+            pred = pred.model_copy(update={
+                "confidence_pct": 51,
+                "primary_driver": (pred.primary_driver + note)[:350],
+            })
+            _log("OVERRIDE", "WARN",
+                 f"{asset}: confidence floored ({worst_wkey.upper()} Bearish {worst_dacc:.0%}, n={worst_n})")
+
+        # Pass 2: wasted-signal warning — ≥70% best-window, Neutral@50%
+        best_dacc, best_wkey, best_n = None, None, 0
+        for wkey in reversed(list(all_windows.keys())):
+            astat = all_windows[wkey].get("by_asset", {}).get(asset, {})
+            dacc  = astat.get("directional_acc")
+            dn    = astat.get("directional_n", 0)
+            if dacc is None or dn < 10:
+                continue
+            if best_dacc is None or dacc > best_dacc:
+                best_dacc, best_wkey, best_n = dacc, wkey, dn
+
+        if best_dacc is not None and best_dacc >= 0.70 and pred.bias == "Neutral" and pred.confidence_pct == 50:
+            _log("OVERRIDE", "WARN",
+                 f"{asset}: Neutral@50% despite {best_wkey.upper()} dir. acc. "
+                 f"{best_dacc:.0%} (n={best_n}) — check prompt compliance")
+
+        new_predictions.append(pred)
+
+    # Pass 3: clustering + all-Neutral checks
+    dir_conf_counts: dict[str, int] = {}
+    dir_at_50 = 0
+    bias_values = [p.bias for p in new_predictions]
+    for p in new_predictions:
+        if p.bias in ("Bullish", "Bearish"):
+            key = str(p.confidence_pct)
+            dir_conf_counts[key] = dir_conf_counts.get(key, 0) + 1
+            if p.confidence_pct == 50:
+                dir_at_50 += 1
+
+    for conf_val, count in dir_conf_counts.items():
+        if count >= 3:
+            _log("OVERRIDE", "WARN",
+                 f"confidence clustering: {count} directional calls at {conf_val}%")
+    if dir_at_50 >= 2:
+        _log("OVERRIDE", "WARN", f"{dir_at_50} directional calls at 50% — min 51%")
+
+    if bias_values and not [b for b in bias_values if b != "Neutral"]:
+        _log("OVERRIDE", "FAIL", "all-Neutral prediction table — minimum conviction rule violated")
+
+    return output.model_copy(update={"predictions": new_predictions})
+
+
+def _analyze_structured(
+    client: anthropic.Anthropic,
+    system_prompt: str,
+    user_message: str,
+) -> "AnalysisOutput | None":
+    """Try structured output via Anthropic tool_use.
+    Returns validated AnalysisOutput on success, None after two failed attempts.
+    Zero-downtime: caller falls back to free-text path on None.
+    """
+    schema = AnalysisOutput.model_json_schema()
+    tools = [{
+        "name": "submit_analysis",
+        "description": (
+            "Submit the structured macro analysis. "
+            "Fill all required fields from today's FRED and market data."
+        ),
+        "input_schema": schema,
+    }]
+
+    messages: list[dict] = [{"role": "user", "content": user_message}]
+    last_response = None
+
+    for attempt in range(2):
+        try:
+            response = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=5000,
+                system=system_prompt,
+                tools=tools,
+                tool_choice={"type": "tool", "name": "submit_analysis"},
+                messages=messages,
+            )
+            last_response = response
+
+            tool_block = next(
+                (b for b in response.content
+                 if b.type == "tool_use" and b.name == "submit_analysis"),
+                None,
+            )
+            if tool_block is None:
+                raise ValueError("no submit_analysis tool_use block in response")
+
+            result = AnalysisOutput.model_validate(tool_block.input)
+            _log("CLAUDE", "OK",
+                 f"structured output validated ({response.usage.output_tokens} tokens)")
+            return result
+
+        except Exception as e:
+            if attempt == 0 and last_response is not None:
+                _log("CLAUDE", "WARN",
+                     f"structured attempt 1 failed ({type(e).__name__}: {e}) — retrying")
+                messages = [
+                    {"role": "user", "content": user_message},
+                    {"role": "assistant", "content": last_response.content},
+                    {
+                        "role": "user",
+                        "content": (
+                            f"The previous response had an error:\n{e}\n\n"
+                            "Please correct the fields and resubmit via submit_analysis."
+                        ),
+                    },
+                ]
+            else:
+                _log("CLAUDE", "FAIL",
+                     f"structured output failed after {attempt + 1} attempt(s) "
+                     f"({type(e).__name__}) — falling back to free-text path")
+                return None
+
+    return None
+
+
 def analyze_with_claude(
     fred_data: dict,
     market_data: dict,
@@ -1444,7 +1708,7 @@ def analyze_with_claude(
     sector_data: dict | None = None,
     notable_moves: str = "",
     histories: dict | None = None,
-) -> str:
+) -> "str | AnalysisOutput":
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     system_prompt = (PROMPTS_DIR / "system_prompt.md").read_text()
 
@@ -1494,7 +1758,9 @@ def analyze_with_claude(
         _log("SECTORS", "WARN", f"sector fundamentals unavailable: {e}")
         sector_fundamentals_block = ""
 
-    user_message = f"""Today is {today.strftime('%A, %B %d, %Y')}.
+    # accuracy_context is included for the free-text path only (MA-2 will remove it
+    # from the analysis agent entirely; for now it stays out of the structured message).
+    user_message_structured = f"""Today is {today.strftime('%A, %B %d, %Y')}.
 Prediction review date (5 business days): {review_date}
 
 ## FRED Macro Indicators
@@ -1510,15 +1776,27 @@ Prediction review date (5 business days): {review_date}
 {f"{chr(10)}{youtube_context}" if youtube_context else ""}
 {f"{chr(10)}{accuracy_context}" if accuracy_context else ""}
 {f"{chr(10)}{sector_fundamentals_block}" if sector_fundamentals_block else ""}
-{f"{chr(10)}{portfolio_context}" if portfolio_context else ""}
-Generate the macro intelligence note as specified in your instructions."""
+{f"{chr(10)}{portfolio_context}" if portfolio_context else ""}"""
+
+    user_message = user_message_structured + "\nGenerate the macro intelligence note as specified in your instructions."
 
     if os.environ.get("MACRO_DEBUG"):
         print("=" * 72 + "\nUSER MESSAGE\n" + "=" * 72)
         print(user_message)
         print("=" * 72)
 
-    _log("CLAUDE", "INFO", "generating analysis (main pass)...")
+    # --- Structured output path (Phase MA-1) ---
+    if _STRUCTURED_OUTPUT_AVAILABLE:
+        _log("CLAUDE", "INFO", "attempting structured output (tool_use)...")
+        system_prompt_structured = (PROMPTS_DIR / "system_prompt_structured.md").read_text()
+        structured = _analyze_structured(client, system_prompt_structured, user_message_structured)
+        if structured is not None:
+            _log("OVERRIDE", "INFO", "checking accuracy-based overrides (structured path)...")
+            structured = _apply_accuracy_override_structured(structured)
+            return structured
+
+    # --- Free-text fallback path (pre-MA-1 behaviour, unchanged) ---
+    _log("CLAUDE", "INFO", "generating analysis (free-text path)...")
     response = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=5000,
@@ -1537,7 +1815,8 @@ Generate the macro intelligence note as specified in your instructions."""
     immutable_anchors = _build_immutable_anchors(fred_data, market_data)
     reviewed = adversarial_review(client, draft, immutable_anchors)
     _log("OVERRIDE", "INFO", "checking accuracy-based overrides...")
-    return _apply_accuracy_override(reviewed)
+    final = _apply_accuracy_override(reviewed)
+    return _scrub_prompt_artifacts(final)
 
 
 # ---------------------------------------------------------------------------
@@ -1551,10 +1830,15 @@ def _arrow(pct: float) -> str:
 def build_note(
     fred_data: dict,
     market_data: dict,
-    analysis: str,
+    analysis: "str | AnalysisOutput",
     today: datetime,
     sector_data: dict | None = None,
 ) -> str:
+    # Structured path (MA-1): convert AnalysisOutput → markdown string before assembly.
+    # Meta-prompt leakage is impossible here — the model never wrote headings or constraints.
+    if _STRUCTURED_OUTPUT_AVAILABLE and isinstance(analysis, AnalysisOutput):
+        analysis = _build_analysis_markdown(analysis, today)
+
     date_str = today.strftime("%Y-%m-%d")
     day_name = today.strftime("%A")
 
