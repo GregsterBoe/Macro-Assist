@@ -679,15 +679,24 @@ def fetch_cot_data() -> str:
     # Normalise column names to lowercase for robust matching
     df.columns = [c.strip().lower() for c in df.columns]
 
-    # Identify the key columns we need
-    code_col   = next((c for c in df.columns if "cftc" in c and "code" in c), None)
-    date_col   = next((c for c in df.columns if "report" in c and "date" in c), None)
-    long_col   = next((c for c in df.columns if "noncomm" in c and "long" in c and "all" in c), None)
-    short_col  = next((c for c in df.columns if "noncomm" in c and "short" in c and "all" in c), None)
+    # Identify the key columns we need.
+    # Try strict match first ("all" suffix); fall back to any non-spreading noncomm col.
+    code_col  = next((c for c in df.columns if "cftc" in c and "code" in c), None)
+    date_col  = next((c for c in df.columns if "report" in c and "date" in c), None)
+    long_col  = (
+        next((c for c in df.columns if "noncomm" in c and "long" in c and "all" in c), None)
+        or next((c for c in df.columns if "noncomm" in c and "long" in c and "spread" not in c), None)
+    )
+    short_col = (
+        next((c for c in df.columns if "noncomm" in c and "short" in c and "all" in c), None)
+        or next((c for c in df.columns if "noncomm" in c and "short" in c and "spread" not in c), None)
+    )
 
     if not all([code_col, date_col, long_col, short_col]):
+        sample_cols = list(df.columns[:20])
         _log("COT", "WARN",
-             f"unexpected column layout — found: {[c for c in [code_col, date_col, long_col, short_col]]}")
+             f"unexpected column layout — found: {[code_col, date_col, long_col, short_col]}"
+             f" | first 20 cols: {sample_cols}")
         return ""
 
     df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
@@ -1681,16 +1690,33 @@ def _analyze_structured(
             if attempt == 0 and last_response is not None:
                 _log("CLAUDE", "WARN",
                      f"structured attempt 1 failed ({type(e).__name__}: {e}) — retrying")
+                # After a tool_use turn the API requires a tool_result, not plain text.
+                _retry_tool_block = next(
+                    (b for b in last_response.content
+                     if b.type == "tool_use" and b.name == "submit_analysis"),
+                    None,
+                )
+                if _retry_tool_block is not None:
+                    correction_content: list | str = [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": _retry_tool_block.id,
+                            "content": (
+                                f"Validation error: {e}\n\n"
+                                "Shorten overlong text fields and resubmit via submit_analysis."
+                            ),
+                            "is_error": True,
+                        }
+                    ]
+                else:
+                    correction_content = (
+                        f"The previous response had an error:\n{e}\n\n"
+                        "Please correct the fields and resubmit via submit_analysis."
+                    )
                 messages = [
                     {"role": "user", "content": user_message},
                     {"role": "assistant", "content": last_response.content},
-                    {
-                        "role": "user",
-                        "content": (
-                            f"The previous response had an error:\n{e}\n\n"
-                            "Please correct the fields and resubmit via submit_analysis."
-                        ),
-                    },
+                    {"role": "user", "content": correction_content},
                 ]
             else:
                 _log("CLAUDE", "FAIL",
