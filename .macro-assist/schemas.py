@@ -52,3 +52,13 @@ class AnalysisOutput(BaseModel):
     predictions: list[AssetPrediction] = Field(min_length=6, max_length=6)
     sector_opportunity: Optional[str] = Field(default=None, max_length=1800)
     portfolio_risk: Optional[str] = Field(default=None, max_length=1600)
+
+
+class PortfolioRiskOutput(BaseModel):
+    """MA-3a: Structured output from the Haiku portfolio risk agent.
+    Receives only macro_regime + portfolio positions — no FRED data or market context.
+    """
+    biggest_headwind: str = Field(max_length=400)
+    biggest_tailwind: str = Field(max_length=300)
+    actionable: str = Field(max_length=200)
+    opportunity_gap: str = Field(max_length=250)

@@ -1191,6 +1191,25 @@ Return ONLY this JSON structure — no text outside it:
 }
 """
 
+_RISK_AGENT_SYSTEM = """\
+You are a portfolio risk analyst. You will receive the current macro regime label and a \
+portfolio positions table. Submit your assessment via the submit_risk_assessment tool.
+
+Rules:
+- Use actual position names and P&L figures from the table. Do not generalise.
+- biggest_headwind: the one position or cluster most exposed to the current macro regime. \
+Name the position, its P&L, and the specific risk factor.
+- biggest_tailwind: the one position best aligned with current conditions. Name it and why.
+- actionable: one specific risk-management consideration (trim / hedge / watch level). \
+Not a buy/sell recommendation. Plain prose, no bullet prefix.
+- opportunity_gap: one asset class, sector, or instrument not in the portfolio that the \
+current regime favours. Name it specifically. One-line macro rationale. State whether it \
+would reduce or add portfolio concentration risk.\
+"""
+
+_STRUCTURED_SUCCESS_FILE = ACCURACY_JSON.parent / "structured_success_count.json"
+_SYNTHESIS_ACTIVATE_AFTER = 5  # log free-text path retirement suggestion after N successes
+
 
 def adversarial_review(
     client: anthropic.Anthropic,
@@ -1399,6 +1418,84 @@ def _adversarial_review_structured(
     return output.model_copy(update={"predictions": new_predictions})
 
 
+def _run_risk_agent(
+    client: anthropic.Anthropic,
+    macro_regime: str,
+    portfolio_context: str,
+) -> "PortfolioRiskOutput | None":
+    """MA-3a: Haiku portfolio risk agent.
+    Narrow context — only macro_regime + positions. No FRED data, no accuracy history.
+    Returns None on any failure so the caller can silently omit portfolio_risk.
+    """
+    if not portfolio_context or not _STRUCTURED_OUTPUT_AVAILABLE:
+        return None
+    schema = PortfolioRiskOutput.model_json_schema()
+    tools = [{
+        "name": "submit_risk_assessment",
+        "description": "Submit the structured portfolio risk assessment.",
+        "input_schema": schema,
+    }]
+    user_msg = f"## Current Macro Regime\n{macro_regime}\n\n{portfolio_context}"
+    try:
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=600,
+            system=_RISK_AGENT_SYSTEM,
+            tools=tools,
+            tool_choice={"type": "tool", "name": "submit_risk_assessment"},
+            messages=[{"role": "user", "content": user_msg}],
+        )
+        tool_block = next(
+            (b for b in response.content
+             if b.type == "tool_use" and b.name == "submit_risk_assessment"),
+            None,
+        )
+        if tool_block is None:
+            raise ValueError("no submit_risk_assessment block in response")
+        result = PortfolioRiskOutput.model_validate(tool_block.input)
+        _log("RISK", "OK", f"portfolio risk assessed ({response.usage.output_tokens} tokens, Haiku)")
+        return result
+    except Exception as e:
+        _log("RISK", "WARN", f"risk agent failed ({type(e).__name__}: {e}) — portfolio_risk omitted")
+        return None
+
+
+def _format_portfolio_risk(risk: "PortfolioRiskOutput") -> str:
+    """Format PortfolioRiskOutput into the 4-bullet string expected by _build_analysis_markdown."""
+    return (
+        f"- **Biggest headwind**: {risk.biggest_headwind}\n"
+        f"- **Biggest tailwind**: {risk.biggest_tailwind}\n"
+        f"- **One actionable observation**: {risk.actionable}\n"
+        f"- **Opportunity gap**: {risk.opportunity_gap}"
+    )
+
+
+def _track_structured_success() -> int:
+    """Increment and return the consecutive structured-path success count."""
+    try:
+        data = (
+            json.loads(_STRUCTURED_SUCCESS_FILE.read_text(encoding="utf-8"))
+            if _STRUCTURED_SUCCESS_FILE.exists()
+            else {"count": 0}
+        )
+    except Exception:
+        data = {"count": 0}
+    data["count"] = data.get("count", 0) + 1
+    try:
+        _STRUCTURED_SUCCESS_FILE.write_text(json.dumps(data), encoding="utf-8")
+    except Exception:
+        pass
+    return data["count"]
+
+
+def _reset_structured_success() -> None:
+    """Reset count when the pipeline falls back to the free-text path."""
+    try:
+        _STRUCTURED_SUCCESS_FILE.write_text(json.dumps({"count": 0}), encoding="utf-8")
+    except Exception:
+        pass
+
+
 _BULLISH_CONTRADICTIONS = frozenset({"fade", "fade the", "short ", "expect decline"})
 _BEARISH_CONTRADICTIONS = frozenset({"short squeeze", "relief rally", "buy the dip"})
 
@@ -1582,7 +1679,7 @@ def _scrub_prompt_artifacts(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 try:
-    from schemas import AnalysisOutput, AssetPrediction
+    from schemas import AnalysisOutput, AssetPrediction, PortfolioRiskOutput
     from pydantic import ValidationError as PydanticValidationError
     _STRUCTURED_OUTPUT_AVAILABLE = True
 except ImportError:
@@ -1870,9 +1967,9 @@ def analyze_with_claude(
         _log("SECTORS", "WARN", f"sector fundamentals unavailable: {e}")
         sector_fundamentals_block = ""
 
-    # Structured path: accuracy_context is excluded from the analysis agent (MA-2).
-    # The analysis agent sees only market/macro data; the adversarial pass handles
-    # calibration separately, eliminating the pre-emptive hedging root cause.
+    # Structured path: accuracy_context is excluded (MA-2 — no pre-emptive hedging).
+    # Portfolio context is also excluded (MA-3a — handled by dedicated risk agent below).
+    # The analysis agent sees only market/macro data.
     user_message_structured = f"""Today is {today.strftime('%A, %B %d, %Y')}.
 Prediction review date (5 business days): {review_date}
 
@@ -1887,12 +1984,13 @@ Prediction review date (5 business days): {review_date}
 {f"{chr(10)}{notable_moves}" if notable_moves else ""}
 {f"{chr(10)}{events_context}" if events_context else ""}
 {f"{chr(10)}{youtube_context}" if youtube_context else ""}
-{f"{chr(10)}{sector_fundamentals_block}" if sector_fundamentals_block else ""}
-{f"{chr(10)}{portfolio_context}" if portfolio_context else ""}"""
+{f"{chr(10)}{sector_fundamentals_block}" if sector_fundamentals_block else ""}"""
 
-    # Free-text fallback: accuracy_context stays so the single-pass model has calibration context.
+    # Free-text fallback: re-add portfolio_context (removed from structured path for MA-3a)
+    # and accuracy_context. Both are needed for the single-pass free-text model.
     user_message = (
         user_message_structured
+        + (f"\n{portfolio_context}" if portfolio_context else "")
         + (f"\n{accuracy_context}" if accuracy_context else "")
         + "\nGenerate the macro intelligence note as specified in your instructions."
     )
@@ -1902,7 +2000,7 @@ Prediction review date (5 business days): {review_date}
         print(user_message)
         print("=" * 72)
 
-    # --- Structured output path (Phase MA-1) ---
+    # --- Structured output path (MA-1 / MA-2 / MA-3a) ---
     if _STRUCTURED_OUTPUT_AVAILABLE:
         _log("CLAUDE", "INFO", "attempting structured output (tool_use)...")
         system_prompt_structured = (PROMPTS_DIR / "system_prompt_structured.md").read_text()
@@ -1912,9 +2010,24 @@ Prediction review date (5 business days): {review_date}
             structured = _apply_accuracy_override_structured(structured)
             _log("CLAUDE", "INFO", "running adversarial review (structured path)...")
             structured = _adversarial_review_structured(client, structured)
+            # MA-3a: portfolio risk agent — Haiku, narrow context (regime + positions only)
+            if portfolio_context:
+                _log("RISK", "INFO", "running portfolio risk agent (Haiku)...")
+                risk_output = _run_risk_agent(client, structured.macro_regime, portfolio_context)
+                if risk_output is not None:
+                    structured = structured.model_copy(
+                        update={"portfolio_risk": _format_portfolio_risk(risk_output)}
+                    )
+            # MA-3b: track consecutive structured successes
+            _count = _track_structured_success()
+            if _count >= _SYNTHESIS_ACTIVATE_AFTER:
+                _log("MA3", "INFO",
+                     f"structured path has run successfully {_count}× — "
+                     "free-text fallback path is safe to retire (MA-3b)")
             return structured
 
     # --- Free-text fallback path (pre-MA-1 behaviour, unchanged) ---
+    _reset_structured_success()
     _log("CLAUDE", "INFO", "generating analysis (free-text path)...")
     response = client.messages.create(
         model="claude-sonnet-4-6",
