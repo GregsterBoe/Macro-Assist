@@ -633,14 +633,25 @@ def fetch_cot_data() -> str:
     """
     today_date = datetime.now(timezone.utc).date()
 
-    # Fetch plain-text CSV (CFTC uses Windows-1252 encoding)
+    # deafut.txt has NO header row — column positions are fixed by CFTC format spec:
+    #   [0] market name  [2] report date  [3] contract code
+    #   [8] noncomm long [9] noncomm short
+    _COL_CODE  = 3
+    _COL_DATE  = 2
+    _COL_LONG  = 8
+    _COL_SHORT = 9
+
     try:
         resp = requests.get(COT_URL, timeout=30)
         resp.raise_for_status()
         df = None
         for enc in ("cp1252", "latin-1", "utf-8"):
             try:
-                df = pd.read_csv(io.StringIO(resp.content.decode(enc)), low_memory=False)
+                df = pd.read_csv(
+                    io.StringIO(resp.content.decode(enc)),
+                    header=None,
+                    low_memory=False,
+                )
                 break
             except (UnicodeDecodeError, ValueError):
                 continue
@@ -651,19 +662,18 @@ def fetch_cot_data() -> str:
         _log("COT", "WARN", f"could not fetch CFTC deafut.txt: {e}")
         return ""
 
-    df.columns = [c.strip().lower() for c in df.columns]
-
-    code_col  = next((c for c in df.columns if "cftc_contract_market_code" in c), None) \
-                or next((c for c in df.columns if "cftc" in c and "code" in c), None)
-    date_col  = next((c for c in df.columns if "report" in c and "date" in c), None)
-    long_col  = next((c for c in df.columns if "noncomm" in c and "long" in c and "all" in c), None)
-    short_col = next((c for c in df.columns if "noncomm" in c and "short" in c and "all" in c), None)
-
-    if not all([code_col, date_col, long_col, short_col]):
-        _log("COT", "WARN",
-             f"unexpected column layout — found: {[code_col, date_col, long_col, short_col]}"
-             f" | first 20 cols: {list(df.columns[:20])}")
+    if df.shape[1] <= _COL_SHORT:
+        _log("COT", "WARN", f"unexpected column count: {df.shape[1]} (expected ≥{_COL_SHORT + 1})")
         return ""
+
+    # Rename only the columns we use to readable names
+    df = df.rename(columns={
+        _COL_CODE:  "code",
+        _COL_DATE:  "report_date",
+        _COL_LONG:  "noncomm_long",
+        _COL_SHORT: "noncomm_short",
+    })
+    code_col, date_col, long_col, short_col = "code", "report_date", "noncomm_long", "noncomm_short"
 
     df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
 
@@ -2048,12 +2058,118 @@ tags: [macro, daily-note, economics]
 # Entry point
 # ---------------------------------------------------------------------------
 
+def _run_fetch_check() -> int:
+    """
+    Run every data-fetch function and report pass/fail for each source.
+    Returns 0 if all critical sources succeeded, 1 if any failed.
+    Does NOT call the LLM — safe to run without ANTHROPIC_API_KEY.
+    """
+    today = datetime.now(timezone.utc)
+    _t0   = time.monotonic()
+    _log("CHECK", "INFO", f"Data fetch check — {today.strftime('%Y-%m-%d %H:%M')} UTC")
+
+    failures: list[str] = []
+
+    # --- FRED ---
+    try:
+        fred      = Fred(api_key=os.environ["FRED_API_KEY"])
+        fred_data = fetch_fred_data(fred)
+        stale     = [k for k, v in fred_data.items() if isinstance(v, dict) and v.get("days_stale", 0) > 90]
+        _log("CHECK", "WARN" if stale else "OK",
+             f"FRED: {len(fred_data)} series" + (f" | stale>90d: {stale}" if stale else ""))
+    except Exception as e:
+        _log("CHECK", "FAIL", f"FRED: {e}")
+        failures.append("FRED")
+        fred_data, histories = {}, {}
+
+    # --- Market data ---
+    try:
+        market_data, histories = fetch_market_data()
+        _log("CHECK", "OK", f"Market: {len(market_data)} tickers")
+    except Exception as e:
+        _log("CHECK", "FAIL", f"Market: {e}")
+        failures.append("Market")
+        market_data, histories = {}, {}
+
+    # --- Validation ---
+    try:
+        validate_data(fred_data, market_data)
+        _log("CHECK", "OK", "Validation: passed")
+    except Exception as e:
+        _log("CHECK", "FAIL", f"Validation: {e}")
+        failures.append("Validation")
+
+    # --- Sector ETFs ---
+    try:
+        sector_data = fetch_sector_data()
+        ok = len(sector_data)
+        _log("CHECK", "OK" if ok == len(SECTOR_TICKERS) else "WARN",
+             f"Sector ETFs: {ok}/{len(SECTOR_TICKERS)}")
+        if ok == 0:
+            failures.append("Sector ETFs")
+    except Exception as e:
+        _log("CHECK", "FAIL", f"Sector ETFs: {e}")
+        failures.append("Sector ETFs")
+
+    # --- Sector fundamentals ---
+    try:
+        sf = fetch_sector_fundamentals()
+        _log("CHECK", "OK" if sf else "WARN", f"Sector fundamentals: {'ok' if sf else 'empty'}")
+    except Exception as e:
+        _log("CHECK", "WARN", f"Sector fundamentals: {e}")
+
+    # --- COT ---
+    try:
+        cot = fetch_cot_data()
+        _log("CHECK", "OK" if cot else "WARN", f"COT: {'ok' if cot else 'empty — see above'}")
+    except Exception as e:
+        _log("CHECK", "WARN", f"COT: {e}")
+
+    # --- Technicals ---
+    if histories:
+        try:
+            technicals = compute_technicals(histories)
+            _log("CHECK", "OK", f"Technicals: {len(technicals)}/{len(_TECHNICAL_ASSETS)} assets")
+        except Exception as e:
+            _log("CHECK", "WARN", f"Technicals: {e}")
+
+    # --- Portfolio ---
+    try:
+        from parse_positions import get_portfolio_summary
+        ps = get_portfolio_summary(str(POSITIONS_CSV))
+        _log("CHECK", "OK" if ps else "INFO",
+             f"Portfolio: {'loaded' if ps else 'no data (POSITIONS_CSV absent or empty)'}")
+    except Exception as e:
+        _log("CHECK", "WARN", f"Portfolio: {e}")
+
+    # --- Notable moves ---
+    if market_data and histories:
+        try:
+            nm = detect_notable_moves(market_data, histories)
+            _n = sum(1 for ln in nm.splitlines() if ln.startswith("- ")) if nm else 0
+            _log("CHECK", "OK", f"Notable moves: {_n} detected")
+        except Exception as e:
+            _log("CHECK", "WARN", f"Notable moves: {e}")
+
+    _elapsed = int(time.monotonic() - _t0)
+    if failures:
+        _log("CHECK", "FAIL", f"FAILED sources: {failures} ({_elapsed}s)")
+        return 1
+    _log("CHECK", "OK", f"All data sources healthy ({_elapsed}s)")
+    return 0
+
+
 def main():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--force", action="store_true",
                         help="overwrite today's note if it already exists")
+    parser.add_argument("--fetch-only", action="store_true",
+                        help="run data fetch checks only — no LLM call, no note written")
     args = parser.parse_args()
+
+    if args.fetch_only:
+        sys.exit(_run_fetch_check())
 
     today = datetime.now(timezone.utc)
     _t0   = time.monotonic()
