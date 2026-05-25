@@ -481,6 +481,229 @@ Extend `score_predictions.py` to score the 2–3 sector ETFs named each day as i
 
 ---
 
+## Multi-Agent Architecture — Phases MA-0 through MA-3
+
+**Strategic rationale.** Phases 1–7 enriched the data pipeline and added prompt rules as reactive patches to observed failures. The result is a system where a single LLM call carries conflicting objectives: interpret raw data, generate directional calls, write narrative, apply self-calibration, and assess portfolio risk simultaneously. This structure produces a specific class of failures — bias/narrative contradictions (Bullish label paired with "fade" commentary), meta-prompt leakage (instruction text echoed into output), and a model that hedges before making a call because it sees its own failure statistics inside the analysis prompt.
+
+**Architecture target.**
+
+```
+Data Collection (Python — unchanged)
+    ├── Analysis Agent  (Sonnet)  → AnalysisOutput JSON     [data-only; no accuracy history]
+    │     ↓
+    ├── Calibration     (Python + Sonnet)  → CalibrationOutput JSON
+    │         [applies accuracy_summary.json deltas to structured predictions]
+    ├── Risk Agent      (Haiku)   → PortfolioRiskOutput JSON [portfolio + macro_regime only]
+    └── Synthesis Agent (Sonnet)  → Final Markdown           [no raw data; composes from JSON]
+```
+
+Each agent has one objective and a minimal information diet. Numbers travel between agents as typed JSON — never embedded in prose where they can drift through paraphrase. The synthesis agent assembles; it never re-analyzes.
+
+**Placement.** These phases must be completed before Phase 8 (Validation Infrastructure). The backtest harness in Phase 8 is designed to compare pipeline versions — it should test the clean architecture, not the patched one. Migrating after Phase 8 would invalidate that baseline comparison.
+
+---
+
+### Phase MA-0 — Immediate Bug Fixes *(Done — 2026-05-22)*
+
+Three bugs are directly fixable in the current code. They are standalone patches with no dependency on the multi-agent migration and should be shipped immediately.
+
+#### MA-0.1 — Time-Travel Date in Fed Net Liquidity
+
+**Root cause.** `_compute_net_liquidity()` sets `"date": combined.index[-1].strftime("%Y-%m-%d")`. The `combined` DataFrame uses `resample("W").last()`, which in pandas defaults to week-ending Sunday. When the pipeline runs on a Friday, the last resample period end is the following Sunday — placing the "As Of" date 2 days in the future. Reproduced in the May 22, 2026 report which displayed `As Of: 2026-05-24`.
+
+**Fix in `_compute_net_liquidity()`.** Cap the date at today:
+
+```python
+# replace:
+"date": combined.index[-1].strftime("%Y-%m-%d"),
+
+# with:
+"date": min(combined.index[-1].date(), datetime.now(timezone.utc).date()).strftime("%Y-%m-%d"),
+```
+
+#### MA-0.2 — Meta-Prompt Leakage Stripper
+
+**Root cause.** The system prompt contains explicit instruction text (`Maximum 200 words for this section`). When the model approaches its token budget in sections like Sector Opportunity Research, it echoes these constraint phrases verbatim into the final output (e.g., `*Maximum 200 words — section complete.*`).
+
+**Fix.** Add `_scrub_prompt_artifacts(text: str) -> str` in `collect_and_analyze.py`, called inside `analyze_with_claude()` before returning the analysis string:
+
+```python
+_ARTIFACT_PATTERNS = [
+    re.compile(r'\*?Maximum \d+ words[^\n]*\*?', re.IGNORECASE),
+    re.compile(r'\*?[Ss]ection complete\.?\*?', re.IGNORECASE),
+    re.compile(r'\*?Token budget[^\n]*\*?', re.IGNORECASE),
+]
+
+def _scrub_prompt_artifacts(text: str) -> str:
+    for pattern in _ARTIFACT_PATTERNS:
+        text = pattern.sub('', text)
+    return re.sub(r'\n{3,}', '\n\n', text)  # collapse excess blank lines from removals
+```
+
+#### MA-0.3 — Bias / Narrative Contradiction Detector
+
+**Root cause.** Bias label and Primary Driver text are written in one generation pass with no structural constraint linking them. The model can write `Bullish` in the Bias column while writing "contrarian call: fade near-term spike..." in the same row's Primary Driver — as seen in the WTI Oil call in the May 22 report.
+
+**Fix.** Add `_check_prediction_consistency(analysis: str)` called from `_apply_accuracy_override()`. Logs a WARN to CI for human review without blocking the pipeline (the structural fix comes in Phase MA-1):
+
+```python
+_BULLISH_CONTRADICTIONS = frozenset({"fade", "fade the", "short ", "expect decline"})
+_BEARISH_CONTRADICTIONS = frozenset({"short squeeze", "relief rally", "buy the dip"})
+
+def _check_prediction_consistency(analysis: str) -> None:
+    match = re.search(
+        r'\| Asset \| Bias \|.*?\n(?:\|[^\n]+\n)+', analysis, re.DOTALL
+    )
+    if not match:
+        return
+    for line in match.group(0).splitlines():
+        if not line.startswith("|") or "---" in line or "Asset" in line:
+            continue
+        cells = line.split("|")
+        if len(cells) < 5:
+            continue
+        asset = cells[1].strip()
+        bias  = cells[2].strip().lower()
+        driver = cells[3].strip().lower()
+        if bias == "bullish" and any(w in driver for w in _BULLISH_CONTRADICTIONS):
+            _log("VALIDATE", "WARN", f"{asset}: Bullish bias contradicted by driver text")
+        elif bias == "bearish" and any(w in driver for w in _BEARISH_CONTRADICTIONS):
+            _log("VALIDATE", "WARN", f"{asset}: Bearish bias contradicted by driver text")
+```
+
+---
+
+### Phase MA-1 — Structured Output Contract *(Done — 2026-05-24)*
+
+**Goal.** Replace the free-form main analysis output with a Pydantic-validated JSON schema. This is the single most important architectural change — without a typed output contract, agents cannot pass results to each other reliably, and the structural contradictions caught manually in MA-0.3 become validation errors caught automatically.
+
+**New file: `.macro-assist/schemas.py`**
+
+```python
+from pydantic import BaseModel, Field, model_validator
+from typing import Literal
+
+class AssetPrediction(BaseModel):
+    asset: str
+    bias: Literal["Bullish", "Bearish", "Neutral"]
+    primary_driver: str = Field(min_length=10, max_length=350)
+    confidence_pct: int = Field(ge=50, le=80)
+    target_range: str
+    horizon_days: int = 5
+
+    @model_validator(mode="after")
+    def bias_narrative_consistent(self):
+        fade_words = {"fade", "fade the", "expect decline", "downside risk if"}
+        if self.bias == "Bullish":
+            for w in fade_words:
+                if w in self.primary_driver.lower():
+                    raise ValueError(f"Primary driver contradicts Bullish bias: '{w}' found")
+        return self
+
+class AnalysisOutput(BaseModel):
+    executive_summary: str = Field(max_length=600)
+    macro_regime: Literal["Risk-On", "Risk-Off", "Stagflation", "Reflation", "Neutral/Mixed"]
+    equities_note: str = Field(max_length=500)
+    rates_note: str = Field(max_length=500)
+    inflation_growth_note: str = Field(max_length=500)
+    commodities_note: str = Field(max_length=500)
+    key_risks: list[str] = Field(min_length=3, max_length=5)
+    predictions: list[AssetPrediction] = Field(min_length=6, max_length=6)
+    sector_opportunity: str | None = Field(default=None, max_length=1200)
+    portfolio_risk: dict | None = None
+```
+
+**Implementation.** Use Anthropic tool_use to force structured output: define a tool `submit_analysis` whose `input_schema` is the `AnalysisOutput` JSON schema, then pass `tool_choice={"type": "tool", "name": "submit_analysis"}`. The model must populate the schema; the tool input is parsed and validated by Pydantic. On `ValidationError`, retry once with the error injected as a correction message. On second failure, fall back to the current free-text path and log `FAIL` to CI.
+
+**System prompt changes.** Remove: all `## Output Format` section-ordering instructions, word-count limits, markdown heading directives. The system prompt shrinks from ~241 lines to the analytical rules only (staleness thresholds, data usage rules, prediction methodology). The model fills fields — Python assembles markdown.
+
+**`build_note()` change.** Receives `AnalysisOutput` object rather than a raw string. Assembles markdown from the typed fields in guaranteed section order. Meta-prompt leakage is impossible by construction — the model never writes markdown.
+
+**Zero-downtime deployment.** If structured output fails twice, `analyze_with_claude()` falls back to the string-based path. This makes the migration safe to deploy with no risk to daily report production.
+
+---
+
+### Phase MA-2 — Analysis / Calibration Split *(depends on MA-1)*
+
+**Goal.** Remove the accuracy history from the analysis agent's information diet. The analysis agent makes its authentic data-driven call. Calibration is applied to the structured output separately, in Python.
+
+**Core insight.** Injecting `## Your Historical Prediction Accuracy` (which states "S&P 500 T+5 directional accuracy 14%, SYSTEMATIC BIAS") into the analysis prompt causes the model to hedge the call *before forming it*. A model aware it has been wrong 14 of 17 times on SPX defaults to Neutral regardless of what the data says. Separating analysis from calibration removes this pre-emptive hedging — the analysis agent makes its best call, and calibration adjusts confidence afterward on the structured output.
+
+**Changes to `analyze_with_claude()`:**
+
+1. **Strip `accuracy_context` from the analysis agent user message.** The analysis agent receives only: FRED data, market data, technicals, COT, events, sector fundamentals, YouTube summaries. The prompt shrinks by ~60 lines.
+
+2. **Repurpose the adversarial pass as a structured calibration agent.** Instead of receiving the full prose report (and regex-extracting the predictions table), the calibration agent receives only:
+   - The `predictions` list from `AnalysisOutput` (6 rows of structured data)
+   - The `key_risks` list
+   - No raw data, no accuracy history
+   
+   Output is a `CalibrationOutput` dict:
+   ```python
+   # {asset: {"confidence_delta": int, "risk_flag": str | None}}
+   {"WTI Oil": {"confidence_delta": -5, "risk_flag": "Driver text indicates fade — contradicts Bullish"}}
+   ```
+
+3. **Python applies accuracy overrides to `AnalysisOutput` directly.** The existing `_apply_accuracy_override()` logic is refactored to operate on the Pydantic object, modifying `prediction.confidence_pct` in place. This eliminates the fragile regex table-parsing in `_apply_adversarial_revisions()`.
+
+**Why the ordering matters.** The analysis agent forms a view from data alone. The calibration agent flags contradictions between that view and listed risks. Python applies the historical accuracy discount. Each step is auditable — a diff of the `AnalysisOutput` before and after calibration makes every change explicit, replacing the current `_log_adversarial_diff()` string comparison.
+
+---
+
+### Phase MA-3 — Risk Agent + Synthesis Agent *(depends on MA-2)*
+
+**Goal.** Add a dedicated portfolio risk agent and a synthesis agent that composes the final report from structured inputs alone, completing the 3-agent architecture.
+
+#### MA-3a — Risk Agent (Haiku)
+
+Currently the portfolio risk section is embedded in the main analysis prompt. The analysis agent sees FRED macro data and portfolio positions simultaneously, producing portfolio commentary that is generic because the two contexts distract from each other.
+
+The risk agent is narrow: it receives `macro_regime` (one field from `AnalysisOutput`) and the portfolio positions block. It knows nothing about FRED series, COT data, or prediction methodology.
+
+```python
+class PortfolioRiskOutput(BaseModel):
+    biggest_headwind: dict   # {position: str, reason: str, pnl_label: str}
+    biggest_tailwind: dict   # {position: str, reason: str}
+    actionable: str = Field(max_length=200)
+    opportunity_gap: dict    # {asset: str, rationale: str, reduces_concentration: bool}
+```
+
+Uses `claude-haiku-4-5-20251001`. Portfolio risk assessment is a narrow, structured task — Sonnet is unnecessary and would cost 5× more per call.
+
+#### MA-3b — Synthesis Agent (Sonnet)
+
+The synthesis agent is a copyeditor, not an analyst. It receives:
+- `AnalysisOutput` (post-calibration)
+- `CalibrationOutput` (risk flags to surface in narrative)
+- `PortfolioRiskOutput` (if portfolio data present)
+
+It sees **no raw data**. Its system prompt is ~15 lines: *"Format the provided structured JSON into the Macro Intelligence Note markdown template. Do not add analysis or data points not present in the JSON. Enforce section length by cutting, not by re-summarising. Strip any text that reads as an instruction or constraint echoed verbatim."*
+
+The small, clean context eliminates the prompt-injection artifacts by framing: the synthesis agent has no instructions to echo.
+
+#### Token economics
+
+| Metric | Current | MA-3 target |
+|--------|---------|-------------|
+| Analysis context in | ~3,500 tokens | ~2,200 (no accuracy history, no portfolio) |
+| Analysis output | 5,000 tokens prose | 1,800 tokens JSON fields |
+| Calibration output | 250 tokens | 150 tokens structured deltas |
+| Risk agent output | — | 400 tokens (Haiku) |
+| Synthesis output | — | 1,800 tokens markdown |
+| **Estimated daily cost** | **~$0.09** | **~$0.10–0.11** |
+
+The ~15% marginal cost increase purchases qualitatively different reliability: structural contradiction detection, no meta-prompt leakage, calibration that does not suppress primary analysis.
+
+#### Deployment sequence
+
+1. MA-0 bugs: one PR, ship immediately
+2. MA-1 structured output: one PR, zero-downtime fallback, ship when schema is stable
+3. MA-2 calibration split: one PR, depends on MA-1 Pydantic objects in scope
+4. MA-3a risk agent: one PR, parallel to MA-2 (independent of calibration refactor)
+5. MA-3b synthesis agent: final cutover — retire free-text `build_note()` path after 5 consecutive structured-output reports pass manual review
+
+---
+
 ## Quantitative Statistical Layer — Roadmap Extension (Phases 8–15)
 
 **Strategic context.** Phases 1–7 enriched the data Claude sees and disciplined how it interprets that data. The next stage adds a **structured statistical layer** that feeds Claude pre-computed probabilistic context: volatility forecasts, regime classifications, and historical conditional return distributions. The goal is **not** to replace Claude's narrative analysis — it's to anchor the model's predictions to calibrated statistical reality, in the same spirit as the Phase 2 technical indicators but at a higher abstraction level.
@@ -1114,14 +1337,19 @@ Not on critical path. Listed for future planning.
 | 5 | Phase 5 (DXY window-aware predictions) | Low | 30+ scored reports | ✅ Done |
 | 6 | Phase 6 (break Neutral collapse) | Low | Phase 5 | ✅ Done |
 | 7 | Phase 7 (Sector Opportunity Research) | High | Phase 6 + fundamentals data | ✅ Done (7d scoring deferred) |
-| 8 | **Phase 8 (Validation Infrastructure)** | **Medium** | **None — prerequisite for 9-13** | 🔲 **To Implement** |
-| 9 | **Phase 9 (Volatility Forecasting)** | **Medium** | **Phase 8** | 🔲 **To Implement** |
-| 10 | **Phase 10 (Regime Classification)** | **Medium** | **Phase 8** | 🔲 **To Implement** |
-| 11 | **Phase 11 (Conditional Distributions)** | **Medium** | **Phase 8** | 🔲 **To Implement** |
-| 12 | **Phase 12 (Quant Context Integration)** | **Low** | **Phases 9, 10, 11** | 🔲 **To Implement** |
-| 13 | **Phase 13 (End-to-End Validation)** | **High** | **Phase 12** | 🔲 **To Implement** |
-| 14 | **Phase 14 (Production Hardening)** | **Low** | **Phase 13 passing** | 🔲 **To Implement** |
-| 15 | Phase 15 (Optional Extensions) | Varies | All above | 🔲 Backlog |
+| 8 | **Phase MA-0 (Bug fixes: time-travel, leakage, contradiction detector)** | **Low** | **None — ship immediately** | ✅ **Done** |
+| 9 | **Phase MA-1 (Structured output contract + schemas.py)** | **Medium** | **MA-0** | ✅ **Done** |
+| 10 | **Phase MA-2 (Analysis / calibration split)** | **Medium** | **MA-1** | 🔲 **To Implement** |
+| 11 | **Phase MA-3a (Risk agent — Haiku)** | **Low** | **MA-1** | 🔲 **To Implement** |
+| 12 | **Phase MA-3b (Synthesis agent — retire free-text build_note)** | **Medium** | **MA-2 + MA-3a stable** | 🔲 **To Implement** |
+| 13 | **Phase 8 (Validation Infrastructure)** | **Medium** | **MA-3b complete** | 🔲 **To Implement** |
+| 14 | **Phase 9 (Volatility Forecasting)** | **Medium** | **Phase 8** | 🔲 **To Implement** |
+| 15 | **Phase 10 (Regime Classification)** | **Medium** | **Phase 8** | 🔲 **To Implement** |
+| 16 | **Phase 11 (Conditional Distributions)** | **Medium** | **Phase 8** | 🔲 **To Implement** |
+| 17 | **Phase 12 (Quant Context Integration)** | **Low** | **Phases 9, 10, 11** | 🔲 **To Implement** |
+| 18 | **Phase 13 (End-to-End Validation)** | **High** | **Phase 12** | 🔲 **To Implement** |
+| 19 | **Phase 14 (Production Hardening)** | **Low** | **Phase 13 passing** | 🔲 **To Implement** |
+| 20 | Phase 15 (Optional Extensions) | Varies | All above | 🔲 Backlog |
 
 ---
 

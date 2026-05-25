@@ -11,7 +11,9 @@
       "Bash(python -c ' *)",
       "Bash(pip show *)",
       "Bash(pip3 show *)",
-      "Bash(python3 -c \"import anthropic; print\\(anthropic.__version__\\)\")"
+      "Bash(python3 -c \"import anthropic; print\\(anthropic.__version__\\)\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\User\\\\Macro-Assist\" -Recurse -Filter \"*.py\")",
+      "Bash(Select-Object -ExpandProperty FullName)"
     ]
   }
 }
