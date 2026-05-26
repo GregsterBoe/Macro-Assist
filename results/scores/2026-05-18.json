@@ -10,27 +10,45 @@
           "bias": "Neutral",
           "confidence": 53,
           "entry_price": 4552.5,
+<<<<<<< HEAD
           "eval_price": 4537.0,
           "eval_date": "2026-05-25",
           "pct_change": -0.34,
+=======
+          "eval_price": 4531.6001,
+          "eval_date": "2026-05-25",
+          "pct_change": -0.459,
+>>>>>>> 1a20c4e90d96ca773bf143947037ec1eed760726
           "score": 0.5
         },
         "WTI Oil": {
           "bias": "Bullish",
           "confidence": 51,
           "entry_price": 108.66,
+<<<<<<< HEAD
           "eval_price": 91.72,
           "eval_date": "2026-05-25",
           "pct_change": -15.59,
+=======
+          "eval_price": 92.32,
+          "eval_date": "2026-05-25",
+          "pct_change": -15.038,
+>>>>>>> 1a20c4e90d96ca773bf143947037ec1eed760726
           "score": 0.0
         },
         "DXY": {
           "bias": "Bearish",
           "confidence": 62,
           "entry_price": 98.97,
+<<<<<<< HEAD
           "eval_price": 99.043,
           "eval_date": "2026-05-25",
           "pct_change": 0.074,
+=======
+          "eval_price": 99.036,
+          "eval_date": "2026-05-25",
+          "pct_change": 0.067,
+>>>>>>> 1a20c4e90d96ca773bf143947037ec1eed760726
           "score": 0.5
         },
         "Bitcoin": {

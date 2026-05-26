@@ -47,6 +47,7 @@
 | 10Y Treasury Yield | 52% | 100% (n=1) | 28 | 57% |
 | DXY | 64% | 72% (n=18) | 28 | 56% |
 | Bitcoin | 45% | 42% (n=19) | 28 | 57% |
+<<<<<<< HEAD
 
 ---
 
@@ -62,6 +63,8 @@ Use this to confirm that structural improvements translate into better predictio
 ### v1.0  (0 scored / 1 total reports in this version)
 
 *No scored predictions yet — T+5 window has not closed on any v1.0 reports.*
+=======
+>>>>>>> 1a20c4e90d96ca773bf143947037ec1eed760726
 
 ---
 
