@@ -12,6 +12,7 @@ Usage:
 """
 
 import json
+import re
 from collections import defaultdict
 from datetime import date
 from pathlib import Path
@@ -42,6 +43,9 @@ ASSET_ORDER = ["S&P 500", "Gold", "WTI Oil", "10Y Treasury Yield", "DXY", "Bitco
 # excluded from the feedback_windows block that drives the daily bias override.
 MIN_FEEDBACK_VERSION = "v0.3"
 
+# Number of most-recent pipeline versions shown in per-version accuracy section.
+TRACK_LATEST_N_VERSIONS = 2
+
 
 def _version_key(v: str) -> tuple[int, ...]:
     """Convert 'v1.0' → (1, 0) for numeric comparison."""
@@ -49,6 +53,17 @@ def _version_key(v: str) -> tuple[int, ...]:
         return tuple(int(x) for x in v.lstrip("v").split("."))
     except (ValueError, AttributeError):
         return (0, 0)
+
+
+def _scan_report_versions() -> dict[str, int]:
+    """Return {agent_version: n_reports} by scanning all *-macro.md frontmatters."""
+    counts: dict[str, int] = {}
+    for path in (BASE_DIR / "results").rglob("*-macro.md"):
+        m = re.search(r"^agent_version:\s*(\S+)", path.read_text(encoding="utf-8"), re.MULTILINE)
+        if m:
+            v = m.group(1)
+            counts[v] = counts.get(v, 0) + 1
+    return counts
 
 
 # ---------------------------------------------------------------------------
@@ -151,6 +166,7 @@ def write_json(
     n_reports: int,
     feedback_stats: dict,
     n_feedback: int,
+    version_stats: dict,
 ) -> None:
     output = {
         "generated_at":        date.today().isoformat(),
@@ -159,12 +175,14 @@ def write_json(
         "min_feedback_version": MIN_FEEDBACK_VERSION,
         "n_feedback_reports":  n_feedback,
         "feedback_windows":    feedback_stats,
+        "version_windows":     version_stats,
         "_note": (
-            "accuracy is on a 0–1 scale where 0.5 = random (coin-flip). "
-            "directional_acc excludes flat moves and Neutral calls — "
+            "accuracy is on a 0-1 scale where 0.5 = random (coin-flip). "
+            "directional_acc excludes flat moves and Neutral calls - "
             "it measures signal quality on clear directional bets. "
             f"feedback_windows includes only reports from {MIN_FEEDBACK_VERSION}+ "
-            "(adversarial review era) and is used by the daily bias override logic."
+            "(adversarial review era) and is used by the daily bias override logic. "
+            f"version_windows shows per-version stats for the {TRACK_LATEST_N_VERSIONS} most recent pipeline versions."
         ),
     }
     payload = json.dumps(output, indent=2)
@@ -191,6 +209,7 @@ def write_markdown(
     stats: dict,
     n_reports: int,
     n_feedback: int = 0,
+    version_stats: dict | None = None,
 ) -> None:
     today = date.today().isoformat()
     lines = [
@@ -244,6 +263,56 @@ def write_markdown(
             lines.append(f"| {asset} | {acc} | {dacc} (n={dn}) | {n} | {conf} |")
 
         lines.append("")
+
+    # Per-version breakdown
+    if version_stats:
+        tracked = sorted(version_stats.keys(), key=_version_key)
+        lines += [
+            "---",
+            "",
+            f"## Per-Version Accuracy (latest {TRACK_LATEST_N_VERSIONS} versions)",
+            "",
+            f"Accuracy broken out by the {TRACK_LATEST_N_VERSIONS} most recently deployed pipeline versions.",
+            "Use this to confirm that structural improvements translate into better predictions.",
+            "",
+        ]
+        for version in tracked:
+            vdata = version_stats[version]
+            n_scored = vdata.get("n_reports_scored", 0)
+            n_total  = vdata.get("n_reports_in_pipeline", 0)
+            lines.append(f"### {version}  ({n_scored} scored / {n_total} total reports in this version)")
+            lines.append("")
+            has_data = False
+            for window in WINDOWS:
+                wdata = vdata.get("windows", {}).get(window)
+                if not wdata or wdata["overall_accuracy"] is None:
+                    continue
+                has_data = True
+                ov   = wdata["overall_accuracy"]
+                ov_d = wdata["overall_dir_acc"]
+                n_rep = wdata["n_reports"]
+                dir_str = f"{ov_d:.0%}" if ov_d is not None else "n/a"
+                lines += [
+                    f"**{WINDOW_LABELS[window]}** — overall: {ov:.0%} | directional: {dir_str} | reports: {n_rep}",
+                    "",
+                    f"| Asset | Accuracy | Directional | n | Avg Confidence |",
+                    f"|-------|----------|-------------|---|----------------|",
+                ]
+                for asset in ASSET_ORDER:
+                    astat = wdata["by_asset"].get(asset)
+                    if not astat:
+                        continue
+                    acc  = f"{astat['accuracy']:.0%}"
+                    dacc = f"{astat['directional_acc']:.0%}" if astat["directional_acc"] is not None else "—"
+                    dn   = astat["directional_n"]
+                    conf = f"{astat['avg_confidence']:.0f}%"
+                    lines.append(f"| {asset} | {acc} | {dacc} (n={dn}) | {astat['n']} | {conf} |")
+                lines.append("")
+            if not has_data:
+                lines.append(
+                    f"*No scored predictions yet — T+5 window has not closed on any {version} reports.*"
+                )
+                lines.append("")
 
     # Calibration note
     lines += [
@@ -322,9 +391,23 @@ def main() -> None:
     stats = aggregate(scores)
     feedback_stats = aggregate(scores, min_version=MIN_FEEDBACK_VERSION)
 
+    # Per-version stats for the N most recent versions (discovered from report files)
+    report_counts = _scan_report_versions()
+    all_versions  = sorted(report_counts.keys(), key=_version_key)
+    latest_versions = all_versions[-TRACK_LATEST_N_VERSIONS:]
+    version_stats: dict = {}
+    for v in latest_versions:
+        v_scores = [s for s in scores if s.get("agent_version") == v]
+        version_stats[v] = {
+            "n_reports_in_pipeline": report_counts.get(v, 0),
+            "n_reports_scored":      len(v_scores),
+            "windows":               aggregate(v_scores),
+        }
+    print(f"Per-version tracking: {', '.join(latest_versions) or 'none'}")
+
     print_summary(stats, len(scores))
-    write_json(stats, len(scores), feedback_stats, n_feedback)
-    write_markdown(stats, len(scores), n_feedback)
+    write_json(stats, len(scores), feedback_stats, n_feedback, version_stats)
+    write_markdown(stats, len(scores), n_feedback, version_stats)
 
 
 if __name__ == "__main__":
