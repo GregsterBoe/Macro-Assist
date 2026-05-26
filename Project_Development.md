@@ -781,7 +781,7 @@ The ~15% marginal cost increase purchases qualitatively different reliability: s
 
 ---
 
-### Phase 8 — Validation Infrastructure *(To Implement — prerequisite for all subsequent phases)*
+### Phase 8 — Validation Infrastructure *(Done — 2026-05-26)*
 
 **Goal:** Build the backtest framework that lets every later phase be objectively validated. Without this, no module can be proven to work — it MUST be implemented before Phases 9–13.
 
@@ -1409,7 +1409,7 @@ Not on critical path. Listed for future planning.
 | 10 | **Phase MA-2 (Analysis / calibration split)** | **Medium** | **MA-1** | ✅ **Done** |
 | 11 | **Phase MA-3a (Risk agent — Haiku)** | **Low** | **MA-1** | ✅ **Done** |
 | 12 | **Phase MA-3b (Synthesis agent — retire free-text build_note)** | **Medium** | **MA-2 + MA-3a stable** | ✅ **Done** |
-| 13 | **Phase 8 (Validation Infrastructure)** | **Medium** | **MA-3b complete** | 🔲 **To Implement** |
+| 13 | **Phase 8 (Validation Infrastructure)** | **Medium** | **MA-3b complete** | ✅ **Done** |
 | 14 | **Phase 9 (Volatility Forecasting)** | **Medium** | **Phase 8** | 🔲 **To Implement** |
 | 15 | **Phase 10 (Regime Classification)** | **Medium** | **Phase 8** | 🔲 **To Implement** |
 | 16 | **Phase 11 (Conditional Distributions)** | **Medium** | **Phase 8** | 🔲 **To Implement** |
