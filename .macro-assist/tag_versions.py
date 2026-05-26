@@ -35,7 +35,8 @@ VERSION_MILESTONES: list[tuple[str, date, date]] = [
     ("v0.5", date(2026, 4, 28), date(2026, 5, 16)),  # + Portfolio positions (TR), Nasdaq data
     ("v0.6", date(2026, 5, 17), date(2026, 5, 18)),  # + Sector research, COT positioning
     ("v0.7", date(2026, 5, 19), date(2026, 5, 24)),  # + COT XLS fix, Pass 2 numerical anchoring
-    ("v1.0", date(2026, 5, 25), date(2099, 12, 31)), # + Multi-agent: MA-1/MA-2/MA-3a
+    ("v1.0", date(2026, 5, 25), date(2026, 5, 25)),  # + Multi-agent: MA-1/MA-2/MA-3a
+    ("v1.1", date(2026, 5, 26), date(2099, 12, 31)), # + MA-3b: synthesis agent
 ]
 
 

@@ -323,7 +323,8 @@ Every generated note and score file carries an `agent_version` field that identi
 | v0.5 | 2026-04-28 – 2026-05-16 | + Portfolio positions (TR), Nasdaq data |
 | v0.6 | 2026-05-17 – 2026-05-18 | + Sector research, COT positioning |
 | v0.7 | 2026-05-19 – 2026-05-24 | + COT XLS fix, Pass 2 numerical anchoring |
-| v1.0 | 2026-05-25 – present | + Multi-agent: MA-1 / MA-2 / MA-3a |
+| v1.0 | 2026-05-25 – 2026-05-25 | + Multi-agent: MA-1 / MA-2 / MA-3a |
+| v1.1 | 2026-05-26 – present | + MA-3b: synthesis agent |
 
 ### Output Schema
 
@@ -334,7 +335,7 @@ Every `*-macro.md` file carries `agent_version` in its YAML frontmatter, inserte
 date: YYYY-MM-DD
 day: Monday
 type: macro-intelligence
-agent_version: v1.0
+agent_version: v1.1
 tags: [macro, daily-note, economics]
 ---
 ```
@@ -344,7 +345,7 @@ Score JSON files (`results/scores/YYYY-MM-DD.json`) carry the same field immedia
 ```json
 {
   "report_date": "2026-05-25",
-  "agent_version": "v1.0",
+  "agent_version": "v1.1",
   "scored_at": "2026-06-01",
   "windows": { ... }
 }
@@ -716,7 +717,7 @@ class AnalysisOutput(BaseModel):
 
 ---
 
-### Phase MA-3 — Risk Agent + Synthesis Agent *(MA-3a Done — 2026-05-25; MA-3b pending)*
+### Phase MA-3 — Risk Agent + Synthesis Agent *(Done — MA-3a: 2026-05-25; MA-3b: 2026-05-26)*
 
 **Goal.** Add a dedicated portfolio risk agent and a synthesis agent that composes the final report from structured inputs alone, completing the 3-agent architecture.
 
@@ -1407,7 +1408,7 @@ Not on critical path. Listed for future planning.
 | 9 | **Phase MA-1 (Structured output contract + schemas.py)** | **Medium** | **MA-0** | ✅ **Done** |
 | 10 | **Phase MA-2 (Analysis / calibration split)** | **Medium** | **MA-1** | ✅ **Done** |
 | 11 | **Phase MA-3a (Risk agent — Haiku)** | **Low** | **MA-1** | ✅ **Done** |
-| 12 | **Phase MA-3b (Synthesis agent — retire free-text build_note)** | **Medium** | **MA-2 + MA-3a stable** | 🔲 **To Implement** |
+| 12 | **Phase MA-3b (Synthesis agent — retire free-text build_note)** | **Medium** | **MA-2 + MA-3a stable** | ✅ **Done** |
 | 13 | **Phase 8 (Validation Infrastructure)** | **Medium** | **MA-3b complete** | 🔲 **To Implement** |
 | 14 | **Phase 9 (Volatility Forecasting)** | **Medium** | **Phase 8** | 🔲 **To Implement** |
 | 15 | **Phase 10 (Regime Classification)** | **Medium** | **Phase 8** | 🔲 **To Implement** |
