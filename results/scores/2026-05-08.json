@@ -1,7 +1,7 @@
 {
   "report_date": "2026-05-08",
   "agent_version": "v0.5",
-  "scored_at": "2026-05-18",
+  "scored_at": "2026-05-26",
   "windows": {
     "t5": {
       "eval_date": "2026-05-15",
@@ -58,6 +58,69 @@
           "eval_price": 79065.6797,
           "eval_date": "2026-05-15",
           "pct_change": -1.398,
+          "score": 0.0
+        }
+      },
+      "summary": {
+        "n_scored": 6,
+        "accuracy": 0.25
+      }
+    },
+    "t10": {
+      "eval_date": "2026-05-22",
+      "assets": {
+        "S&P 500": {
+          "bias": "Neutral",
+          "confidence": 52,
+          "entry_price": 7398.9302,
+          "eval_price": 7473.4702,
+          "eval_date": "2026-05-22",
+          "pct_change": 1.007,
+          "score": 0.5
+        },
+        "Gold": {
+          "bias": "Bullish",
+          "confidence": 60,
+          "entry_price": 4720.3999,
+          "eval_price": 4521.0,
+          "eval_date": "2026-05-22",
+          "pct_change": -4.224,
+          "score": 0.0
+        },
+        "WTI Oil": {
+          "bias": "Neutral",
+          "confidence": 50,
+          "entry_price": 95.42,
+          "eval_price": 96.6,
+          "eval_date": "2026-05-22",
+          "pct_change": 1.237,
+          "score": 0.5
+        },
+        "10Y Treasury Yield": {
+          "bias": "Neutral",
+          "confidence": 52,
+          "entry_price": 4.364,
+          "eval_price": 4.558,
+          "eval_date": "2026-05-22",
+          "pct_change": 4.445,
+          "score": 0.5
+        },
+        "DXY": {
+          "bias": "Bearish",
+          "confidence": 55,
+          "entry_price": 97.84,
+          "eval_price": 99.32,
+          "eval_date": "2026-05-22",
+          "pct_change": 1.513,
+          "score": 0.0
+        },
+        "Bitcoin": {
+          "bias": "Bullish",
+          "confidence": 50,
+          "entry_price": 80186.7656,
+          "eval_price": 75488.2422,
+          "eval_date": "2026-05-22",
+          "pct_change": -5.859,
           "score": 0.0
         }
       },

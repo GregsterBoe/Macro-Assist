@@ -1,0 +1,52 @@
+{
+  "report_date": "2026-05-18",
+  "agent_version": "v0.6",
+  "scored_at": "2026-05-26",
+  "windows": {
+    "t5": {
+      "eval_date": "2026-05-25",
+      "assets": {
+        "Gold": {
+          "bias": "Neutral",
+          "confidence": 53,
+          "entry_price": 4552.5,
+          "eval_price": 4537.0,
+          "eval_date": "2026-05-25",
+          "pct_change": -0.34,
+          "score": 0.5
+        },
+        "WTI Oil": {
+          "bias": "Bullish",
+          "confidence": 51,
+          "entry_price": 108.66,
+          "eval_price": 91.72,
+          "eval_date": "2026-05-25",
+          "pct_change": -15.59,
+          "score": 0.0
+        },
+        "DXY": {
+          "bias": "Bearish",
+          "confidence": 62,
+          "entry_price": 98.97,
+          "eval_price": 99.043,
+          "eval_date": "2026-05-25",
+          "pct_change": 0.074,
+          "score": 0.5
+        },
+        "Bitcoin": {
+          "bias": "Bullish",
+          "confidence": 50,
+          "entry_price": 76954.1719,
+          "eval_price": 77279.9297,
+          "eval_date": "2026-05-25",
+          "pct_change": 0.423,
+          "score": 0.5
+        }
+      },
+      "summary": {
+        "n_scored": 4,
+        "accuracy": 0.375
+      }
+    }
+  }
+}
