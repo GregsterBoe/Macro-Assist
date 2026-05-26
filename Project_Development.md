@@ -308,6 +308,72 @@ Non-trading rows (dividends, interest, transfers, card transactions) are ignored
 
 ---
 
+## Result Versioning
+
+Every generated note and score file carries an `agent_version` field that identifies which pipeline version produced it. This enables the accuracy feedback loop to filter out predictions from older, lower-quality pipeline versions.
+
+### Version Milestones
+
+| Version | Date Range | Capability Added |
+|---------|-----------|-----------------|
+| v0.1 | 2026-03-12 – 2026-04-02 | Baseline: FRED + market data, signal matrix |
+| v0.2 | 2026-04-03 – 2026-04-04 | + Accuracy scoring, feedback loop |
+| v0.3 | 2026-04-05 – 2026-04-07 | + Opus, adversarial review, HY/ISM data |
+| v0.4 | 2026-04-08 – 2026-04-27 | + YouTube transcript integration |
+| v0.5 | 2026-04-28 – 2026-05-16 | + Portfolio positions (TR), Nasdaq data |
+| v0.6 | 2026-05-17 – 2026-05-18 | + Sector research, COT positioning |
+| v0.7 | 2026-05-19 – 2026-05-24 | + COT XLS fix, Pass 2 numerical anchoring |
+| v1.0 | 2026-05-25 – present | + Multi-agent: MA-1 / MA-2 / MA-3a |
+
+### Output Schema
+
+Every `*-macro.md` file carries `agent_version` in its YAML frontmatter, inserted after `type: macro-intelligence`:
+
+```yaml
+---
+date: YYYY-MM-DD
+day: Monday
+type: macro-intelligence
+agent_version: v1.0
+tags: [macro, daily-note, economics]
+---
+```
+
+Score JSON files (`results/scores/YYYY-MM-DD.json`) carry the same field immediately after `report_date`:
+
+```json
+{
+  "report_date": "2026-05-25",
+  "agent_version": "v1.0",
+  "scored_at": "2026-06-01",
+  "windows": { ... }
+}
+```
+
+`PIPELINE_VERSION` in `collect_and_analyze.py` is the single source of truth for new notes. Bump it when a structural capability change is deployed (new data source, new agent pass, new prompt architecture). Date range in `tag_versions.py` must also be extended for the retroactive tagger to work correctly on future reports.
+
+### Feedback Loop Filter Policy
+
+`MIN_FEEDBACK_VERSION = "v0.3"` in `summarize_accuracy.py`. v0.3 (2026-04-05) introduced adversarial review — the first structural quality gate on prediction output. Reports before v0.3 are scored for historical completeness but excluded from the `feedback_windows` block that drives the daily bias override in `_apply_accuracy_override_structured()`.
+
+`accuracy_summary.json` carries two parallel stats blocks:
+
+- **`windows`** — all scored reports (35 total as of v1.0 launch). Used for human review and historical trend analysis.
+- **`feedback_windows`** — v0.3+ only (19 reports as of v1.0 launch). Used exclusively by the daily pipeline bias override. Preferred by `_apply_accuracy_override_structured()` via `acc_data.get("feedback_windows") or acc_data.get("windows", {})` — falls back to `windows` only if `feedback_windows` is absent (e.g. before the first `summarize_accuracy.py` re-run after adding this field).
+
+### Retroactive Tagging
+
+`.macro-assist/tag_versions.py` assigns versions to all existing files. Safe to re-run — skips files that already carry `agent_version`. Run after extending `VERSION_MILESTONES` for a new version boundary:
+
+```
+python .macro-assist/tag_versions.py
+python .macro-assist/summarize_accuracy.py
+```
+
+The second command regenerates `accuracy_summary.json` with the updated `feedback_windows` block.
+
+---
+
 ## Annual Maintenance
 
 | Task | When | Location |

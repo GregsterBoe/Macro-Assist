@@ -36,6 +36,20 @@ WINDOW_LABELS = {"t5": "T+5 (1 week)", "t10": "T+10 (2 weeks)", "t20": "T+20 (1 
 # Asset display order
 ASSET_ORDER = ["S&P 500", "Gold", "WTI Oil", "10Y Treasury Yield", "DXY", "Bitcoin"]
 
+# Minimum pipeline version included in the accuracy feedback loop.
+# v0.3 (2026-04-05) introduced adversarial review — the first structural quality gate
+# on prediction output. Pre-v0.3 notes are scored for historical completeness but
+# excluded from the feedback_windows block that drives the daily bias override.
+MIN_FEEDBACK_VERSION = "v0.3"
+
+
+def _version_key(v: str) -> tuple[int, ...]:
+    """Convert 'v1.0' → (1, 0) for numeric comparison."""
+    try:
+        return tuple(int(x) for x in v.lstrip("v").split("."))
+    except (ValueError, AttributeError):
+        return (0, 0)
+
 
 # ---------------------------------------------------------------------------
 # Loading
@@ -56,12 +70,19 @@ def load_scores() -> list[dict]:
 # Aggregation
 # ---------------------------------------------------------------------------
 
-def aggregate(scores: list[dict]) -> dict:
+def aggregate(scores: list[dict], min_version: str | None = None) -> dict:
     """
     Build nested stats: window -> asset -> {n, accuracy, avg_confidence, ...}
     Also compute directional accuracy: only Bullish/Bearish calls on
     non-flat moves (score is 0 or 1, not 0.5).
+
+    If min_version is given (e.g. "v0.3"), only reports from that version
+    onward are included in the stats.
     """
+    if min_version is not None:
+        min_vk = _version_key(min_version)
+        scores = [s for s in scores if _version_key(s.get("agent_version", "v0.0")) >= min_vk]
+
     # Collect raw observations: window -> asset -> list of {score, confidence, bias, pct_change}
     obs: dict[str, dict[str, list]] = {w: defaultdict(list) for w in WINDOWS}
 
@@ -125,15 +146,25 @@ def aggregate(scores: list[dict]) -> dict:
 # JSON output
 # ---------------------------------------------------------------------------
 
-def write_json(stats: dict, n_reports: int) -> None:
+def write_json(
+    stats: dict,
+    n_reports: int,
+    feedback_stats: dict,
+    n_feedback: int,
+) -> None:
     output = {
-        "generated_at":   date.today().isoformat(),
-        "n_reports_total": n_reports,
-        "windows":         stats,
+        "generated_at":        date.today().isoformat(),
+        "n_reports_total":     n_reports,
+        "windows":             stats,
+        "min_feedback_version": MIN_FEEDBACK_VERSION,
+        "n_feedback_reports":  n_feedback,
+        "feedback_windows":    feedback_stats,
         "_note": (
             "accuracy is on a 0–1 scale where 0.5 = random (coin-flip). "
             "directional_acc excludes flat moves and Neutral calls — "
-            "it measures signal quality on clear directional bets."
+            "it measures signal quality on clear directional bets. "
+            f"feedback_windows includes only reports from {MIN_FEEDBACK_VERSION}+ "
+            "(adversarial review era) and is used by the daily bias override logic."
         ),
     }
     payload = json.dumps(output, indent=2)
@@ -156,16 +187,24 @@ def _acc_bar(accuracy: float | None, n: int, width: int = 20) -> str:
     return f"[{bar}] {accuracy:.0%}  (n={n})"
 
 
-def write_markdown(stats: dict, n_reports: int) -> None:
+def write_markdown(
+    stats: dict,
+    n_reports: int,
+    n_feedback: int = 0,
+) -> None:
     today = date.today().isoformat()
     lines = [
         f"# Prediction Accuracy Report",
         f"",
-        f"*Generated: {today} | Reports scored: {n_reports}*",
+        f"*Generated: {today} | Reports scored: {n_reports} "
+        f"| Feedback-loop reports ({MIN_FEEDBACK_VERSION}+): {n_feedback}*",
         f"",
         f"> Accuracy scale: 0% = always wrong, 50% = random, 100% = always right.",
         f"> **Directional accuracy** excludes flat moves and Neutral calls — it is the",
         f"> signal quality metric. Anything above ~60% with n > 10 is meaningful.",
+        f">",
+        f"> The **bias override** (daily pipeline) uses only {MIN_FEEDBACK_VERSION}+ reports",
+        f"> (adversarial review era). Earlier reports appear below for historical reference.",
         f"",
     ]
 
@@ -274,10 +313,18 @@ def main() -> None:
     scores = load_scores()
     print(f"Loaded {len(scores)} score file(s).")
 
+    min_vk = _version_key(MIN_FEEDBACK_VERSION)
+    n_feedback = sum(
+        1 for s in scores
+        if _version_key(s.get("agent_version", "v0.0")) >= min_vk
+    )
+
     stats = aggregate(scores)
+    feedback_stats = aggregate(scores, min_version=MIN_FEEDBACK_VERSION)
+
     print_summary(stats, len(scores))
-    write_json(stats, len(scores))
-    write_markdown(stats, len(scores))
+    write_json(stats, len(scores), feedback_stats, n_feedback)
+    write_markdown(stats, len(scores), n_feedback)
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@
 date: 2026-04-22
 day: Wednesday
 type: macro-intelligence
+agent_version: v0.4
 tags: [macro, daily-note, economics]
 ---
 

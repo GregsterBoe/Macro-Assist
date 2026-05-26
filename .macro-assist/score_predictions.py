@@ -71,8 +71,24 @@ def add_trading_days(start: date, n: int) -> date:
 
 
 # ---------------------------------------------------------------------------
-# Helpers — report parsing
+# Helpers — frontmatter & report parsing
 # ---------------------------------------------------------------------------
+
+def parse_frontmatter(path: Path) -> dict:
+    """Extract YAML frontmatter key-value pairs from a report file."""
+    content = path.read_text(encoding="utf-8")
+    if not content.startswith("---"):
+        return {}
+    end = content.find("---", 3)
+    if end == -1:
+        return {}
+    result = {}
+    for line in content[3:end].splitlines():
+        if ":" in line:
+            k, _, v = line.partition(":")
+            result[k.strip()] = v.strip()
+    return result
+
 
 def find_reports() -> list[tuple[date, Path]]:
     """Return (report_date, path) pairs for all dated macro reports, sorted."""
@@ -141,7 +157,9 @@ def parse_predictions(path: Path) -> dict | None:
         confidence = int(cm.group(1)) if cm else 50
 
         # Target range — store as string; extract numbers for reference
-        nums = [float(n.replace(",", "")) for n in re.findall(r"[\d,]+\.?\d*", target_raw)]
+        # Filter out pure-comma matches (e.g. "," → "" after strip) that float() rejects
+        nums = [float(n.replace(",", "")) for n in re.findall(r"[\d,]+\.?\d*", target_raw)
+                if n.replace(",", "")]
 
         predictions[asset] = {
             "bias": bias,
@@ -318,6 +336,9 @@ def main() -> None:
     # Score each eligible report
     scored = 0
     for report_date, path in eligible:
+        fm = parse_frontmatter(path)
+        agent_version = fm.get("agent_version", "unknown")
+
         predictions = parse_predictions(path)
         if predictions is None:
             print(f"  {report_date}: no predictions table - skipping")
@@ -329,9 +350,10 @@ def main() -> None:
             continue
 
         output = {
-            "report_date": report_date.isoformat(),
-            "scored_at":   today.isoformat(),
-            "windows":     window_results,
+            "report_date":   report_date.isoformat(),
+            "agent_version": agent_version,
+            "scored_at":     today.isoformat(),
+            "windows":       window_results,
         }
 
         score_path = SCORES_DIR / f"{report_date.isoformat()}.json"

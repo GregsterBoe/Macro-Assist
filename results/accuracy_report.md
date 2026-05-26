@@ -1,10 +1,13 @@
 # Prediction Accuracy Report
 
-*Generated: 2026-05-18 | Reports scored: 35*
+*Generated: 2026-05-26 | Reports scored: 35 | Feedback-loop reports (v0.3+): 19*
 
 > Accuracy scale: 0% = always wrong, 50% = random, 100% = always right.
 > **Directional accuracy** excludes flat moves and Neutral calls — it is the
 > signal quality metric. Anything above ~60% with n > 10 is meaningful.
+>
+> The **bias override** (daily pipeline) uses only v0.3+ reports
+> (adversarial review era). Earlier reports appear below for historical reference.
 
 ## T+5 (1 week)
 
