@@ -35,6 +35,11 @@ ACCURACY_JSON  = Path(__file__).resolve().parent / "data" / "accuracy_summary.js
 REPO_ROOT      = Path(__file__).resolve().parent.parent
 POSITIONS_CSV  = Path(os.environ.get("POSITIONS_CSV", REPO_ROOT / "data" / "tr_positions.csv"))
 
+# Pipeline version — bumped on every structural capability change (new data source,
+# new agent, new prompt architecture). Stamped into the YAML frontmatter of every
+# generated note so accuracy stats can be filtered by generation quality.
+PIPELINE_VERSION = "1.0"
+
 # ---------------------------------------------------------------------------
 # Pipeline logger
 # ---------------------------------------------------------------------------
@@ -1749,7 +1754,9 @@ def _apply_accuracy_override_structured(output: "AnalysisOutput") -> "AnalysisOu
     except Exception:
         return output
 
-    all_windows = acc_data.get("windows", {})
+    # Prefer feedback_windows (version-filtered, >= MIN_FEEDBACK_VERSION) when available;
+    # fall back to windows so behaviour is unchanged before the next summarize run.
+    all_windows = acc_data.get("feedback_windows") or acc_data.get("windows", {})
     if not all_windows:
         return output
 
@@ -2139,6 +2146,7 @@ def build_note(
 date: {date_str}
 day: {day_name}
 type: macro-intelligence
+agent_version: v{PIPELINE_VERSION}
 tags: [macro, daily-note, economics]
 ---
 
