@@ -894,7 +894,7 @@ def synthetic_conditional(
 
 ---
 
-### Phase 9 — Volatility Forecasting Layer *(To Implement — depends on Phase 8)*
+### Phase 9 — Volatility Forecasting Layer *(Done — 2026-05-26)*
 
 **Goal:** Predict 5/10/20-day realized volatility per asset and compute the Variance Risk Premium against VIX. Inject as one block of pre-computed quantitative context.
 
