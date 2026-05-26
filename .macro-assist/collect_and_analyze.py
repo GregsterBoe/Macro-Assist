@@ -38,7 +38,7 @@ POSITIONS_CSV  = Path(os.environ.get("POSITIONS_CSV", REPO_ROOT / "data" / "tr_p
 # Pipeline version — bumped on every structural capability change (new data source,
 # new agent, new prompt architecture). Stamped into the YAML frontmatter of every
 # generated note so accuracy stats can be filtered by generation quality.
-PIPELINE_VERSION = "1.0"
+PIPELINE_VERSION = "1.1"
 
 # ---------------------------------------------------------------------------
 # Pipeline logger
@@ -1475,6 +1475,69 @@ def _format_portfolio_risk(risk: "PortfolioRiskOutput") -> str:
     )
 
 
+def _synthesize_structured(
+    client: anthropic.Anthropic,
+    output: "AnalysisOutput",
+    today: datetime,
+) -> str | None:
+    """MA-3b: Synthesis agent — formats AnalysisOutput into the analysis body markdown.
+    Returns the markdown string on success; None on any failure (caller uses Python assembly).
+    Uses Sonnet with a tight ~15-line system prompt — no raw data in context.
+    """
+    synthesis_prompt_path = PROMPTS_DIR / "synthesis_prompt.md"
+    if not synthesis_prompt_path.exists():
+        _log("MA3B", "WARN", "synthesis_prompt.md not found — skipping")
+        return None
+
+    review_date = next_review_date(today)
+
+    # Pre-format the predictions table in Python so the agent copies it verbatim
+    pred_header = (
+        "| Asset | Bias | Primary Driver | Confidence | Target Range |\n"
+        "|-------|------|----------------|------------|--------------|"
+    )
+    pred_rows = "\n".join(
+        f"| {p.asset} | {p.bias} | {p.primary_driver} | {p.confidence_pct}% | {p.target_range} |"
+        for p in output.predictions
+    )
+    predictions_table = f"{pred_header}\n{pred_rows}"
+
+    input_data = {
+        "executive_summary":     output.executive_summary,
+        "macro_regime":          output.macro_regime,
+        "macro_dashboard_text":  output.macro_dashboard_text,
+        "equities_note":         output.equities_note,
+        "rates_note":            output.rates_note,
+        "inflation_growth_note": output.inflation_growth_note,
+        "commodities_note":      output.commodities_note,
+        "portfolio_risk":        output.portfolio_risk,
+        "sector_opportunity":    output.sector_opportunity,
+        "key_risks":             output.key_risks,
+        "predictions_table":     predictions_table,
+        "review_date":           review_date,
+    }
+
+    system_prompt = synthesis_prompt_path.read_text(encoding="utf-8")
+    user_message = (
+        "Format this structured analysis into the Macro Intelligence Note body:\n\n"
+        + json.dumps(input_data, indent=2)
+    )
+
+    try:
+        response = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=3000,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_message}],
+        )
+        result = response.content[0].text.strip()
+        _log("MA3B", "OK", f"synthesis complete ({response.usage.output_tokens} tokens)")
+        return result
+    except Exception as e:
+        _log("MA3B", "WARN", f"synthesis agent failed ({type(e).__name__}: {e}) — will use Python assembly")
+        return None
+
+
 def _track_structured_success() -> int:
     """Increment and return the consecutive structured-path success count."""
     try:
@@ -2025,12 +2088,19 @@ Prediction review date (5 business days): {review_date}
                     structured = structured.model_copy(
                         update={"portfolio_risk": _format_portfolio_risk(risk_output)}
                     )
-            # MA-3b: track consecutive structured successes
-            _count = _track_structured_success()
-            if _count >= _SYNTHESIS_ACTIVATE_AFTER:
-                _log("MA3", "INFO",
-                     f"structured path has run successfully {_count}× — "
-                     "free-text fallback path is safe to retire (MA-3b)")
+            # MA-3b: synthesis agent — formats structured JSON into final markdown
+            _log("MA3B", "INFO", "running synthesis agent...")
+            synthesis_text = _synthesize_structured(client, structured, today)
+            if synthesis_text is not None:
+                _count = _track_structured_success()
+                if _count >= _SYNTHESIS_ACTIVATE_AFTER:
+                    _log("MA3B", "INFO",
+                         f"full pipeline (analysis + synthesis) stable {_count}× — "
+                         "free-text fallback path is safe to retire")
+                return synthesis_text  # str → build_note() uses directly, skips _build_analysis_markdown()
+            # Synthesis failed — reset counter, fall back to Python markdown assembly
+            _reset_structured_success()
+            _log("MA3B", "WARN", "synthesis failed — using Python markdown assembly")
             return structured
 
     # --- Free-text fallback path (pre-MA-1 behaviour, unchanged) ---
