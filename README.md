@@ -1,6 +1,6 @@
 # Macro-Assist
 
-Automated daily macro intelligence pipeline. Every weekday morning a GitHub Actions workflow fetches live economic and market data, calls Claude Sonnet for structured analysis and a self-review pass, and delivers a formatted Markdown note to an Obsidian vault. A separate weekly workflow scores the accuracy of past predictions and feeds that track record back into future reports as a self-calibration loop.
+Automated daily macro intelligence pipeline. Every weekday morning a GitHub Actions workflow fetches live economic and market data, runs a multi-agent Claude pipeline for structured analysis, and delivers a formatted Markdown note to an Obsidian vault. A separate weekly workflow scores the accuracy of past predictions and feeds that track record back into future reports as a self-calibration loop. A second weekly workflow refits the quantitative models on fresh data.
 
 ---
 
@@ -14,7 +14,7 @@ The project spans two GitHub repositories:
 ```
 GitHub Actions (06:30 UTC Mon–Fri)
   │
-  ├── fetch FRED macro indicators (15 series, 5yr history each)
+  ├── fetch FRED macro indicators (16 series, 5yr history each)
   ├── fetch market prices + technicals (yfinance, 90d history)
   ├── fetch sector ETF fundamentals (11 ETFs + holdings P/E)
   ├── fetch COT positioning (CFTC direct download, no API key)
@@ -23,13 +23,23 @@ GitHub Actions (06:30 UTC Mon–Fri)
   ├── summarize transcripts (Claude Haiku)
   ├── inject historical prediction accuracy (accuracy_summary.json)
   ├── inject portfolio positions (tr_positions.csv, if present)
+  ├── build quantitative context block:
+  │     ├── HAR-RV volatility forecasts (SP500, Gold, WTI Oil, Bitcoin)
+  │     ├── VIX variance risk premium (SP500)
+  │     ├── HMM regime classification (4-state model)
+  │     └── conditional return distributions (macro-regime bucketed)
   │
-  ├── Claude Sonnet → structured markdown note (main pass, 5000 tokens)
-  ├── Claude Sonnet → adversarial review of predictions table
-  ├── accuracy override → bias correction + clustering/collapse checks
+  ├── MA-1: Claude Sonnet → structured AnalysisOutput (tool_use, 5000 tokens)
+  ├── MA-2: Claude Sonnet → adversarial review of predictions table
+  ├── MA-3a: Claude Haiku → portfolio risk agent (structured, narrow context)
+  ├── MA-3b: Claude Haiku → synthesis agent (formats JSON → markdown)
+  ├── Python → accuracy override (bias floor, wasted-signal, clustering checks)
   │
   ├── push note → External-Brain/Economy/YYYY/MM-Month/
   └── push note → Macro-Assist/results/MM-Month/
+
+GitHub Actions (06:00 UTC Mon–Fri)        ← runs 30 min before daily note
+  └── data fetch check (--fetch-only, no LLM call)
 
 GitHub Actions (07:15 UTC Mondays)
   │
@@ -37,6 +47,13 @@ GitHub Actions (07:15 UTC Mondays)
   ├── aggregate accuracy stats → accuracy_summary.json
   ├── push accuracy_summary.json → Macro-Assist/.macro-assist/data/
   └── push accuracy_report.md → External-Brain/Economy/Analysis/
+
+GitHub Actions (22:00 UTC Sundays)
+  │
+  ├── fetch 5yr FRED + market data
+  ├── refit GaussianHMM regime model
+  ├── rebuild conditional return distributions
+  └── commit regime_model.pkl + conditional_distributions.json
 ```
 
 ---
@@ -46,28 +63,59 @@ GitHub Actions (07:15 UTC Mondays)
 ```
 Macro-Assist/
 ├── .macro-assist/
-│   ├── collect_and_analyze.py   # main pipeline script
+│   ├── collect_and_analyze.py   # main pipeline script (--fetch-only for data checks)
 │   ├── parse_positions.py       # Trade Republic portfolio parser
 │   ├── score_predictions.py     # weekly prediction scorer
-│   ├── summarize_accuracy.py    # accuracy aggregator
+│   ├── summarize_accuracy.py    # accuracy aggregator + per-version tracking
+│   ├── tag_versions.py          # retroactively backfill agent_version to older reports
+│   ├── versions.py              # single source of truth for pipeline version constants
 │   ├── youtube_data.py          # YouTube transcript fetcher
+│   ├── schemas.py               # Pydantic models for structured Claude output (MA-1)
+│   ├── quant_context.py         # builds quantitative context block for Claude prompt
+│   ├── regime.py                # GaussianHMM regime model fit + inference
+│   ├── regime_features.py       # NFCI/yield-curve/HY/vol feature extraction
+│   ├── vol_forecast.py          # HAR-RV volatility forecasting
+│   ├── conditional.py           # macro-regime conditional return distribution builder
+│   ├── refit_models.py          # weekly refit script (run by macro_weekly_refit.yml)
+│   ├── backtest.py              # point-in-time backtesting harness
+│   ├── point_in_time.py         # point-in-time FRED data reconstruction
+│   ├── synthetic.py             # synthetic data generator for tests
 │   ├── requirements.txt
 │   ├── data/
-│   │   └── accuracy_summary.json  # tracked in git; read by daily pipeline
-│   └── prompts/
-│       └── system_prompt.md     # Claude analyst instructions
+│   │   ├── accuracy_summary.json       # tracked in git; read by daily pipeline
+│   │   ├── regime_model.pkl            # trained HMM; updated weekly by refit workflow
+│   │   ├── conditional_distributions.json  # asset return distributions per regime bucket
+│   │   └── cot_history.json            # rolling 54-week COT positioning cache
+│   ├── prompts/
+│   │   ├── system_prompt.md            # free-text Claude analyst instructions (fallback)
+│   │   ├── system_prompt_structured.md # structured-output analyst instructions (MA-1)
+│   │   └── synthesis_prompt.md         # synthesis agent instructions (MA-3b)
+│   └── tests/
+│       ├── conftest.py
+│       ├── test_quant_context.py
+│       ├── test_regime.py
+│       ├── test_regime_features.py
+│       ├── test_vol_forecast.py
+│       ├── test_conditional.py
+│       ├── test_backtest.py
+│       ├── test_point_in_time.py
+│       └── test_synthetic.py
 ├── .github/
 │   └── workflows/
-│       ├── macro_daily.yml           # Mon–Fri 06:30 UTC
-│       └── macro_weekly_scoring.yml  # Monday 07:15 UTC
+│       ├── macro_daily.yml           # Mon–Fri 06:30 UTC — main pipeline
+│       ├── macro_data_check.yml      # Mon–Fri 06:00 UTC — data fetch pre-check
+│       ├── macro_weekly_scoring.yml  # Monday 07:15 UTC — prediction scoring
+│       └── macro_weekly_refit.yml    # Sunday 22:00 UTC — model refit
 ├── data/
 │   ├── tr_positions.csv         # Trade Republic export (optional; gitignored)
 │   └── ticker_cache.json        # ISIN→ticker cache (committed)
 ├── results/
 │   ├── MM-Month/
 │   │   └── YYYY-MM-DD-Weekday-macro.md  # archived report copies
-│   ├── scores/                  # gitignored — raw JSON score files
+│   ├── scores/                  # gitignored — raw JSON score files per report
+│   ├── quant_context_log/       # gitignored — daily JSONL snapshots of quant outputs
 │   └── accuracy_report.md       # human-readable accuracy summary
+├── Project_Development.md       # phased implementation roadmap
 └── .gitignore
 ```
 
@@ -122,6 +170,48 @@ Fetched via `fredapi`. 5-year history pulled per series to enable historical con
 
 **Notable Moves detector:** flags any asset where `|daily_change| ≥ 2 × 60d rolling std` and exceeds a per-asset minimum threshold (e.g. 1.5% for equities, 2.0% for oil). Output is a `## Notable Moves` block.
 
+### Quantitative Intelligence Layer
+
+Built by `quant_context.py` and injected as a `## Quantitative Context` block into the Claude prompt. Requires fitted model files (`regime_model.pkl`, `conditional_distributions.json`) — generated by the weekly refit workflow.
+
+**HAR-RV Volatility Forecasts** — `vol_forecast.py`
+
+Heterogeneous AutoRegressive model for Realized Volatility. Uses daily/weekly/monthly RV components from historical returns.
+
+| Asset | Notes |
+|-------|-------|
+| S&P 500 | + VIX variance risk premium (VIX² − expected RV); Normal / Elevated / Compressed |
+| Gold | |
+| WTI Oil | |
+| Bitcoin | |
+
+Output per asset: annualized daily vol forecast + 60d percentile.
+
+**HMM Regime Detection** — `regime.py`
+
+4-state Gaussian HMM fitted on four macro features (weekly, 5yr history):
+
+| Feature | Construction |
+|---------|-------------|
+| NFCI percentile | NFCI vs. 5yr range; forward-filled from weekly releases |
+| Yield curve (bps) | DGS10 − DGS2 |
+| HY z-score | (HY spread − 5yr mean) / 5yr σ |
+| SP500 vol percentile | 60d realized vol vs. 252d rolling range |
+
+States are labeled by their posterior probability. The state with the highest average NFCI percentile is treated as the stress state; the others are labeled Risk-On/Risk-Off by vol/yield-curve character. Output: state label, posterior probability vector, top-posterior confidence.
+
+**Conditional Return Distributions** — `conditional.py`
+
+Return distributions bucketed by a 3-dimension macro snapshot: NFCI tier × yield curve sign × HY spread tier. Each bucket shows the empirical P50 (median) forward return over T+5 and T+20 trading days, with sample count `n`.
+
+| Asset | Windows |
+|-------|---------|
+| S&P 500 | T+5, T+20 |
+| Gold | T+5, T+20 |
+| WTI Oil | T+5, T+20 |
+
+**Monitoring** — raw quant outputs (vol, regime, conditional) are logged to `results/quant_context_log/YYYY-MM-DD.jsonl` on each pipeline run for drift detection.
+
 ### Sector ETFs
 
 Daily close and % change fetched for 11 sector ETFs (5-day history). Richer fundamentals — trailing P/E, 1M/1Y returns, distance from 52-week high — fetched separately for the `## Sector Fundamentals` prompt block.
@@ -144,7 +234,7 @@ For sectors where trailing P/E is >10% below the 5yr reference average, the top-
 
 ### COT Positioning
 
-Weekly CFTC Commitments of Traders data fetched via direct public download from `cftc.gov` (no API key required). Current-year and prior-year ZIP files are parsed to compute net non-commercial (speculative) positioning and its percentile vs. 1-year range. Injected as `## COT Positioning` block.
+Weekly CFTC Commitments of Traders data fetched via direct public download from `cftc.gov` (no API key required). Current-year and prior-year ZIP files are parsed to compute net non-commercial (speculative) positioning and its percentile vs. 1-year range. Injected as `## COT Positioning` block. A rolling 54-week cache is maintained in `.macro-assist/data/cot_history.json`.
 
 | Asset | CFTC Code |
 |-------|-----------|
@@ -175,42 +265,58 @@ YOUTUBE_CHANNELS = [
 
 ## Analysis Pipeline
 
-### Pass 1 — Main Analysis (Claude Sonnet, max 5000 tokens)
+### Multi-Agent Architecture
 
-The system prompt (`prompts/system_prompt.md`) instructs Claude to produce exactly these sections in order:
+The pipeline runs four Claude calls per daily note:
+
+| Agent | Model | Role |
+|-------|-------|------|
+| MA-1 | Sonnet (5000 tokens) | Structured macro analysis via `tool_use` → `AnalysisOutput` |
+| MA-2 | Sonnet (250 tokens) | Adversarial review of predictions table only |
+| MA-3a | Haiku (600 tokens) | Portfolio risk assessment (narrow context: regime + positions) |
+| MA-3b | Haiku (3000 tokens) | Synthesis agent — formats structured JSON into final markdown |
+
+If structured output fails after two attempts, the pipeline falls back to a single free-text Sonnet call (pre-v1.0 behaviour, unchanged).
+
+### MA-1 — Structured Analysis (Claude Sonnet, max 5000 tokens)
+
+Uses `system_prompt_structured.md` and Anthropic tool use (`submit_analysis`) to produce a validated `AnalysisOutput` Pydantic object. The schema enforces the section structure — section order and constraints are never in the model's output stream. Sections:
 
 1. **Executive Summary** — 2–4 sentences on the dominant macro development
-2. **Macro Dashboard** — signal matrix (9 indicators × 4 asset classes: Equities / Bonds / Commodities / Crypto)
+2. **Macro Dashboard** — signal matrix (9 indicators × 4 asset classes)
 3. **Equities** — index moves, risk character, sector divergence, VIX term structure
 4. **Rates & Fed Policy** — yield curve shape, real yield vs. breakeven decomposition, Fed trajectory
 5. **Inflation & Growth** — CPI trend, GDP + unemployment regime read, M2, leading indicators
 6. **Commodities** — Gold (real yield cross-reference), WTI (COT context), DXY
 7. **Portfolio Risk Assessment** — position-level macro alignment (only when `tr_positions.csv` is present)
-8. **Sector Opportunity Research** — 2–3 macro-driven sector tailwinds with P/E context and specific holdings (only when sector fundamentals data is present)
+8. **Sector Opportunity Research** — 2–3 macro-driven sector tailwinds with P/E context
 9. **Key Risks & Themes** — 3–5 actionable bullets for the next 1–4 weeks
-10. **5-Day Predictions** — scoreable table per asset: Bias / Target Range / Confidence % / Primary Driver
+10. **5-Day Predictions** — scoreable table per asset: Bias / Primary Driver / Confidence % / Target Range
 
-Key system prompt rules:
-- `days_stale` tiered treatment: ≤14 = current signal; 15–30 = note release date once; >30 = trend-only, mark "(stale)" in Dashboard
-- Confidence bounded 50%–70% (no false certainty)
-- Historical context anchored to `five_yr_mean` when available
-- VIX term structure ratio used to distinguish acute from anticipated stress
-- Notable moves opened first in their section
-- Economic calendar events flagged in relevant section + Key Risks if within prediction window
-- Minimum conviction requirement: predictions table must contain at least one Bullish/Bearish call ≥57% confidence
+Key prompt rules: confidence bounded 50%–70%; historical context anchored to `five_yr_mean`; VIX term structure used to distinguish acute from anticipated stress; minimum conviction requirement (at least one Bullish/Bearish call ≥57%).
 
-### Pass 2 — Adversarial Review (Claude Sonnet, max 600 tokens)
+### MA-2 — Adversarial Review (Claude Sonnet, max 250 tokens)
 
-A second Claude call reviews the predictions table against the Key Risks section. It applies a high bar: only lowers confidence (by 5–10pp) and annotates the Primary Driver with `[Risk: label]` if a listed Key Risk would make the directional call **outright wrong** if it materialised. Confidence is floored at 50% in code regardless of model output.
+Receives only the predictions table + key risks (not the full analysis) to prevent rubber-stamping. Outputs a JSON delta `{asset: {append_risk, confidence_delta}}`. Python applies changes programmatically — numbers in Primary Driver are never touched by the model, eliminating autoregressive drift. Directional calls are clamped to ≥51% confidence.
 
-### Pass 3 — Accuracy Override (Python)
+### MA-3a — Portfolio Risk Agent (Claude Haiku, max 600 tokens)
 
-`_apply_accuracy_override()` runs post-review and applies four checks:
+Narrow context: only the current macro regime label + portfolio positions table. No FRED data, no accuracy history. Produces a structured `PortfolioRiskOutput` with: biggest headwind, biggest tailwind, one actionable observation, opportunity gap.
 
-1. **Bias floor:** if any asset has directional accuracy <40% at n≥8 in any scoring window and the current call is Bearish, confidence is floored at 50% and a bias warning is appended to Primary Driver.
+### MA-3b — Synthesis Agent (Claude Haiku, max 3000 tokens)
+
+Receives the structured `AnalysisOutput` JSON and formats it into the final markdown note body. Python pre-formats the predictions table verbatim so the synthesis agent copies it without modification.
+
+### Python Accuracy Override
+
+`_apply_accuracy_override_structured()` runs post-review and applies four checks:
+
+1. **Bias floor:** if any asset has directional accuracy <40% at n≥8 in any scoring window and the current call is Bearish, confidence is floored at 51% and a bias warning is appended to Primary Driver.
 2. **Wasted signal warning:** if an asset has ≥70% directional accuracy at n≥10 in its best window but is called Neutral@50%, a `WARN` is emitted in CI output.
-3. **Confidence clustering:** if 3+ assets share the same confidence figure, a `WARN` fires (insufficient differentiation).
+3. **Confidence clustering:** if 3+ directional calls share the same confidence figure, a `WARN` fires.
 4. **All-Neutral collapse:** if every asset is called Neutral, a `FAIL` fires (minimum conviction rule violated).
+
+The override uses `feedback_windows` (v0.3+ reports, adversarial review era) when available, falling back to `windows` (all reports).
 
 ---
 
@@ -228,7 +334,11 @@ Runs weekly (Monday). Parses 5-Day Predictions tables from all `*-macro.md` repo
 
 Only scores once the evaluation date has fully passed (+ 1 day buffer). All prices fetched fresh from yfinance — never from the report's data snapshot.
 
-Scoring: direction correct = 1.0 / wrong = 0.0 / flat move or Neutral = 0.5. Flat threshold: 3 bps for 10Y yield; 0.5% for all other assets.
+**Scoring:** direction correct = 1.0 / wrong = 0.0 / flat move or Neutral = 0.5.
+
+Flat threshold per asset:
+- **10Y Treasury Yield:** 3 bps absolute change (`|eval_yield − entry_yield| < 0.03`). `^TNX` reports the yield as a level (e.g. `4.50`), so absolute difference is used — not a fractional return on the yield level.
+- **All other assets:** 0.5% return (`|(eval − entry) / entry| < 0.005`).
 
 Output: `results/scores/YYYY-MM-DD.json` per report (gitignored).
 
@@ -238,6 +348,8 @@ Aggregates score files into two metrics per asset per window:
 
 - **Overall accuracy** — mean score including Neutral/flat (0.5 = random baseline)
 - **Directional accuracy** — mean score on Bullish/Bearish calls with 0/1 outcomes; excludes flat moves and Neutrals (signal quality metric)
+
+Tracks the **5 most recently deployed pipeline versions** in `results/accuracy_report.md`. The current `PIPELINE_VERSION` (from `versions.py`) is always included, even before it has any scored reports.
 
 Outputs:
 - `.macro-assist/data/accuracy_summary.json` — tracked in git, read by daily pipeline
@@ -249,9 +361,28 @@ Outputs:
 
 ---
 
+## Quantitative Model Refit
+
+`refit_models.py` + `macro_weekly_refit.yml` rebuild the HMM and conditional distributions every Sunday on fresh data, so the regime model doesn't drift as macro conditions evolve.
+
+1. Fetch 5yr history: NFCI, DGS10, DGS2, BAMLH0A0HYM2 from FRED; SP500, Gold, WTI Oil prices from yfinance
+2. Build (n\_days × 4) feature matrix aligned to business days; drop NaN rows
+3. Refit `GaussianHMM(n_components=4)` via `regime.py`
+4. Compute forward returns (T+5, T+10, T+20) per asset using integer-index offset over aligned prices
+5. Classify each historical date into a macro bucket via `assign_bucket()` (NFCI × yield curve × HY spread)
+6. Rebuild `conditional_distributions.json` via `conditional.py`
+7. Commit `data/regime_model.pkl` + `data/conditional_distributions.json`
+
+**First-time activation:** trigger `macro_weekly_refit` via `workflow_dispatch`, or run locally:
+```bash
+FRED_API_KEY=... python .macro-assist/refit_models.py
+```
+
+---
+
 ## Portfolio Intelligence (Optional)
 
-When `data/tr_positions.csv` is present (Trade Republic transaction export), the daily pipeline injects a `## Portfolio Positions` block into the Claude prompt and produces a **Portfolio Risk Assessment** section.
+When `data/tr_positions.csv` is present (Trade Republic transaction export), the daily pipeline injects a `## Portfolio Positions` block into the Claude prompt and the MA-3a portfolio risk agent produces a **Portfolio Risk Assessment** section.
 
 `parse_positions.py` computes: net shares per position, average cost basis (EUR), current price (EUR, with USD→EUR conversion via `EURUSD=X`), unrealized P&L, and portfolio allocation %.
 
@@ -266,7 +397,14 @@ python .macro-assist/parse_positions.py data/tr_positions.csv
 
 ## GitHub Actions Workflows
 
+### macro_data_check.yml — Mon–Fri 06:00 UTC
+
+Runs 30 minutes before the daily note as an early warning. Calls `collect_and_analyze.py --fetch-only` — no LLM, no file writes. Checks all data sources and exits non-zero if any critical source fails.
+
+Does not require `ANTHROPIC_API_KEY` or `VAULT_PAT`.
+
 ### macro_daily.yml — Mon–Fri 06:30 UTC
+
 1. Checkout Macro-Assist (write token) + External-Brain vault
 2. Install Python dependencies
 3. Run `collect_and_analyze.py` (fetch → analyze → write note to vault)
@@ -282,7 +420,13 @@ Runs 45 minutes after the daily workflow to ensure Monday's note is written firs
 4. Commit `accuracy_summary.json` to Macro-Assist
 5. Copy `accuracy_report.md` to vault (`Economy/Analysis/prediction-accuracy.md`)
 
-Both workflows support `workflow_dispatch` for manual testing from the GitHub Actions UI. Scheduled runs always execute on the default branch (main).
+### macro_weekly_refit.yml — Sunday 22:00 UTC
+
+1. Checkout Macro-Assist
+2. Run `refit_models.py` (5yr FRED + market data fetch, HMM refit, distribution rebuild)
+3. Commit `data/regime_model.pkl` + `data/conditional_distributions.json`
+
+All workflows support `workflow_dispatch` for manual testing from the GitHub Actions UI. Scheduled runs always execute on the default branch (main).
 
 ---
 
@@ -299,6 +443,17 @@ Both workflows support `workflow_dispatch` for manual testing from the GitHub Ac
 `GITHUB_TOKEN` is provided automatically by GitHub Actions. The workflows require `permissions: contents: write`, enabled in the workflow files and under repo Settings → Actions → General → Workflow permissions → Read and write.
 
 COT positioning data is fetched directly from `cftc.gov` — no API key required.
+
+---
+
+## Version Management
+
+Pipeline versions are centralized in `.macro-assist/versions.py`. To bump the version after a structural capability change:
+
+1. Change `PIPELINE_VERSION` to the new `"vX.Y"` string
+2. Close the last `VERSION_MILESTONES` entry (set end date to yesterday)
+3. Append a new milestone entry with today as start and `date(2099, 12, 31)` as end
+4. Run: `python .macro-assist/tag_versions.py && python .macro-assist/summarize_accuracy.py`
 
 ---
 
@@ -328,6 +483,12 @@ export SUPADATA_API_KEY=...   # optional
 python .macro-assist/collect_and_analyze.py
 ```
 
+Run a data fetch check only (no LLM call, no file writes):
+```bash
+export FRED_API_KEY=...
+python .macro-assist/collect_and_analyze.py --fetch-only
+```
+
 Output is written to `Economy/YYYY/MM-Month/` relative to the repo root by default. Override with:
 ```bash
 export VAULT_ROOT=/path/to/your/vault
@@ -345,4 +506,15 @@ To score against vault reports:
 ```bash
 export MACRO_REPORTS_DIR=/path/to/External-Brain
 python .macro-assist/score_predictions.py
+```
+
+Run the quant model refit locally:
+```bash
+export FRED_API_KEY=...
+python .macro-assist/refit_models.py
+```
+
+Run the test suite:
+```bash
+pytest .macro-assist/tests/
 ```

@@ -2341,6 +2341,23 @@ def _run_fetch_check() -> int:
         except Exception as e:
             _log("CHECK", "WARN", f"Notable moves: {e}")
 
+    # --- Quant context ---
+    if fred_data and market_data and histories:
+        try:
+            from quant_context import build_quant_context
+            qc = build_quant_context(
+                fred_data, today.date(),
+                market_data=market_data,
+                histories=histories,
+            )
+            if qc:
+                _log("CHECK", "OK", "Quant context: vol forecasts + regime + conditionals built")
+            else:
+                _log("CHECK", "INFO",
+                     "Quant context: no model data yet — run refit_models.py to activate")
+        except Exception as e:
+            _log("CHECK", "WARN", f"Quant context: {e}")
+
     _elapsed = int(time.monotonic() - _t0)
     if failures:
         _log("CHECK", "FAIL", f"FAILED sources: {failures} ({_elapsed}s)")
