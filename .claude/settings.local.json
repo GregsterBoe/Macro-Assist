@@ -27,7 +27,10 @@
       "Bash(.venv/Scripts/python -m pytest .macro-assist/tests/test_synthetic.py .macro-assist/tests/test_backtest.py -v -m \"not integration\")",
       "Bash(.venv/Scripts/python -m pytest .macro-assist/tests/test_vol_forecast.py -v -m \"not integration\")",
       "Bash(.venv/Scripts/python -m pytest .macro-assist/tests/test_regime_features.py .macro-assist/tests/test_regime.py -v -m \"not integration\")",
-      "Bash(.venv/Scripts/python -m pytest .macro-assist/tests/ -v -m \"not integration\" --tb=short)"
+      "Bash(.venv/Scripts/python -m pytest .macro-assist/tests/ -v -m \"not integration\" --tb=short)",
+      "Bash(python3 -m pip install pytest --quiet)",
+      "Bash(python3 -m pytest .macro-assist/tests/test_conditional.py -v)",
+      "Bash(python3 -m venv /home/gregster/Documents/Projects/Macro-Assist/venv)"
     ]
   }
 }

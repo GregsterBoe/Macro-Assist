@@ -325,7 +325,8 @@ Every generated note and score file carries an `agent_version` field that identi
 | v0.7 | 2026-05-19 – 2026-05-24 | + COT XLS fix, Pass 2 numerical anchoring |
 | v1.0 | 2026-05-25 – 2026-05-25 | + Multi-agent: MA-1 / MA-2 / MA-3a |
 | v1.1 | 2026-05-26 – 2026-05-26 | + MA-3b: synthesis agent |
-| v1.2 | 2026-05-26 – present | + Phase 9/10: HAR-RV vol forecasting + HMM regime classification |
+| v1.2 | 2026-05-26 – 2026-05-28 | + Phase 9/10: HAR-RV vol forecasting + HMM regime classification |
+| v1.3 | 2026-05-29 – present | + Phase 11: conditional return distribution lookup (18-bucket state model) |
 
 ### Output Schema
 
@@ -543,7 +544,7 @@ Removed accuracy history from analysis agent context (eliminated pre-emptive hed
 
 ---
 
-### Phase 11 — Conditional Distribution Layer *(To Implement — depends on Phase 8)*
+### Phase 11 — Conditional Distribution Layer *(Done — 2026-05-29)*
 
 **Goal:** Build empirical lookup tables of forward returns conditional on macro state. Given the current state, retrieve the historical distribution of 5/10/20-day returns per asset.
 
@@ -880,7 +881,7 @@ Not on critical path. Listed for future planning.
 | 13 | **Phase 8 (Validation Infrastructure)** | **Medium** | **MA-3b complete** | ✅ **Done** |
 | 14 | **Phase 9 (Volatility Forecasting)** | **Medium** | **Phase 8** | ✅ **Done** |
 | 15 | **Phase 10 (Regime Classification)** | **Medium** | **Phase 8** | ✅ **Done** |
-| 16 | **Phase 11 (Conditional Distributions)** | **Medium** | **Phase 8** | 🔲 **To Implement** |
+| 16 | **Phase 11 (Conditional Distributions)** | **Medium** | **Phase 8** | ✅ **Done** |
 | 17 | **Phase 12 (Quant Context Integration)** | **Low** | **Phases 9, 10, 11** | 🔲 **To Implement** |
 | 18 | **Phase 13 (End-to-End Validation)** | **High** | **Phase 12** | 🔲 **To Implement** |
 | 19 | **Phase 14 (Production Hardening)** | **Low** | **Phase 13 passing** | 🔲 **To Implement** |
