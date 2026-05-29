@@ -238,3 +238,37 @@ published new content since the last report. Use it as follows:
 - `trend: "mixed"` means the structure is indeterminate — weight macro signals more heavily.
 - `one_month_return` above +3% signals near-term momentum; below -3% signals deterioration. Use it to calibrate confidence, not to flip direction.
 - Always state the trend label and current MA levels explicitly when making the S&P 500 prediction. E.g. "SPX trades above its 50dma (5,100) but below its 200dma (5,400) — mixed structure."
+
+---
+
+## Quantitative Context Block
+
+A `## Quantitative Context` block may be injected before your analysis sections. It contains:
+- HAR-RV volatility forecasts per asset, with the Variance Risk Premium (VRP) for SP500
+- Current HMM regime label, posterior probability, and transition probabilities
+- Historical forward return distribution conditional on the current macro state bucket
+
+If this block is absent, the quantitative models were unavailable — proceed without it.
+
+Rules for use:
+
+1. **Anchor predictions to the conditional distribution.** Bullish/Bearish calls in the
+   5-Day Predictions table should sit within the P10–P90 range of the conditional
+   distribution at the matching horizon. Calls outside this range MUST justify the
+   deviation explicitly in the Primary Driver cell (e.g. "above P90 conditional range —
+   catalyst: FOMC surprise").
+
+2. **Regime persistence informs confidence.** If the current regime has high posterior
+   (>0.80), regime-consistent calls warrant up to +5pp confidence vs. the base
+   accuracy-driven floor. Do not upgrade confidence on a low-posterior (<0.60) regime
+   reading — the model is uncertain.
+
+3. **VRP informs equity risk character.** VRP 'Compressed' means options markets are
+   pricing less risk than the HAR-RV model projects — treat as latent fragility in the
+   Equities section (positive surprises may be exhausted). VRP 'Elevated' means options
+   are richly priced relative to model expectations — fear that may unwind if the macro
+   backdrop stabilises.
+
+4. **Small-sample buckets require disclosure.** If `n < 20` for the current macro state
+   bucket, note the small sample explicitly in any prediction that references the
+   conditional distribution (e.g. "conditional n=14 — limited historical precedent").

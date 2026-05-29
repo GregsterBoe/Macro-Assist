@@ -326,7 +326,8 @@ Every generated note and score file carries an `agent_version` field that identi
 | v1.0 | 2026-05-25 – 2026-05-25 | + Multi-agent: MA-1 / MA-2 / MA-3a |
 | v1.1 | 2026-05-26 – 2026-05-26 | + MA-3b: synthesis agent |
 | v1.2 | 2026-05-26 – 2026-05-28 | + Phase 9/10: HAR-RV vol forecasting + HMM regime classification |
-| v1.3 | 2026-05-29 – present | + Phase 11: conditional return distribution lookup (18-bucket state model) |
+| v1.3 | 2026-05-29 – 2026-05-29 | + Phase 11: conditional return distribution lookup (18-bucket state model) |
+| v1.4 | 2026-05-29 – present | + Phase 12: quantitative context block (HAR-RV vol + HMM regime + conditional dist) |
 
 ### Output Schema
 
@@ -656,7 +657,7 @@ def build_distribution_table_for_backtest(
 
 ---
 
-### Phase 12 — Quantitative Context Integration *(To Implement — depends on 9, 10, 11)*
+### Phase 12 — Quantitative Context Integration *(Done — 2026-05-29)*
 
 **Goal:** Combine vol forecasts, regime classifications, and conditional distributions into a single markdown block injected into the Claude prompt. Update the system prompt to instruct Claude on how to use this new context.
 
@@ -882,7 +883,7 @@ Not on critical path. Listed for future planning.
 | 14 | **Phase 9 (Volatility Forecasting)** | **Medium** | **Phase 8** | ✅ **Done** |
 | 15 | **Phase 10 (Regime Classification)** | **Medium** | **Phase 8** | ✅ **Done** |
 | 16 | **Phase 11 (Conditional Distributions)** | **Medium** | **Phase 8** | ✅ **Done** |
-| 17 | **Phase 12 (Quant Context Integration)** | **Low** | **Phases 9, 10, 11** | 🔲 **To Implement** |
+| 17 | **Phase 12 (Quant Context Integration)** | **Low** | **Phases 9, 10, 11** | ✅ **Done** |
 | 18 | **Phase 13 (End-to-End Validation)** | **High** | **Phase 12** | 🔲 **To Implement** |
 | 19 | **Phase 14 (Production Hardening)** | **Low** | **Phase 13 passing** | 🔲 **To Implement** |
 | 20 | Phase 15 (Optional Extensions) | Varies | All above | 🔲 Backlog |
