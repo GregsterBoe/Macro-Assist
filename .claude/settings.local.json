@@ -25,7 +25,9 @@
       "Bash(python -m venv .venv)",
       "Bash(.venv/Scripts/pip install *)",
       "Bash(.venv/Scripts/python -m pytest .macro-assist/tests/test_synthetic.py .macro-assist/tests/test_backtest.py -v -m \"not integration\")",
-      "Bash(.venv/Scripts/python -m pytest .macro-assist/tests/test_vol_forecast.py -v -m \"not integration\")"
+      "Bash(.venv/Scripts/python -m pytest .macro-assist/tests/test_vol_forecast.py -v -m \"not integration\")",
+      "Bash(.venv/Scripts/python -m pytest .macro-assist/tests/test_regime_features.py .macro-assist/tests/test_regime.py -v -m \"not integration\")",
+      "Bash(.venv/Scripts/python -m pytest .macro-assist/tests/ -v -m \"not integration\" --tb=short)"
     ]
   }
 }
