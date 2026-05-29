@@ -2415,6 +2415,30 @@ def main():
     except Exception as _qc_exc:
         _log("QUANT", "WARN", f"quant context skipped: {type(_qc_exc).__name__}: {_qc_exc}")
 
+    # --- Phase 14.3: log raw quant context outputs to JSONL ---
+    if quant_context:
+        try:
+            import json as _json
+            from quant_context import collect_quant_raw
+            _raw = collect_quant_raw(
+                fred_data, today.date(),
+                market_data=market_data,
+                histories=histories,
+            )
+            if _raw:
+                _qlog_dir  = REPO_ROOT / "results" / "quant_context_log"
+                _qlog_dir.mkdir(parents=True, exist_ok=True)
+                _qlog_path = _qlog_dir / f"{today.strftime('%Y-%m-%d')}.jsonl"
+                with open(_qlog_path, "a", encoding="utf-8") as _qlf:
+                    _qlf.write(_json.dumps({
+                        "date": today.strftime("%Y-%m-%d"),
+                        "time": today.strftime("%H:%M:%S"),
+                        **_raw,
+                    }) + "\n")
+                _log("QUANT_LOG", "OK", f"raw outputs → {_qlog_path.name}")
+        except Exception as _ql_exc:
+            _log("QUANT_LOG", "WARN", f"logging skipped: {type(_ql_exc).__name__}: {_ql_exc}")
+
     analysis = analyze_with_claude(fred_data, market_data, today, sector_data, notable_moves, histories, quant_context)
 
     note = build_note(fred_data, market_data, analysis, today, sector_data)
