@@ -30,7 +30,8 @@
       "Bash(.venv/Scripts/python -m pytest .macro-assist/tests/ -v -m \"not integration\" --tb=short)",
       "Bash(python3 -m pip install pytest --quiet)",
       "Bash(python3 -m pytest .macro-assist/tests/test_conditional.py -v)",
-      "Bash(python3 -m venv /home/gregster/Documents/Projects/Macro-Assist/venv)"
+      "Bash(python3 -m venv /home/gregster/Documents/Projects/Macro-Assist/venv)",
+      "Bash(venv/bin/python -m pytest .macro-assist/tests/test_quant_context.py -v)"
     ]
   }
 }
