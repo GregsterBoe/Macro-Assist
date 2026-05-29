@@ -23,6 +23,8 @@ import requests
 import yfinance as yf
 from fredapi import Fred
 
+from versions import PIPELINE_VERSION
+
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
@@ -34,11 +36,6 @@ PROMPTS_DIR    = Path(__file__).resolve().parent / "prompts"
 ACCURACY_JSON  = Path(__file__).resolve().parent / "data" / "accuracy_summary.json"
 REPO_ROOT      = Path(__file__).resolve().parent.parent
 POSITIONS_CSV  = Path(os.environ.get("POSITIONS_CSV", REPO_ROOT / "data" / "tr_positions.csv"))
-
-# Pipeline version — bumped on every structural capability change (new data source,
-# new agent, new prompt architecture). Stamped into the YAML frontmatter of every
-# generated note so accuracy stats can be filtered by generation quality.
-PIPELINE_VERSION = "1.4"
 
 # ---------------------------------------------------------------------------
 # Pipeline logger
@@ -2218,7 +2215,7 @@ def build_note(
 date: {date_str}
 day: {day_name}
 type: macro-intelligence
-agent_version: v{PIPELINE_VERSION}
+agent_version: {PIPELINE_VERSION}
 tags: [macro, daily-note, economics]
 ---
 
