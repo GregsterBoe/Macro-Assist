@@ -1,7 +1,7 @@
 {
   "report_date": "2026-05-13",
   "agent_version": "v0.5",
-  "scored_at": "2026-05-26",
+  "scored_at": "2026-05-29",
   "windows": {
     "t5": {
       "eval_date": "2026-05-20",
@@ -58,6 +58,69 @@
           "eval_price": 77457.7734,
           "eval_date": "2026-05-20",
           "pct_change": -2.295,
+          "score": 0.0
+        }
+      },
+      "summary": {
+        "n_scored": 6,
+        "accuracy": 0.333
+      }
+    },
+    "t10": {
+      "eval_date": "2026-05-27",
+      "assets": {
+        "S&P 500": {
+          "bias": "Neutral",
+          "confidence": 52,
+          "entry_price": 7444.25,
+          "eval_price": 7520.3599,
+          "eval_date": "2026-05-27",
+          "pct_change": 1.022,
+          "score": 0.5
+        },
+        "Gold": {
+          "bias": "Bullish",
+          "confidence": 57,
+          "entry_price": 4697.7002,
+          "eval_price": 4447.5,
+          "eval_date": "2026-05-27",
+          "pct_change": -5.326,
+          "score": 0.0
+        },
+        "WTI Oil": {
+          "bias": "Neutral",
+          "confidence": 50,
+          "entry_price": 101.02,
+          "eval_price": 88.68,
+          "eval_date": "2026-05-27",
+          "pct_change": -12.215,
+          "score": 0.5
+        },
+        "10Y Treasury Yield": {
+          "bias": "Neutral",
+          "confidence": 52,
+          "entry_price": 4.481,
+          "eval_price": 4.481,
+          "eval_date": "2026-05-27",
+          "pct_change": 0.0,
+          "score": 0.5
+        },
+        "DXY": {
+          "bias": "Neutral",
+          "confidence": 53,
+          "entry_price": 98.48,
+          "eval_price": 99.21,
+          "eval_date": "2026-05-27",
+          "pct_change": 0.741,
+          "score": 0.5
+        },
+        "Bitcoin": {
+          "bias": "Bullish",
+          "confidence": 51,
+          "entry_price": 79277.1172,
+          "eval_price": 74344.7031,
+          "eval_date": "2026-05-27",
+          "pct_change": -6.222,
           "score": 0.0
         }
       },

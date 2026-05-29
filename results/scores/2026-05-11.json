@@ -1,7 +1,7 @@
 {
   "report_date": "2026-05-11",
   "agent_version": "v0.5",
-  "scored_at": "2026-05-26",
+  "scored_at": "2026-05-29",
   "windows": {
     "t5": {
       "eval_date": "2026-05-18",
@@ -69,49 +69,49 @@
     "t10": {
       "eval_date": "2026-05-25",
       "assets": {
+        "S&P 500": {
+          "bias": "Neutral",
+          "confidence": 52,
+          "entry_price": 7412.8398,
+          "eval_price": 7519.1201,
+          "eval_date": "2026-05-25",
+          "pct_change": 1.434,
+          "score": 0.5
+        },
         "Gold": {
           "bias": "Bearish",
           "confidence": 55,
           "entry_price": 4718.7002,
-<<<<<<< HEAD
-          "eval_price": 4537.0,
+          "eval_price": 4500.3999,
           "eval_date": "2026-05-25",
-          "pct_change": -3.851,
-=======
-          "eval_price": 4531.6001,
-          "eval_date": "2026-05-25",
-          "pct_change": -3.965,
->>>>>>> 1a20c4e90d96ca773bf143947037ec1eed760726
+          "pct_change": -4.626,
           "score": 1.0
         },
         "WTI Oil": {
           "bias": "Neutral",
           "confidence": 52,
           "entry_price": 98.07,
-<<<<<<< HEAD
-          "eval_price": 91.72,
+          "eval_price": 93.89,
           "eval_date": "2026-05-25",
-          "pct_change": -6.475,
-=======
-          "eval_price": 92.32,
+          "pct_change": -4.262,
+          "score": 0.5
+        },
+        "10Y Treasury Yield": {
+          "bias": "Neutral",
+          "confidence": 52,
+          "entry_price": 4.41,
+          "eval_price": 4.493,
           "eval_date": "2026-05-25",
-          "pct_change": -5.863,
->>>>>>> 1a20c4e90d96ca773bf143947037ec1eed760726
+          "pct_change": 1.882,
           "score": 0.5
         },
         "DXY": {
           "bias": "Neutral",
           "confidence": 53,
           "entry_price": 97.94,
-<<<<<<< HEAD
-          "eval_price": 99.043,
+          "eval_price": 99.17,
           "eval_date": "2026-05-25",
-          "pct_change": 1.126,
-=======
-          "eval_price": 99.036,
-          "eval_date": "2026-05-25",
-          "pct_change": 1.119,
->>>>>>> 1a20c4e90d96ca773bf143947037ec1eed760726
+          "pct_change": 1.256,
           "score": 0.5
         },
         "Bitcoin": {
@@ -125,7 +125,7 @@
         }
       },
       "summary": {
-        "n_scored": 4,
+        "n_scored": 6,
         "accuracy": 0.5
       }
     }

@@ -39,11 +39,19 @@ SCORING_WINDOWS = {"t5": 5, "t10": 10, "t20": 20}
 BUFFER_DAYS = 1
 
 # Directional flat threshold — moves smaller than this are considered "Flat"
-# and award 0.5 points to any directional call
+# and award 0.5 points to any directional call.
+# For ABSOLUTE_DIFF_ASSETS the threshold is compared against |evals - entry|
+# (yield level difference in percentage points, so 0.03 = 3 bps).
+# For all other assets it is compared against |(evals - entry) / entry| (fractional return).
 FLAT_THRESHOLDS = {
-    "10Y Treasury Yield": 0.03,   # 3 bps
-    "default":            0.005,  # 0.5%
+    "10Y Treasury Yield": 0.03,   # 3 bps absolute (^TNX reports yield as level, e.g. 4.50)
+    "default":            0.005,  # 0.5% return
 }
+
+# Assets where the threshold is an absolute price/yield difference, not a % return.
+# ^TNX returns the yield level in percent (4.50 = 4.50%); pct arithmetic gives % of %,
+# which inflates the denominator and makes the threshold ~13x too large.
+ABSOLUTE_DIFF_ASSETS = {"10Y Treasury Yield"}
 
 # Map from normalised asset name -> Yahoo Finance ticker
 ASSET_TICKERS = {
@@ -236,7 +244,10 @@ def score_call(entry: float, evals: float, bias: str, asset: str) -> float | Non
     if entry is None or evals is None:
         return None
 
-    pct = (evals - entry) / entry
+    if asset in ABSOLUTE_DIFF_ASSETS:
+        pct = evals - entry          # absolute level change (e.g. bps for yields)
+    else:
+        pct = (evals - entry) / entry  # fractional return
 
     threshold = FLAT_THRESHOLDS.get(asset, FLAT_THRESHOLDS["default"])
     if abs(pct) < threshold:

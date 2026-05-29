@@ -1,7 +1,7 @@
 {
   "report_date": "2026-03-31",
   "agent_version": "v0.1",
-  "scored_at": "2026-05-26",
+  "scored_at": "2026-05-29",
   "windows": {
     "t5": {
       "eval_date": "2026-04-07",
@@ -40,7 +40,7 @@
           "eval_price": 4.343,
           "eval_date": "2026-04-07",
           "pct_change": 0.742,
-          "score": 0.5
+          "score": 1.0
         },
         "DXY": {
           "bias": "Bearish",
@@ -63,7 +63,7 @@
       },
       "summary": {
         "n_scored": 6,
-        "accuracy": 0.417
+        "accuracy": 0.5
       }
     },
     "t10": {
@@ -103,7 +103,7 @@
           "eval_price": 4.256,
           "eval_date": "2026-04-14",
           "pct_change": -1.276,
-          "score": 0.5
+          "score": 0.0
         },
         "DXY": {
           "bias": "Bearish",
@@ -126,7 +126,7 @@
       },
       "summary": {
         "n_scored": 6,
-        "accuracy": 0.583
+        "accuracy": 0.5
       }
     },
     "t20": {
@@ -166,7 +166,7 @@
           "eval_price": 4.354,
           "eval_date": "2026-04-28",
           "pct_change": 0.997,
-          "score": 0.5
+          "score": 1.0
         },
         "DXY": {
           "bias": "Bearish",
@@ -189,7 +189,7 @@
       },
       "summary": {
         "n_scored": 6,
-        "accuracy": 0.417
+        "accuracy": 0.5
       }
     }
   }
