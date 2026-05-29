@@ -17,6 +17,8 @@ from collections import defaultdict
 from datetime import date
 from pathlib import Path
 
+from versions import MIN_FEEDBACK_VERSION
+
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
@@ -36,12 +38,6 @@ WINDOW_LABELS = {"t5": "T+5 (1 week)", "t10": "T+10 (2 weeks)", "t20": "T+20 (1 
 
 # Asset display order
 ASSET_ORDER = ["S&P 500", "Gold", "WTI Oil", "10Y Treasury Yield", "DXY", "Bitcoin"]
-
-# Minimum pipeline version included in the accuracy feedback loop.
-# v0.3 (2026-04-05) introduced adversarial review — the first structural quality gate
-# on prediction output. Pre-v0.3 notes are scored for historical completeness but
-# excluded from the feedback_windows block that drives the daily bias override.
-MIN_FEEDBACK_VERSION = "v0.3"
 
 # Number of most-recent pipeline versions shown in per-version accuracy section.
 TRACK_LATEST_N_VERSIONS = 2
