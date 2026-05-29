@@ -56,6 +56,106 @@ _COND_ROWS: list[tuple[str, int]] = [
 ]
 
 
+def collect_quant_raw(
+    snapshot: dict,
+    snapshot_date: date,
+    market_data: Optional[dict] = None,
+    histories: Optional[dict] = None,
+    regime_model=None,
+    distribution_table: Optional[dict] = None,
+) -> dict:
+    """
+    Return raw subsection outputs as a plain dict for JSONL logging (Phase 14.3).
+
+    Mirrors build_quant_context() but emits a structured dict instead of markdown.
+    Keys present only when the corresponding module succeeds.
+    """
+    raw: dict = {}
+
+    # --- Vol forecasts ---
+    if histories:
+        vix_value: Optional[float] = None
+        if market_data:
+            try:
+                vix_value = float(market_data["vix"]["price"])
+            except (KeyError, TypeError, ValueError):
+                pass
+
+        vol_raw: dict = {}
+        for key, display in _VOL_ASSETS:
+            close = histories.get(key)
+            if close is None or len(close) < 32:
+                continue
+            try:
+                returns = pd.Series(np.log(close.values[1:] / close.values[:-1]))
+                fc      = har_rv_forecast(returns)
+                entry: dict = {
+                    "forecast_daily_vol": round(fc["forecast_daily_vol"], 2),
+                    "percentile_60d":     round(fc["percentile_60d"], 1),
+                }
+                if key == "sp500" and vix_value is not None:
+                    vrp = variance_risk_premium(vix_value, fc)
+                    entry["vix"]              = round(vix_value, 2)
+                    entry["vrp"]              = round(vrp["vrp"], 2)
+                    entry["vrp_interpretation"] = vrp["interpretation"]
+                vol_raw[display] = entry
+            except Exception:
+                continue
+        if vol_raw:
+            raw["vol_forecasts"] = vol_raw
+
+    # --- Regime ---
+    try:
+        _model = regime_model
+        if _model is None:
+            if not DEFAULT_MODEL_PATH.exists():
+                raise FileNotFoundError(DEFAULT_MODEL_PATH)
+            _model = load_regime_model()
+
+        sp500_ret: Optional[pd.Series] = None
+        if histories and "sp500" in histories:
+            close = histories["sp500"]
+            if len(close) >= 2:
+                sp500_ret = pd.Series(np.log(close.values[1:] / close.values[:-1]))
+
+        feats  = regime_features(snapshot, sp500_ret)
+        feats  = np.where(np.isnan(feats), 0.0, feats)
+        result = predict_regime(_model, feats)
+
+        raw["regime"] = {
+            "state":         result["state"],
+            "state_label":   result["state_label"],
+            "posterior":     [round(p, 4) for p in result["posterior"]],
+            "top_posterior": round(max(result["posterior"]), 4),
+        }
+    except Exception:
+        pass
+
+    # --- Conditional distribution ---
+    try:
+        _table = distribution_table
+        if _table is None:
+            if not DEFAULT_TABLE_PATH.exists():
+                raise FileNotFoundError(DEFAULT_TABLE_PATH)
+            _table = load_distribution_table()
+
+        if _table:
+            bucket = assign_bucket(snapshot)
+            cond_raw: dict = {"bucket": bucket, "distributions": {}}
+            for asset, horizon in _COND_ROWS:
+                dist = lookup_distribution(bucket, asset, horizon, _table)
+                if dist is not None:
+                    cond_raw["distributions"][f"{asset}_{horizon}d"] = {
+                        "p50": round(dist.get("p50", float("nan")), 2),
+                        "n":   dist.get("n", 0),
+                    }
+            raw["conditional"] = cond_raw
+    except Exception:
+        pass
+
+    return raw
+
+
 def build_quant_context(
     snapshot: dict,
     snapshot_date: date,

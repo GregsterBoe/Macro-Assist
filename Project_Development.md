@@ -745,7 +745,9 @@ Rules for use:
 
 ---
 
-### Phase 13 — End-to-End Validation *(To Implement — depends on 12)*
+### Phase 13 — End-to-End Validation *(Moved to Backlog — optional)*
+
+**Rationale for deferral:** Running an LLM backtest ($20–40 API spend) and a shadow-mode A/B test (4-week window) adds cost and latency before any validated signal exists. The quantitative modules are unit-tested; production monitoring (Phase 14.3) will accumulate the evidence base for a future retrospective comparison. Re-evaluate after 30+ live days of quant context logs.
 
 **Goal:** Validate that the new quant context actually improves prediction accuracy before deploying to production.
 
@@ -805,7 +807,7 @@ Produces per-module attribution: which subsection contributes how much to the to
 
 ---
 
-### Phase 14 — Production Hardening *(To Implement — depends on 13 passing)*
+### Phase 14 — Production Hardening *(Done — 2026-05-29)*
 
 **Goal:** Deploy the validated quant context to production, with weekly model refresh and graceful degradation.
 
@@ -884,8 +886,8 @@ Not on critical path. Listed for future planning.
 | 15 | **Phase 10 (Regime Classification)** | **Medium** | **Phase 8** | ✅ **Done** |
 | 16 | **Phase 11 (Conditional Distributions)** | **Medium** | **Phase 8** | ✅ **Done** |
 | 17 | **Phase 12 (Quant Context Integration)** | **Low** | **Phases 9, 10, 11** | ✅ **Done** |
-| 18 | **Phase 13 (End-to-End Validation)** | **High** | **Phase 12** | 🔲 **To Implement** |
-| 19 | **Phase 14 (Production Hardening)** | **Low** | **Phase 13 passing** | 🔲 **To Implement** |
+| 18 | **Phase 13 (End-to-End Validation)** | **High** | **Phase 12** | ⏸ **Backlog (optional)** |
+| 19 | **Phase 14 (Production Hardening)** | **Low** | **Phase 12 + deployment** | ✅ **Done** |
 | 20 | Phase 15 (Optional Extensions) | Varies | All above | 🔲 Backlog |
 
 ---
