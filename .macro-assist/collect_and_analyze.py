@@ -38,7 +38,7 @@ POSITIONS_CSV  = Path(os.environ.get("POSITIONS_CSV", REPO_ROOT / "data" / "tr_p
 # Pipeline version — bumped on every structural capability change (new data source,
 # new agent, new prompt architecture). Stamped into the YAML frontmatter of every
 # generated note so accuracy stats can be filtered by generation quality.
-PIPELINE_VERSION = "1.1"
+PIPELINE_VERSION = "1.4"
 
 # ---------------------------------------------------------------------------
 # Pipeline logger
@@ -1987,6 +1987,7 @@ def analyze_with_claude(
     sector_data: dict | None = None,
     notable_moves: str = "",
     histories: dict | None = None,
+    quant_context: str = "",
 ) -> "str | AnalysisOutput":
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     system_prompt = (PROMPTS_DIR / "system_prompt.md").read_text()
@@ -2052,6 +2053,7 @@ Prediction review date (5 business days): {review_date}
 {f"{chr(10)}{technicals_block}" if technicals_block else ""}
 {f"{chr(10)}{cot_block}" if cot_block else ""}
 {f"{chr(10)}{notable_moves}" if notable_moves else ""}
+{f"{chr(10)}{quant_context}" if quant_context else ""}
 {f"{chr(10)}{events_context}" if events_context else ""}
 {f"{chr(10)}{youtube_context}" if youtube_context else ""}
 {f"{chr(10)}{sector_fundamentals_block}" if sector_fundamentals_block else ""}"""
@@ -2397,7 +2399,47 @@ def main():
     _log("SECTORS", "WARN" if len(sector_data) < len(SECTOR_TICKERS) else "OK",
          f"{len(sector_data)}/{len(SECTOR_TICKERS)} sector ETFs fetched")
 
-    analysis = analyze_with_claude(fred_data, market_data, today, sector_data, notable_moves, histories)
+    # --- Quantitative context (Phase 12) ---
+    quant_context = ""
+    try:
+        from quant_context import build_quant_context
+        quant_context = build_quant_context(
+            fred_data, today.date(),
+            market_data=market_data,
+            histories=histories,
+        )
+        if quant_context:
+            _log("QUANT", "OK", "quantitative context block built")
+        else:
+            _log("QUANT", "INFO", "quantitative context unavailable (no models/data yet)")
+    except Exception as _qc_exc:
+        _log("QUANT", "WARN", f"quant context skipped: {type(_qc_exc).__name__}: {_qc_exc}")
+
+    # --- Phase 14.3: log raw quant context outputs to JSONL ---
+    if quant_context:
+        try:
+            import json as _json
+            from quant_context import collect_quant_raw
+            _raw = collect_quant_raw(
+                fred_data, today.date(),
+                market_data=market_data,
+                histories=histories,
+            )
+            if _raw:
+                _qlog_dir  = REPO_ROOT / "results" / "quant_context_log"
+                _qlog_dir.mkdir(parents=True, exist_ok=True)
+                _qlog_path = _qlog_dir / f"{today.strftime('%Y-%m-%d')}.jsonl"
+                with open(_qlog_path, "a", encoding="utf-8") as _qlf:
+                    _qlf.write(_json.dumps({
+                        "date": today.strftime("%Y-%m-%d"),
+                        "time": today.strftime("%H:%M:%S"),
+                        **_raw,
+                    }) + "\n")
+                _log("QUANT_LOG", "OK", f"raw outputs → {_qlog_path.name}")
+        except Exception as _ql_exc:
+            _log("QUANT_LOG", "WARN", f"logging skipped: {type(_ql_exc).__name__}: {_ql_exc}")
+
+    analysis = analyze_with_claude(fred_data, market_data, today, sector_data, notable_moves, histories, quant_context)
 
     note = build_note(fred_data, market_data, analysis, today, sector_data)
     output_path.write_text(note, encoding="utf-8")
