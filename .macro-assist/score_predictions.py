@@ -44,7 +44,7 @@ BUFFER_DAYS = 1
 # (yield level difference in percentage points, so 0.03 = 3 bps).
 # For all other assets it is compared against |(evals - entry) / entry| (fractional return).
 FLAT_THRESHOLDS = {
-    "10Y Treasury Yield": 0.03,   # 3 bps absolute (^TNX reports yield as level, e.g. 4.50)
+    "10Y Treasury Yield": 0.06,   # 6 bps absolute (^TNX reports yield as level, e.g. 4.50)
     "default":            0.005,  # 0.5% return
 }
 
