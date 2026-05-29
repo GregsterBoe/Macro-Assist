@@ -17,7 +17,7 @@ from collections import defaultdict
 from datetime import date
 from pathlib import Path
 
-from versions import MIN_FEEDBACK_VERSION
+from versions import MIN_FEEDBACK_VERSION, PIPELINE_VERSION
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -40,7 +40,7 @@ WINDOW_LABELS = {"t5": "T+5 (1 week)", "t10": "T+10 (2 weeks)", "t20": "T+20 (1 
 ASSET_ORDER = ["S&P 500", "Gold", "WTI Oil", "10Y Treasury Yield", "DXY", "Bitcoin"]
 
 # Number of most-recent pipeline versions shown in per-version accuracy section.
-TRACK_LATEST_N_VERSIONS = 2
+TRACK_LATEST_N_VERSIONS = 5
 
 
 def _version_key(v: str) -> tuple[int, ...]:
@@ -387,8 +387,10 @@ def main() -> None:
     stats = aggregate(scores)
     feedback_stats = aggregate(scores, min_version=MIN_FEEDBACK_VERSION)
 
-    # Per-version stats for the N most recent versions (discovered from report files)
+    # Per-version stats for the N most recent versions (discovered from report files).
+    # Always include the current PIPELINE_VERSION even if no reports have been produced yet.
     report_counts = _scan_report_versions()
+    report_counts.setdefault(PIPELINE_VERSION, 0)
     all_versions  = sorted(report_counts.keys(), key=_version_key)
     latest_versions = all_versions[-TRACK_LATEST_N_VERSIONS:]
     version_stats: dict = {}

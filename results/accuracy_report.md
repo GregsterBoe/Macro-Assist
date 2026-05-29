@@ -50,10 +50,40 @@
 
 ---
 
-## Per-Version Accuracy (latest 2 versions)
+## Per-Version Accuracy (latest 5 versions)
 
-Accuracy broken out by the 2 most recently deployed pipeline versions.
+Accuracy broken out by the 5 most recently deployed pipeline versions.
 Use this to confirm that structural improvements translate into better predictions.
+
+### v0.6  (1 scored / 1 total reports in this version)
+
+**T+5 (1 week)** — overall: 50% | directional: 50% | reports: 1
+
+| Asset | Accuracy | Directional | n | Avg Confidence |
+|-------|----------|-------------|---|----------------|
+| S&P 500 | 100% | 100% (n=1) | 1 | 52% |
+| Gold | 50% | — (n=0) | 1 | 53% |
+| WTI Oil | 0% | 0% (n=1) | 1 | 51% |
+| 10Y Treasury Yield | 50% | — (n=0) | 1 | 50% |
+| DXY | 50% | — (n=0) | 1 | 62% |
+| Bitcoin | 50% | — (n=0) | 1 | 50% |
+
+### v0.7  (3 scored / 4 total reports in this version)
+
+**T+5 (1 week)** — overall: 47% | directional: 43% | reports: 3
+
+| Asset | Accuracy | Directional | n | Avg Confidence |
+|-------|----------|-------------|---|----------------|
+| S&P 500 | 100% | 100% (n=3) | 3 | 52% |
+| Gold | 50% | — (n=0) | 3 | 51% |
+| WTI Oil | 17% | 0% (n=2) | 3 | 50% |
+| 10Y Treasury Yield | 50% | — (n=0) | 3 | 50% |
+| DXY | 50% | — (n=0) | 3 | 57% |
+| Bitcoin | 0% | 0% (n=2) | 2 | 52% |
+
+### v1.0  (0 scored / 1 total reports in this version)
+
+*No scored predictions yet — T+5 window has not closed on any v1.0 reports.*
 
 ### v1.1  (0 scored / 2 total reports in this version)
 
