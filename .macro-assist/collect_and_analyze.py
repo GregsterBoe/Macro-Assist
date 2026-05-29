@@ -232,6 +232,10 @@ def fetch_fred_data(fred: Fred) -> dict:
                     "nfci", "jobless_claims") and len(series) >= 12:
             data[name]["five_yr_mean"] = round(float(series.mean()), 3)
             data[name]["vs_mean"]      = round(float(latest) - float(series.mean()), 3)
+        # MoM point change for diffusion indices — absolute swing reveals regime shifts
+        # that level-vs-mean comparisons miss (e.g. -0.4 looks mild; -27pt drop from +26.7 is a shock)
+        if name == "philly_fed_mfg" and len(series) >= 2:
+            data[name]["mom_change"] = round(float(latest) - float(prev), 1)
         # WoW % change for jobless claims (trend direction matters more than level)
         if name == "jobless_claims" and len(series) >= 2:
             wow = round(((float(latest) - float(prev)) / float(prev)) * 100, 2)
@@ -623,15 +627,18 @@ COT_HISTORY_WEEKS = 54  # rolling window for percentile (~1 year)
 COT_SERIES = {
     "WTI Oil": "067651",   # Light Sweet Crude Oil (CL), NYMEX
     "Gold":    "088691",   # Gold (GC), COMEX
+    "Bitcoin": "133741",   # Bitcoin (BTC), CME — appears in legacy deafut.txt; WARN if absent
 }
 
 
 def fetch_cot_data() -> str:
     """
-    Fetch CFTC COT net non-commercial positioning for WTI and Gold.
+    Fetch CFTC COT net non-commercial positioning for WTI, Gold, and Bitcoin.
     Uses the current-week Legacy Futures-Only plain-text file (deafut.txt).
     Maintains a rolling 54-week JSON cache to compute 1-year percentile.
     Returns a ## COT Positioning Markdown block, or empty string on failure.
+    Note: if Bitcoin (133741) is absent from deafut.txt, a WARN is logged and
+    the other assets still publish — Bitcoin may require the TFF report instead.
     """
     today_date = datetime.now(timezone.utc).date()
 
