@@ -38,7 +38,7 @@ POSITIONS_CSV  = Path(os.environ.get("POSITIONS_CSV", REPO_ROOT / "data" / "tr_p
 # Pipeline version — bumped on every structural capability change (new data source,
 # new agent, new prompt architecture). Stamped into the YAML frontmatter of every
 # generated note so accuracy stats can be filtered by generation quality.
-PIPELINE_VERSION = "1.1"
+PIPELINE_VERSION = "1.2"
 
 # ---------------------------------------------------------------------------
 # Pipeline logger

@@ -324,7 +324,8 @@ Every generated note and score file carries an `agent_version` field that identi
 | v0.6 | 2026-05-17 – 2026-05-18 | + Sector research, COT positioning |
 | v0.7 | 2026-05-19 – 2026-05-24 | + COT XLS fix, Pass 2 numerical anchoring |
 | v1.0 | 2026-05-25 – 2026-05-25 | + Multi-agent: MA-1 / MA-2 / MA-3a |
-| v1.1 | 2026-05-26 – present | + MA-3b: synthesis agent |
+| v1.1 | 2026-05-26 – 2026-05-26 | + MA-3b: synthesis agent |
+| v1.2 | 2026-05-26 – present | + Phase 9/10: HAR-RV vol forecasting + HMM regime classification |
 
 ### Output Schema
 
@@ -391,166 +392,49 @@ All phases are implementable at $0 cost using existing API keys (FRED, yfinance)
 
 ### Phase 1 — Expand the Free Data Pipeline *(Completed 2026-04-28)*
 
-**Goal:** Bring in high-frequency economic and liquidity data.
-
-**New FRED series to add in `collect_and_analyze.py`:**
-
-| Series | Description | Frequency |
-|--------|-------------|-----------|
-| `WALCL` | Fed Total Assets | Weekly |
-| `WTREGEN` | Treasury General Account | Weekly |
-| `RRPONTSYD` | Reverse Repo | Daily |
-| `ICSA` | Initial Jobless Claims | Weekly |
-| `NFCI` | Chicago Fed National Financial Conditions Index | Weekly |
-
-**Fed Net Liquidity calculation (Python, before Claude call):**
-```
-Net Liquidity = WALCL - WTREGEN - RRPONTSYD
-```
-Compute WoW and MoM % change. Pass only the derived signal to Claude — e.g. `"Net Liquidity: Expanding, +1.2% WoW"`.
+Added 5 FRED series: WALCL, WTREGEN, RRPONTSYD, ICSA, NFCI. Fed Net Liquidity = WALCL − WTREGEN − RRPONTSYD computed in Python with WoW/MoM % change; derived signal passed to Claude.
 
 ---
 
 ### Phase 2 — Shift the "Quant" Burden to Python *(Completed 2026-04-28)*
 
-**Goal:** Stop asking Claude to infer trends from raw prices. Feed it pre-calculated technical states.
-
-1. **Expand yfinance history window** from 10 days → **90 days** in `collect_and_analyze.py`. No cost difference.
-
-2. **Add technical indicators** (via `pandas` or `pandas_ta`) for S&P 500, Gold, Oil, DXY, Bitcoin:
-   - **14-day RSI** — flag as `Overbought` (>70), `Oversold` (<30), or `Neutral`
-   - **Distance from 50-day MA** — e.g. `"+3.2% above 50d MA"`
-   - **60-day Z-Score** — replace the simple notable-move detector
-
-3. **New prompt block:** Structure output as `## Technical & Positioning State` table injected before Claude's analysis sections.
+Expanded yfinance history window from 10 → 90 days. Added 14-day RSI, 50dMA distance, 60-day Z-score for 5 assets. New `## Technical & Positioning State` block injected before analysis.
 
 ---
 
 ### Phase 3 — Add Free Positioning Data (COT) *(Completed 2026-04-28)*
 
-**Goal:** Get institutional positioning data for Commodities and Currencies.
-
-**Requires:** Free [Nasdaq Data Link](https://data.nasdaq.com/) API key → add as `NASDAQ_DATA_LINK_KEY` secret in GitHub Actions. Pipeline skips this block gracefully if the key is absent.
-
-- `nasdaq-data-link>=1.0.0` added to `requirements.txt`
-- `fetch_cot_data()` fetches CFTC net non-commercial positioning for WTI Crude (`CFTC/067651_FUT_ALL_CR`) and Gold (`CFTC/088691_FUT_ALL_CR`) — ~52 weeks of weekly data
-- Computes percentile of current net long vs 1-year min/max range
-- Injected as `## COT Positioning` block: percentile ≥80 = "Crowded Long — contrarian bearish"; ≤20 = "Crowded Short — contrarian bullish"; else "Neutral"
-- System prompt rule added: COT is a contrarian signal, not a standalone entry — must confirm with price trend or fundamental catalyst
+CFTC COT via Nasdaq Data Link for WTI Crude and Gold. Speculative net-long percentile; `## COT Positioning` block; contrarian signal (≥80th pct = crowded long, ≤20th = crowded short). Pipeline skips gracefully if key absent.
 
 ---
 
 ### Phase 4 — Overhaul System Prompt & Guardrails *(Completed 2026-04-28)*
 
-**Goal:** Force Claude to use the new data correctly and cure observed doom bias in equity predictions.
-
-**System prompt rules added (`prompts/system_prompt.md`):**
-- Equity/liquidity rule: Fed Net Liquidity Expanding + RSI <70 + price above 50dMA → do not call S&P 500 Bearish on lagging indicators alone
-- COT weighting rule: percentile ≥80 = contrarian bearish; ≤20 = contrarian bullish; COT must confirm with a catalyst
-- NFCI and ICSA reading guides with level thresholds (matching HY Spread / Philly Fed pattern)
-
-**Quantitative accuracy override — `_apply_accuracy_override()` in `collect_and_analyze.py`:**
-- Runs after adversarial review on every daily note
-- Reads `accuracy_summary.json`; if T+5 directional accuracy for any asset is <40% at n≥8 and the current call is Bearish, floors confidence at 50% and appends a bias warning to the Primary Driver cell
-- Direction is intentionally kept (not flipped to Neutral) so calls remain scoreable and accuracy stats can recover naturally — flipping to Neutral would freeze the sample and lock in the bad stats permanently
-- Currently fires on: S&P 500 (35%, n=17) and WTI Oil (33%, n=15)
+System prompt guardrails for equity/liquidity, COT weighting, and NFCI/ICSA thresholds. `_apply_accuracy_override()` floors <40% directional-accuracy assets at 50% confidence (direction kept scoreable, not flipped to Neutral).
 
 ---
 
-### Phase 5 — Window-Aware Prediction Calibration *(Planned)*
+### Phase 5 — Window-Aware Prediction Calibration *(Done)*
 
-**Goal:** Stop wasting the DXY signal. After 30 scored reports, the accuracy data is clear:
-
-| Asset | T+5 dir. | T+10 dir. | T+20 dir. | Verdict |
-|-------|----------|-----------|-----------|---------|
-| DXY | 50% (n=12) | **82% (n=11)** | **87% (n=15)** | Best signal — currently discarded |
-| Bitcoin | 63% (n=19) | 68% (n=19) | 25% (n=12) | Solid short/mid; degrades at 1 month |
-| S&P 500 | 35% (n=17) | 18% (n=17) | **0% (n=18)** | Systematic inverse signal |
-| WTI Oil | 33% (n=15) | 31% (n=16) | 27% (n=11) | Wrong at all horizons |
-
-The current accuracy override anchors every asset to its *T+5* directional accuracy. DXY is called "Neutral, no edge" at T+5 (50%) even though it has an 87% signal at T+20 — the model's strongest read by far.
-
-**Changes:**
-
-1. **System prompt — predictions section:** Inject the accuracy table broken out by window (T+5 / T+10 / T+20). Instruct Claude to anchor confidence to the *window where directional accuracy is highest at n≥8*, and to name that window explicitly in the Primary Driver cell.
-
-2. **Accuracy override (`_apply_accuracy_override`):** Pass window-level stats, not just T+5. Add a DXY conviction rule: if T+10 or T+20 directional accuracy ≥70% at n≥10, permit a directional call at ≥55% confidence even if T+5 is weak.
-
-3. **Predictions table footnote:** Add a `Best Window` implicit note — Claude should state the horizon it is most confident about for each asset, especially when T+5 and T+20 diverge significantly.
+Per-window accuracy table (T+5/T+10/T+20) injected into system prompt. Best-window override: DXY conviction rule permits directional call if T+10/T+20 accuracy ≥70% at n≥10. Predictions table includes best-window horizon note per asset.
 
 ---
 
 ### Phase 6 — Break the Neutral Collapse *(Done)*
 
-**Goal:** Prevent all-Neutral reports. The accuracy override system overcorrected — reports now frequently show 5 of 6 assets at Neutral/50%, which produces no actionable signal.
-
-**Problem:** The current override floors bad calls (Bearish S&P 500) at 50% Neutral. This is correct, but with no corresponding floor on the upside, the model defaults to Neutral as the safe answer for every uncertain asset.
-
-**Changes:**
-
-1. **Require at least one conviction call per report.** System prompt rule: the predictions table must contain at least one Bullish or Bearish call with confidence ≥57%. If all assets are Neutral, the model must identify which single asset has the strongest macro case and make a directional call on it, explicitly naming the uncertainty.
-
-2. **Signed contrarian override for systematic inverse assets.** For assets where T+5 directional accuracy is <40% at n≥12 (currently S&P 500 and WTI Oil), allow a *low-confidence contrarian* call (50-53% confidence, labelled `[Contrarian — bias correction]`) rather than forcing Neutral. An asset that's been wrong 80% of the time carries information — inverting it weakly is more honest than pretending there is no signal.
-
-3. **Confidence differentiation rule:** Prohibit more than 3 assets sharing the same confidence figure in one table. Forces the model to differentiate real signals from noise.
+Requires ≥1 conviction call (≥57% confidence) per report. Signed contrarian override for systematic inverse assets (<40% accuracy at n≥12). Max 3 assets at same confidence figure per table.
 
 ---
 
 ### Phase 7 — Sector Opportunity Research *(Done — 7d scoring deferred)*
 
-**Goal:** Replace the repetitive "buy short-duration Treasuries" Opportunity Gap with a dedicated, scored section identifying sector- and stock-level opportunities aligned with current macro signals.
-
-**Why the current Opportunity Gap fails:** It is one bullet inside Portfolio Risk Assessment with no data forcing depth or variety. The model reliably defaults to the always-defensible macro-cash trade. Without valuation data in the prompt, any stock name would be hallucinated as "undervalued."
-
-#### 7a. Data Infrastructure (prerequisite)
-
-Add `fetch_sector_fundamentals()` to `collect_and_analyze.py`:
-
-- **Expand sector ETF coverage** from 5 → 11 ETFs: add XLV (Health Care), XLU (Utilities), XLP (Consumer Staples), XLB (Materials), XLRE (Real Estate), XLC (Communication Services).
-- **Per-ETF fundamentals via yfinance:** forward P/E, trailing P/E, 52-week return, 1-month return, % above/below 52-week high. yfinance `.info` dict provides these without additional API keys.
-- **Relative valuation:** rank all 11 ETFs by forward P/E percentile vs. their own 5yr average (yfinance `.info["forwardPE"]` vs a computed trailing mean). Flag any ETF whose fwd P/E is >1 std below its 5yr mean as "potentially undervalued."
-- **Stock-level candidates (top 3–5 per sector):** pull fwd P/E, market cap, and 1yr return for the top 5 holdings of each flagged ETF (hardcoded holding lists per ETF, updated quarterly). No LLM hallucination — every number comes from yfinance.
-
-#### 7b. New Prompt Section
-
-Add `### Sector Opportunity Research` to `system_prompt.md`, placed between Portfolio Risk Assessment and Key Risks & Themes.
-
-**Instructions to Claude:**
-
-```
-### Sector Opportunity Research
-
-Identify 2–3 sectors where current macro signals (from the Dashboard and FRED data)
-create a structural tailwind. For each sector:
-- Name the ETF, its 1-month return vs. S&P 500, and its forward P/E vs. its 5yr average.
-- State the one macro signal that drives the tailwind (specific data point, not generality).
-- If the sector's fwd P/E is flagged as below 5yr average: name 1–2 specific stock
-  tickers from the injected holdings list, their fwd P/E, and why the macro tailwind
-  applies to that name specifically. Label every name explicitly:
-  "Research candidate — not a recommendation. Verify independently."
-
-Hard rules:
-- Do not name a sector that lacks a specific data-driven macro rationale.
-- Do not repeat the same lead sector on consecutive days (checked via injected prior note).
-- Do not use the word "undervalued" without citing the fwd P/E vs. 5yr average figure.
-- Maximum 200 words for this section. It must fit within the token budget.
-```
-
-#### 7c. Token Budget
-
-Raise `max_tokens` from 4000 → 5000. The truncation-detection warning added in the code review will catch any remaining overflow.
-
-#### 7d. Scoring (Accountability)
-
-Extend `score_predictions.py` to score the 2–3 sector ETFs named each day as implicit directional calls at T+10 and T+20. This gives the section the same accountability as the predictions table and will surface whether the macro → sector mapping is actually predictive.
-
-**Key design principle:** every number cited in this section is fetched by Python and injected — Claude synthesises, it does not invent. This is the lesson from the SPX accuracy failure: macro narrative without grounded data produces confident noise.
+11 sector ETFs with forward P/E injected as fundamentals block. `### Sector Opportunity Research` section (≤200 words, 2-3 sectors with macro rationale); max_tokens 4000→5000. 7d ETF scoring deferred.
 
 ---
 
 ## Multi-Agent Architecture — Phases MA-0 through MA-3
 
-**Strategic rationale.** Phases 1–7 enriched the data pipeline and added prompt rules as reactive patches to observed failures. The result is a system where a single LLM call carries conflicting objectives: interpret raw data, generate directional calls, write narrative, apply self-calibration, and assess portfolio risk simultaneously. This structure produces a specific class of failures — bias/narrative contradictions (Bullish label paired with "fade" commentary), meta-prompt leakage (instruction text echoed into output), and a model that hedges before making a call because it sees its own failure statistics inside the analysis prompt.
+**Strategic rationale.** Phases 1–7 enriched the data pipeline and added prompt rules as reactive patches to observed failures. The result is a system where a single LLM call carries conflicting objectives: interpret raw data, generate directional calls, write narrative, apply self-calibration, and assess portfolio risk simultaneously. This structure produces specific failures — bias/narrative contradictions, meta-prompt leakage, and a model that hedges before making a call because it sees its own failure statistics.
 
 **Architecture target.**
 
@@ -564,210 +448,36 @@ Data Collection (Python — unchanged)
     └── Synthesis Agent (Sonnet)  → Final Markdown           [no raw data; composes from JSON]
 ```
 
-Each agent has one objective and a minimal information diet. Numbers travel between agents as typed JSON — never embedded in prose where they can drift through paraphrase. The synthesis agent assembles; it never re-analyzes.
-
-**Placement.** These phases must be completed before Phase 8 (Validation Infrastructure). The backtest harness in Phase 8 is designed to compare pipeline versions — it should test the clean architecture, not the patched one. Migrating after Phase 8 would invalidate that baseline comparison.
+Each agent has one objective and a minimal information diet. Numbers travel between agents as typed JSON.
 
 ---
 
 ### Phase MA-0 — Immediate Bug Fixes *(Done — 2026-05-22)*
 
-Three bugs are directly fixable in the current code. They are standalone patches with no dependency on the multi-agent migration and should be shipped immediately.
-
-#### MA-0.1 — Time-Travel Date in Fed Net Liquidity
-
-**Root cause.** `_compute_net_liquidity()` sets `"date": combined.index[-1].strftime("%Y-%m-%d")`. The `combined` DataFrame uses `resample("W").last()`, which in pandas defaults to week-ending Sunday. When the pipeline runs on a Friday, the last resample period end is the following Sunday — placing the "As Of" date 2 days in the future. Reproduced in the May 22, 2026 report which displayed `As Of: 2026-05-24`.
-
-**Fix in `_compute_net_liquidity()`.** Cap the date at today:
-
-```python
-# replace:
-"date": combined.index[-1].strftime("%Y-%m-%d"),
-
-# with:
-"date": min(combined.index[-1].date(), datetime.now(timezone.utc).date()).strftime("%Y-%m-%d"),
-```
-
-#### MA-0.2 — Meta-Prompt Leakage Stripper
-
-**Root cause.** The system prompt contains explicit instruction text (`Maximum 200 words for this section`). When the model approaches its token budget in sections like Sector Opportunity Research, it echoes these constraint phrases verbatim into the final output (e.g., `*Maximum 200 words — section complete.*`).
-
-**Fix.** Add `_scrub_prompt_artifacts(text: str) -> str` in `collect_and_analyze.py`, called inside `analyze_with_claude()` before returning the analysis string:
-
-```python
-_ARTIFACT_PATTERNS = [
-    re.compile(r'\*?Maximum \d+ words[^\n]*\*?', re.IGNORECASE),
-    re.compile(r'\*?[Ss]ection complete\.?\*?', re.IGNORECASE),
-    re.compile(r'\*?Token budget[^\n]*\*?', re.IGNORECASE),
-]
-
-def _scrub_prompt_artifacts(text: str) -> str:
-    for pattern in _ARTIFACT_PATTERNS:
-        text = pattern.sub('', text)
-    return re.sub(r'\n{3,}', '\n\n', text)  # collapse excess blank lines from removals
-```
-
-#### MA-0.3 — Bias / Narrative Contradiction Detector
-
-**Root cause.** Bias label and Primary Driver text are written in one generation pass with no structural constraint linking them. The model can write `Bullish` in the Bias column while writing "contrarian call: fade near-term spike..." in the same row's Primary Driver — as seen in the WTI Oil call in the May 22 report.
-
-**Fix.** Add `_check_prediction_consistency(analysis: str)` called from `_apply_accuracy_override()`. Logs a WARN to CI for human review without blocking the pipeline (the structural fix comes in Phase MA-1):
-
-```python
-_BULLISH_CONTRADICTIONS = frozenset({"fade", "fade the", "short ", "expect decline"})
-_BEARISH_CONTRADICTIONS = frozenset({"short squeeze", "relief rally", "buy the dip"})
-
-def _check_prediction_consistency(analysis: str) -> None:
-    match = re.search(
-        r'\| Asset \| Bias \|.*?\n(?:\|[^\n]+\n)+', analysis, re.DOTALL
-    )
-    if not match:
-        return
-    for line in match.group(0).splitlines():
-        if not line.startswith("|") or "---" in line or "Asset" in line:
-            continue
-        cells = line.split("|")
-        if len(cells) < 5:
-            continue
-        asset = cells[1].strip()
-        bias  = cells[2].strip().lower()
-        driver = cells[3].strip().lower()
-        if bias == "bullish" and any(w in driver for w in _BULLISH_CONTRADICTIONS):
-            _log("VALIDATE", "WARN", f"{asset}: Bullish bias contradicted by driver text")
-        elif bias == "bearish" and any(w in driver for w in _BEARISH_CONTRADICTIONS):
-            _log("VALIDATE", "WARN", f"{asset}: Bearish bias contradicted by driver text")
-```
+Three targeted patches:
+- **MA-0.1 Time-travel date fix:** `_compute_net_liquidity()` date capped at today to prevent week-ending Sunday placing "As Of" 2 days ahead.
+- **MA-0.2 Meta-prompt leakage scrubber:** `_scrub_prompt_artifacts()` strips instruction-text echoes ("Maximum 200 words", "Section complete") from model output.
+- **MA-0.3 Bias/narrative contradiction detector:** `_check_prediction_consistency()` logs WARN when Bullish bias appears with fade/short language in Primary Driver.
 
 ---
 
 ### Phase MA-1 — Structured Output Contract *(Done — 2026-05-24)*
 
-**Goal.** Replace the free-form main analysis output with a Pydantic-validated JSON schema. This is the single most important architectural change — without a typed output contract, agents cannot pass results to each other reliably, and the structural contradictions caught manually in MA-0.3 become validation errors caught automatically.
-
-**New file: `.macro-assist/schemas.py`**
-
-```python
-from pydantic import BaseModel, Field, model_validator
-from typing import Literal
-
-class AssetPrediction(BaseModel):
-    asset: str
-    bias: Literal["Bullish", "Bearish", "Neutral"]
-    primary_driver: str = Field(min_length=10, max_length=350)
-    confidence_pct: int = Field(ge=50, le=80)
-    target_range: str
-    horizon_days: int = 5
-
-    @model_validator(mode="after")
-    def bias_narrative_consistent(self):
-        fade_words = {"fade", "fade the", "expect decline", "downside risk if"}
-        if self.bias == "Bullish":
-            for w in fade_words:
-                if w in self.primary_driver.lower():
-                    raise ValueError(f"Primary driver contradicts Bullish bias: '{w}' found")
-        return self
-
-class AnalysisOutput(BaseModel):
-    executive_summary: str = Field(max_length=600)
-    macro_regime: Literal["Risk-On", "Risk-Off", "Stagflation", "Reflation", "Neutral/Mixed"]
-    equities_note: str = Field(max_length=500)
-    rates_note: str = Field(max_length=500)
-    inflation_growth_note: str = Field(max_length=500)
-    commodities_note: str = Field(max_length=500)
-    key_risks: list[str] = Field(min_length=3, max_length=5)
-    predictions: list[AssetPrediction] = Field(min_length=6, max_length=6)
-    sector_opportunity: str | None = Field(default=None, max_length=1200)
-    portfolio_risk: dict | None = None
-```
-
-**Implementation.** Use Anthropic tool_use to force structured output: define a tool `submit_analysis` whose `input_schema` is the `AnalysisOutput` JSON schema, then pass `tool_choice={"type": "tool", "name": "submit_analysis"}`. The model must populate the schema; the tool input is parsed and validated by Pydantic. On `ValidationError`, retry once with the error injected as a correction message. On second failure, fall back to the current free-text path and log `FAIL` to CI.
-
-**System prompt changes.** Remove: all `## Output Format` section-ordering instructions, word-count limits, markdown heading directives. The system prompt shrinks from ~241 lines to the analytical rules only (staleness thresholds, data usage rules, prediction methodology). The model fills fields — Python assembles markdown.
-
-**`build_note()` change.** Receives `AnalysisOutput` object rather than a raw string. Assembles markdown from the typed fields in guaranteed section order. Meta-prompt leakage is impossible by construction — the model never writes markdown.
-
-**Zero-downtime deployment.** If structured output fails twice, `analyze_with_claude()` falls back to the string-based path. This makes the migration safe to deploy with no risk to daily report production.
+New file `.macro-assist/schemas.py`: `AssetPrediction` and `AnalysisOutput` Pydantic models. Anthropic tool_use (`submit_analysis`) forces structured output; retries once on `ValidationError`; falls back to free-text. System prompt shrunk to analytical rules only; `build_note()` assembles markdown from typed fields.
 
 ---
 
 ### Phase MA-2 — Analysis / Calibration Split *(Done — 2026-05-25)*
 
-**Goal.** Remove the accuracy history from the analysis agent's information diet. The analysis agent makes its authentic data-driven call. Calibration is applied to the structured output separately, in Python.
-
-**Core insight.** Injecting `## Your Historical Prediction Accuracy` (which states "S&P 500 T+5 directional accuracy 14%, SYSTEMATIC BIAS") into the analysis prompt causes the model to hedge the call *before forming it*. A model aware it has been wrong 14 of 17 times on SPX defaults to Neutral regardless of what the data says. Separating analysis from calibration removes this pre-emptive hedging — the analysis agent makes its best call, and calibration adjusts confidence afterward on the structured output.
-
-**Changes to `analyze_with_claude()`:**
-
-1. **Strip `accuracy_context` from the analysis agent user message.** The analysis agent receives only: FRED data, market data, technicals, COT, events, sector fundamentals, YouTube summaries. The prompt shrinks by ~60 lines.
-
-2. **Repurpose the adversarial pass as a structured calibration agent.** Instead of receiving the full prose report (and regex-extracting the predictions table), the calibration agent receives only:
-   - The `predictions` list from `AnalysisOutput` (6 rows of structured data)
-   - The `key_risks` list
-   - No raw data, no accuracy history
-   
-   Output is a `CalibrationOutput` dict:
-   ```python
-   # {asset: {"confidence_delta": int, "risk_flag": str | None}}
-   {"WTI Oil": {"confidence_delta": -5, "risk_flag": "Driver text indicates fade — contradicts Bullish"}}
-   ```
-
-3. **Python applies accuracy overrides to `AnalysisOutput` directly.** The existing `_apply_accuracy_override()` logic is refactored to operate on the Pydantic object, modifying `prediction.confidence_pct` in place. This eliminates the fragile regex table-parsing in `_apply_adversarial_revisions()`.
-
-**Why the ordering matters.** The analysis agent forms a view from data alone. The calibration agent flags contradictions between that view and listed risks. Python applies the historical accuracy discount. Each step is auditable — a diff of the `AnalysisOutput` before and after calibration makes every change explicit, replacing the current `_log_adversarial_diff()` string comparison.
+Removed accuracy history from analysis agent context (eliminated pre-emptive hedging). Adversarial pass repurposed as structured calibration agent on predictions list + key risks only (`CalibrationOutput` dict of confidence deltas). Accuracy overrides applied directly to `AnalysisOutput` Pydantic object.
 
 ---
 
 ### Phase MA-3 — Risk Agent + Synthesis Agent *(Done — MA-3a: 2026-05-25; MA-3b: 2026-05-26)*
 
-**Goal.** Add a dedicated portfolio risk agent and a synthesis agent that composes the final report from structured inputs alone, completing the 3-agent architecture.
+**MA-3a:** Haiku risk agent receives only `macro_regime` + portfolio positions; outputs `PortfolioRiskOutput` (biggest headwind/tailwind, actionable, opportunity gap).
 
-#### MA-3a — Risk Agent (Haiku)
-
-Currently the portfolio risk section is embedded in the main analysis prompt. The analysis agent sees FRED macro data and portfolio positions simultaneously, producing portfolio commentary that is generic because the two contexts distract from each other.
-
-The risk agent is narrow: it receives `macro_regime` (one field from `AnalysisOutput`) and the portfolio positions block. It knows nothing about FRED series, COT data, or prediction methodology.
-
-```python
-class PortfolioRiskOutput(BaseModel):
-    biggest_headwind: dict   # {position: str, reason: str, pnl_label: str}
-    biggest_tailwind: dict   # {position: str, reason: str}
-    actionable: str = Field(max_length=200)
-    opportunity_gap: dict    # {asset: str, rationale: str, reduces_concentration: bool}
-```
-
-Uses `claude-haiku-4-5-20251001`. Portfolio risk assessment is a narrow, structured task — Sonnet is unnecessary and would cost 5× more per call.
-
-#### MA-3b — Synthesis Agent (Sonnet)
-
-The synthesis agent is a copyeditor, not an analyst. It receives:
-- `AnalysisOutput` (post-calibration)
-- `CalibrationOutput` (risk flags to surface in narrative)
-- `PortfolioRiskOutput` (if portfolio data present)
-
-It sees **no raw data**. Its system prompt is ~15 lines: *"Format the provided structured JSON into the Macro Intelligence Note markdown template. Do not add analysis or data points not present in the JSON. Enforce section length by cutting, not by re-summarising. Strip any text that reads as an instruction or constraint echoed verbatim."*
-
-The small, clean context eliminates the prompt-injection artifacts by framing: the synthesis agent has no instructions to echo.
-
-#### Token economics
-
-| Metric | Current | MA-3 target |
-|--------|---------|-------------|
-| Analysis context in | ~3,500 tokens | ~2,200 (no accuracy history, no portfolio) |
-| Analysis output | 5,000 tokens prose | 1,800 tokens JSON fields |
-| Calibration output | 250 tokens | 150 tokens structured deltas |
-| Risk agent output | — | 400 tokens (Haiku) |
-| Synthesis output | — | 1,800 tokens markdown |
-| **Estimated daily cost** | **~$0.09** | **~$0.10–0.11** |
-
-The ~15% marginal cost increase purchases qualitatively different reliability: structural contradiction detection, no meta-prompt leakage, calibration that does not suppress primary analysis.
-
-#### Deployment sequence
-
-1. MA-0 bugs: one PR, ship immediately
-2. MA-1 structured output: one PR, zero-downtime fallback, ship when schema is stable
-3. MA-2 calibration split: one PR, depends on MA-1 Pydantic objects in scope
-4. MA-3a risk agent: one PR, parallel to MA-2 (independent of calibration refactor)
-5. MA-3b synthesis agent: final cutover — retire free-text `build_note()` path after 5 consecutive structured-output reports pass manual review
+**MA-3b:** Sonnet synthesis agent composes final markdown from structured JSON inputs only — no raw data. Eliminates prompt-injection artifacts by construction. Free-text `build_note()` retired.
 
 ---
 
@@ -783,295 +493,53 @@ The ~15% marginal cost increase purchases qualitatively different reliability: s
 
 ### Phase 8 — Validation Infrastructure *(Done — 2026-05-26)*
 
-**Goal:** Build the backtest framework that lets every later phase be objectively validated. Without this, no module can be proven to work — it MUST be implemented before Phases 9–13.
+**Goal:** Build the backtest framework that lets every later phase be objectively validated.
 
-**New dependencies:** none (uses existing `fredapi`, `requests`, `pandas`, `pytest`).
+**Key files:** `.macro-assist/point_in_time.py`, `.macro-assist/backtest.py`, `.macro-assist/synthetic.py`
 
-#### Phase 8.1 — Point-in-Time Data Layer
+**Key functions:**
+- `historical_snapshot(date)` — ALFRED vintage data (no look-ahead), same schema as `fetch_fred_data()`
+- `run_backtest(start, end, strategy, output_dir)` — walk-forward simulator with JSON output per day
+- `score_backtest(output_dir)` — scores prediction JSONs using `score_predictions.py` logic
+- `strategy_neutral`, `strategy_random_walk`, `strategy_existing_pipeline` — three baseline strategies
+- `synthetic_garch(n, omega, alpha, beta)`, `synthetic_regime_switching(n, matrix, means, vols)`, `synthetic_conditional(n, state_fn, forward_means, vols)` — three synthetic data generators
 
-**New file:** `.macro-assist/point_in_time.py`
-**New file:** `.macro-assist/tests/test_point_in_time.py`
-
-**Function to implement:**
-```python
-def historical_snapshot(snapshot_date: date) -> dict:
-    """
-    Returns same structure as fetch_fred_data() output, but using ALFRED vintage data.
-    ALFRED endpoint: https://api.stlouisfed.org/fred/series/observations
-        ?series_id=X&realtime_start=YYYY-MM-DD&realtime_end=YYYY-MM-DD&api_key=...
-    
-    For each FRED series in FRED_SERIES, query the vintage that was published as of snapshot_date.
-    yfinance market data: reuse existing fetch_market_data() — close prices don't revise materially.
-    
-    Returns dict with same keys as current fetch_fred_data() + a 'snapshot_date' meta field.
-    """
-```
-
-**Validation tests (in `test_point_in_time.py`):**
-- `test_no_future_leakage`: for 10 randomly sampled historical dates between 2020-01 and today, no returned series has a release_date > snapshot_date
-- `test_schema_matches_current`: returned dict has same keys and types as live `fetch_fred_data()`
-- `test_pre_alfred_raises`: calling with date < 1997 raises `ValueError` (most series lack ALFRED coverage before then)
-- `test_market_data_present`: market data is fetched for the snapshot date (use yfinance with end=snapshot_date+1)
-
-**Claude Code prompt:**
-> In `.macro-assist/`, add a new module `point_in_time.py`. Expose `historical_snapshot(snapshot_date: date) -> dict` that returns FRED data as it was knowable on `snapshot_date` using ALFRED (FRED's archival API at `https://api.stlouisfed.org/fred/series/observations`). For each series in the existing `FRED_SERIES` dict, set `realtime_start` and `realtime_end` to `snapshot_date.isoformat()` so the returned observations represent the data available on that date. Reuse the existing `fetch_market_data()` logic for yfinance market series, but constrain it to data ending at `snapshot_date`. Output shape must match the current `fetch_fred_data()` output plus a `snapshot_date` meta key. Add unit tests in `.macro-assist/tests/test_point_in_time.py` covering: (1) no future leakage on 10 random sampled dates, (2) schema parity with current `fetch_fred_data()`, (3) ValueError when called with a date before ALFRED coverage, (4) market data is correctly truncated to snapshot_date. Run tests with `pytest .macro-assist/tests/test_point_in_time.py -v`.
-
----
-
-#### Phase 8.2 — Backtest Harness
-
-**New file:** `.macro-assist/backtest.py`
-**New file:** `.macro-assist/tests/test_backtest.py`
-
-**Function to implement:**
-```python
-def run_backtest(
-    start_date: date,
-    end_date: date,
-    strategy: Callable[[dict], dict],
-    output_dir: Path,
-    skip_weekends: bool = True,
-) -> dict:
-    """
-    Walk-forward simulator.
-    For each date d in [start_date, end_date]:
-        - Calls historical_snapshot(d) to get the data knowable on d
-        - Calls strategy(snapshot) which must return a predictions dict matching
-          the format that score_predictions.py expects
-        - Writes predictions to output_dir / f"{d.isoformat()}.json"
-    
-    Returns aggregate metadata: {dates_processed, errors, output_dir}.
-    """
-
-# Baseline strategies (also in backtest.py):
-def strategy_neutral(snapshot: dict) -> dict: ...
-def strategy_random_walk(snapshot: dict) -> dict: ...
-def strategy_existing_pipeline(snapshot: dict) -> dict: ...
-```
-
-**Validation tests:**
-- `test_neutral_strategy_scores_random`: running neutral strategy over 6 months and scoring with `score_predictions.py` should produce ~50% directional accuracy (within ±5pp)
-- `test_existing_pipeline_reproduces_history`: running existing pipeline as strategy over the past 30 scored days should reproduce `accuracy_summary.json` within ±2pp per asset
-
-**Claude Code prompt:**
-> In `.macro-assist/backtest.py`, implement `run_backtest(start_date, end_date, strategy, output_dir)` that walks day-by-day through the range, calls `historical_snapshot(d)` from `point_in_time.py`, then calls `strategy(snapshot)` and writes the prediction JSON to `output_dir`. The prediction dict format must match what `score_predictions.py` consumes (Bias / Target Range / Confidence / Primary Driver per asset). Include three baseline strategies in the same module: `strategy_neutral` (returns Neutral 50% for all assets), `strategy_random_walk` (predicts continuation of last 5d direction), and `strategy_existing_pipeline` (wraps the current `collect_and_analyze.main()` logic). Add tests verifying that neutral scores ~50% directional accuracy and that the existing-pipeline strategy reproduces current `accuracy_summary.json` numbers within ±2pp.
-
----
-
-#### Phase 8.3 — Synthetic Data Generators
-
-**New file:** `.macro-assist/synthetic.py`
-**New file:** `.macro-assist/tests/test_synthetic.py`
-
-**Functions to implement:**
-```python
-def synthetic_garch(n: int, omega: float, alpha: float, beta: float, seed: int = 42) -> np.ndarray:
-    """GARCH(1,1) return series with known parameters."""
-
-def synthetic_regime_switching(
-    n: int,
-    transition_matrix: np.ndarray,  # shape (k, k), rows sum to 1
-    state_means: np.ndarray,        # shape (k,)
-    state_vols: np.ndarray,         # shape (k,)
-    seed: int = 42,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Returns (series, true_state_labels)."""
-
-def synthetic_conditional(
-    n: int,
-    state_fn: Callable[[int], int],     # maps t -> macro state
-    forward_means: dict[int, float],    # state -> mean forward return
-    forward_vols: dict[int, float],     # state -> vol of forward return
-    seed: int = 42,
-) -> pd.DataFrame:
-    """Returns DataFrame with columns: date, macro_state, forward_5d_return."""
-```
-
-**Validation tests:** round-trip — fit a GARCH/HMM/empirical-bucketing recovery procedure on synthetic output, verify recovered parameters match true parameters within statistical tolerance.
-
-**Claude Code prompt:**
-> Add `.macro-assist/synthetic.py` with three generators: (1) `synthetic_garch(n, omega, alpha, beta, seed)` producing a GARCH(1,1) return series; (2) `synthetic_regime_switching(n, transition_matrix, state_means, state_vols, seed)` producing a return series and a true state label series; (3) `synthetic_conditional(n, state_fn, forward_means, forward_vols, seed)` producing a DataFrame mapping macro state to forward returns. All use numpy + a seeded RNG for reproducibility. Tests in `.macro-assist/tests/test_synthetic.py` should verify: (a) GARCH series exhibits volatility clustering (autocorrelation of squared returns > 0.1 at lag 1), (b) regime-switching output state proportions match stationary distribution of the transition matrix within 5%, (c) conditional output respects forward_means within sampling tolerance.
+**Tests:** 18 pure unit tests across `test_point_in_time.py`, `test_backtest.py`, `test_synthetic.py`.
 
 ---
 
 ### Phase 9 — Volatility Forecasting Layer *(Done — 2026-05-26)*
 
-**Goal:** Predict 5/10/20-day realized volatility per asset and compute the Variance Risk Premium against VIX. Inject as one block of pre-computed quantitative context.
+**Goal:** Predict 5/10/20-day realized volatility per asset and compute the Variance Risk Premium against VIX.
 
-**New dependencies:** `arch>=6.3.0` (add to `requirements.txt`).
+**Key files:** `.macro-assist/vol_forecast.py`
 
-#### Phase 9.1 — HAR-RV Model
+**Key functions:**
+- `har_rv_forecast(returns, horizon)` — HAR-RV model (numpy OLS): `RV_{t+1} = β₀ + β₁·RV_daily + β₂·RV_weekly + β₃·RV_monthly`. Returns annualized forecast %, 60d percentile, R², fitted parameters.
+- `variance_risk_premium(vix, harrv_forecast, history)` — VRP = VIX − HAR-RV forecast. Thresholds: ≤25th pct = Compressed, ≥75th = Elevated, else Normal.
 
-**New file:** `.macro-assist/vol_forecast.py`
-**New file:** `.macro-assist/tests/test_vol_forecast.py`
+**New dependency:** `arch>=6.3.0`
 
-**Algorithm:** HAR-RV (Heterogeneous Autoregressive Realized Variance, Corsi 2009) is chosen over GARCH for three reasons: (a) simpler and more interpretable, (b) often outperforms GARCH on financial data per the literature, (c) easy to fit with plain pandas — no `arch` dependency needed for the core model (we still add `arch` for VRP utilities).
-
-The model: `RV_{t+1} = β₀ + β₁·RV_daily + β₂·RV_weekly + β₃·RV_monthly + ε`
-
-Where:
-- `RV_daily` = today's squared return
-- `RV_weekly` = mean of last 5 days' squared returns
-- `RV_monthly` = mean of last 22 days' squared returns
-
-**Function to implement:**
-```python
-def har_rv_forecast(returns: pd.Series, horizon: int = 5) -> dict:
-    """
-    Fits HAR-RV on `returns` (daily log returns) and forecasts `horizon`-day-ahead RV.
-    Returns:
-    {
-        'forecast_daily_vol': float,           # annualized %
-        'forecast_horizon_vol': float,         # annualized %, scaled to horizon
-        'percentile_60d': float,               # rank of forecast vs trailing 60d realized vol
-        'r_squared': float,                    # in-sample R²
-        'params': {'beta_0', 'beta_d', 'beta_w', 'beta_m'},
-    }
-    """
-```
-
-Apply to: sp500, nasdaq, gold, wti_oil, bitcoin (skip dxy and vix themselves).
-
-**Validation tests:**
-- `test_recover_garch_vol`: on synthetic_garch(2000, ...), out-of-sample RMSE on last 500 obs should beat naive ("yesterday's RV = today's RV") by ≥10%
-- `test_real_sp500_outperforms_naive`: fit on 2022-2024 SP500 returns, evaluate on 2025, RMSE should beat naive by ≥10%
-- `test_r_squared_in_range`: in-sample R² should be in [0.2, 0.7] for SP500 (RV is genuinely predictable in this range)
-
-**Claude Code prompt:**
-> Implement `.macro-assist/vol_forecast.py` with `har_rv_forecast(returns: pd.Series, horizon: int = 5)`. The model is HAR-RV: `RV_{t+1} = β₀ + β₁·RV_daily + β₂·RV_weekly + β₃·RV_monthly`. Compute RV components from squared daily returns (RV_daily = r²ₜ, RV_weekly = mean of last 5, RV_monthly = mean of last 22). Fit via OLS (statsmodels or sklearn). Return forecasted volatility annualized to %, the 60-day percentile of the forecast vs trailing realized vol, R², and fitted parameters. Add `.macro-assist/tests/test_vol_forecast.py` with three tests: (a) on synthetic GARCH(1,1) data with omega=0.00001, alpha=0.1, beta=0.85, HAR-RV out-of-sample RMSE on last 500 obs beats naive by ≥10%; (b) on real SP500 data 2022-2024 (fit) / 2025 (test), RMSE beats naive by ≥10%; (c) in-sample R² for SP500 falls in [0.2, 0.7]. Use the `synthetic_garch` generator from Phase 8.3.
+**Tests:** 8 pure unit tests + 4 integration tests (`@pytest.mark.integration`).
 
 ---
 
-#### Phase 9.2 — Variance Risk Premium
+### Phase 10 — Regime Classification Layer *(Done — 2026-05-26)*
 
-**Extend:** `.macro-assist/vol_forecast.py`
+**Goal:** Classify the current macro regime (4 states) using a Hidden Markov Model on normalized macro features.
 
-**Function to implement:**
-```python
-def variance_risk_premium(vix: float, harrv_forecast: dict, history: pd.DataFrame = None) -> dict:
-    """
-    Computes VRP = VIX - HAR-RV annualized forecast for SP500.
-    Returns:
-    {
-        'vrp': float,
-        'vrp_60d_percentile': float,
-        'interpretation': str,  # 'Compressed' / 'Normal' / 'Elevated'
-    }
-    """
-```
+**Key files:** `.macro-assist/regime_features.py`, `.macro-assist/regime.py`, `.macro-assist/data/regime_model.pkl`
 
-**Validation tests:**
-- `test_vrp_positive_on_average`: on full historical sample, mean VRP > 0 (well-documented stylized fact)
-- `test_vrp_compressed_in_crisis`: VRP percentile during March 2020 and October 2022 should be < 30 (crisis compression)
+**Key functions:**
+- `regime_features(snapshot, sp500_returns)` — 4-feature vector: NFCI percentile [0,1], yield curve bps (raw), HY spread z-score (vs 5yr mean / 1.5), SP500 60d vol percentile.
+- `fit_regime_model(historical_features, n_states=4)` — GaussianHMM full covariance; pickled to `data/regime_model.pkl`.
+- `predict_regime(model, current_features)` — returns state, label, posterior vector, transition probs.
+- `label_states(model)` — median split on NFCI (feature[0]) and vol (feature[3]): Risk-On/Off × Low/High-Vol.
+- `stable_regime_label(posteriors_history, min_posterior=0.7, min_dwell=3)` — anti-flicker; returns -1 until first stable label.
 
-**Claude Code prompt:**
-> Extend `.macro-assist/vol_forecast.py` with `variance_risk_premium(vix, harrv_forecast, history=None)`. VRP = VIX − annualized HAR-RV forecast. Compute the 60-day percentile of current VRP vs its trailing distribution (history dataframe must include columns 'date', 'vix', 'realized_vol'). Interpretation thresholds: percentile ≤25 = 'Compressed', ≥75 = 'Elevated', else 'Normal'. Tests: (a) mean VRP positive on full historical 2020-2025 sample; (b) VRP percentile in March 2020 and October 2022 < 30.
+**New dependency:** `hmmlearn>=0.3.0`
 
----
-
-### Phase 10 — Regime Classification Layer *(To Implement — depends on Phase 8)*
-
-**Goal:** Classify the current macro regime (4 states) using a Hidden Markov Model on normalized macro features. Persist the trained model in the repo, refit weekly.
-
-**New dependencies:** `hmmlearn>=0.3.0` (add to `requirements.txt`).
-
-#### Phase 10.1 — Feature Engineering
-
-**New file:** `.macro-assist/regime_features.py`
-**New file:** `.macro-assist/tests/test_regime_features.py`
-
-**Function to implement:**
-```python
-def regime_features(snapshot: dict) -> np.ndarray:
-    """
-    Extracts a 4-feature vector from a FRED+market snapshot:
-        [0] nfci_percentile      (normalized 0-1 over historical range)
-        [1] yield_curve_slope    (10Y - 2Y, in bps, raw)
-        [2] hy_spread_zscore     (vs 5yr mean from snapshot)
-        [3] realized_vol_pct     (60d annualized realized SP500 vol percentile)
-    Returns numpy array shape (4,).
-    """
-```
-
-**Validation tests:**
-- `test_no_nan_on_recent_snapshots`: for 5 historical snapshots across 2024-2025, returned vector has no NaN
-- `test_feature_distributions`: across 1000 historical snapshots, each feature's mean ∈ [-1, 1] and std ∈ [0.5, 2.0] (sanity check for normalization)
-
-**Claude Code prompt:**
-> In `.macro-assist/regime_features.py`, implement `regime_features(snapshot: dict) -> np.ndarray` returning a 4-feature vector: NFCI percentile (0-1 vs historical range), yield curve slope in bps (10Y minus 2Y, raw), HY spread Z-score (current vs 5yr mean from snapshot), 60-day realized SP500 vol percentile. All features should be roughly normalized to support HMM fitting. Add tests verifying no NaN on 5 historical snapshots and reasonable distributions (means/stds) across 1000 historical days.
-
----
-
-#### Phase 10.2 — HMM Fitting and Inference
-
-**New file:** `.macro-assist/regime.py`
-**New file:** `.macro-assist/tests/test_regime.py`
-**New artifact:** `.macro-assist/data/regime_model.pkl` (committed; refit weekly)
-
-**Functions to implement:**
-```python
-def fit_regime_model(
-    historical_features: np.ndarray,    # shape (n_days, 4)
-    n_states: int = 4,
-    random_state: int = 42,
-) -> GaussianHMM:
-    """Fits hmmlearn.GaussianHMM with full covariance. Returns fitted model."""
-
-def predict_regime(model: GaussianHMM, current_features: np.ndarray) -> dict:
-    """
-    Returns:
-    {
-        'state': int,
-        'state_label': str,            # human-readable
-        'posterior': list[float],      # length n_states
-        'transition_probs_from_current': dict[int, float],
-    }
-    """
-
-def label_states(model: GaussianHMM) -> dict[int, str]:
-    """
-    Assigns labels by inspecting state means:
-    - Lowest realized_vol_pct + lowest NFCI percentile -> 'Risk-On Low-Vol'
-    - Highest realized_vol_pct + highest NFCI percentile -> 'Risk-Off High-Vol'
-    - etc. for the remaining 2 states.
-    """
-```
-
-**Validation tests:**
-- `test_recover_synthetic_regimes`: on `synthetic_regime_switching(2000, known_transition_matrix, ...)`, fitted HMM's transition matrix should match the true matrix within ±0.1 per cell
-- `test_historical_alignment`: print regime labels by month for 2020-present; manually verify that March-May 2020 is labeled 'Risk-Off High-Vol' and most of 2021 is 'Risk-On Low-Vol' (visual / assert-list test)
-- `test_regime_persistence`: median dwell time across historical data should be 10-60 trading days
-
-**Claude Code prompt:**
-> Implement `.macro-assist/regime.py` with three functions: (1) `fit_regime_model(historical_features, n_states=4)` using `hmmlearn.GaussianHMM` with full covariance — fit and pickle to `.macro-assist/data/regime_model.pkl`; (2) `predict_regime(model, current_features)` returning state, label, posterior probability vector, and transition probabilities from the current state; (3) `label_states(model)` assigning 'Risk-On Low-Vol', 'Risk-On High-Vol', 'Risk-Off Low-Vol', 'Risk-Off High-Vol' to the 4 states based on inspection of state means (lower realized_vol_pct/NFCI = Risk-On; higher = Risk-Off; the second axis is vol). Add tests: (a) on `synthetic_regime_switching` with a known 4-state transition matrix, recovered matrix should match within ±0.1 per cell; (b) historical regime labels should mark March-May 2020 as 'Risk-Off High-Vol'; (c) median regime dwell time on 2020-2025 historical data is 10-60 trading days.
-
----
-
-#### Phase 10.3 — Anti-Flicker Layer
-
-**Extend:** `.macro-assist/regime.py`
-
-**Function to implement:**
-```python
-def stable_regime_label(
-    posteriors_history: list[np.ndarray],
-    min_posterior: float = 0.7,
-    min_dwell: int = 3,
-) -> int:
-    """
-    Returns the regime label only if:
-    - the top-posterior state has posterior > min_posterior
-    - that state has been the top-posterior state for >= min_dwell consecutive days
-    Otherwise returns the last stable label.
-    Used to prevent daily label flipping that would confuse the LLM.
-    """
-```
-
-**Validation tests:**
-- `test_switch_count_reasonable`: applied over 2020-2025, total regime switches should be 4-12 (not 50+)
-
-**Claude Code prompt:**
-> Extend `.macro-assist/regime.py` with `stable_regime_label(posteriors_history, min_posterior=0.7, min_dwell=3)` that smooths raw HMM posterior labels by requiring both a confidence threshold and a minimum dwell time before relabeling. Test: applied over 2020-01 to today, total number of regime switches should fall in [4, 12].
+**Tests:** 30 pure unit tests + 3 integration tests.
 
 ---
 
@@ -1410,8 +878,8 @@ Not on critical path. Listed for future planning.
 | 11 | **Phase MA-3a (Risk agent — Haiku)** | **Low** | **MA-1** | ✅ **Done** |
 | 12 | **Phase MA-3b (Synthesis agent — retire free-text build_note)** | **Medium** | **MA-2 + MA-3a stable** | ✅ **Done** |
 | 13 | **Phase 8 (Validation Infrastructure)** | **Medium** | **MA-3b complete** | ✅ **Done** |
-| 14 | **Phase 9 (Volatility Forecasting)** | **Medium** | **Phase 8** | 🔲 **To Implement** |
-| 15 | **Phase 10 (Regime Classification)** | **Medium** | **Phase 8** | 🔲 **To Implement** |
+| 14 | **Phase 9 (Volatility Forecasting)** | **Medium** | **Phase 8** | ✅ **Done** |
+| 15 | **Phase 10 (Regime Classification)** | **Medium** | **Phase 8** | ✅ **Done** |
 | 16 | **Phase 11 (Conditional Distributions)** | **Medium** | **Phase 8** | 🔲 **To Implement** |
 | 17 | **Phase 12 (Quant Context Integration)** | **Low** | **Phases 9, 10, 11** | 🔲 **To Implement** |
 | 18 | **Phase 13 (End-to-End Validation)** | **High** | **Phase 12** | 🔲 **To Implement** |
