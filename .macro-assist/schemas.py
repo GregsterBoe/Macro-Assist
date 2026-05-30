@@ -62,3 +62,21 @@ class PortfolioRiskOutput(BaseModel):
     biggest_tailwind: str = Field(max_length=300)
     actionable: str = Field(max_length=200)
     opportunity_gap: str = Field(max_length=250)
+
+
+class SectorCall(BaseModel):
+    """One sector ETF opportunity call from MA-3c."""
+    etf_ticker: str = Field(max_length=6)
+    sector_name: str = Field(max_length=50)
+    macro_driver: str = Field(max_length=300)       # specific data point from MA-1 analysis
+    valuation_context: str = Field(max_length=200)  # P/E vs reference + flag from table
+    timing_note: Optional[str] = Field(default=None, max_length=150)
+    research_candidates: list[str] = Field(default_factory=list)  # only for Below-avg P/E
+
+
+class SectorOpportunityOutput(BaseModel):
+    """MA-3c: Structured output from the Haiku sector opportunity agent.
+    Receives MA-1's synthesized macro conclusions + sector ETF fundamentals block.
+    """
+    calls: list[SectorCall] = Field(min_length=1, max_length=3)
+    regime_note: Optional[str] = Field(default=None, max_length=200)

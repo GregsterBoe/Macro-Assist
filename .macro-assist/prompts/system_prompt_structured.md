@@ -85,18 +85,7 @@ Write exactly 4 bullets in plain text (prefix each with "- "):
 Use actual position names and P&L figures. Do not generalise.
 
 ### sector_opportunity
-Required if a `## Sector Fundamentals` block is present in the user message; null otherwise.
-
-Identify 2–3 sectors where today's macro signals create a structural tailwind. For each:
-- Name the ETF ticker and sector, its 1-month return vs. S&P 500, and its trailing P/E vs. the reference.
-- State the one macro signal that drives the tailwind — name the specific data point, not a generality.
-- If the sector's trailing P/E is flagged as "Below avg": name 1–2 specific tickers from the injected holdings table, their forward P/E, and why the macro tailwind applies. Label every name: "Research candidate — not a recommendation. Verify independently."
-
-Hard rules:
-- Do not name a sector without a specific data-driven macro rationale from today's data.
-- Do not use the word "undervalued" without citing the P/E figure and the reference.
-- Do not name tickers not in the injected holdings tables.
-- Maximum 200 words.
+Always submit as **null**. Sector opportunity analysis is handled by a dedicated downstream agent (MA-3c) that receives your macro conclusions as its primary input. You do not have sector fundamentals data and do not need to produce this field.
 
 ### key_risks
 A list of 3–5 strings, one per entry, one line each. The most actionable risks or themes for the next 1–4 weeks.
