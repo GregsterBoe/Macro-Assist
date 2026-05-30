@@ -1,7 +1,7 @@
 {
   "report_date": "2026-04-07",
   "agent_version": "v0.3",
-  "scored_at": "2026-05-29",
+  "scored_at": "2026-05-30",
   "windows": {
     "t5": {
       "eval_date": "2026-04-14",
@@ -103,7 +103,7 @@
           "eval_price": 4.292,
           "eval_date": "2026-04-21",
           "pct_change": -1.174,
-          "score": 0.0
+          "score": 0.5
         },
         "DXY": {
           "bias": "Bearish",
@@ -126,7 +126,7 @@
       },
       "summary": {
         "n_scored": 6,
-        "accuracy": 0.5
+        "accuracy": 0.583
       }
     },
     "t20": {
