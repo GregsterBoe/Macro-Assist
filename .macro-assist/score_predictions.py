@@ -14,11 +14,19 @@ Usage:
 import json
 import os
 import re
+import tempfile
 from datetime import date, timedelta
 from pathlib import Path
 
 import pandas as pd
 import yfinance as yf
+
+# Point yfinance timezone cache at a per-process temp dir to avoid SQLite
+# database lock errors when multiple CI jobs share the default cache location.
+try:
+    yf.set_tz_cache_location(tempfile.mkdtemp(prefix="yf_tz_"))
+except Exception:
+    pass
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -183,9 +191,45 @@ def parse_predictions(path: Path) -> dict | None:
 # Helpers — price fetching
 # ---------------------------------------------------------------------------
 
+def _extract_ticker_series(raw: "pd.DataFrame", ticker: str) -> "pd.Series | None":
+    """Pull a clean Close series for one ticker out of a batch yf.download result."""
+    try:
+        close_block = raw["Close"]
+        col = close_block[ticker] if hasattr(close_block, "columns") else close_block
+        col = col.dropna()
+        if col.empty:
+            return None
+        col.index = pd.to_datetime(col.index).tz_localize(None).normalize()
+        return col
+    except (KeyError, Exception):
+        return None
+
+
+def _download_single(ticker: str, start: date, end: date) -> "pd.Series | None":
+    """Download one ticker individually; returns a clean Close series or None."""
+    try:
+        raw = yf.download(
+            ticker,
+            start=start.isoformat(),
+            end=(end + timedelta(days=1)).isoformat(),
+            progress=False,
+            auto_adjust=True,
+        )
+        if raw.empty:
+            return None
+        col = raw["Close"].dropna()
+        col.index = pd.to_datetime(col.index).tz_localize(None).normalize()
+        return col if not col.empty else None
+    except Exception as exc:
+        print(f"  Warning: individual fetch for {ticker} failed: {exc}")
+        return None
+
+
 def fetch_price_series(start: date, end: date) -> dict[str, pd.Series]:
     """Download daily closing prices for all tracked assets over a date range."""
     tickers = list(ASSET_TICKERS.values())
+    series: dict[str, pd.Series] = {}
+
     try:
         raw = yf.download(
             tickers,
@@ -196,33 +240,36 @@ def fetch_price_series(start: date, end: date) -> dict[str, pd.Series]:
         )
     except Exception as exc:
         print(f"  Warning: batch price fetch failed: {exc}")
-        return {}
+        raw = None
 
-    if raw.empty:
-        print("  Warning: no price data returned for any ticker.")
-        return {}
+    if raw is not None and not raw.empty:
+        for asset, ticker in ASSET_TICKERS.items():
+            col = _extract_ticker_series(raw, ticker)
+            if col is not None:
+                series[asset] = col
+            else:
+                print(f"  Warning: no data for {ticker} in batch — retrying individually")
 
-    close_block = raw["Close"]
-    series = {}
+    # Retry any tickers absent from the batch result (e.g. SQLite lock on BTC-USD).
     for asset, ticker in ASSET_TICKERS.items():
-        try:
-            col = close_block[ticker] if hasattr(close_block, "columns") else close_block
-            col = col.dropna()
-            if col.empty:
-                print(f"  Warning: no data for {ticker}")
-                continue
-            col.index = pd.to_datetime(col.index).tz_localize(None).normalize()
-            series[asset] = col
-        except KeyError:
-            print(f"  Warning: {ticker} missing from batch download result")
+        if asset not in series:
+            col = _download_single(ticker, start, end)
+            if col is not None:
+                series[asset] = col
+                print(f"  Recovered {ticker} via individual download.")
+            else:
+                print(f"  Warning: {ticker} unavailable — {asset} will be skipped in scoring.")
+
     return series
 
 
-def price_on(series: pd.Series, target: date) -> float | None:
+def price_on(series: "pd.Series | None", target: date) -> float | None:
     """
     Return the closing price on target, or the next available trading day
     (up to 4 calendar days forward) if the market was closed.
     """
+    if series is None:
+        return None
     for offset in range(5):
         ts = pd.Timestamp(target + timedelta(days=offset))
         if ts in series.index:
