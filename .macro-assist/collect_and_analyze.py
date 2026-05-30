@@ -1216,6 +1216,26 @@ current regime favours. Name it specifically. One-line macro rationale. State wh
 would reduce or add portfolio concentration risk.\
 """
 
+_SECTOR_AGENT_SYSTEM = """\
+You are a sector equity research analyst. You receive a macro intelligence summary \
+produced by a separate analyst today — accept it as given. Map it to 2–3 sector ETFs \
+with a genuine structural tailwind. Submit via the submit_sector_opportunity tool.
+
+Rules:
+- macro_driver: name the specific data point from the macro analysis (e.g. "real yield \
+2.09% restrictive — compresses growth multiples, favours value/dividend sectors"). \
+Do not repeat the regime label alone.
+- valuation_context: cite the trailing P/E, reference P/E, and the flag from the table \
+(e.g. "17.2x vs 19x ref — Near avg").
+- timing_note (optional): note if 1-month return vs SPX is strongly negative (mean-reversion \
+candidate) or strongly positive (crowding risk). Omit if unremarkable.
+- research_candidates: only if the sector P/E is flagged "Below avg" — name 1–2 tickers \
+from the provided holdings table. Never name tickers not in that table.
+- Do not use the word "undervalued" without citing P/E figures.
+- If no sector has a genuine macro-grounded tailwind, produce one minimal call and explain \
+in regime_note.\
+"""
+
 _STRUCTURED_SUCCESS_FILE = ACCURACY_JSON.parent / "structured_success_count.json"
 _SYNTHESIS_ACTIVATE_AFTER = 5  # log free-text path retirement suggestion after N successes
 
@@ -1477,6 +1497,80 @@ def _format_portfolio_risk(risk: "PortfolioRiskOutput") -> str:
         f"- **One actionable observation**: {risk.actionable}\n"
         f"- **Opportunity gap**: {risk.opportunity_gap}"
     )
+
+
+def _run_sector_agent(
+    client: anthropic.Anthropic,
+    structured: "AnalysisOutput",
+    sector_fundamentals_block: str,
+) -> "SectorOpportunityOutput | None":
+    """MA-3c: Haiku sector opportunity agent.
+    Receives MA-1's synthesized macro conclusions + sector ETF fundamentals.
+    The agent never sees raw FRED data — it reasons from MA-1's interpretation.
+    Returns None on any failure so the caller can silently omit sector_opportunity.
+    """
+    if not sector_fundamentals_block or not _STRUCTURED_OUTPUT_AVAILABLE:
+        return None
+    schema = SectorOpportunityOutput.model_json_schema()
+    tools = [{
+        "name": "submit_sector_opportunity",
+        "description": "Submit the structured sector opportunity analysis.",
+        "input_schema": schema,
+    }]
+    risks_md = "\n".join(f"- {r}" for r in structured.key_risks)
+    user_msg = (
+        f"## Macro Interpretation (from today's analysis)\n"
+        f"**Regime**: {structured.macro_regime}\n\n"
+        f"**Equities**: {structured.equities_note}\n\n"
+        f"**Rates & Fed Policy**: {structured.rates_note}\n\n"
+        f"**Inflation & Growth**: {structured.inflation_growth_note}\n\n"
+        f"**Key Risks**:\n{risks_md}\n\n"
+        f"{sector_fundamentals_block}"
+    )
+    try:
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1200,
+            system=_SECTOR_AGENT_SYSTEM,
+            tools=tools,
+            tool_choice={"type": "tool", "name": "submit_sector_opportunity"},
+            messages=[{"role": "user", "content": user_msg}],
+        )
+        tool_block = next(
+            (b for b in response.content
+             if b.type == "tool_use" and b.name == "submit_sector_opportunity"),
+            None,
+        )
+        if tool_block is None:
+            raise ValueError("no submit_sector_opportunity block in response")
+        result = SectorOpportunityOutput.model_validate(tool_block.input)
+        n_calls = len(result.calls)
+        _log("SECTOR", "OK", f"{n_calls} sector call(s) ({response.usage.output_tokens} tokens, Haiku)")
+        return result
+    except Exception as e:
+        _log("SECTOR", "WARN", f"sector agent failed ({type(e).__name__}: {e}) — sector_opportunity omitted")
+        return None
+
+
+def _format_sector_opportunity(output: "SectorOpportunityOutput") -> str:
+    """Format SectorOpportunityOutput into the markdown string stored in sector_opportunity."""
+    parts = []
+    for call in output.calls:
+        lines = [f"**{call.etf_ticker} — {call.sector_name}**"]
+        lines.append(call.macro_driver)
+        lines.append(f"Valuation: {call.valuation_context}")
+        if call.timing_note:
+            lines.append(f"Timing: {call.timing_note}")
+        if call.research_candidates:
+            tickers = ", ".join(call.research_candidates)
+            lines.append(
+                f"Research candidates (not a recommendation — verify independently): {tickers}"
+            )
+        parts.append("\n".join(lines))
+    result = "\n\n".join(parts)
+    if output.regime_note:
+        result = f"{result}\n\n*{output.regime_note}*"
+    return result
 
 
 def _synthesize_structured(
@@ -1751,7 +1845,7 @@ def _scrub_prompt_artifacts(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 try:
-    from schemas import AnalysisOutput, AssetPrediction, PortfolioRiskOutput
+    from schemas import AnalysisOutput, AssetPrediction, PortfolioRiskOutput, SectorOpportunityOutput
     from pydantic import ValidationError as PydanticValidationError
     _STRUCTURED_OUTPUT_AVAILABLE = True
 except ImportError:
@@ -2044,6 +2138,8 @@ def analyze_with_claude(
 
     # Structured path: accuracy_context is excluded (MA-2 — no pre-emptive hedging).
     # Portfolio context is also excluded (MA-3a — handled by dedicated risk agent below).
+    # Sector fundamentals are also excluded (MA-3c — sector opportunity agent uses MA-1's
+    # conclusions as input, not raw data, to avoid token competition with macro analysis).
     # The analysis agent sees only market/macro data.
     user_message_structured = f"""Today is {today.strftime('%A, %B %d, %Y')}.
 Prediction review date (5 business days): {review_date}
@@ -2059,8 +2155,7 @@ Prediction review date (5 business days): {review_date}
 {f"{chr(10)}{notable_moves}" if notable_moves else ""}
 {f"{chr(10)}{quant_context}" if quant_context else ""}
 {f"{chr(10)}{events_context}" if events_context else ""}
-{f"{chr(10)}{youtube_context}" if youtube_context else ""}
-{f"{chr(10)}{sector_fundamentals_block}" if sector_fundamentals_block else ""}"""
+{f"{chr(10)}{youtube_context}" if youtube_context else ""}"""
 
     # Free-text fallback: re-add portfolio_context (removed from structured path for MA-3a)
     # and accuracy_context. Both are needed for the single-pass free-text model.
@@ -2093,6 +2188,14 @@ Prediction review date (5 business days): {review_date}
                 if risk_output is not None:
                     structured = structured.model_copy(
                         update={"portfolio_risk": _format_portfolio_risk(risk_output)}
+                    )
+            # MA-3c: sector opportunity agent — Haiku, MA-1 conclusions + sector fundamentals
+            if sector_fundamentals_block:
+                _log("SECTOR", "INFO", "running sector opportunity agent (Haiku)...")
+                sector_output = _run_sector_agent(client, structured, sector_fundamentals_block)
+                if sector_output is not None:
+                    structured = structured.model_copy(
+                        update={"sector_opportunity": _format_sector_opportunity(sector_output)}
                     )
             # MA-3b: synthesis agent — formats structured JSON into final markdown
             _log("MA3B", "INFO", "running synthesis agent...")
