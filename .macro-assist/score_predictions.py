@@ -200,6 +200,7 @@ def _extract_ticker_series(raw: "pd.DataFrame", ticker: str) -> "pd.Series | Non
         if col.empty:
             return None
         col.index = pd.to_datetime(col.index).tz_localize(None).normalize()
+        col = col[~col.index.duplicated(keep="last")]
         return col
     except (KeyError, Exception):
         return None
@@ -219,6 +220,7 @@ def _download_single(ticker: str, start: date, end: date) -> "pd.Series | None":
             return None
         col = raw["Close"].dropna()
         col.index = pd.to_datetime(col.index).tz_localize(None).normalize()
+        col = col[~col.index.duplicated(keep="last")]
         return col if not col.empty else None
     except Exception as exc:
         print(f"  Warning: individual fetch for {ticker} failed: {exc}")
@@ -273,7 +275,11 @@ def price_on(series: "pd.Series | None", target: date) -> float | None:
     for offset in range(5):
         ts = pd.Timestamp(target + timedelta(days=offset))
         if ts in series.index:
-            return float(series.loc[ts])
+            val = series.loc[ts]
+            # loc returns a Series when the index has duplicate dates
+            if isinstance(val, pd.Series):
+                val = val.iloc[-1]
+            return float(val)
     return None
 
 
