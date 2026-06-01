@@ -23,7 +23,7 @@ _FADE_WORDS = frozenset({"fade", "fade the", "expect decline", "downside risk if
 class AssetPrediction(BaseModel):
     asset: str
     bias: Literal["Bullish", "Bearish", "Neutral"]
-    primary_driver: str = Field(min_length=10, max_length=500)
+    primary_driver: str = Field(min_length=10, max_length=800)
     confidence_pct: int = Field(ge=50, le=80)
     target_range: str
     horizon_days: int = Field(default=5)
@@ -58,19 +58,19 @@ class PortfolioRiskOutput(BaseModel):
     """MA-3a: Structured output from the Haiku portfolio risk agent.
     Receives only macro_regime + portfolio positions — no FRED data or market context.
     """
-    biggest_headwind: str = Field(max_length=400)
-    biggest_tailwind: str = Field(max_length=300)
-    actionable: str = Field(max_length=200)
-    opportunity_gap: str = Field(max_length=250)
+    biggest_headwind: str = Field(max_length=700)
+    biggest_tailwind: str = Field(max_length=500)
+    actionable: str = Field(max_length=350)
+    opportunity_gap: str = Field(max_length=450)
 
 
 class SectorCall(BaseModel):
     """One sector ETF opportunity call from MA-3c."""
     etf_ticker: str = Field(max_length=6)
     sector_name: str = Field(max_length=50)
-    macro_driver: str = Field(max_length=300)       # specific data point from MA-1 analysis
-    valuation_context: str = Field(max_length=200)  # P/E vs reference + flag from table
-    timing_note: Optional[str] = Field(default=None, max_length=150)
+    macro_driver: str = Field(max_length=500)       # specific data point from MA-1 analysis
+    valuation_context: str = Field(max_length=400)  # P/E vs reference + flag from table
+    timing_note: Optional[str] = Field(default=None, max_length=280)
     research_candidates: list[str] = Field(default_factory=list)  # only for Below-avg P/E
 
 
@@ -79,4 +79,4 @@ class SectorOpportunityOutput(BaseModel):
     Receives MA-1's synthesized macro conclusions + sector ETF fundamentals block.
     """
     calls: list[SectorCall] = Field(min_length=1, max_length=3)
-    regime_note: Optional[str] = Field(default=None, max_length=200)
+    regime_note: Optional[str] = Field(default=None, max_length=400)
