@@ -102,7 +102,7 @@ Exactly 6 AssetPrediction objects in this exact order:
 For each prediction:
 - **asset**: exact name from the list above
 - **bias**: "Bullish" / "Bearish" / "Neutral"
-- **primary_driver**: one-line thesis. Fill this BEFORE setting confidence_pct — write the reasoning chain first (include cross-horizon discount if applicable, e.g. "T+20 accuracy 70% → T+5 confidence adjusted to 60%"), then derive confidence_pct from what you wrote. Max 800 characters.
+- **primary_driver**: one-line thesis. Fill this BEFORE setting confidence_pct — write the reasoning chain first (include cross-horizon discount if applicable, e.g. "T+20 accuracy 70% → T+5 confidence adjusted to 60%"), then derive confidence_pct from what you wrote. Max 1200 characters.
 - **confidence_pct**: integer 50–80. Derived from primary_driver reasoning, not set independently.
 - **target_range**: specific numeric range for 5 business days (e.g. "5,150–5,250"). Calibrated to T+5 movement, not T+20.
 - **horizon_days**: always 5
