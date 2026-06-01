@@ -23,7 +23,7 @@ _FADE_WORDS = frozenset({"fade", "fade the", "expect decline", "downside risk if
 class AssetPrediction(BaseModel):
     asset: str
     bias: Literal["Bullish", "Bearish", "Neutral"]
-    primary_driver: str = Field(min_length=10, max_length=800)
+    primary_driver: str = Field(min_length=10, max_length=1200)
     confidence_pct: int = Field(ge=50, le=80)
     target_range: str
     horizon_days: int = Field(default=5)

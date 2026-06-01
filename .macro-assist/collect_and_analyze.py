@@ -1453,7 +1453,8 @@ def _adversarial_review_structured(
         risk_tag   = rev.get("append_risk")
         if risk_tag and risk_tag not in new_driver:
             candidate = f"{new_driver} {risk_tag}"
-            new_driver = candidate[:497] + "..." if len(candidate) > 500 else candidate
+            _pd_max = AssetPrediction.model_json_schema()["properties"]["primary_driver"].get("maxLength", 800)
+            new_driver = candidate[:_pd_max - 3] + "..." if len(candidate) > _pd_max else candidate
 
         new_predictions.append(p.model_copy(update={
             "confidence_pct": new_conf,
