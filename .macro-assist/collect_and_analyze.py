@@ -189,6 +189,27 @@ def _compute_net_liquidity(raw_series: dict) -> dict | None:
     }
 
 
+_FRED_RATE_LIMIT_KEYWORDS = ("too many requests", "rate limit", "429")
+_FRED_INTER_REQUEST_DELAY = 0.35   # seconds between FRED calls (FRED allows ~120/min)
+
+
+def _fred_get_with_retry(fred: Fred, series_id: str, observation_start: str,
+                         max_retries: int = 3) -> pd.Series:
+    """Fetch a FRED series; retries with exponential backoff on rate-limit errors."""
+    for attempt in range(max_retries + 1):
+        try:
+            return fred.get_series(series_id, observation_start=observation_start).dropna()
+        except Exception as exc:
+            is_rate_limit = any(kw in str(exc).lower() for kw in _FRED_RATE_LIMIT_KEYWORDS)
+            if is_rate_limit and attempt < max_retries:
+                wait = 10 * (2 ** attempt)   # 10s → 20s → 40s
+                _log("FRED", "WARN",
+                     f"{series_id} rate-limited — waiting {wait}s (attempt {attempt + 1}/{max_retries})")
+                time.sleep(wait)
+                continue
+            raise
+
+
 def fetch_fred_data(fred: Fred) -> dict:
     today_date = datetime.now(timezone.utc).date()
     data: dict = {}
@@ -198,7 +219,8 @@ def fetch_fred_data(fred: Fred) -> dict:
     for name, series_id in FRED_SERIES.items():
         try:
             observation_start = (datetime.now(timezone.utc).date() - timedelta(days=365 * 5)).isoformat()
-            series = fred.get_series(series_id, observation_start=observation_start).dropna()
+            series = _fred_get_with_retry(fred, series_id, observation_start)
+            time.sleep(_FRED_INTER_REQUEST_DELAY)
         except Exception as e:
             _log("FRED", "WARN", f"series {series_id} ({name}) unavailable: {e}")
             _failed.append(name)
@@ -597,7 +619,10 @@ def fetch_sector_fundamentals() -> str:
     return "\n".join(lines)
 
 
-_CRITICAL_FRED   = ["fed_funds_rate", "treasury_10y", "treasury_2y", "cpi", "unemployment", "m2"]
+# Only series where a missing value makes the analysis structurally unsound.
+# Monthly/lagging series (unemployment, m2, philly_fed_mfg) are NOT critical —
+# they are regularly stale by design and the analysis degrades gracefully without them.
+_CRITICAL_FRED   = ["fed_funds_rate", "treasury_10y", "treasury_2y", "cpi"]
 _CRITICAL_MARKET = ["sp500", "vix", "gold"]
 
 
