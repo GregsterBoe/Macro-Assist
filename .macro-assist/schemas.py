@@ -60,8 +60,8 @@ class PortfolioRiskOutput(BaseModel):
     """
     biggest_headwind: str = Field(max_length=700)
     biggest_tailwind: str = Field(max_length=500)
-    actionable: str = Field(max_length=350)
-    opportunity_gap: str = Field(max_length=450)
+    actionable: str = Field(max_length=700)
+    opportunity_gap: str = Field(max_length=900)
 
 
 class SectorCall(BaseModel):
@@ -79,4 +79,4 @@ class SectorOpportunityOutput(BaseModel):
     Receives MA-1's synthesized macro conclusions + sector ETF fundamentals block.
     """
     calls: list[SectorCall] = Field(min_length=1, max_length=3)
-    regime_note: Optional[str] = Field(default=None, max_length=400)
+    regime_note: Optional[str] = Field(default=None, max_length=800)

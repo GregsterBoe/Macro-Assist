@@ -22,6 +22,7 @@ import pandas as pd
 import requests
 import yfinance as yf
 from fredapi import Fred
+from pydantic import ValidationError
 
 from versions import PIPELINE_VERSION
 
@@ -1482,6 +1483,7 @@ def _run_risk_agent(
     """MA-3a: Haiku portfolio risk agent.
     Narrow context — only macro_regime + positions. No FRED data, no accuracy history.
     Returns None on any failure so the caller can silently omit portfolio_risk.
+    One multi-turn correction retry on ValidationError — sends the error back to the model.
     """
     if not portfolio_context or not _STRUCTURED_OUTPUT_AVAILABLE:
         return None
@@ -1491,29 +1493,41 @@ def _run_risk_agent(
         "description": "Submit the structured portfolio risk assessment.",
         "input_schema": schema,
     }]
-    user_msg = f"## Current Macro Regime\n{macro_regime}\n\n{portfolio_context}"
+    messages: list = [{"role": "user", "content": f"## Current Macro Regime\n{macro_regime}\n\n{portfolio_context}"}]
     try:
-        response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=600,
-            system=_RISK_AGENT_SYSTEM,
-            tools=tools,
-            tool_choice={"type": "tool", "name": "submit_risk_assessment"},
-            messages=[{"role": "user", "content": user_msg}],
-        )
-        tool_block = next(
-            (b for b in response.content
-             if b.type == "tool_use" and b.name == "submit_risk_assessment"),
-            None,
-        )
-        if tool_block is None:
-            raise ValueError("no submit_risk_assessment block in response")
-        result = PortfolioRiskOutput.model_validate(tool_block.input)
-        _log("RISK", "OK", f"portfolio risk assessed ({response.usage.output_tokens} tokens, Haiku)")
-        return result
+        for attempt in range(2):
+            response = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=800,
+                system=_RISK_AGENT_SYSTEM,
+                tools=tools,
+                tool_choice={"type": "tool", "name": "submit_risk_assessment"},
+                messages=messages,
+            )
+            tool_block = next(
+                (b for b in response.content
+                 if b.type == "tool_use" and b.name == "submit_risk_assessment"),
+                None,
+            )
+            if tool_block is None:
+                raise ValueError("no submit_risk_assessment block in response")
+            try:
+                result = PortfolioRiskOutput.model_validate(tool_block.input)
+                suffix = f" (attempt {attempt + 1})" if attempt > 0 else ""
+                _log("RISK", "OK", f"portfolio risk assessed ({response.usage.output_tokens} tokens, Haiku){suffix}")
+                return result
+            except ValidationError as ve:
+                if attempt == 1:
+                    raise
+                errs = "; ".join(f"{e['loc'][0]}: {e['msg']}" for e in ve.errors())
+                messages += [
+                    {"role": "assistant", "content": response.content},
+                    {"role": "user", "content": [{"type": "tool_result", "tool_use_id": tool_block.id,
+                                                   "content": f"Validation failed — {errs}. Please resubmit with shorter text in those fields."}]},
+                ]
     except Exception as e:
         _log("RISK", "WARN", f"risk agent failed ({type(e).__name__}: {e}) — portfolio_risk omitted")
-        return None
+    return None
 
 
 def _format_portfolio_risk(risk: "PortfolioRiskOutput") -> str:
@@ -1535,6 +1549,7 @@ def _run_sector_agent(
     Receives MA-1's synthesized macro conclusions + sector ETF fundamentals.
     The agent never sees raw FRED data — it reasons from MA-1's interpretation.
     Returns None on any failure so the caller can silently omit sector_opportunity.
+    One multi-turn correction retry on ValidationError — sends the error back to the model.
     """
     if not sector_fundamentals_block or not _STRUCTURED_OUTPUT_AVAILABLE:
         return None
@@ -1554,29 +1569,42 @@ def _run_sector_agent(
         f"**Key Risks**:\n{risks_md}\n\n"
         f"{sector_fundamentals_block}"
     )
+    messages: list = [{"role": "user", "content": user_msg}]
     try:
-        response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=1200,
-            system=_SECTOR_AGENT_SYSTEM,
-            tools=tools,
-            tool_choice={"type": "tool", "name": "submit_sector_opportunity"},
-            messages=[{"role": "user", "content": user_msg}],
-        )
-        tool_block = next(
-            (b for b in response.content
-             if b.type == "tool_use" and b.name == "submit_sector_opportunity"),
-            None,
-        )
-        if tool_block is None:
-            raise ValueError("no submit_sector_opportunity block in response")
-        result = SectorOpportunityOutput.model_validate(tool_block.input)
-        n_calls = len(result.calls)
-        _log("SECTOR", "OK", f"{n_calls} sector call(s) ({response.usage.output_tokens} tokens, Haiku)")
-        return result
+        for attempt in range(2):
+            response = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=1200,
+                system=_SECTOR_AGENT_SYSTEM,
+                tools=tools,
+                tool_choice={"type": "tool", "name": "submit_sector_opportunity"},
+                messages=messages,
+            )
+            tool_block = next(
+                (b for b in response.content
+                 if b.type == "tool_use" and b.name == "submit_sector_opportunity"),
+                None,
+            )
+            if tool_block is None:
+                raise ValueError("no submit_sector_opportunity block in response")
+            try:
+                result = SectorOpportunityOutput.model_validate(tool_block.input)
+                n_calls = len(result.calls)
+                suffix = f" (attempt {attempt + 1})" if attempt > 0 else ""
+                _log("SECTOR", "OK", f"{n_calls} sector call(s) ({response.usage.output_tokens} tokens, Haiku){suffix}")
+                return result
+            except ValidationError as ve:
+                if attempt == 1:
+                    raise
+                errs = "; ".join(f"{e['loc'][0]}: {e['msg']}" for e in ve.errors())
+                messages += [
+                    {"role": "assistant", "content": response.content},
+                    {"role": "user", "content": [{"type": "tool_result", "tool_use_id": tool_block.id,
+                                                   "content": f"Validation failed — {errs}. Please resubmit with shorter text in those fields."}]},
+                ]
     except Exception as e:
         _log("SECTOR", "WARN", f"sector agent failed ({type(e).__name__}: {e}) — sector_opportunity omitted")
-        return None
+    return None
 
 
 def _format_sector_opportunity(output: "SectorOpportunityOutput") -> str:
