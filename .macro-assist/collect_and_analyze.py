@@ -190,7 +190,7 @@ def _compute_net_liquidity(raw_series: dict) -> dict | None:
 
 
 _FRED_RATE_LIMIT_KEYWORDS = ("too many requests", "rate limit", "429")
-_FRED_INTER_REQUEST_DELAY = 0.35   # seconds between FRED calls (FRED allows ~120/min)
+_FRED_INTER_REQUEST_DELAY = 0.6    # seconds between FRED calls — 16 series = ~10s, safely under 120/min
 
 
 def _fred_get_with_retry(fred: Fred, series_id: str, observation_start: str,
@@ -622,7 +622,9 @@ def fetch_sector_fundamentals() -> str:
 # Only series where a missing value makes the analysis structurally unsound.
 # Monthly/lagging series (unemployment, m2, philly_fed_mfg) are NOT critical —
 # they are regularly stale by design and the analysis degrades gracefully without them.
-_CRITICAL_FRED   = ["fed_funds_rate", "treasury_10y", "treasury_2y", "cpi"]
+# treasury_2y is not critical — missing it loses the yield curve spread (logged as warning)
+# but the 10Y rate and Fed Funds are sufficient for the macro regime read.
+_CRITICAL_FRED   = ["fed_funds_rate", "treasury_10y", "cpi"]
 _CRITICAL_MARKET = ["sp500", "vix", "gold"]
 
 
