@@ -1677,15 +1677,21 @@ def _synthesize_structured(
         + json.dumps(input_data, indent=2)
     )
 
+    _SYNTHESIS_MAX_TOKENS = 5000
     try:
         response = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=3000,
+            max_tokens=_SYNTHESIS_MAX_TOKENS,
             system=system_prompt,
             messages=[{"role": "user", "content": user_message}],
         )
+        used = response.usage.output_tokens
+        if used >= _SYNTHESIS_MAX_TOKENS:
+            _log("MA3B", "WARN",
+                 f"synthesis truncated at token ceiling ({used} tokens) — falling back to Python assembly")
+            return None
         result = response.content[0].text.strip()
-        _log("MA3B", "OK", f"synthesis complete ({response.usage.output_tokens} tokens)")
+        _log("MA3B", "OK", f"synthesis complete ({used} tokens)")
         return result
     except Exception as e:
         _log("MA3B", "WARN", f"synthesis agent failed ({type(e).__name__}: {e}) — will use Python assembly")

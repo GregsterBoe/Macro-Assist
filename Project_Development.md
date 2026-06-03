@@ -338,7 +338,7 @@ Every `*-macro.md` file carries `agent_version` in its YAML frontmatter, inserte
 date: YYYY-MM-DD
 day: Monday
 type: macro-intelligence
-agent_version: v1.1
+agent_version: v1.4
 tags: [macro, daily-note, economics]
 ---
 ```
