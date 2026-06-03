@@ -10,76 +10,82 @@ tags: [macro, daily-note, economics]
 
 ### Executive Summary
 
-WTI oil's +2.24% surge to $95.86 is the dominant signal today, crossing above the psychologically significant $95 level and reigniting inflation pass-through risk at a moment when CPI already sits at 3.95% YoY and the 10Y yield has pushed to 4.47%. The HMM regime model reads Risk-Off High-Vol with 1.00 posterior probability, a direct contradiction to the benign HY spread (2.72%, well below its 5yr mean of 3.243%) and the S&P 500's uptrend structure. The most actionable tension: SPX is at RSI 75 (overbought), +7.2% above its 50dma, while the Bravos Research note highlights tech concentration at dot-com-era extremes and capital starvation outside that sector — a setup where momentum is intact but the margin for error is compressing. Oil above $95 plus overbought equities plus a rising yield curve is the combination most likely to force a repricing.
+WTI crude surged +2.61% to $96.21 today — the dominant cross-asset signal — while equities drifted lower (SPX -0.51% to 7,570.97, Nasdaq -0.74%), with defensive sectors (XLV +1.02%, XLP +0.65%) outperforming cyclicals (XLF -0.93%, XLY -0.94%, XLC -1.11%), reinforcing a cautious undertone. The HMM regime model prints Risk-Off High-Vol with a 1.00 posterior probability and 0.88 stay probability, meaning the quant framework sees near-zero chance of regime escape this week. Oil's spike at 3.95% YoY CPI and a Philly Fed that crashed from +26.7 to -0.4 in a single month raises acute stagflation risk — the worst combination for risk assets if sustained.
 
 ### Macro Dashboard
 
 | Indicator | Current | Reading | Equities | Bonds | Commodities | Crypto |
 |-----------|---------|---------|----------|-------|-------------|--------|
-| Fed Funds Rate | 3.63% | Easing bias | Neutral | Bullish | Neutral | Neutral |
-| CPI YoY | 3.95% | Sticky/Elevated | Caution | Bearish | Bullish | Caution |
+| Fed Funds Rate | 3.63% | Restrictive | Bearish | Bearish | Neutral | Bearish |
+| CPI YoY | 3.95% | Elevated | Bearish | Bearish | Bullish | Bearish |
 | Yield Curve (10Y–2Y) | +0.42% | Steepening/Positive | Neutral | Neutral | Neutral | Neutral |
-| Unemployment | 4.3% | Stable/Slightly Soft | Neutral | Neutral | Neutral | Neutral |
-| M2 Growth YoY | 4.72% | Expanding (above 5yr avg 1.22%) | Bullish | Bearish | Bullish | Bullish |
-| HY Credit Spread | 2.72% | Benign (below 5yr avg 3.24%) | Bullish | Neutral | Neutral | Bullish |
-| Philly Fed Mfg | -0.4 | Caution (collapsed from 26.7) | Caution | Neutral | Bearish | Caution |
-| VIX | 16.07 | Contango (term ratio 0.825) | Neutral | Neutral | Neutral | Neutral |
-| DXY | 99.32 | Slightly Weak | Neutral | Neutral | Bullish | Bullish |
+| Unemployment | 4.3% | Stable/Elevated | Caution | Neutral | Neutral | Caution |
+| M2 Growth YoY | 4.72% | Expanding (above 5yr avg 1.22%) | Bullish | Caution | Bullish | Bullish |
+| HY Credit Spread | 2.71% | Benign (below 5yr avg 3.24%) | Bullish | Bullish | Neutral | Bullish |
+| Philly Fed Mfg | -0.4 | Caution (collapsed -27.1 MoM) | Caution | Caution | Bearish | Caution |
+| VIX | 16.05 | Contango (term ratio 0.813) | Neutral | Neutral | Neutral | Neutral |
+| DXY | 99.53 | Neutral/Recovering | Neutral | Bearish | Bearish | Bearish |
 
 ### Equities
 
-S&P 500 closed at 7,609.78 (+0.13%) and Nasdaq at 27,093.90 (+0.03%), a near-flat session with negligible directional conviction despite the index sitting in a confirmed uptrend (price above 50dma at 7,100 above 200dma at 6,842). The non-obvious signal is extreme sector divergence: XLC (communications) fell -1.76% and XLV (health) -0.97% while XLU (utilities, +1.86%), XLK (tech, +1.25%), XLB (materials, +1.18%), and XLE (energy, +1.15%) led — defensive utilities and cyclical energy leading simultaneously is a mixed-signal session that aligns with the HMM's Risk-Off High-Vol read rather than the benign headline index level; RSI at 75 confirms overbought conditions where bullish calls carry reduced conviction.
+SPX fell -0.51% to 7,570.97 and Nasdaq -0.74% to 26,894.68 in a risk-off, defensively-rotated session — XLV (+1.02%), XLP (+0.65%), XLB (+0.43%), and XLRE (+0.54%) all gained while XLC (-1.11%), XLF (-0.93%), XLY (-0.94%), and XLK (-0.84%) sold off, a classic late-cycle rotation out of growth/financial beta. The non-obvious signal: SPX's RSI at 69.3 and Nasdaq +9.3% above its 50dMA flags exhaustion risk at a structurally important juncture — the Bravos Research observation that US tech has doubled in 12 months (matching dot-com and 2021 peaks) is consistent with this overbought posture, though momentum remains structurally intact (SPX above 50dMA 7,119.91 and 200dMA 6,847.81) and no reversal is confirmed.
 
 ### Rates & Fed Policy
 
-The 10Y yield at 4.47% and 2Y at 4.05% produce a +42bp positive curve — no longer inverted, signalling the market has largely priced out near-term recession. The real yield at 2.07% (82bps above its 5yr mean of 1.248%) is doing the heavy lifting: the 10Y breakeven sits at 2.39%, nearly flat with its 5yr mean of 2.36%, meaning the recent yield move is a growth-repricing story rather than inflation repricing — an important distinction that supports equities near-term but tightens financial conditions for rate-sensitive sectors. The key tension is that Fed Funds at 3.63% with no hikes priced through December 2026 leaves the market vulnerable if oil's move above $95 reignites breakeven inflation expectations, which have so far held contained.
+The 10Y yield at 4.47% and 2Y at 4.05% produce a +42bp positive curve; real yield at 2.07% (82bp above its 5yr mean of 1.25%) is doing the heavy lifting while the 10Y breakeven at 2.39% is only 3bp above its 5yr mean — this is growth repricing, not inflation repricing, consistent with markets pricing deceleration on the Philly Fed collapse. The key tension is that WTI's +2.61% spike today could reignite breakevens if sustained: elevated M2 (4.72% YoY vs. 1.22% 5yr mean) plus an oil impulse is the combination that historically resets inflation expectations and complicates Fed Chair Walsh's stated preference for stability.
 
 ### Inflation & Growth
 
-CPI at 3.95% YoY is essentially at its 5yr mean of 3.99%, suggesting inflation is sticky rather than declining — the soft-landing narrative is intact but not progressing. Unemployment stable at 4.3% and Philly Fed collapsing from 26.7 to -0.4 (a -27.1 point MoM swing, 3.9 points below its 5yr mean of 3.487) creates a stagflation-lite signal: manufacturing is deteriorating sharply while services and labor hold. M2 growth at 4.72% YoY — nearly four times its 5yr mean of 1.22% — is the most important forward-looking signal; this liquidity expansion historically leads nominal activity by 6-12 months, making it the primary argument against a hard growth deceleration, but also the fuel that keeps inflation from converging to target.
+CPI at 3.95% YoY sits at its 5yr mean with zero disinflationary progress, while Philly Fed's violent collapse from +26.7 to -0.4 in one month (27.1-point drop) and unemployment steady at 4.3% with a rising jobless claims trend frames a soft stagflation regime: inflation sticky, growth pulse deteriorating. The most important forward-looking signal is M2 growth running at 4.72% YoY — nearly 3.5x its 5yr mean of 1.22% — which historically leads CPI by 12–18 months; if today's WTI surge proves durable, the combination of excess liquidity and an oil cost push could reignite headline CPI into Q4 2026 well before the Fed has room to cut.
 
 ### Commodities
 
-WTI Oil's +2.24% move to $95.86 is the dominant macro development today, crossing above $95 for the first time and substantially increasing near-term inflation pass-through risk into an already-sticky 3.95% CPI print. Gold at $4,489.70 (+0.01%) is essentially unchanged — with real yields at 2.07% (well above their 5yr mean), the absence of a gold rally is consistent with high opportunity cost dynamics, though gold's -3.0% distance below its 50dma and neutral RSI of 41.8 suggest consolidation rather than breakdown; the DXY at 99.32 is modestly weak, providing no incremental headwind to gold, so the flat price action reflects real-yield suppression rather than dollar pressure.
+WTI crude surged +2.61% to $96.21 — the dominant move across all asset classes today — without an identifiable specific supply or demand catalyst, suggesting the jump is positioning-driven off the -1.7% 50dMA gap toward key resistance rather than a fundamental breakout. Gold slipped -0.46% to $4,468.40 while real yields held flat at 2.07%, making the decline a DXY-driven move (+0.31% to 99.53) rather than a rising opportunity-cost story; at -3.4% below its 50dMA and RSI 40.3, gold's technical reset looks overdone relative to the stagflation macro backdrop, and elevated M2 provides a structural demand floor.
 
 ### Portfolio Risk Assessment
 
-- **Biggest headwind**: Bitcoin and Ethereum (combined P&L: -€590, -28.2% average loss) are the portfolio's biggest headwind in a Neutral/Mixed regime. Both crypto positions are significantly underwater and highly correlated with risk-on sentiment. In a macro environment lacking clear directional conviction, crypto's volatility and sensitivity to liquidity conditions create acute drawdown risk with minimal macro catalyst support.
-- **Biggest tailwind**: NVIDIA (P&L: +€400, +84.7%) is best aligned with current conditions. The position has delivered substantial AI-driven gains that persist even in neutral macro backdrop, reflecting structural demand for semiconductor capacity independent of broad equity cyclicality. This secular tailwind provides portfolio resilience when macro signals are mixed.
-- **One actionable observation**: Consider reducing Bitcoin and Ethereum positions to limit crypto concentration risk in a Neutral/Mixed environment where risk-off liquidity events are plausible. Current combined allocation to digital assets (~€1,517, ~17% of priced portfolio) far exceeds typical diversification guidelines; trimming to 5–8% would lock in some gains from NVIDIA's surge while rebalancing into uncorrelated hedges (particularly the German Bund and gold positions, which remain opaque in pricing but serve defensive roles).
-- **Opportunity gap**: Investment-grade credit spreads (EUR corporate bonds or iBoxx EUR Corporate index) are notably absent and well-favoured in Neutral/Mixed regimes where equity volatility remains elevated but default risk stays contained. Adding €300–500 in IG corporates would reduce concentration risk in equities and crypto while capturing yield without equity beta, acting as a stabiliser between growth (NVIDIA, semiconductors) and hedges (Bunds, gold).
+- **Biggest headwind**: Ethereum (P&L: -304€, -27.4%) and Bitcoin (P&L: -321€, -32.1%) are the portfolio's largest headwinds. Under stagflation, growth assets lose appeal due to rising real yields and lower risk appetite, while cryptocurrencies—lacking cash flows and inflation-hedging credentials—face compounded pressure from both slower growth (demand destruction) and persistent inflation (monetary tightness). Bitcoin's 32% drawdown signals acute exposure to the regime's deflationary growth shock.
+- **Biggest tailwind**: German Bund 2034 (position: €325.43 notional) is best positioned. Long-duration fixed income rallies sharply in stagflation as nominal yields compress on recession fears and central banks pause tightening. Bund duration provides the portfolio's only meaningful hedge against growth deceleration and currency stability within the eurozone.
+- **One actionable observation**: Ethereum and Bitcoin positions (-625€ combined loss, -59.5% drawdown combined) should be trimmed to 25–30% of current size to lock in losses for tax relief and reduce portfolio drag. The proceeds should be reallocated to the Bund duration position and the Put 90$ contract to strengthen recession/deflation protection. The Russell 2000 (+11.6%, 201€) is under-sized given stagflation typically punishes small-cap growth; monitor this position for rebalancing only if macro regime shifts toward reacceleration.
+- **Opportunity gap**: Commodities and commodity-linked equities (e.g., energy, mining ETFs) are not represented. Stagflation typically supports real asset prices as inflation hedges and supply-constrained sectors benefit from inelastic demand. Adding a broad commodity exposure (CRB, DBE, or large-cap diversified energy/mining) would reduce portfolio concentration risk in equities and crypto while providing genuine inflation buffer and negative correlation to equities during the current regime.
 
 ### Sector Opportunity Research
 
-**XLK — Technology**
-M2 growth at 4.72% YoY (nearly 4x its 5yr mean of 1.22%) provides forward-looking liquidity support for nominal growth over next 6–12 months; positive yield curve (+42bp) removes near-term recession premium.
-Valuation: 43.4x trailing vs 30.0x ref — Above avg; near 52wk high (+0.0%). Overbought RSI at 75 with +16.63% vs SPX 1M creates crowding risk.
-Timing: XLK +22.3% 1M vs SPX -0.2% (+16.63% outperformance) — strong momentum but at risk of mean reversion; 40% market concentration mirrors 2000 setup.
+**XLP — Consumer Staples**
+Stagflation (sticky 3.95% CPI, Philly Fed collapse, elevated M2 at 4.72% YoY) drives defensive rotation; real yield 2.07% (82bp above 5yr mean) compresses growth multiples, favoring defensive sectors with pricing power.
+Valuation: 25.0x trailing P/E vs 21.5x reference — Above avg, but narrowest premium in defensive cohort; positioned as stability anchor amid stagflation uncertainty.
 
-**XLB — Materials**
-M2 expansion and positive yield curve support near-term demand recovery; cyclical materials benefit from nominal growth tailwind; offset by Philly Fed manufacturing collapse (-27.1 MoM) signalling industrial headwinds.
-Valuation: 26.0x trailing vs 19.0x ref — Above avg. Modest outperformance 1M (+1.7% vs SPX, -3.96% relative) suggests fair positioning.
+**XLV — Health Care**
+Elevated real yields (2.07%, 82bp above 5yr mean) compress growth multiples, but Health Care's structural inelasticity to rate repricing and aged demographics provide dual tailwind; sticky inflation (3.95% CPI) supports pricing power.
+Valuation: 27.3x trailing P/E vs 19.5x reference — Above avg (+40% premium), justified by earnings defensibility; delivered +1.02% gain vs SPX -0.51% in today's risk-off session.
 
 **XLC — Communication Services**
-Real yield at 2.07% (82bps above 5yr mean) compresses long-duration mega-cap multiples; XLC down -1.76% today signals tactical rotation, but P/E of 16.7x vs 21.0x ref provides valuation buffer if breakevens stabilize at current 2.39% level.
-Valuation: 16.7x trailing vs 21.0x ref — Below avg; -5.1% from 52wk high. -7.86% vs SPX 1M underperformance suggests mean-reversion candidate.
-Research candidates (not a recommendation — verify independently): META, GOOGL
+Growth repricing on Philly Fed collapse pressures high-multiple cohort, but XLC's 16.5x trailing P/E sits below 21.0x reference — rare Below avg valuation; META (fwd 17.2x) offers re-rating optionality if AI capex narrative stabilizes.
+Valuation: 16.5x trailing P/E vs 21.0x reference — Below avg; sector down -7.17% vs SPX 1M, creating potential exhaustion entry for selective alpha.
+Research candidates (not a recommendation — verify independently): META
 
-*Neutral/Mixed macro backdrop: M2 liquidity and positive curve support equities, but real yields +82bps above mean, Philly Fed at -0.4, and HMM Risk-Off regime conflict with benign credit. Oil >$95 poses inflation pass-through risk. Tech crowded at +16.63% 1M outperformance vs SPX; XLC relative weakness offers contrarian entry if growth stabilizes.*
+*Stagflation regime creates two-layer opportunity: Staples and Health Care as cyclical shock absorbers; selective Communication Services re-rating (mega-cap tech). WTI +2.61% spike presents tail risk to inflation expectations; if sustained above $96, could force rapid Fed repricing and compress defensive multiples. No sector exhibits cheap valuation — all trade Above avg — so conviction rests on structural defensibility and rotation momentum.*
 
 ### Key Risks & Themes
 
-- WTI Oil above $95 reignites inflation pass-through risk into a sticky 3.95% CPI — if breakevens break above 2.5%, the Fed's no-hike-through-2026 commitment is tested
-- SPX RSI at 75 and Nasdaq +10.6% above 50dma with tech at 40% market concentration mirrors 2000 dot-com setup per Bravos Research; a momentum reversal in mega-cap tech would have outsized index impact
-- Philly Fed Manufacturing collapsed 27.1 points MoM to -0.4 — if this is the leading edge of a broader industrial slowdown, the soft-landing consensus will face a rapid repricing
-- HMM regime model at Risk-Off High-Vol with 1.00 posterior despite benign credit spreads — the regime model and credit markets are in direct conflict; one of them will be proven wrong within 4 weeks
-- Rising jobless claims trend (215k, up from 210k, though still 16.8k below 5yr mean of 231.8k) warrants monitoring as the leading labor market indicator before the next NFP print
+- WTI above $96 passes through to headline CPI, breaking market complacency around inflation anchoring and forcing a repricing of Fed easing expectations
+- Philly Fed collapse from +26.7 to -0.4 in one month signals rapid manufacturing deterioration — confirmation in ISM or jobs data would cement a stagflation narrative and pressure risk assets
+- Tech/AI concentration at ~40% of market cap with the index having doubled in 12 months mirrors dot-com and 1929 structures; any momentum reversal could trigger rapid de-concentration and outsized index drawdowns
+- Bitcoin RSI at 20.7 (oversold) and -14.3% below its 50dMA signals acute near-term distress; a failed recovery here would confirm risk-off crypto positioning and spill into broader sentiment
+- HMM regime is locked at Risk-Off High-Vol with 0.88 stay probability — a surprise Fed communication or hot inflation print within the 5-day window could spike VIX and compress the current term structure contango (VIX term ratio 0.813)
 
 ### 5-Day Predictions
 
 | Asset | Bias | Primary Driver | Confidence | Target Range |
-|-------|------|----------------|------------|--------------
-| S&P 500 | Neutral | SPX trades in a confirmed uptrend (price 7,609 above 50dma 7,100 above 200dma 6,842) with +5.68% one-month return, but RSI at 75 is overbought and the index lacks a 50dma distance figure — Nasdaq is +10.6% above its 50dma, confirming extended positioning. Conditional return distribution (NFCI:low\|YC:positive\|HY:tight, n=265) shows T+5 median of +0.4% with P25 at -0.5%, a narrow asymmetry. HMM regime is Risk-Off High-Vol (posterior 1.00), which caps upside confidence. Net liquidity is expanding (+0.7% MoM) — per rules, this prevents a Bearish call when RSI <70 is not met here (RSI=75 is overbought, reducing bullish conviction). Overbought RSI reduces confidence on bullish calls per style rules. Best-window accuracy insufficient to override (insufficient directional history stated). Settling Neutral with tight range, reflecting expanding liquidity as floor and
+|-------|------|----------------|------------|--------------|\
+| S&P 500 | Neutral | SPX is in a structural uptrend (price 7,570 > 50dMA 7,120 > 200dMA 6,848), net liquidity expanding (+0.7% MoM), and HY spreads benign at 2.71% vs 5yr avg 3.24%. However, the HMM regime is locked at Risk-Off High-Vol (posterior 1.00, stay prob 0.88), RSI at 69.3 is near overbought, and the conditional return distribution (NFCI:mid\|YC:positive\|HY:tight bucket, n=166) has a median T+5 return of just +0.6% with P25 at -1.1%. Defensive sector rotation today (XLV, XLP outperforming XLF, XLY) adds caution. Liquidity trend prevents a Bearish call per the style rules, but regime lock and near-overbought RSI cap conviction on the upside. Neutral with a slight downside skew; range calibrated to median/P25-P75 spread. | 52% | 7,480–7,650 |
+| Gold | Bullish | Gold at $4,468 is -3.4% below its 50dMA and RSI is 40.3 — technically washed-out, not overbought. Real yields are unchanged at 2.07% (the opportunity-cost headwind is not increasing), and the DXY bounce to 99.53 is modest. Structural macro supports remain strong: M2 growing at 4.72% YoY (3.5x the 5yr mean), stagflation risk rising on Philly Fed collapse and WTI spike, and CPI at 3.95% well above target. The conditional return distribution shows a median T+5 of +0.5% and P75 of +2.2%. A technical recovery from the -3.4% 50dMA gap is the base case. T+5 directional call with a 5pp cross-horizon discount applied vs. T+20 view (which is more definitively bullish on stagflation thesis). Confidence: 58%. | 58% | 4,440–4,570 |
+| WTI Oil | Neutral | WTI surged +2.61% to $96.21 today, but no specific supply or demand catalyst is identifiable in today's data — the COT positioning percentile is unavailable (building history), the move appears momentum-driven toward the 50dMA resistance level (was -1.7% below prior to today). The conditional return distribution for WTI (NFCI:mid\|YC:positive\|HY:tight) shows a very wide T+5 spread: P25 -3.2%, median +0.5%, P75 +3.4% — near-zero directional edge. HAR-RV vol is elevated at 71.0% annualized (60d pct 72), meaning daily ranges are wide and noise dominates signal. Per the style rules, defaulting to Neutral absent a named supply/demand catalyst. Range reflects high realized vol around today's close. | 51% | 92.00–99.50 |
+| 10Y Treasury Yield | Bearish | Bearish on yields (bullish on price) over T+5. Real yield at 2.07% is 82bp above its 5yr mean — historically restrictive. Philly Fed's collapse to -0.4 from +26.7 signals growth deterioration which typically pulls yields lower. HMM regime is Risk-Off High-Vol with 0.88 stay probability — flight-to-quality bids emerge in this regime. The 2Y jumped 7bp today to 4.05% (more sensitive to near-term Fed pricing), but the 10Y only moved 2bp — curve steepening dynamic caps upside in the 10Y. Breakeven at 2.39% is barely above its 5yr mean and unlikely to rerate materially higher without sustained oil pass-through. Growth repricing (not inflation repricing) is the current driver per real yield/breakeven decomposition. Expecting modest yield compression toward 4.35–4.42% range. [Risk: Inflation Repricing] | 55% | 4.35–4.55 |
+| DXY | Neutral | DXY at 99.53 is only +0.6% above its 50dMA with RSI 60.4 and 60d Z-score +0.87 — modest positive momentum but not extreme. Today's +0.31% move is consistent with risk-off flow but the dollar faces competing forces: Fed Chair Walsh's easing bias and no-hike pricing through December 2026 limit upside, while stagflation risk and flight-to-quality provide support. M2 growing at 4.72% YoY (well above 5yr mean) is structurally dollar-dilutive over the medium term but not a T+5 catalyst. The HMM Risk-Off regime provides mild dollar support via safe-haven flows but the yield curve steepening slightly reduces the carry appeal of the long end. Balanced signals; Neutral with a tight range. | 53% | 98.80–100.30 |
+| Bitcoin | Bullish | Contrarian bias correction applied. Bitcoin at $65,937 is -14.3% below its 50dMA with RSI 20.7 (Oversold) — a statistically unusual washout reading (60d Z-score -0.60). The oversold RSI at 20.7 is below the 30 threshold that reduces conviction on bearish calls per the style rules. COT positioning percentile is unavailable (building history), but the -14.3% 50dMA gap combined with deeply oversold RSI sets up a mean-reversion bounce candidacy over T+5. M2 growth at 4.72% YoY (3.5x 5yr mean) is historically bullish for risk/liquidity-sensitive assets. HAR-RV at 0.0% ann-vol printed anomalously (likely data issue) — actual realized vol is high given the price dislocation. HY spreads remain benign at 2.71%. Low confidence given Risk-Off HMM regime and -14.3% 50dMA gap as headwinds; this is a technical mean-reversion call, not a macro conviction trade. [Risk: Failed Recovery] | 51% | 64,000–69,500 |
+
+Review date: 2026-06-10
 
 ---
 
@@ -89,29 +95,29 @@ Research candidates (not a recommendation — verify independently): META, GOOGL
 
 | Asset | Price | Change |
 |-------|-------|--------|
-| S&P 500 | 7,609.78 | ▲ 0.13% |
-| Nasdaq | 27,093.90 | ▲ 0.03% |
-| Gold | 4,489.70 | ▲ 0.01% |
-| WTI Oil | 95.86 | ▲ 2.24% |
-| VIX | 16.07 | ▲ 1.90% |
-| DXY | 99.32 | ▲ 0.10% |
-| Bitcoin | 67,263.72 | ▲ 0.84% |
+| S&P 500 | 7,570.97 | ▼ 0.51% |
+| Nasdaq | 26,894.68 | ▼ 0.74% |
+| Gold | 4,468.40 | ▼ 0.46% |
+| WTI Oil | 96.21 | ▲ 2.61% |
+| VIX | 16.05 | ▲ 1.78% |
+| DXY | 99.53 | ▲ 0.31% |
+| Bitcoin | 65,936.94 | ▼ 1.15% |
 
 ### Sector ETFs
 
 | Sector | Price | Change |
 |--------|-------|--------|
-| Energy (XLE) | 57.96 | ▲ 1.15% |
-| Technology (XLK) | 198.21 | ▲ 1.25% |
-| Financials (XLF) | 51.46 | ▲ 0.06% |
-| Industrials (XLI) | 174.19 | ▲ 1.04% |
-| Consumer Discretionary (XLY) | 117.59 | ▼ 0.51% |
-| Health Care (XLV) | 146.40 | ▼ 0.97% |
-| Utilities (XLU) | 43.90 | ▲ 1.86% |
-| Consumer Staples (XLP) | 81.83 | ▼ 0.24% |
-| Materials (XLB) | 51.52 | ▲ 1.18% |
-| Real Estate (XLRE) | 43.49 | ▲ 0.51% |
-| Communication Services (XLC) | 113.57 | ▼ 1.76% |
+| Energy (XLE) | 58.79 | ▲ 1.44% |
+| Technology (XLK) | 196.54 | ▼ 0.84% |
+| Financials (XLF) | 50.98 | ▼ 0.93% |
+| Industrials (XLI) | 174.41 | ▲ 0.13% |
+| Consumer Discretionary (XLY) | 116.48 | ▼ 0.94% |
+| Health Care (XLV) | 147.90 | ▲ 1.02% |
+| Utilities (XLU) | 43.92 | ▲ 0.03% |
+| Consumer Staples (XLP) | 82.36 | ▲ 0.65% |
+| Materials (XLB) | 51.74 | ▲ 0.43% |
+| Real Estate (XLRE) | 43.72 | ▲ 0.54% |
+| Communication Services (XLC) | 112.32 | ▼ 1.11% |
 
 ### Macro Indicators
 
@@ -128,7 +134,6 @@ Research candidates (not a recommendation — verify independently): META, GOOGL
 | 10Y Breakeven       | 2.39%  | 2026-06-02 |
 | Fed Net Liquidity   | $5.87T (Expanding, +0.2% WoW, +0.7% MoM) | 2026-06-03 |
 | Initial Claims      | 215,000k (Rising, +2.4% WoW) | 2026-05-23 |
-| NFCI                | -0.51 (0=neutral, +tight, -loose) | 2026-05-22 |
 
 ---
-*Generated by Macro-Assist · 2026-06-03 11:26 UTC*
+*Generated by Macro-Assist · 2026-06-03 18:59 UTC*
