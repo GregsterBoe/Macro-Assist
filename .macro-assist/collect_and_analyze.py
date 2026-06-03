@@ -1691,6 +1691,10 @@ def _synthesize_structured(
                  f"synthesis truncated at token ceiling ({used} tokens) — falling back to Python assembly")
             return None
         result = response.content[0].text.strip()
+        # Haiku sometimes appends a spurious `\` after the last pipe on the
+        # table separator row (e.g. `|--------------|\`).  Strip it so the
+        # markdown table renders correctly.
+        result = re.sub(r'^(\|[-| ]+)\\\s*$', r'\1', result, flags=re.MULTILINE)
         _log("MA3B", "OK", f"synthesis complete ({used} tokens)")
         return result
     except Exception as e:
