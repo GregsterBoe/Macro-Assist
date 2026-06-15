@@ -947,7 +947,11 @@ Not on critical path. Listed for future planning.
    - The `Rising` trend flag is too trigger-happy (fires ~40% of days, lift only ~1.4) — needs tightening.
    - **Verdict: GO.** The index earns its place; proceed to A.3. Caveats for A.3: (a) overlapping daily windows inflate apparent significance — re-score at the distinct-episode level; (b) reconsider weights — down-weight/replace `correlation`, possibly drop `autocorr`; (c) `vix_term` carries much of the load and is partly circular, so don't let it dominate the composite.
 
-3. **WP-16.A.3 — Calibrate thresholds.** Percentile the composite against its own history; define Elevated / Normal / Resilient labels anchored to history (same pattern as the VRP labels in Phase 9).
+3. **WP-16.A.3 — Recalibrate weights + calibrate thresholds. *(Done — branch `feature/emergence`)*.** Two parts, both on **de-overlapped** metrics (the A.2 caveat: overlapping daily windows inflated the day-level lift). Added episode-level scoring (collapse drawdown labels and alarm flags into distinct runs → caught *crises* vs. true *alarms*) and a non-overlapping AUC (subsample every horizon-th day) to `fragility_backtest.py`, plus a 6-scheme `run_weight_ablation`. **Results (full detail in `Knowledge_Base.md` KB-002):**
+   - **Chosen weights `var_led_vix35`:** variance_trend 0.45 / vix_term 0.35 / acceleration 0.15 (reserved for A.4) / correlation 0.05 (token, for graceful degradation) / autocorr 0.0 (dropped). Now `fragility.py`'s `DEFAULT_WEIGHTS`.
+   - Ablation settled the A.2 open questions: dropping `autocorr` is **free** (zero effect — it earned nothing), dropping `correlation` **helps** (kept at a token weight only for degradation), `vix_term` is strongest but **capped below variance** (semi-circular). `var_led_vix35` matched the max-skill 2-component scheme on AUC (within noise) with the **best alarm precision** and graceful degradation.
+   - **Thresholds** now percentile-anchored to this scheme's own 2008-2026 composite: **Elevated = 90th pct ≈ 56.5**, **Resilient = 40th pct ≈ 24.0** (the Elevated cut *is* the validated top-decile flag).
+   - **De-overlapped reality check:** composite AUC 0.72/0.69 (honest n), episode recall ~0.30 (catches ~30% of distinct crises), alarm precision **0.53/0.73**, median lead **4–8 trading days**. A *precise-but-incomplete* tail-risk early-warning, not a comprehensive crash detector — KB-001's 8× lift was overlap-inflated. Tests: `test_fragility_backtest.py` now 18 (added 7 for de-overlap functions); all pass.
 
 4. **WP-16.A.4 — Wire into quant context (shadow first).** Add a `## Fragility Monitor` subsection to `quant_context.py`. System-prompt rule: when fragility is Rising + Elevated, **widen** prediction Target Ranges and add an explicit tail-risk bullet to Key Risks; do **not** change Bias direction. Run in shadow mode for ≥20 trading days before any production merge.
 
@@ -1000,7 +1004,8 @@ Not on critical path. Listed for future planning.
 | 2 | **WP-16.A.1 — `fragility.py` prototype** (starting point) | Medium | Phase 8 | ✅ Done |
 | 3 | **WP-16.A.2 — Fragility backtest gate** | Medium | A.1 | ✅ Done (GO — composite AUC 0.66–0.71, 4–6d lead) |
 | 4 | WP-16.C.1 — Ensemble the analysis agent | Low | B.2 | 🔲 |
-| 5 | WP-16.A.3–A.5 — Calibrate + shadow-wire fragility | Medium | A.2 passes gate | 🔲 |
+| 5 | WP-16.A.3 — Recalibrate weights + thresholds (de-overlapped) | Medium | A.2 | ✅ Done (`var_led_vix35`; AUC 0.69–0.72 honest-n, precision 0.53–0.73, 4–8d lead) |
+| 5b | WP-16.A.4–A.5 — Shadow-wire + monitor fragility | Medium | A.3 | 🔲 |
 | 6 | WP-16.B.1 — Conviction floor → flag, re-score | Low | B.2 | 🔲 |
 | 7 | WP-16.C.2 — Analog-episode retrieval | Medium | Phase 11 | 🔲 |
 | 8 | WP-16.C.3 — Base-rate-first prompting | Low | B.2 | 🔲 |

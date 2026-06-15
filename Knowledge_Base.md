@@ -73,3 +73,84 @@ the Phase-16 thesis:
 **Incidental bug found & fixed.** WTI front-month futures printed *negative* on
 2020-04-20; `log()` of that is undefined and was silently producing NaNs in the
 middle of the COVID stress window. Now masked in `fragility._to_log_returns`.
+
+---
+
+## KB-002 — Fragility weights recalibrated + de-overlapped (WP-16.A.3)
+
+**Date:** 2026-06-15 · **Branch:** `feature/emergence` · **Harness:**
+`.macro-assist/fragility_backtest.py` (`run_weight_ablation`, still **zero
+LLM/API cost**). Reproduce: `python fragility_backtest.py` (default weights now
+= the chosen scheme).
+
+**What we tested.** Two things A.2 flagged as unfinished: (1) **de-overlap** the
+scoring — 4,513 daily readings inside a handful of real crises are not
+independent, which inflated A.2's day-level lift; (2) **recalibrate the
+weights** (correlation looked dead, autocorr no-skill, vix_term semi-circular).
+Added episode-level scoring (collapse both the drawdown label and the alarm flag
+into distinct runs → count caught *crises* vs. true *alarms*) and a
+non-overlapping AUC (subsample every horizon-th day). Ran a 6-scheme ablation on
+the de-overlapped metrics, 2008-2026.
+
+**Headline — the signal survives de-overlapping, but is smaller than it looked,
+and the weights were wrong.** Chosen scheme **`var_led_vix35`** (variance 0.45 /
+vix_term 0.35 / correlation 0.05 / acceleration 0.15* / autocorr 0.0):
+
+| metric | 5-day | 10-day |
+|---|---|---|
+| Composite AUC (overlap) | 0.727 | 0.661 |
+| Composite AUC (**non-overlap, honest n**) | **0.719** | **0.690** |
+| Episode recall (distinct crises caught) | 14/46 = **0.30** | 17/58 = **0.29** |
+| Alarm precision (distinct alarms that led a crisis) | **0.53** | **0.73** |
+| Median lead (Elevated → trough) | 4 d | 8 d |
+| % true positives ≥3-day warning | 80% | 91% |
+
+\*`acceleration` (HY/NFCI) is never computed in the yfinance-only backtest, so
+its weight renormalises away here; it is reserved for the A.4 wiring.
+
+**Reframe the A.2 headline (important).** KB-001's "8.05× lift" was **inflated by
+overlapping windows**. De-overlapped, this is a **precise-but-incomplete** flag:
+it fires rarely (~10% of days at the 90th-pct Elevated cut), catches only ~30%
+of distinct crises, but when it fires it is right **50–73%** of the time and a
+genuine **4–8 trading days early**. It is a tail-risk *early-warning*, not a
+comprehensive crash detector — size expectations accordingly.
+
+**What the ablation settled.**
+- **Dropping `autocorr` is free** — `baseline` and `drop_autocorr` were identical
+  to 3 decimals. Its 0.05 weight contributed nothing. Dropped to 0.
+- **Dropping `correlation` *helps*** — every scheme that zeroed it beat baseline
+  on the honest AUC *and* episode precision/recall. The cross-asset
+  correlation-tightening story is not in the data. Kept at a **token 0.05** only
+  so the live composite degrades gracefully if VIX3M is unavailable.
+- **`vix_term` is strongest but capped at 0.35** (below variance's 0.45): it is
+  semi-circular (backwardation *is* a stress read), so it must not dominate.
+- **`var_led_vix35` matched the max-skill 2-component `core_two` (var/vix 50/50)**
+  on AUC (within 0.004–0.011, i.e. noise) while having the **highest alarm
+  precision of any scheme** and degrading more gracefully — so it was preferred
+  over both the aggressive (`core_two`) and the over-conservative
+  (`var_led_capvix`) options.
+
+**Threshold calibration (the other half of A.3).** Composite labels are now
+**percentiles of this scheme's own 2008-2026 distribution**, replacing the
+provisional absolute cuts: **Elevated = 90th pct ≈ 56.5**, **Resilient = 40th
+pct ≈ 24.0**. The 90th-pct cut *is* the validated top-decile flag, so the live
+`Elevated` label is exactly what the backtest scored.
+
+**Caveats still open.**
+1. Still a **single regime sample** (one GFC, one COVID) — 18 years, few
+   independent crises. The ~0.01 AUC gaps between finalist schemes are within
+   sampling noise; do not over-fit to them.
+2. `acceleration` (HY-spread / NFCI) remains **untested** — it carries real
+   weight (0.15) but only activates when A.4 wires in those feeds.
+3. The `Rising` **trend flag is still trigger-happy** (fires ~40–50% of days,
+   lift ~1.3); only the *level* flags (Elevated / top-decile) are validated.
+   Trend momentum was retuned to lean on the variance slope (0.85) over the
+   now-token correlation delta (0.15), but treat trend as informational.
+
+**What it changes.**
+- `fragility.py` `DEFAULT_WEIGHTS` and label cut-points are now the calibrated
+  values above (was the A.2 provisional set). WP-16.A.3 is **Done**.
+- Next is **WP-16.A.4** — wire the monitor into `quant_context.py` in **shadow
+  mode** (widen ranges + tail-risk bullet when Elevated; never flip direction).
+  The expensive LLM-pipeline backtest still should **not** run until after a
+  shadow period confirms the wiring behaves.

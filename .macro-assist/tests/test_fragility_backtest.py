@@ -17,6 +17,9 @@ from fragility_backtest import (
     walk_forward_fragility,
     auc,
     evaluate,
+    collapse_episodes,
+    episode_scoring,
+    subsample_auc,
 )
 
 
@@ -165,3 +168,78 @@ def test_evaluate_recovers_planted_signal():
 def test_evaluate_empty_when_no_overlap():
     df = pd.DataFrame()
     assert evaluate(df, pd.Series(dtype=bool)) == {}
+
+
+# ---------------------------------------------------------------------------
+# De-overlapping (WP-16.A.3)
+# ---------------------------------------------------------------------------
+
+def _bool_series(pattern, start="2008-01-01"):
+    idx = pd.date_range(start, periods=len(pattern), freq="B")
+    return pd.Series([bool(x) for x in pattern], index=idx)
+
+
+def test_collapse_episodes_basic_runs():
+    # Two runs separated by a 3-day gap (> merge_gap=0) => two episodes.
+    s = _bool_series([1, 1, 0, 0, 0, 1, 1, 1])
+    eps = collapse_episodes(s, merge_gap=0)
+    assert len(eps) == 2
+    assert eps[0] == (s.index[0], s.index[1])
+    assert eps[1] == (s.index[5], s.index[7])
+
+
+def test_collapse_episodes_merges_small_gap():
+    # Single 1-day gap, merged when merge_gap >= 1 => one episode.
+    s = _bool_series([1, 1, 0, 1, 1])
+    assert len(collapse_episodes(s, merge_gap=1)) == 1
+    assert len(collapse_episodes(s, merge_gap=0)) == 2
+
+
+def test_collapse_episodes_empty():
+    assert collapse_episodes(_bool_series([0, 0, 0])) == []
+
+
+def test_episode_scoring_counts_independent_events():
+    # One alarm sits inside one of two label episodes: recall 1/2, precision 1/1.
+    labels = _bool_series([1, 1, 0, 0, 0, 0, 1, 1])
+    flag = _bool_series([1, 1, 0, 0, 0, 0, 0, 0])
+    res = episode_scoring(flag, labels, merge_gap=0)
+    assert res["n_episodes"] == 2
+    assert res["n_alarms"] == 1
+    assert res["n_caught"] == 1
+    assert res["episode_recall"] == 0.5
+    assert res["alarm_precision"] == 1.0
+
+
+def test_episode_scoring_false_alarm_lowers_precision():
+    # Alarm fires where no drawdown episode exists => precision 0.
+    labels = _bool_series([0, 0, 0, 0, 1, 1])
+    flag = _bool_series([1, 1, 0, 0, 0, 0])
+    res = episode_scoring(flag, labels, merge_gap=0)
+    assert res["alarm_precision"] == 0.0
+    assert res["episode_recall"] == 0.0
+
+
+def test_subsample_auc_decorrelates():
+    # Perfectly separable scores stay perfect under subsampling.
+    scores = pd.Series(list(range(20)))
+    labels = pd.Series([i >= 10 for i in range(20)])
+    assert subsample_auc(scores, labels, step=3) == 1.0
+
+
+def test_evaluate_horizon_adds_deoverlap_keys():
+    rng = np.random.default_rng(11)
+    n = 400
+    histories = {}
+    for i, name in enumerate(["sp500", "nasdaq", "gold", "wti_oil"]):
+        rets = _vol_explosion(n, seed=i)
+        if name == "sp500":
+            rets[-n // 3:] -= 0.004
+        histories[name] = _returns_to_close(rets)
+    df = walk_forward_fragility(histories)
+    labels = drawdown_label(histories["sp500"], threshold=0.05, horizon=10)
+    report = evaluate(df, labels, horizon=10)
+    assert "auc_nonoverlap" in report
+    assert "episodes" in report
+    assert "composite" in report["auc_nonoverlap"]
+    assert "elevated_label" in report["episodes"]
