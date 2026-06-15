@@ -58,8 +58,13 @@ _LABEL_RESILIENT = 40.0
 
 
 def _to_log_returns(close: pd.Series) -> pd.Series:
-    """Close-price Series -> daily log returns, NaNs dropped."""
+    """Close-price Series -> daily log returns, NaNs dropped.
+
+    Non-positive prices are masked to NaN first: front-month WTI futures
+    printed negative on 2020-04-20, and log() of that is undefined.
+    """
     close = pd.Series(close).astype(float)
+    close = close.where(close > 0)
     return np.log(close / close.shift(1)).dropna()
 
 
