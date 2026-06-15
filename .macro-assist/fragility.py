@@ -8,16 +8,23 @@ flip a Bullish/Bearish call.
 
 Empirical grounding (see Project_Development.md, Phase 16): in equity markets
 classic *critical slowing down* (rising lag-1 autocorrelation) is NOT a reliable
-pre-crash signal, but RISING VARIANCE / VARIABILITY is. So the composite weights
-variance- and correlation-based components heavily and treats autocorrelation as
-an experimental, low-weight component kept for transparency and ablation.
+pre-crash signal, but RISING VARIANCE / VARIABILITY is. The WP-16.A.3 weight
+ablation (de-overlapped, 2008-2026) confirmed this and went further: the
+cross-asset CORRELATION component was near-chance too (it did not earn weight),
+and lag-1 autocorrelation had no skill. So the composite is now VARIANCE-LED,
+gives the VIX term-structure honest-but-capped weight (it is the strongest
+single component but semi-circular — backwardation is itself a stress read, so
+it must not dominate), keeps `correlation` at a token weight for graceful
+degradation, and drops `autocorr` to zero.
 
 Each component returns a sub-score in [0, 100] where higher = more fragile.
 The composite is a weighted mean of whichever components are available.
 
-PROTOTYPE STATUS: the composite label thresholds here are provisional. WP-16.A.3
-will replace them with percentile cut-points calibrated against the index's own
-history; WP-16.A.2 must first show (in backtest) that the index leads drawdowns.
+CALIBRATION (WP-16.A.3, Done): weights chosen by de-overlapped ablation (see
+Knowledge_Base.md KB-002); composite label thresholds are percentile cut-points
+of this scheme's own 2008-2026 composite distribution — Elevated = 90th pct,
+Resilient = 40th pct. The 90th-pct (Elevated) cut is exactly the flag whose
+episode precision/recall was validated in the backtest.
 
 Public functions
 ----------------
@@ -36,25 +43,33 @@ import numpy as np
 import pandas as pd
 
 # ---------------------------------------------------------------------------
-# Composite weights. Primary components (strongest empirical basis) dominate;
-# the experimental autocorrelation component is deliberately near-zero.
-# Only the available components are used; weights are renormalised over them.
+# Composite weights — recalibrated in WP-16.A.3 by de-overlapped ablation
+# ("var_led_vix35"; see Knowledge_Base.md KB-002). Variance-trend leads (the
+# cleanest, non-circular fragility signal); the VIX term-structure gets honest
+# but capped weight (strongest component, but semi-circular); `correlation` is
+# a token weight (near-chance, kept only for graceful degradation if VIX3M is
+# unavailable); `autocorr` is dropped (no skill in equities, as predicted).
+# `acceleration` (HY/NFCI) reserves weight for WP-16.A.4 wiring; until then it
+# is simply unavailable and renormalised away. Weights renormalise over only
+# the components that could be computed.
 # ---------------------------------------------------------------------------
 DEFAULT_WEIGHTS: dict[str, float] = {
-    "variance_trend": 0.35,
-    "correlation":    0.30,
-    "vix_term":       0.20,
-    "acceleration":   0.10,
-    "autocorr":       0.05,   # experimental — see module docstring
+    "variance_trend": 0.45,
+    "vix_term":       0.35,
+    "acceleration":   0.15,   # reserved for A.4 (HY spread / NFCI); else inert
+    "correlation":    0.05,   # token — near-chance, kept for degradation only
+    "autocorr":       0.0,    # dropped — no skill in equities (WP-16.A.2/3)
 }
 
 # Assets excluded from the cross-asset correlation / variance aggregate
 # (volatility measures are circular to a variance-based fragility test).
 _VOL_KEYS = {"vix", "vix3m"}
 
-# Provisional composite labels (WP-16.A.3 will calibrate these to history).
-_LABEL_ELEVATED = 65.0
-_LABEL_RESILIENT = 40.0
+# Composite label cut-points — calibrated (WP-16.A.3) to percentiles of the
+# var_led_vix35 composite's own 2008-2026 distribution: Elevated = 90th pct,
+# Resilient = 40th pct. The Elevated cut is the validated top-decile flag.
+_LABEL_ELEVATED = 56.5
+_LABEL_RESILIENT = 24.0
 
 
 def _to_log_returns(close: pd.Series) -> pd.Series:
@@ -344,13 +359,16 @@ def fragility_index(
 
     composite = float(sum(components[k]["score"] * norm_w[k] for k in components))
 
-    # Trend: is fragility BUILDING? Combine the variance-slope sign with the
-    # correlation delta. Both are forward-looking pieces of the composite.
+    # Trend: is fragility BUILDING? Driven mainly by the variance slope (the
+    # lead signal); the correlation delta only nudges it, mirroring its token
+    # weight in the composite after the A.3 recalibration. NOTE: the A.2/A.3
+    # backtest validated the LEVEL flags (Elevated / top-decile), not this
+    # Rising trend flag (which fired too often). Treat trend as informational.
     momentum = 0.0
     if "variance_trend" in components:
-        momentum += 0.6 * float(np.tanh(2.5 * components["variance_trend"]["mean_norm_slope"]))
+        momentum += 0.85 * float(np.tanh(2.5 * components["variance_trend"]["mean_norm_slope"]))
     if "correlation" in components:
-        momentum += 0.4 * float(np.tanh(5.0 * components["correlation"]["delta"]))
+        momentum += 0.15 * float(np.tanh(5.0 * components["correlation"]["delta"]))
     if momentum > 0.10:
         trend = "Rising"
     elif momentum < -0.10:

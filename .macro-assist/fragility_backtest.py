@@ -227,17 +227,117 @@ def lead_time_stats(
     }
 
 
+# ---------------------------------------------------------------------------
+# De-overlapping (WP-16.A.3) — the A.2 caveat: 4,513 daily readings inside a
+# handful of real crises are NOT independent observations. Two honest fixes:
+#   1. Episode-level scoring: collapse both the drawdown label and the alarm
+#      flag into distinct runs, then count caught crises / true alarms. The
+#      counts become small integers (one per crisis), removing the inflation.
+#   2. Non-overlapping AUC: subsample every `horizon`-th day so forward windows
+#      don't share days — a decorrelated, honest-n version of the AUC.
+# ---------------------------------------------------------------------------
+
+def collapse_episodes(flag: pd.Series, merge_gap: int = 3) -> list[tuple]:
+    """Collapse a boolean Series into a list of (start_date, end_date) runs.
+
+    Consecutive True days are one episode; runs separated by <= `merge_gap`
+    False days are merged (a brief dip below threshold mid-crisis is still one
+    crisis). Returns [] if nothing is True.
+    """
+    flag = pd.Series(flag).astype(bool)
+    flag = flag[flag.notna()]
+    pos = np.where(flag.to_numpy())[0]
+    if len(pos) == 0:
+        return []
+    idx = flag.index
+    episodes: list[tuple] = []
+    start = prev = pos[0]
+    for p in pos[1:]:
+        if p - prev <= merge_gap + 1:
+            prev = p
+        else:
+            episodes.append((idx[start], idx[prev]))
+            start = prev = p
+    episodes.append((idx[start], idx[prev]))
+    return episodes
+
+
+def _intervals_overlap(a: tuple, b: tuple) -> bool:
+    return not (a[1] < b[0] or b[1] < a[0])
+
+
+def episode_scoring(
+    flag: pd.Series,
+    labels: pd.Series,
+    merge_gap: int = 3,
+) -> dict:
+    """Score a boolean alarm flag against drawdown labels at the EPISODE level.
+
+    Collapses both series into runs, then:
+      episode_recall = fraction of distinct drawdown episodes an alarm overlaps
+      alarm_precision = fraction of distinct alarms that overlap a real episode
+    Counts (n_episodes, n_alarms) are small independent integers — the honest
+    denominator the day-level lift inflates.
+    """
+    flag = pd.Series(flag).astype(bool)
+    y = pd.Series(labels).astype(bool).reindex(flag.index)
+    mask = flag.notna() & y.notna()
+    flag, y = flag[mask], y[mask].astype(bool)
+
+    label_eps = collapse_episodes(y, merge_gap)
+    alarm_eps = collapse_episodes(flag, merge_gap)
+    if not label_eps:
+        return {"n_episodes": 0, "n_alarms": len(alarm_eps),
+                "n_caught": 0, "episode_recall": None, "alarm_precision": None}
+
+    caught = sum(any(_intervals_overlap(le, ae) for ae in alarm_eps) for le in label_eps)
+    if alarm_eps:
+        true_alarms = sum(any(_intervals_overlap(ae, le) for le in label_eps) for ae in alarm_eps)
+        precision = round(true_alarms / len(alarm_eps), 3)
+    else:
+        precision = None
+    return {
+        "n_episodes":      len(label_eps),
+        "n_alarms":        len(alarm_eps),
+        "n_caught":        caught,
+        "episode_recall":  round(caught / len(label_eps), 3),
+        "alarm_precision": precision,
+    }
+
+
+def subsample_auc(scores: pd.Series, labels: pd.Series, step: int) -> Optional[float]:
+    """AUC on a non-overlapping subsample (every `step`-th aligned observation).
+
+    Removes the forward-window overlap that correlates adjacent days, so the
+    AUC point estimate rests on independent observations. `step` should be the
+    drawdown horizon (the span each label looks across).
+    """
+    s = pd.Series(scores).astype(float)
+    y = pd.Series(labels).astype(bool).reindex(s.index)
+    mask = s.notna() & y.notna()
+    s, y = s[mask], y[mask].astype(bool)
+    if len(s) == 0:
+        return None
+    sub = slice(None, None, max(1, step))
+    return auc(s.iloc[sub], y.iloc[sub])
+
+
 def evaluate(
     frag_df: pd.DataFrame,
     labels: pd.Series,
     elevated_threshold: float = 65.0,
     top_quantile: float = 0.90,
+    horizon: Optional[int] = None,
 ) -> dict:
     """Score the walk-forward fragility series against drawdown labels.
 
     Returns a dict with the base rate, per-signal flag stats (Elevated label,
     Rising trend, top-decile composite, Elevated AND Rising), and the AUC of
     the composite and each component.
+
+    If `horizon` is given, also returns de-overlapped metrics (WP-16.A.3): a
+    non-overlapping (every `horizon`-th day) composite/component AUC, and
+    episode-level recall/precision for the Elevated and top-decile flags.
     """
     df = frag_df.copy()
     y = pd.Series(labels).astype(bool).reindex(df.index)
@@ -269,7 +369,7 @@ def evaluate(
         "autocorr":       auc(df["autocorr"], y),
     }
 
-    return {
+    report = {
         "n_days":      n,
         "n_events":    int(y.sum()),
         "base_rate":   round(base_rate, 4),
@@ -277,6 +377,20 @@ def evaluate(
         "flags":       flags,
         "auc":         {k: (round(v, 3) if v is not None else None) for k, v in aucs.items()},
     }
+
+    if horizon is not None:
+        sub_aucs = {k: subsample_auc(df[k], y, horizon)
+                    for k in ("composite", "variance_trend", "correlation",
+                              "vix_term", "autocorr")}
+        report["auc_nonoverlap"] = {
+            k: (round(v, 3) if v is not None else None) for k, v in sub_aucs.items()
+        }
+        report["episodes"] = {
+            "elevated_label": episode_scoring(elevated, y),
+            f"top_decile(>={top_cut:.0f})": episode_scoring(top_decile, y),
+        }
+
+    return report
 
 
 # ---------------------------------------------------------------------------
@@ -338,7 +452,7 @@ def run_backtest(
     sp500 = histories["sp500"]
     for h in horizons:
         labels = drawdown_label(sp500, threshold=threshold, horizon=h)
-        report = evaluate(frag_df, labels)
+        report = evaluate(frag_df, labels, horizon=h)
         report["lead_time"] = lead_time_stats(sp500, frag_df, threshold, h)
         results[h] = report
 
@@ -346,10 +460,14 @@ def run_backtest(
         print(f"  days evaluated : {report['n_days']}")
         print(f"  drawdown events: {report['n_events']}  "
               f"(base rate {report['base_rate']:.1%})")
-        print("  AUC (0.50 = no skill):")
+        print("  AUC (0.50 = no skill)        [overlap]  [non-overlap, honest n]:")
+        nov = report.get("auc_nonoverlap", {})
         for name, val in report["auc"].items():
-            tag = "" if val is None else ("  <-- key signal" if name in ("variance_trend", "correlation") else "")
-            print(f"    {name:<15} {('n/a' if val is None else f'{val:.3f}')}{tag}")
+            tag = "  <-- key signal" if name in ("variance_trend", "correlation") else ""
+            ov = "n/a" if val is None else f"{val:.3f}"
+            nv = nov.get(name)
+            nvs = "n/a" if nv is None else f"{nv:.3f}"
+            print(f"    {name:<15} {ov:>7}      {nvs:>7}{tag}")
         print("  Flags (precision / lift over base rate):")
         for fname, fs in report["flags"].items():
             if fs["n_flagged"] == 0:
@@ -357,6 +475,14 @@ def run_backtest(
             else:
                 print(f"    {fname:<22} n={fs['n_flagged']:<5} "
                       f"precision={fs['precision']}  lift={fs['lift']}  recall={fs['recall']}")
+        eps = report.get("episodes", {})
+        if eps:
+            print("  Episodes (de-overlapped — distinct crises vs. distinct alarms):")
+            for fname, es in eps.items():
+                if es["n_episodes"]:
+                    print(f"    {fname:<22} caught {es['n_caught']}/{es['n_episodes']} crises "
+                          f"(recall={es['episode_recall']}), {es['n_alarms']} alarms "
+                          f"precision={es['alarm_precision']}")
         lt = report["lead_time"]
         if lt["n_true_pos"]:
             print(f"  Lead time (Elevated -> trough): median {lt['median_lead']:.0f}d, "
@@ -366,6 +492,84 @@ def run_backtest(
 
     _print_verdict(results)
     return results
+
+
+# ---------------------------------------------------------------------------
+# Weight ablation (WP-16.A.3) — let the data choose the composite weights.
+# Note: the yfinance-only backtest never computes `acceleration` (no HY/NFCI),
+# so its weight is renormalised away here; it is kept in the scheme for the
+# live config. Effective backtest weights span {variance_trend, correlation,
+# vix_term, autocorr}.
+# ---------------------------------------------------------------------------
+
+WEIGHT_SCHEMES: dict[str, dict] = {
+    # A.2 baseline — what we scored last time.
+    "baseline": {"variance_trend": 0.35, "correlation": 0.30, "vix_term": 0.20,
+                 "acceleration": 0.10, "autocorr": 0.05},
+    # Drop the no-skill autocorr; keep the rest proportional.
+    "drop_autocorr": {"variance_trend": 0.37, "correlation": 0.31, "vix_term": 0.21,
+                      "acceleration": 0.11, "autocorr": 0.0},
+    # Drop autocorr AND the near-chance correlation.
+    "drop_corr_ac": {"variance_trend": 0.55, "correlation": 0.0, "vix_term": 0.30,
+                     "acceleration": 0.15, "autocorr": 0.0},
+    # Variance-led, vix capped so the semi-circular component can't dominate,
+    # correlation kept small (transparency/ablation), autocorr dropped.
+    "var_led_capvix": {"variance_trend": 0.50, "correlation": 0.10, "vix_term": 0.25,
+                       "acceleration": 0.15, "autocorr": 0.0},
+    # Middle ground: variance still leads, vix gets honest weight (it is the
+    # strongest component) without parity, a token correlation weight for
+    # graceful degradation, autocorr dropped.
+    "var_led_vix35": {"variance_trend": 0.45, "correlation": 0.05, "vix_term": 0.35,
+                      "acceleration": 0.15, "autocorr": 0.0},
+    # Two-signal core only (the two that earned their AUC), vix capped at parity.
+    "core_two": {"variance_trend": 0.50, "correlation": 0.0, "vix_term": 0.50,
+                 "acceleration": 0.0, "autocorr": 0.0},
+}
+
+
+def run_weight_ablation(
+    histories: Optional[dict] = None,
+    threshold: float = 0.05,
+    horizon: int = 10,
+    start: str | None = "2008-01-01",
+    schemes: Optional[dict] = None,
+) -> dict:
+    """Re-walk the index under each weight scheme and compare on DE-OVERLAPPED
+    metrics (non-overlapping AUC + episode recall/precision), the honest basis
+    for choosing weights. Returns {scheme_name: report}.
+    """
+    if histories is None:
+        print(f"Fetching daily history from yfinance (start={start}, no API cost)...")
+        histories = fetch_histories(start=start)
+    schemes = schemes or WEIGHT_SCHEMES
+    sp500 = histories["sp500"]
+    labels = drawdown_label(sp500, threshold=threshold, horizon=horizon)
+
+    print(f"\nWeight ablation @ horizon {horizon}d, drawdown >= {threshold:.0%} "
+          f"(de-overlapped metrics)\n")
+    header = (f"  {'scheme':<16} {'AUC ov':>7} {'AUC nov':>8} "
+              f"{'crises':>7} {'recall':>7} {'alarms':>7} {'prec':>6}")
+    print(header)
+    print("  " + "-" * (len(header) - 2))
+
+    out: dict = {}
+    for name, w in schemes.items():
+        frag_df = walk_forward_fragility(histories, weights=w)
+        if frag_df.empty:
+            continue
+        report = evaluate(frag_df, labels, horizon=horizon)
+        out[name] = report
+        ov = report["auc"]["composite"]
+        nov = report.get("auc_nonoverlap", {}).get("composite")
+        td_key = next(k for k in report["episodes"] if k.startswith("top_decile"))
+        es = report["episodes"][td_key]
+        nov_s = "n/a" if nov is None else f"{nov:.3f}"
+        rec_s = "n/a" if es["episode_recall"] is None else f"{es['episode_recall']:.3f}"
+        prec_s = "n/a" if es["alarm_precision"] is None else f"{es['alarm_precision']:.3f}"
+        print(f"  {name:<16} {ov:>7.3f} {nov_s:>8} "
+              f"{es['n_episodes']:>7} {rec_s:>7} {es['n_alarms']:>7} {prec_s:>6}")
+    print()
+    return out
 
 
 def _print_verdict(results: dict) -> None:
