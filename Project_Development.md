@@ -953,7 +953,7 @@ Not on critical path. Listed for future planning.
    - **Thresholds** now percentile-anchored to this scheme's own 2008-2026 composite: **Elevated = 90th pct ≈ 56.5**, **Resilient = 40th pct ≈ 24.0** (the Elevated cut *is* the validated top-decile flag).
    - **De-overlapped reality check:** composite AUC 0.72/0.69 (honest n), episode recall ~0.30 (catches ~30% of distinct crises), alarm precision **0.53/0.73**, median lead **4–8 trading days**. A *precise-but-incomplete* tail-risk early-warning, not a comprehensive crash detector — KB-001's 8× lift was overlap-inflated. Tests: `test_fragility_backtest.py` now 18 (added 7 for de-overlap functions); all pass.
 
-4. **WP-16.A.4 — Wire into quant context (shadow first).** Add a `## Fragility Monitor` subsection to `quant_context.py`. System-prompt rule: when fragility is Rising + Elevated, **widen** prediction Target Ranges and add an explicit tail-risk bullet to Key Risks; do **not** change Bias direction. Run in shadow mode for ≥20 trading days before any production merge.
+4. **WP-16.A.4 — Wire into quant context (shadow first). *(Shadow-wired — branch `feature/emergence`; observation pending)*.** Added a `**Fragility Monitor**` subsection to `quant_context.py` (4th quant subsection, after Conditional). It renders composite/label/trend + weighted drivers, and is also emitted into the Phase-14.3 JSONL log via `collect_quant_raw` (`raw["fragility"]`). Because the live `histories` is only ~90 calendar days (< the validated 180-day window), the block fetches its own ~1y window (yfinance, free; graceful degradation to no-block on failure; **no fetch when histories is absent**, preserving the no-network test contract). **Shadow mechanism:** the reading is always shown + logged, but the behavioural directive (Elevated → widen Target Ranges + add a tail-risk bullet, never change Bias) is gated behind env flag **`FRAGILITY_DIRECTIVE` (default OFF)**, matching the Phase-16 "flag, default OFF" philosophy. Tests: `test_quant_context.py` +7 (shadow vs. directive, no-network guards); all pass. **Next:** run shadow ≥20 trading days, confirm the logged readings behave (and whether the model reacts to the shown reading even pre-directive), then flip `FRAGILITY_DIRECTIVE=on` and record findings as a KB entry before any merge to `main`.
 
 5. **WP-16.A.5 — Monitoring.** Append fragility raw outputs to `results/quant_context_log/` (Phase 14.3 mechanism). After 30+ live days, check whether fragility spikes actually preceded realized vol / drawdowns.
 
@@ -1005,7 +1005,8 @@ Not on critical path. Listed for future planning.
 | 3 | **WP-16.A.2 — Fragility backtest gate** | Medium | A.1 | ✅ Done (GO — composite AUC 0.66–0.71, 4–6d lead) |
 | 4 | WP-16.C.1 — Ensemble the analysis agent | Low | B.2 | 🔲 |
 | 5 | WP-16.A.3 — Recalibrate weights + thresholds (de-overlapped) | Medium | A.2 | ✅ Done (`var_led_vix35`; AUC 0.69–0.72 honest-n, precision 0.53–0.73, 4–8d lead) |
-| 5b | WP-16.A.4–A.5 — Shadow-wire + monitor fragility | Medium | A.3 | 🔲 |
+| 5b | WP-16.A.4 — Shadow-wire fragility into quant context | Medium | A.3 | 🟡 Shadow-wired (FRAGILITY_DIRECTIVE default OFF; observing ≥20 trading days) |
+| 5c | WP-16.A.5 — Monitor shadow log, then flip directive on | Medium | A.4 | 🔲 |
 | 6 | WP-16.B.1 — Conviction floor → flag, re-score | Low | B.2 | 🔲 |
 | 7 | WP-16.C.2 — Analog-episode retrieval | Medium | Phase 11 | 🔲 |
 | 8 | WP-16.C.3 — Base-rate-first prompting | Low | B.2 | 🔲 |
