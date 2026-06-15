@@ -20,6 +20,9 @@ from quant_context import (
     _build_vol_block,
     _build_regime_block,
     _build_conditional_block,
+    _build_fragility_block,
+    _compute_fragility,
+    _FRAGILITY_DIRECTIVE_ENV,
 )
 from synthetic import synthetic_garch
 from conditional import build_distribution_table, assign_bucket
@@ -286,3 +289,68 @@ class TestBuildConditionalBlock:
         block  = _build_conditional_block(snap, table)
         if block:
             assert bucket in block
+
+
+# ---------------------------------------------------------------------------
+# Fragility monitor (Phase 16, WP-16.A.4 — shadow wiring)
+# ---------------------------------------------------------------------------
+
+def _make_frag_histories(n: int = 200, seed: int = 3) -> dict:
+    """Long synthetic Close series incl. vix/vix3m so the fragility index has
+    every component available. >= _MIN_FRAG_HISTORY so no network fetch fires."""
+    rng = np.random.default_rng(seed)
+    out = {}
+    for key in ("sp500", "nasdaq", "gold", "wti_oil", "dxy"):
+        out[key] = pd.Series(1000.0 * np.cumprod(1.0 + rng.normal(0, 0.01, n)))
+    out["vix"]   = pd.Series(np.clip(18 + rng.normal(0, 3, n), 9, 80))
+    out["vix3m"] = pd.Series(np.clip(20 + rng.normal(0, 2, n), 10, 80))
+    return out
+
+
+class TestBuildFragilityBlock:
+
+    def test_renders_reading_from_histories(self):
+        block = _build_fragility_block(_make_frag_histories(), allow_fetch=False)
+        assert "**Fragility Monitor" in block
+        assert "Composite:" in block
+        assert any(lbl in block for lbl in ("Resilient", "Normal", "Elevated"))
+
+    def test_no_network_when_histories_absent(self):
+        # No histories => no fetch, no block (protects the no-network contract).
+        assert _build_fragility_block(None, allow_fetch=True) == ""
+        assert _compute_fragility(None, allow_fetch=True) is None
+
+    def test_short_histories_no_fetch_when_disallowed(self):
+        short = {"sp500": pd.Series(np.ones(50))}
+        assert _compute_fragility(short, allow_fetch=False) is None
+
+    def test_shadow_marker_when_elevated_and_directive_off(self, monkeypatch):
+        monkeypatch.delenv(_FRAGILITY_DIRECTIVE_ENV, raising=False)
+        result = {"composite": 72.0, "label": "Elevated", "trend": "Rising",
+                  "components": {"variance_trend": {"score": 70.0}},
+                  "weights": {"variance_trend": 0.9}}
+        block = _build_fragility_block(_result=result)
+        assert "shadow mode" in block
+        assert "Action" not in block
+
+    def test_directive_when_elevated_and_flag_on(self, monkeypatch):
+        monkeypatch.setenv(_FRAGILITY_DIRECTIVE_ENV, "on")
+        result = {"composite": 72.0, "label": "Elevated", "trend": "Rising",
+                  "components": {"variance_trend": {"score": 70.0}},
+                  "weights": {"variance_trend": 0.9}}
+        block = _build_fragility_block(_result=result)
+        assert "**Action:**" in block
+        assert "Widen your Target Ranges" in block
+        assert "Do NOT change the Bias" in block
+
+    def test_no_directive_when_not_elevated(self, monkeypatch):
+        monkeypatch.setenv(_FRAGILITY_DIRECTIVE_ENV, "on")
+        result = {"composite": 30.0, "label": "Normal", "trend": "Stable",
+                  "components": {"variance_trend": {"score": 30.0}},
+                  "weights": {"variance_trend": 0.9}}
+        block = _build_fragility_block(_result=result)
+        assert "Action" not in block
+        assert "shadow mode" not in block
+
+    def test_empty_on_no_result(self):
+        assert _build_fragility_block(_result=None, histories=None, allow_fetch=False) == ""

@@ -1,20 +1,24 @@
 """
 quant_context.py — Build the ## Quantitative Context markdown block (Phase 12).
 
-Combines outputs from three quantitative modules:
+Combines outputs from four quantitative modules:
   - vol_forecast  (Phase 9): HAR-RV vol forecasts + Variance Risk Premium
   - regime        (Phase 10): HMM macro regime classification
   - conditional   (Phase 11): empirical forward-return distributions
+  - fragility     (Phase 16): system fragility / phase-transition monitor
+                   (SHADOW — reading shown + logged; behavioural directive
+                   gated behind FRAGILITY_DIRECTIVE, default OFF)
 
 build_quant_context() is called from collect_and_analyze.py after data fetch
 and its output is prepended to the Claude user message after the Notable Moves block.
 
 Graceful degradation: if any subsection fails (missing model file, insufficient
 data, any exception), that subsection is silently omitted. The block is omitted
-entirely if all three subsections fail.
+entirely if all subsections fail.
 """
 from __future__ import annotations
 
+import os
 import sys
 from datetime import date
 from pathlib import Path
@@ -36,6 +40,83 @@ from conditional import (
     load_distribution_table,
     DEFAULT_TABLE_PATH,
 )
+from fragility import fragility_index
+
+# ---------------------------------------------------------------------------
+# Fragility monitor (Phase 16, WP-16.A.4) — wired in SHADOW mode.
+#
+# The reading is always rendered into the context and logged, but the
+# behavioural directive (widen Target Ranges + tail-risk bullet when Elevated)
+# is gated behind FRAGILITY_DIRECTIVE, default OFF. Run shadow for >=20 trading
+# days, confirm the logged readings behave, then flip the flag on. The monitor
+# is a RISK gauge, never a directional signal — it must never flip the Bias.
+# ---------------------------------------------------------------------------
+_FRAGILITY_DIRECTIVE_ENV = "FRAGILITY_DIRECTIVE"
+
+# Validated on a 180-day trailing window; the daily pipeline's `histories` is
+# only ~90 calendar days, so fetch a proper window when what we're handed is
+# too short. Below this many anchor rows we fetch our own history.
+_MIN_FRAG_HISTORY = 150
+
+# Tickers for the self-contained fragility fetch (mirror fragility_backtest).
+_FRAG_TICKERS: dict[str, str] = {
+    "sp500": "^GSPC", "nasdaq": "^IXIC", "gold": "GC=F",
+    "wti_oil": "CL=F", "dxy": "DX-Y.NYB", "vix": "^VIX", "vix3m": "^VIX3M",
+}
+
+
+def _directive_active() -> bool:
+    return os.getenv(_FRAGILITY_DIRECTIVE_ENV, "").strip().lower() in {"1", "true", "on", "yes"}
+
+
+def _fetch_fragility_histories(period: str = "1y") -> dict:
+    """Pull ~1y of daily Close for the tracked tickers (yfinance, free). Returns
+    {} on any failure so the caller can degrade gracefully."""
+    try:
+        import yfinance as yf
+    except Exception:
+        return {}
+    out: dict = {}
+    for name, tk in _FRAG_TICKERS.items():
+        try:
+            hist = yf.Ticker(tk).history(period=period)
+            if hist.empty:
+                continue
+            close = hist["Close"]
+            try:
+                close.index = close.index.tz_localize(None)
+            except (TypeError, AttributeError):
+                pass
+            out[name] = close
+        except Exception:
+            continue
+    return out
+
+
+def _compute_fragility(histories: Optional[dict], allow_fetch: bool = True) -> Optional[dict]:
+    """Compute the fragility index for the live context.
+
+    Uses the supplied `histories` if its anchor is long enough; otherwise (the
+    normal pipeline case — only ~90d on hand) fetches a proper window. Returns
+    None if no usable data, or if `histories` is absent entirely (so callers
+    with no data trigger no network). Never raises.
+    """
+    if not histories:
+        return None
+    frag_hist: Optional[dict] = None
+    anchor = histories.get("sp500")
+    if anchor is not None and len(anchor) >= _MIN_FRAG_HISTORY:
+        frag_hist = histories
+    elif allow_fetch:
+        fetched = _fetch_fragility_histories()
+        if fetched:
+            frag_hist = fetched
+    if not frag_hist:
+        return None
+    try:
+        return fragility_index(frag_hist)
+    except Exception:
+        return None
 
 # Asset mapping: histories key → display name for the Volatility block
 _VOL_ASSETS: list[tuple[str, str]] = [
@@ -153,6 +234,21 @@ def collect_quant_raw(
     except Exception:
         pass
 
+    # --- Fragility monitor (Phase 16, shadow) ---
+    try:
+        frag = _compute_fragility(histories)
+        if frag:
+            raw["fragility"] = {
+                "composite":  round(frag["composite"], 2),
+                "label":      frag["label"],
+                "trend":      frag["trend"],
+                "components": {k: round(v["score"], 2) for k, v in frag["components"].items()},
+                "weights":    {k: round(w, 3) for k, w in frag.get("weights", {}).items()},
+                "directive_active": _directive_active(),
+            }
+    except Exception:
+        pass
+
     return raw
 
 
@@ -196,6 +292,10 @@ def build_quant_context(
     cond_block = _build_conditional_block(snapshot, distribution_table)
     if cond_block:
         sections.append(cond_block)
+
+    frag_block = _build_fragility_block(histories)
+    if frag_block:
+        sections.append(frag_block)
 
     if not sections:
         return ""
@@ -307,6 +407,62 @@ def _build_regime_block(
 
     except Exception:
         return ""
+
+
+def _build_fragility_block(
+    histories: Optional[dict] = None,
+    allow_fetch: bool = True,
+    _result: Optional[dict] = None,
+) -> str:
+    """Build the Fragility Monitor subsection (Phase 16, shadow).
+
+    Renders the composite, label, trend, and weighted drivers. When the label
+    is Elevated, appends either the behavioural directive (if FRAGILITY_DIRECTIVE
+    is on) or a shadow-mode marker. `_result` lets tests inject a precomputed
+    fragility dict to avoid any network fetch.
+    """
+    result = _result if _result is not None else _compute_fragility(histories, allow_fetch)
+    if not result:
+        return ""
+
+    composite = result["composite"]
+    label     = result["label"]
+    trend     = result["trend"]
+    comps     = result.get("components", {})
+    weights   = result.get("weights", {})
+
+    # Only show components that actually carry weight (e.g. autocorr is w0).
+    drivers = sorted(
+        ((n, c) for n, c in comps.items() if weights.get(n, 0.0) > 0.0),
+        key=lambda kv: weights.get(kv[0], 0.0), reverse=True,
+    )
+    driver_strs = [
+        f"{name} {c['score']:.0f} (w{weights.get(name, 0.0):.2f})"
+        for name, c in drivers
+    ]
+
+    lines = [
+        "**Fragility Monitor (experimental — Phase 16; risk gauge, not directional):**",
+        f"- Composite: {composite:.0f}/100 [{label}], trend {trend}",
+    ]
+    if driver_strs:
+        lines.append(f"- Drivers: {', '.join(driver_strs)}")
+
+    if label == "Elevated":
+        rising = " and Rising" if trend == "Rising" else ""
+        if _directive_active():
+            lines.append(
+                f"- → **Action:** fragility is Elevated{rising}. Widen your Target Ranges and "
+                "add an explicit tail-risk bullet to Key Risks. Do NOT change the Bias "
+                "direction on this basis."
+            )
+        else:
+            lines.append(
+                "- → _(shadow mode — informational only; no directive active. "
+                f"Set {_FRAGILITY_DIRECTIVE_ENV}=on to activate range-widening.)_"
+            )
+
+    return "\n".join(lines)
 
 
 def _build_conditional_block(
