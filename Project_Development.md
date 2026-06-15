@@ -906,3 +906,99 @@ Not on critical path. Listed for future planning.
 **Testing infrastructure.** Add `pytest` to `requirements.txt` if not already present. Create `.macro-assist/tests/` directory and `.macro-assist/tests/__init__.py`. Each phase's tests should run independently; CI test runner should be added to a new `.github/workflows/tests.yml` that runs on every push to a feature branch.
 
 **Claude Code workflow recommendation.** Tackle one phase per Claude Code session, run its tests before moving to the next. Phases 9, 10, 11 can be parallelized in separate feature branches if desired (each only depends on Phase 8). Phase 12 integrates them — do it last in this group.
+
+---
+
+## Experimental Track — Emergence & Fragility (Phase 16)
+
+**Strategic context.** Phases 1–15 made the system describe the present accurately and extrapolate it (conditional distributions, regime persistence, momentum). The honest limitation: it *reacts* to the present rather than *anticipating* change, because its inputs are coincident/lagging and its forecasts project the current state forward. This is partly the efficient-market / computational-irreducibility wall — you cannot reliably point-predict an irreducible adaptive system. Two directions survive that critique honestly:
+
+1. **Fragility / phase-transition monitoring** — you cannot predict the trigger, but you can measure the system *losing resilience* as it approaches a tipping point. The empirical evidence for markets is specific: classic *critical slowing down* (rising lag-1 autocorrelation) is **not** a reliable pre-crash signal in equities; **rising variance / variability is.** So this track weights variance- and correlation-based components and treats autocorrelation as secondary/experimental.
+2. **Design-by-emergence applied to the pipeline itself** — stop legislating model behaviour with hand-coded prompt rules; define primitive signals as building blocks and let the scoring loop discover which combinations predict. The current 270-line prompt full of overrides is reactive patching ("nerf/buff after observing misbehaviour"); the emergent alternative is to let consequences emerge and prune rules the data no longer supports.
+
+**Branch strategy.** A single long-lived feature branch `feature/emergence`. Everything here is experimental and runs in **shadow mode** (Phase 13.1 mechanism) — it must not alter the production daily note until validated against the Phase 8 backtest harness. Reuse the existing decision gate (≥3pp directional-accuracy improvement at n≥30) plus a new calibration metric (Brier score / reliability diagram) and, for fragility, a lead-time metric. Merge to `main` only per-work-package, only after its gate passes.
+
+**Sources grounding this track:**
+- Fragility / rising-variance evidence: [Lack of Critical Slowing Down… yet Rising Variability Could Signal Systemic Risk (PLOS One)](https://journals.plos.org/plosone/article?id=10.1371%2Fjournal.pone.0144198); [Are Critical Slowing Down Indicators Useful to Detect Financial Crises? (HAL-SHS)](https://shs.hal.science/halshs-01505202); [Critical slowing down… crypto-currency (Royal Society Open Science)](https://royalsocietypublishing.org/rsos/article/7/3/191450/95387/Critical-slowing-down-associated-with-critical).
+- LLM prediction levers: [Wisdom of the silicon crowd — LLM ensembles rival human crowds (PMC)](https://pmc.ncbi.nlm.nih.gov/articles/PMC11800985/); [ForecastBench (arXiv)](https://arxiv.org/pdf/2409.19839); [Training LLMs to Predict World Events — Mantic/Thinking Machines](https://thinkingmachines.ai/news/training-llms-to-predict-world-events/); [Retrieval-augmented LLMs for Financial Time Series Forecasting (arXiv 2502.05878)](https://arxiv.org/abs/2502.05878).
+
+---
+
+### WP-16.A — Fragility / Phase-Transition Monitor *(starting point)*
+
+**Goal.** A new `.macro-assist/fragility.py` that produces a composite **Fragility Index (0–100)** from data the pipeline already fetches, reframing the product from "what is the price Friday" to "how close is the system to a transition." Injected as a `## Fragility Monitor` block. It is a **risk/resilience gauge, never a directional signal** — it widens ranges and flags tail risk, it does not flip a Bullish/Bearish call.
+
+**Components** (all derivable from the existing `histories` dict in `collect_and_analyze.py`):
+- Rolling realized-variance **trend** — slope of 20d realized vol over a 60d window, per asset and aggregate. *(primary — strongest empirical basis)*
+- Cross-asset **correlation tightening** — mean pairwise |corr| across SP500/Gold/10Y/DXY/Bitcoin vs 60d baseline; rising = diversification breaking down = system stiffening. *(primary)*
+- **VIX term-structure** dynamics — persistence of backwardation (reuse `vix_term_ratio`). *(primary)*
+- **HY spread + NFCI acceleration** — 2nd difference (rate-of-change of rate-of-change), not level. *(secondary)*
+- Lag-1 **autocorrelation** of returns. *(experimental — flagged; weak in equities per the research, kept for transparency/ablation)*
+
+**Step-by-step from the prototype:**
+
+1. **WP-16.A.1 — Prototype *(Done — branch `feature/emergence`)*.** Pure functions in `.macro-assist/fragility.py`: `realized_variance_trend`, `correlation_tightening`, `vix_term_backwardation` (primary); `level_acceleration` (secondary — HY/NFCI); `lag1_autocorrelation` (experimental, near-zero weight). `fragility_index(histories, hy_spread=, nfci=, weights=) -> dict` returns a 0–100 composite, per-component breakdown, renormalised weights, provisional label (Resilient/Normal/Elevated — calibrated in A.3), and a Rising/Stable/Falling trend (from variance-slope + correlation-delta). Standalone CLI (`python .macro-assist/fragility.py`); **not wired into the pipeline.** Tests: `.macro-assist/tests/test_fragility.py` — 17 pure unit tests via `synthetic.py` (GARCH vol-explosion → Rising; stationary → neutral); all pass.
+
+2. **WP-16.A.2 — Backtest validation (the decision gate).** Using `point_in_time.py` + `backtest.py`, compute the index historically and test whether it **rises ahead of** known SP500 drawdowns >5%. Falsifiable metric: AUC of "fragility Rising+Elevated today" predicting a >5% drawdown within the next 10 trading days, vs a random/constant baseline, with a target median **lead time of 5–10 trading days**. If AUC ≤ baseline → the index is not earning its place; iterate on components before wiring it in.
+
+3. **WP-16.A.3 — Calibrate thresholds.** Percentile the composite against its own history; define Elevated / Normal / Resilient labels anchored to history (same pattern as the VRP labels in Phase 9).
+
+4. **WP-16.A.4 — Wire into quant context (shadow first).** Add a `## Fragility Monitor` subsection to `quant_context.py`. System-prompt rule: when fragility is Rising + Elevated, **widen** prediction Target Ranges and add an explicit tail-risk bullet to Key Risks; do **not** change Bias direction. Run in shadow mode for ≥20 trading days before any production merge.
+
+5. **WP-16.A.5 — Monitoring.** Append fragility raw outputs to `results/quant_context_log/` (Phase 14.3 mechanism). After 30+ live days, check whether fragility spikes actually preceded realized vol / drawdowns.
+
+6. **Future extensions.** Feed the fragility index as a 5th HMM regime feature (Phase 10), or add a dedicated "transition-risk" regime state; apply the cross-asset correlation component to the backlog "Correlation Regime" item (Phase 15).
+
+---
+
+### WP-16.B — Loosen Control on the Model *(design-by-emergence)*
+
+**Goal.** Stop manufacturing conviction; let behaviour and signal weights emerge from the scoring loop. The honest critique: the **minimum-conviction rule fights the data** — if the genuine edge is near zero, the system should be allowed to say so, and forcing a directional call to avoid "analysis paralysis" manufactures conviction the evidence doesn't support.
+
+1. **WP-16.B.1 — Conviction floor → config flag, default OFF on this branch.** Allow all-Neutral tables. Re-score and ask: does the calibration of the calls it *does* make improve when calls aren't forced? (Selection effect: fewer, more honest calls should be better calibrated.)
+
+2. **WP-16.B.2 — Calibration measurement (prerequisite for everything in this track).** Add **Brier score** + a **reliability diagram** (predicted confidence vs realized hit-rate) to `summarize_accuracy.py`. Today the system tracks accuracy but not calibration — and accuracy alone rewards overconfidence. Brier becomes the north-star eval metric. (This is the precursor to the Phase 15 "Bayesian confidence calibration" backlog item.)
+
+3. **WP-16.B.3 — Emergent signal weights.** Log, per prediction, which primitive signals were "active" (from the dashboard + quant context). Offline, regress realized outcomes on the active-signal vector to derive a **data-driven signal-weight table** that is injected into the prompt — progressively replacing hand-tuned thresholds. This is "invent the rules, discover the consequences," done with the backtest rather than by intuition.
+
+4. **WP-16.B.4 — Prune prompt rules.** For each hand-coded override, log when it fires and whether firing correlates with better outcomes; retire rules the scoring data no longer supports. Treat the prompt as an emergent system to be tuned down, not a rulebook to grow.
+
+---
+
+### WP-16.C — Research-Grounded LLM Prediction Levers *(research + experiment)*
+
+**Goal.** Answer directly: *what does the research show actually helps an LLM produce powerful predictions from data?* — and adopt the cheap, high-leverage levers. **The user's existing instinct is validated by the literature:** LLMs are weak at raw numerical extrapolation and strong at reasoning over *computed* features + text, so doing the math in Python and reserving the model for meaning-extraction and synthesis is the correct division of labour. The levers below build on that, they don't reverse it.
+
+**What the research says works (strongest → weakest leverage):**
+- **Ensembling / aggregation** is the single most reliable lever — LLM ensembles match human-crowd accuracy ("wisdom of the silicon crowd"); single calls are mediocre.
+- **Agentic retrieval + supervisor reconciliation** — multiple agents retrieve, a supervisor reconciles disagreement (AIA Forecaster reaches the superforecaster *median*). You already have the multi-agent skeleton (MA-1/MA-3).
+- **Analog retrieval (RAG of historical analog episodes)** improves financial forecasting — retrieve similar past macro states and their *narrative* outcomes, not just percentiles. Your conditional-distribution layer is a numeric proto-version of this.
+- **Post-hoc statistical calibration** of model probabilities — exactly your accuracy feedback loop; strengthen it via WP-16.B.2.
+- **Superforecaster-style prompting** — base-rate-first / reference-class reasoning, decompose into sub-questions, then argue for deviation.
+- **Argumentative-coherence filters** — enforce that the stated probability matches the argument; your adversarial pass is a primitive version.
+
+**Concrete experiments (mapped to existing architecture, all validated via the Phase 8 harness + WP-16.B.2 Brier metric):**
+
+1. **WP-16.C.1 — Ensemble the analysis agent.** Run MA-1 N times at temperature (and/or across Opus/Sonnet/Haiku); aggregate predictions (median Bias, mean Confidence, union of Key Risks). Cheapest high-leverage change. Gate: ≥3pp directional **or** meaningful Brier improvement at n≥30.
+2. **WP-16.C.2 — Analog-episode retrieval.** Given the current bucket/regime, retrieve the 2–3 most similar historical dates from `point_in_time` history and inject a short narrative of *what actually happened next*. Upgrades conditional distributions from percentiles to reference-class storytelling.
+3. **WP-16.C.3 — Base-rate-first prompting.** Restructure so the model states the conditional-distribution base rate **first**, then must argue explicitly for any deviation (extends the existing "reasoning-before-confidence" discipline).
+4. **WP-16.C.4 — Brier as the north-star metric.** Adopt WP-16.B.2's Brier/reliability scoring as the primary evaluation across this whole track, since directional accuracy alone rewards overconfidence.
+
+---
+
+### Phase 16 — Suggested Execution Order
+
+| Priority | Work Package | Effort | Prerequisite | Status |
+|----------|-------------|--------|--------------|--------|
+| 1 | **WP-16.B.2 — Brier / reliability scoring** (north-star metric) | Low | Phase 8 + scoring loop | 🔲 |
+| 2 | **WP-16.A.1 — `fragility.py` prototype** (starting point) | Medium | Phase 8 | ✅ Done |
+| 3 | **WP-16.A.2 — Fragility backtest gate** | Medium | A.1 | 🔲 |
+| 4 | WP-16.C.1 — Ensemble the analysis agent | Low | B.2 | 🔲 |
+| 5 | WP-16.A.3–A.5 — Calibrate + shadow-wire fragility | Medium | A.2 passes gate | 🔲 |
+| 6 | WP-16.B.1 — Conviction floor → flag, re-score | Low | B.2 | 🔲 |
+| 7 | WP-16.C.2 — Analog-episode retrieval | Medium | Phase 11 | 🔲 |
+| 8 | WP-16.C.3 — Base-rate-first prompting | Low | B.2 | 🔲 |
+| 9 | WP-16.B.3 — Emergent signal weights | High | B.2 + signal-active logging | 🔲 |
+| 10 | WP-16.B.4 — Prune prompt rules | Medium | B.3 | 🔲 |
+
+**Order rationale:** the Brier metric (B.2) comes first because every other package is judged by it. The fragility prototype (A.1) is the next concrete build per the brief. Ensembling (C.1) is sequenced early because it's the cheapest, highest-leverage research lever. The heavy "let weights emerge" work (B.3/B.4) comes last — it needs the calibration metric and signal-active logs to exist first.
