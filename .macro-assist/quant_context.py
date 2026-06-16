@@ -6,8 +6,8 @@ Combines outputs from four quantitative modules:
   - regime        (Phase 10): HMM macro regime classification
   - conditional   (Phase 11): empirical forward-return distributions
   - fragility     (Phase 16): system fragility / phase-transition monitor
-                   (SHADOW — reading shown + logged; behavioural directive
-                   gated behind FRAGILITY_DIRECTIVE, default OFF)
+                   (SHADOW — FRAGILITY_MODE ladder log/show/active, default
+                   'log': computed + logged only, not shown, zero note impact)
 
 build_quant_context() is called from collect_and_analyze.py after data fetch
 and its output is prepended to the Claude user message after the Notable Moves block.
@@ -43,15 +43,22 @@ from conditional import (
 from fragility import fragility_index
 
 # ---------------------------------------------------------------------------
-# Fragility monitor (Phase 16, WP-16.A.4) — wired in SHADOW mode.
+# Fragility monitor (Phase 16, WP-16.A.4) — wired in SHADOW mode via a 3-level
+# ladder, controlled by the FRAGILITY_MODE env var (default "log"):
 #
-# The reading is always rendered into the context and logged, but the
-# behavioural directive (widen Target Ranges + tail-risk bullet when Elevated)
-# is gated behind FRAGILITY_DIRECTIVE, default OFF. Run shadow for >=20 trading
-# days, confirm the logged readings behave, then flip the flag on. The monitor
-# is a RISK gauge, never a directional signal — it must never flip the Bias.
+#   log    — computed and written to the JSONL log ONLY; NOT shown in the
+#            prompt. Zero effect on the note. The safe default for running on
+#            main: accumulate >=20 trading days of readings with no influence.
+#   show   — the reading is rendered into the context (informational); no
+#            behavioural directive. The model sees it and may use it.
+#   active — + the behavioural directive: when Elevated, widen Target Ranges
+#            and add a tail-risk bullet. NEVER flips the Bias direction.
+#
+# Escalate log -> show -> active only after each level looks sane. The monitor
+# is a RISK gauge, never a directional signal.
 # ---------------------------------------------------------------------------
-_FRAGILITY_DIRECTIVE_ENV = "FRAGILITY_DIRECTIVE"
+_FRAGILITY_MODE_ENV = "FRAGILITY_MODE"
+_VALID_FRAGILITY_MODES = ("log", "show", "active")
 
 # Validated on a 180-day trailing window; the daily pipeline's `histories` is
 # only ~90 calendar days, so fetch a proper window when what we're handed is
@@ -65,8 +72,12 @@ _FRAG_TICKERS: dict[str, str] = {
 }
 
 
-def _directive_active() -> bool:
-    return os.getenv(_FRAGILITY_DIRECTIVE_ENV, "").strip().lower() in {"1", "true", "on", "yes"}
+def _fragility_mode() -> str:
+    """Resolve the active fragility mode from the environment (default 'log')."""
+    mode = os.getenv(_FRAGILITY_MODE_ENV, "").strip().lower()
+    if mode in _VALID_FRAGILITY_MODES:
+        return mode
+    return "log"
 
 
 def _fetch_fragility_histories(period: str = "1y") -> dict:
@@ -235,6 +246,8 @@ def collect_quant_raw(
         pass
 
     # --- Fragility monitor (Phase 16, shadow) ---
+    # Always computed and logged regardless of mode — this is the log-only
+    # observation path that accumulates the shadow record on main.
     try:
         frag = _compute_fragility(histories)
         if frag:
@@ -244,7 +257,7 @@ def collect_quant_raw(
                 "trend":      frag["trend"],
                 "components": {k: round(v["score"], 2) for k, v in frag["components"].items()},
                 "weights":    {k: round(w, 3) for k, w in frag.get("weights", {}).items()},
-                "directive_active": _directive_active(),
+                "mode":       _fragility_mode(),
             }
     except Exception:
         pass
@@ -413,14 +426,20 @@ def _build_fragility_block(
     histories: Optional[dict] = None,
     allow_fetch: bool = True,
     _result: Optional[dict] = None,
+    mode: Optional[str] = None,
 ) -> str:
     """Build the Fragility Monitor subsection (Phase 16, shadow).
 
-    Renders the composite, label, trend, and weighted drivers. When the label
-    is Elevated, appends either the behavioural directive (if FRAGILITY_DIRECTIVE
-    is on) or a shadow-mode marker. `_result` lets tests inject a precomputed
-    fragility dict to avoid any network fetch.
+    Returns "" in 'log' mode (the reading is logged elsewhere, never shown).
+    In 'show'/'active' it renders the composite, label, trend, and weighted
+    drivers; in 'active' an Elevated reading also carries the behavioural
+    directive. `_result` lets tests inject a precomputed fragility dict to
+    avoid any network fetch; `mode` overrides the env for tests.
     """
+    mode = mode or _fragility_mode()
+    if mode == "log":
+        return ""
+
     result = _result if _result is not None else _compute_fragility(histories, allow_fetch)
     if not result:
         return ""
@@ -450,16 +469,16 @@ def _build_fragility_block(
 
     if label == "Elevated":
         rising = " and Rising" if trend == "Rising" else ""
-        if _directive_active():
+        if mode == "active":
             lines.append(
                 f"- → **Action:** fragility is Elevated{rising}. Widen your Target Ranges and "
                 "add an explicit tail-risk bullet to Key Risks. Do NOT change the Bias "
                 "direction on this basis."
             )
-        else:
+        else:  # show
             lines.append(
-                "- → _(shadow mode — informational only; no directive active. "
-                f"Set {_FRAGILITY_DIRECTIVE_ENV}=on to activate range-widening.)_"
+                "- → _(monitoring — directive inactive; "
+                f"set {_FRAGILITY_MODE_ENV}=active to enable range-widening.)_"
             )
 
     return "\n".join(lines)
