@@ -22,7 +22,8 @@ from quant_context import (
     _build_conditional_block,
     _build_fragility_block,
     _compute_fragility,
-    _FRAGILITY_DIRECTIVE_ENV,
+    _fragility_mode,
+    _FRAGILITY_MODE_ENV,
 )
 from synthetic import synthetic_garch
 from conditional import build_distribution_table, assign_bucket
@@ -307,50 +308,70 @@ def _make_frag_histories(n: int = 200, seed: int = 3) -> dict:
     return out
 
 
+_ELEVATED_RESULT = {
+    "composite": 72.0, "label": "Elevated", "trend": "Rising",
+    "components": {"variance_trend": {"score": 70.0}},
+    "weights": {"variance_trend": 0.9},
+}
+_NORMAL_RESULT = {
+    "composite": 30.0, "label": "Normal", "trend": "Stable",
+    "components": {"variance_trend": {"score": 30.0}},
+    "weights": {"variance_trend": 0.9},
+}
+
+
+class TestFragilityMode:
+
+    def test_default_mode_is_log(self, monkeypatch):
+        monkeypatch.delenv(_FRAGILITY_MODE_ENV, raising=False)
+        assert _fragility_mode() == "log"
+
+    def test_invalid_mode_falls_back_to_log(self, monkeypatch):
+        monkeypatch.setenv(_FRAGILITY_MODE_ENV, "bogus")
+        assert _fragility_mode() == "log"
+
+    def test_explicit_modes_resolve(self, monkeypatch):
+        for m in ("log", "show", "active"):
+            monkeypatch.setenv(_FRAGILITY_MODE_ENV, m.upper())  # case-insensitive
+            assert _fragility_mode() == m
+
+
 class TestBuildFragilityBlock:
 
+    def test_log_mode_renders_nothing(self):
+        # Even with a valid reading, log mode never shows the block.
+        assert _build_fragility_block(_result=_ELEVATED_RESULT, mode="log") == ""
+
     def test_renders_reading_from_histories(self):
-        block = _build_fragility_block(_make_frag_histories(), allow_fetch=False)
+        block = _build_fragility_block(_make_frag_histories(), allow_fetch=False, mode="show")
         assert "**Fragility Monitor" in block
         assert "Composite:" in block
         assert any(lbl in block for lbl in ("Resilient", "Normal", "Elevated"))
 
     def test_no_network_when_histories_absent(self):
         # No histories => no fetch, no block (protects the no-network contract).
-        assert _build_fragility_block(None, allow_fetch=True) == ""
+        assert _build_fragility_block(None, allow_fetch=True, mode="show") == ""
         assert _compute_fragility(None, allow_fetch=True) is None
 
     def test_short_histories_no_fetch_when_disallowed(self):
         short = {"sp500": pd.Series(np.ones(50))}
         assert _compute_fragility(short, allow_fetch=False) is None
 
-    def test_shadow_marker_when_elevated_and_directive_off(self, monkeypatch):
-        monkeypatch.delenv(_FRAGILITY_DIRECTIVE_ENV, raising=False)
-        result = {"composite": 72.0, "label": "Elevated", "trend": "Rising",
-                  "components": {"variance_trend": {"score": 70.0}},
-                  "weights": {"variance_trend": 0.9}}
-        block = _build_fragility_block(_result=result)
-        assert "shadow mode" in block
+    def test_show_mode_marks_directive_inactive_when_elevated(self):
+        block = _build_fragility_block(_result=_ELEVATED_RESULT, mode="show")
+        assert "directive inactive" in block
         assert "Action" not in block
 
-    def test_directive_when_elevated_and_flag_on(self, monkeypatch):
-        monkeypatch.setenv(_FRAGILITY_DIRECTIVE_ENV, "on")
-        result = {"composite": 72.0, "label": "Elevated", "trend": "Rising",
-                  "components": {"variance_trend": {"score": 70.0}},
-                  "weights": {"variance_trend": 0.9}}
-        block = _build_fragility_block(_result=result)
+    def test_active_mode_emits_directive_when_elevated(self):
+        block = _build_fragility_block(_result=_ELEVATED_RESULT, mode="active")
         assert "**Action:**" in block
         assert "Widen your Target Ranges" in block
         assert "Do NOT change the Bias" in block
 
-    def test_no_directive_when_not_elevated(self, monkeypatch):
-        monkeypatch.setenv(_FRAGILITY_DIRECTIVE_ENV, "on")
-        result = {"composite": 30.0, "label": "Normal", "trend": "Stable",
-                  "components": {"variance_trend": {"score": 30.0}},
-                  "weights": {"variance_trend": 0.9}}
-        block = _build_fragility_block(_result=result)
+    def test_no_directive_when_not_elevated(self):
+        block = _build_fragility_block(_result=_NORMAL_RESULT, mode="active")
         assert "Action" not in block
-        assert "shadow mode" not in block
+        assert "directive inactive" not in block
 
     def test_empty_on_no_result(self):
-        assert _build_fragility_block(_result=None, histories=None, allow_fetch=False) == ""
+        assert _build_fragility_block(_result=None, histories=None, allow_fetch=False, mode="show") == ""
