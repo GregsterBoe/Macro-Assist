@@ -372,4 +372,8 @@ def run_regime_audit(years: int = 12, n_states: int = _N_STATES) -> dict:
 
 
 if __name__ == "__main__":
-    run_regime_audit()
+    import sys
+    if "--diagnose" in sys.argv:
+        diagnose_features()
+    else:
+        run_regime_audit()
