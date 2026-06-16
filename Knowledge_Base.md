@@ -154,3 +154,64 @@ pct ≈ 24.0**. The 90th-pct cut *is* the validated top-decile flag, so the live
   mode** (widen ranges + tail-risk bullet when Elevated; never flip direction).
   The expensive LLM-pipeline backtest still should **not** run until after a
   shadow period confirms the wiring behaves.
+
+---
+
+## KB-003 — Regime layer: look-ahead-safe ≠ full-sample labels; single-point inference is startprob-dominated (WP-17.1)
+
+**Date:** 2026-06-16 · **Branch:** `feature/regime-validation` · **Harness:**
+`.macro-assist/regime_backtest.py` (pure-numerical; needs FRED for NFCI / yields
+/ BAA10Y + yfinance for SP500). Reproduce: `FRED_API_KEY=… python
+.macro-assist/regime_backtest.py`.
+
+**What we tested.** Two WP-17.1 questions about the HMM regime layer (Phase 10),
+which had never been backtested the way fragility was: (1) is the persisted /
+full-sample model a valid basis for validating regime skill, and (2) how
+look-ahead-safe is the live regime path? Walk-forward refit (weekly, trailing
+~5y, single-point classify — mirrors production) vs. a full-sample fit, over
+**2,357 daily readings (~2016→2026, COVID + 2022 in sample; no GFC at the 12y
+fetch), 472 weekly refits, 8 needing a diag/carry fallback.**
+
+**Headline — you cannot validate the regime layer on the persisted model.** The
+look-ahead-safe (walk-forward) labels disagree with the full-sample labels on
+**70.5%** of days. Any skill test (WP-17.2) **must** refit walk-forward; scoring
+the persisted full-sample model would be measuring a different label series than
+the live system produces.
+
+**The nuance that's easy to forget (and the bigger finding).** The full-sample
+model produced **only 1 distinct label across all 2,357 days** (vs. 4 for the
+walk-forward path). This is not a harness bug — it traces to the **single-point
+inference** the live pipeline uses: `regime_features` returns one (4,) vector and
+`predict_regime` classifies it alone, so `predict_proba` = normalised
+`startprob_ × emission`. A full-sample EM fit converges to a near one-hot
+`startprob_`, so *every* single-day classification collapses to that one state.
+The walk-forward path looks like it distinguishes regimes (4 labels) **only
+because each weekly refit's favoured state differs** — within any one refit the
+label is effectively pinned by `startprob_`. So the HMM's transition matrix does
+no work at inference; the live "regime" is closer to a startprob-weighted
+Gaussian-mixture pick than a sequential HMM state. **Flag for WP-17.3:** test
+single-point vs. sequence (Viterbi) inference and GMM-vs-HMM directly — the HMM
+may be earning none of its temporal machinery in the live path.
+
+**Methodological caveats.**
+1. 12y fetch ⇒ features span ~2016→2026 (COVID, 2022 — **no 2008 GFC**); re-run
+   with `years≈18` for GFC coverage in the skill gate.
+2. `label_states` maps state indices → economic labels *per fit* (median NFCI /
+   vol split), so cross-refit label identity isn't guaranteed — compare by the
+   economic label string, not the raw state index.
+3. This is the look-ahead/divergence audit, **not** a skill measurement — it says
+   nothing yet about whether the (walk-forward) labels predict forward returns.
+
+**What it changes.**
+- WP-17.1 **Done**. The skill gate (WP-17.2) scores the **walk-forward** label
+  path, never the persisted model.
+- WP-17.3 elevated in importance: single-point inference is `startprob_`-
+  dominated, so "is the HMM better than a GMM / does sequence inference help?"
+  is now a first-order question, not a refinement.
+- Production context: the regime model was additionally **under-trained** (the
+  HY-OAS feature only had ~3y on FRED — see WP-17.1), now fixed by switching the
+  credit feature to **BAA10Y**; re-run `refit_models.py` after merge.
+
+**Incidental.** The earlier 3.6% divergence figure is **void** — it was measured
+on the ~2y truncated window where the full-sample model also collapsed to a
+single label, so the comparison was meaningless.
