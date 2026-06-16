@@ -49,15 +49,21 @@ _FRED_SERIES: dict[str, str] = {
     "nfci":         "NFCI",
     "treasury_10y": "DGS10",
     "treasury_2y":  "DGS2",
-    "hy_spread":    "BAMLH0A0HYM2",
+    "hy_spread":    "BAMLH0A0HYM2",   # kept for the conditional-bucket stubs only
+    # Regime credit feature. FRED serves the ICE BofA HY OAS (BAMLH0A0HYM2) with
+    # only ~3y of history, which truncated the feature matrix to ~2y (WP-17.1).
+    # BAA10Y (Moody's Baa − 10Y, daily since 1986) is the long-history credit-
+    # stress substitute used for the HMM's z-score feature [2].
+    "baa_spread":   "BAA10Y",
 }
 
 # NFCI clipping bounds (long-run historical range, matching regime_features.py)
 _NFCI_MIN: float = -0.9
 _NFCI_MAX: float =  2.8
 
-# HY spread typical std (matching regime_features.py)
-_HY_STD: float = 1.5
+# Credit-spread typical std for the regime z-score feature (matching
+# regime_features.py). BAA10Y deviations from a 5y mean run ~±0.5pp.
+_BAA_STD: float = 0.5
 
 # Minimum valid history days required before fitting
 _MIN_FIT_DAYS: int = 252
@@ -128,7 +134,7 @@ def _build_feature_matrix(
     Features (matching regime_features.py):
         [0] NFCI percentile        (0–1, clipped to long-run range)
         [1] Yield curve slope      (10Y − 2Y, raw basis points)
-        [2] HY spread z-score      ((value − 5yr_mean) / _HY_STD)
+        [2] Credit spread z-score  BAA10Y ((value − 5yr_mean) / _BAA_STD)
         [3] SP500 60d vol pct      (0–100, trailing 252d percentile)
 
     Returns
@@ -160,11 +166,11 @@ def _build_feature_matrix(
         spread = pd.Series(np.nan, index=bdays)
     f1 = spread.values
 
-    # --- Feature 2: HY z-score ---
-    hy       = fred_series.get("hy_spread", pd.Series(dtype=float))
-    hy_d     = hy.reindex(bdays, method="ffill")
-    hy_mean  = hy_d.rolling(window=_HY_MEAN_WINDOW, min_periods=_MIN_FIT_DAYS).mean()
-    f2       = ((hy_d - hy_mean) / _HY_STD).values
+    # --- Feature 2: Credit-spread z-score (BAA10Y, long history) ---
+    baa      = fred_series.get("baa_spread", pd.Series(dtype=float))
+    baa_d    = baa.reindex(bdays, method="ffill")
+    baa_mean = baa_d.rolling(window=_HY_MEAN_WINDOW, min_periods=_MIN_FIT_DAYS).mean()
+    f2       = ((baa_d - baa_mean) / _BAA_STD).values
 
     # --- Feature 3: SP500 60d vol percentile ---
     sp_d     = sp500_close.reindex(bdays, method="ffill")

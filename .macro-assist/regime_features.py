@@ -4,7 +4,7 @@ regime_features.py — Extract 4-feature vectors from macro snapshots for HMM fi
 Feature vector layout (shape 4,):
     [0] nfci_percentile      0-1, NFCI clipped to long-run historical range
     [1] yield_curve_slope    10Y − 2Y in basis points (raw, per spec)
-    [2] hy_spread_zscore     (value − 5yr_mean) / typical_std  ≈ z-score
+    [2] credit_zscore        BAA10Y (value − 5yr_mean) / typical_std  ≈ z-score
     [3] realized_vol_pct     60d annualised SP500 vol percentile vs trailing 252d (0-100)
 """
 from __future__ import annotations
@@ -25,9 +25,11 @@ if str(_HERE) not in sys.path:
 _NFCI_MIN: float = -0.9
 _NFCI_MAX: float =  2.8
 
-# Approximate 5-year standard deviation of HY OAS spread (percentage points)
-# ICE BofA US HY OAS (BAMLH0A0HYM2): historically std ≈ 1.5 pp over most 5yr windows
-_HY_STD: float = 1.5
+# Approximate 5-year std of the credit-spread feature (percentage points).
+# Regime feature [2] uses BAA10Y (Moody's Baa − 10Y) for long history — FRED
+# serves the ICE BofA HY OAS with only ~3y, which truncated training (WP-17.1).
+# Must match refit_models._BAA_STD (train/live feature transform consistency).
+_BAA_STD: float = 0.5
 
 
 def regime_features(
@@ -72,14 +74,14 @@ def regime_features(
         features[1] = float(snapshot["yield_curve_spread"]) * 100
 
     # ------------------------------------------------------------------
-    # [2] HY spread z-score  (deviation from 5yr mean / typical std)
+    # [2] Credit-spread z-score  (BAA10Y deviation from 5yr mean / typical std)
     # ------------------------------------------------------------------
-    hy = snapshot.get("hy_spread", {})
-    if "value" in hy and "five_yr_mean" in hy:
-        deviation  = float(hy["value"]) - float(hy["five_yr_mean"])
-        features[2] = deviation / _HY_STD
-    elif "vs_mean" in hy:
-        features[2] = float(hy["vs_mean"]) / _HY_STD
+    credit = snapshot.get("baa_spread", {})
+    if "value" in credit and "five_yr_mean" in credit:
+        deviation  = float(credit["value"]) - float(credit["five_yr_mean"])
+        features[2] = deviation / _BAA_STD
+    elif "vs_mean" in credit:
+        features[2] = float(credit["vs_mean"]) / _BAA_STD
 
     # ------------------------------------------------------------------
     # [3] 60d realized SP500 vol percentile  (0–100)
