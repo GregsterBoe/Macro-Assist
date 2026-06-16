@@ -1014,3 +1014,40 @@ Not on critical path. Listed for future planning.
 | 10 | WP-16.B.4 — Prune prompt rules | Medium | B.3 | 🔲 |
 
 **Order rationale:** the Brier metric (B.2) comes first because every other package is judged by it. The fragility prototype (A.1) is the next concrete build per the brief. Ensembling (C.1) is sequenced early because it's the cheapest, highest-leverage research lever. The heavy "let weights emerge" work (B.3/B.4) comes last — it needs the calibration metric and signal-active logs to exist first.
+
+---
+
+### Active Development Plan *(set 2026-06-16, after WP-16.A.4 shadow-wiring)*
+
+Fragility (16.A) is shadow-wired and merge-safe at `FRAGILITY_MODE=log`. The plan: **merge `feature/emergence` → `main` to start the 20-trading-day shadow clock, then develop the three goals below on parallel branches off `main`.** The shadow observation is passive (zero output impact at `log`), so there is no reason to wait it out — the calendar runs in the background while real work continues.
+
+| Goal | Scope | Branch (off `main`) | Depends on | Cost |
+|------|-------|---------------------|------------|------|
+| **Goal 1** | **Loosen model control + improve the feedback loop** = execute **WP-16.B** (conviction-floor flag B.1, **Brier/reliability B.2**, emergent signal weights B.3, prune rules B.4). "Improve the feedback loop" *is* B.2 + B.3: add calibration to `score_predictions.py`/`summarize_accuracy.py` and let weights emerge from it. | `feature/loosen-control` | B.2 is the foundation (everything is judged by it) | LLM re-scoring for B.1/B.3 |
+| **Goal 2** | **Numerical-layer validation & rigor — start with the HMM regime** (see **Phase 17** below). The fragility index earned trust via a look-ahead-safe backtest; the regime layer never got one. | `feature/regime-validation` | none — independent | **zero LLM/API cost** (yfinance + existing models only) |
+| **Goal 3** | **Research-grounded LLM levers** = execute **WP-16.C** (ensembling C.1, analog retrieval C.2, base-rate-first C.3). Sequenced **afterwards**. | `feature/llm-levers` | **B.2** (Brier is the eval metric for the whole track) | LLM calls (ensembling is N× per run) |
+
+**Recommended parallelization while the shadow clock runs:**
+- **Start Goal 2 now** — it is fully independent, zero-cost, and mirrors the fragility work that just went well; it is the ideal "keep working during the 20 days" task.
+- In parallel, land **WP-16.B.2 (Brier/reliability)** early on `feature/loosen-control`, since *both* Goal 1 and Goal 3 are judged by it. The rest of Goal 1 (B.1/B.3) follows.
+- **Goal 3 (16.C) last**, gated on B.2 existing.
+
+Cut each branch from `main` *after* the Phase-16 merge so they don't entangle with the shadow wiring (Goal 2 is independent enough to branch immediately if preferred).
+
+---
+
+## Numerical-Layer Validation & Rigor (Phase 17) — *Goal 2*
+
+**Why.** The fragility index earned its place via a rigorous, look-ahead-safe backtest before we trusted it (Phase 16.A). The **HMM regime layer (Phase 10) never got the same scrutiny**: it is fit and feeds the quant context, but we have not shown (a) that it is computed look-ahead-safe in the daily pipeline, (b) that its state labels actually separate forward returns / volatility out-of-sample, or (c) that 4 states is the right choice rather than an arbitrary one. This track applies the fragility discipline to the existing numerical layers, **starting with regime**. Pure-numerical, **zero LLM/API cost**, on its own branch in parallel with the fragility shadow.
+
+**Branch.** `feature/regime-validation`. **Method.** Reuse the fragility harness patterns (`fragility_backtest.py`): pull-once-and-slice for prices, walk-forward look-ahead-safety, Mann-Whitney AUC, de-overlapped episode scoring, and record results in `Knowledge_Base.md` (KB-004+), kept separate from this plan.
+
+1. **WP-17.1 — Look-ahead audit of the regime pipeline.** Determine whether the HMM is fit once over the full sample (Baum-Welch sees the whole series → leakage) or walk-forward. Build a walk-forward refit/predict harness: at each date `d`, fit/score using only data ≤ `d`. Quantify how far the point-in-time regime path diverges from the full-sample path (if large, the live labels are not what the in-sample fit suggests).
+
+2. **WP-17.2 — Regime skill gate (the WP-16.A.2 analog).** Do the state labels separate the future? Score forward 5/10/20-day SP500 return and realized vol conditioned on regime label/posterior: mean/median separation, AUC of "Risk-Off"-type states predicting drawdowns, and **posterior calibration** (when it says 0.9, is it right ~90%?). Honest go/no-go: if regimes don't separate forward outcomes out-of-sample, the layer is decorative and should be simplified or dropped.
+
+3. **WP-17.3 — Model selection.** Is 4 states justified? Compare `n_states ∈ {2..6}` and covariance types by out-of-sample log-likelihood + BIC/AIC and by the 17.2 skill metric; check label stability / switching across walk-forward refits.
+
+4. **WP-17.4 — Incremental value over the simpler bucket.** Does the HMM regime add information beyond the Phase-11 conditional bucket (which already conditions on NFCI / curve / HY)? If conditioning forecasts on regime doesn't beat the bucket alone out-of-sample, simplify.
+
+5. **WP-17.5 *(later)* — Extend to vol_forecast + conditional layers.** Same look-ahead-safe walk-forward + skill scoring for HAR-RV (Phase 9) and the conditional-distribution table (Phase 11).
