@@ -65,12 +65,18 @@ _N_STATES = 4
 _RANDOM_STATE = 42
 _N_ITER = 200             # match refit_models.fit_regime_model
 
+# Covariance regularisation: a short / collinear training window can drive a
+# full-covariance GaussianHMM to a non-positive-definite covariance (Cholesky
+# fails). A small inverse-Wishart-style prior keeps the matrices conditioned.
+_COVARS_PRIOR = 1e-2
+
 
 # ---------------------------------------------------------------------------
-# Fitting (local, so n_iter is tunable for backtest speed; defaults match prod)
+# Fitting (local, so n_iter / covariance_type are tunable; defaults match prod)
 # ---------------------------------------------------------------------------
 
-def _fit(features: np.ndarray, n_states: int, random_state: int, n_iter: int):
+def _fit(features: np.ndarray, n_states: int, random_state: int, n_iter: int,
+         covariance_type: str = "full"):
     from hmmlearn.hmm import GaussianHMM
 
     X = np.asarray(features, dtype=float)
@@ -78,13 +84,39 @@ def _fit(features: np.ndarray, n_states: int, random_state: int, n_iter: int):
         X = X.reshape(-1, 1)
     model = GaussianHMM(
         n_components=n_states,
-        covariance_type="full",
+        covariance_type=covariance_type,
         n_iter=n_iter,
         random_state=random_state,
         tol=1e-4,
+        covars_prior=_COVARS_PRIOR,
     )
     model.fit(X)
     return model
+
+
+def _fit_robust(features: np.ndarray, n_states: int, random_state: int,
+                n_iter: int, prefer: str = "full") -> tuple:
+    """Fit with a fallback ladder so one ill-conditioned window never aborts a
+    multi-year walk-forward. Tries `prefer` covariance, then 'diag' (which can't
+    go non-positive-definite the way 'full' can). Returns (model, cov_used) or
+    (None, None) if every attempt fails — callers carry forward the last model.
+    """
+    from numpy.linalg import LinAlgError
+
+    X = np.asarray(features, dtype=float)
+    if X.ndim == 1:
+        X = X.reshape(-1, 1)
+    ladder = [prefer] + [c for c in ("diag",) if c != prefer]
+    for cov in ladder:
+        try:
+            model = _fit(X, n_states, random_state, n_iter, covariance_type=cov)
+            # A degenerate full-covariance model can finish .fit() but then raise
+            # inside predict_proba (Cholesky); probe inference before accepting it.
+            model.predict_proba(X[-1:])
+            return model, cov
+        except (LinAlgError, ValueError):
+            continue
+    return None, None
 
 
 def _point_label(model, x: np.ndarray, labels: dict) -> tuple[int, str, float]:
@@ -107,14 +139,20 @@ def walk_forward_regime(
     refit_every: int = _REFIT_EVERY,
     random_state: int = _RANDOM_STATE,
     n_iter: int = _N_ITER,
+    covariance_type: str = "full",
 ) -> pd.DataFrame:
     """Point-in-time regime labels: at date d, fit on the trailing `train_window`
     of features STRICTLY BEFORE d (refit every `refit_every` days, as production
     does weekly), then classify d with single-point inference.
 
+    The fit uses a fallback ladder (`covariance_type` → 'diag' → carry forward
+    the last good model) so an ill-conditioned window never aborts the run.
+
     Returns a DataFrame indexed by date with columns:
         state_pit (int, that fit's state index), label (economic string),
-        top_posterior (float), refit (bool — was the model refit on this date).
+        top_posterior (float), refit (bool — refit attempted on this date),
+        fit_cov (str — covariance type that succeeded, or 'carry' when the fit
+        failed and the previous model was reused).
     """
     features = np.asarray(features, dtype=float)
     dates = pd.DatetimeIndex(dates)
@@ -124,6 +162,7 @@ def walk_forward_regime(
     rows: list[dict] = []
     model = None
     labels: dict = {}
+    fit_cov = None
     last_fit = -10**9
 
     for i, d in enumerate(dates):
@@ -135,14 +174,20 @@ def walk_forward_regime(
             X_train = features[lo:i]              # strictly before d → no leak
             if len(X_train) < min_train:
                 continue
-            model = _fit(X_train, n_states, random_state, n_iter)
-            labels = label_states(model)
+            new_model, cov_used = _fit_robust(X_train, n_states, random_state,
+                                               n_iter, prefer=covariance_type)
             last_fit = i
             refit = True
+            if new_model is not None:
+                model, labels, fit_cov = new_model, label_states(new_model), cov_used
+            elif model is None:
+                continue                          # no usable model yet — skip
+            else:
+                fit_cov = "carry"                 # reuse previous model
 
         s, lbl, post = _point_label(model, features[i], labels)
         rows.append({"date": d, "state_pit": s, "label": lbl,
-                     "top_posterior": post, "refit": refit})
+                     "top_posterior": post, "refit": refit, "fit_cov": fit_cov})
 
     if not rows:
         return pd.DataFrame()
@@ -168,7 +213,9 @@ def full_sample_regime(
     """
     features = np.asarray(features, dtype=float)
     dates = pd.DatetimeIndex(dates)
-    model = _fit(features, n_states, random_state, n_iter)
+    model, _ = _fit_robust(features, n_states, random_state, n_iter)
+    if model is None:
+        return pd.DataFrame()
     labels = label_states(model)
 
     rows: list[dict] = []
@@ -209,17 +256,18 @@ def label_divergence(pit_df: pd.DataFrame, full_df: pd.DataFrame) -> dict:
 # Real-data fetch + CLI (needs FRED_API_KEY; reuses refit_models feature logic)
 # ---------------------------------------------------------------------------
 
-def fetch_regime_inputs(years: int = 12) -> tuple[np.ndarray, pd.DatetimeIndex]:
-    """Fetch FRED + yfinance and build the (n_days, 4) feature matrix used by the
-    HMM, reusing refit_models._build_feature_matrix. Requires FRED_API_KEY.
-    """
+def _fetch_raw_inputs(years: int = 12) -> tuple[dict, pd.Series]:
+    """Fetch the raw FRED series + SP500 close used to build regime features.
+    Requires FRED_API_KEY. The yfinance index is tz-normalised to naive so it
+    aligns with the tz-naive FRED business-day reindex (mirrors
+    fragility_backtest.fetch_histories)."""
     import os
     from datetime import date, timedelta
 
     import yfinance as yf
     from fredapi import Fred
 
-    from refit_models import _build_feature_matrix, _FRED_SERIES
+    from refit_models import _FRED_SERIES
 
     key = os.environ.get("FRED_API_KEY")
     if not key:
@@ -235,8 +283,58 @@ def fetch_regime_inputs(years: int = 12) -> tuple[np.ndarray, pd.DatetimeIndex]:
 
     hist = yf.download("^GSPC", start=start, progress=False, auto_adjust=True)
     sp500_close = hist["Close"].squeeze().ffill().dropna()
+    if getattr(sp500_close.index, "tz", None) is not None:
+        sp500_close.index = sp500_close.index.tz_localize(None)
 
+    return fred_series, sp500_close
+
+
+def fetch_regime_inputs(years: int = 12) -> tuple[np.ndarray, pd.DatetimeIndex]:
+    """Fetch FRED + yfinance and build the (n_days, 4) feature matrix used by the
+    HMM, reusing refit_models._build_feature_matrix. Requires FRED_API_KEY.
+    """
+    from refit_models import _build_feature_matrix
+
+    fred_series, sp500_close = _fetch_raw_inputs(years)
     return _build_feature_matrix(fred_series, sp500_close)
+
+
+def diagnose_features(years: int = 12) -> dict:
+    """WP-17.1 diagnostic: explain the feature-matrix truncation.
+
+    Prints the date span / count of each raw input (FRED series + SP500), the
+    business-day window, and — per feature column, BEFORE the all-NaN row drop —
+    how many days are valid and the first/last valid date. This pinpoints which
+    input (or rolling warmup) collapses the valid range. Requires FRED_API_KEY.
+    """
+    from refit_models import _build_feature_matrix
+
+    fred_series, sp500_close = _fetch_raw_inputs(years)
+
+    print("=== Raw inputs ===")
+    print(f"  SP500 close: {len(sp500_close)} rows  "
+          f"{sp500_close.index[0].date()}..{sp500_close.index[-1].date()}")
+    for k, s in fred_series.items():
+        print(f"  FRED {k:<13}: {len(s)} rows  {s.index[0].date()}..{s.index[-1].date()}")
+
+    # Per-feature validity before the dropna (mirror _build_feature_matrix order).
+    feats, dates = _build_feature_matrix(fred_series, sp500_close)
+    names = ["nfci_pct", "yc_slope", "hy_zscore", "vol_pct"]
+    print("\n=== Feature matrix (post-build, post-dropna) ===")
+    if len(feats) == 0:
+        print("  EMPTY — every business day had at least one NaN feature.")
+    else:
+        print(f"  {len(feats)} valid days  {dates[0].date()}..{dates[-1].date()}")
+        for j, nm in enumerate(names):
+            col = feats[:, j]
+            ok = ~np.isnan(col)
+            print(f"    [{j}] {nm:<10} non-NaN {int(ok.sum())}/{len(col)}")
+    print("\nIf one FRED series above starts ~2 years ago, that is the truncation"
+          "\nculprit; if all inputs are full-length but valid days are few, the"
+          "\ncause is in the rolling/align logic of _build_feature_matrix.")
+    return {"n_valid": int(len(feats)),
+            "first": (dates[0].date().isoformat() if len(feats) else None),
+            "last": (dates[-1].date().isoformat() if len(feats) else None)}
 
 
 def run_regime_audit(years: int = 12, n_states: int = _N_STATES) -> dict:
@@ -244,11 +342,18 @@ def run_regime_audit(years: int = 12, n_states: int = _N_STATES) -> dict:
     how far the look-ahead-safe regime path diverges from the leaky baseline."""
     print(f"Fetching regime inputs (FRED + yfinance, {years}y)...")
     features, dates = fetch_regime_inputs(years)
-    print(f"  {len(features)} valid feature-days {dates[0].date()}..{dates[-1].date()}\n")
+    print(f"  {len(features)} valid feature-days {dates[0].date()}..{dates[-1].date()}")
+    if len(features) < 252 * (years - 2):
+        print(f"  WARNING: far fewer valid days than ~{years}y implies — run "
+              "diagnose_features() to find the truncation.")
+    print()
 
     print("Walk-forward refit (look-ahead-safe; this is the slow part)...")
     pit = walk_forward_regime(features, dates, n_states=n_states)
-    print(f"  {len(pit)} point-in-time readings, {int(pit['refit'].sum())} refits\n")
+    n_refit = int(pit["refit"].sum()) if not pit.empty else 0
+    n_fallback = int((pit.loc[pit["refit"], "fit_cov"] != "full").sum()) if not pit.empty else 0
+    print(f"  {len(pit)} point-in-time readings, {n_refit} refits "
+          f"({n_fallback} used a diag/carry fallback)\n")
 
     print("Full-sample fit (leaky baseline)...")
     full = full_sample_regime(features, dates, n_states=n_states)

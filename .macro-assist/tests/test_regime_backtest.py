@@ -15,6 +15,7 @@ from regime_backtest import (
     walk_forward_regime,
     full_sample_regime,
     label_divergence,
+    _fit_robust,
 )
 
 
@@ -95,3 +96,40 @@ def test_feature_date_mismatch_raises():
     feats, dates = _two_regime_features()
     with pytest.raises(ValueError):
         walk_forward_regime(feats, dates[:-5], **_FAST)
+
+
+# ---------------------------------------------------------------------------
+# Robustness: singular / collinear windows must not crash (fallback ladder)
+# ---------------------------------------------------------------------------
+
+def _collinear_features(n: int = 120, seed: int = 1) -> tuple[np.ndarray, pd.DatetimeIndex]:
+    """A pathological matrix: two duplicated columns + a near-constant one, which
+    drives a full-covariance HMM to a non-positive-definite covariance."""
+    rng = np.random.default_rng(seed)
+    base = rng.normal(0, 0.01, n)
+    feats = np.column_stack([
+        base,
+        base,                                  # exact duplicate → singular
+        np.full(n, 0.5) + rng.normal(0, 1e-9, n),  # near-constant
+        rng.normal(0, 0.01, n),
+    ])
+    dates = pd.bdate_range("2015-01-01", periods=n)
+    return feats, dates
+
+
+def test_fit_robust_falls_back_or_returns_none():
+    feats, _ = _collinear_features()
+    # full covariance would raise; _fit_robust must return a model (via diag) or
+    # (None, None) — never propagate the LinAlgError/ValueError.
+    model, cov = _fit_robust(feats, n_states=4, random_state=42, n_iter=50, prefer="full")
+    assert (model is None and cov is None) or cov in ("full", "diag")
+
+
+def test_walk_forward_survives_singular_windows():
+    feats, dates = _collinear_features(n=120)
+    # Must complete without raising despite the pathological windows.
+    df = walk_forward_regime(feats, dates, n_states=4, train_window=60,
+                             min_train=30, refit_every=5, n_iter=50)
+    assert isinstance(df, pd.DataFrame)
+    if not df.empty:
+        assert df["fit_cov"].isin(["full", "diag", "carry"]).all()
