@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from regime_features import regime_features, _NFCI_MIN, _NFCI_MAX, _HY_STD
+from regime_features import regime_features, _NFCI_MIN, _NFCI_MAX, _BAA_STD
 
 
 # ---------------------------------------------------------------------------
@@ -30,7 +30,9 @@ def _make_snapshot(
         "nfci":         {"value": nfci_val, "five_yr_mean": 0.1, "vs_mean": nfci_val - 0.1},
         "treasury_10y": {"value": t10},
         "treasury_2y":  {"value": t2},
-        "hy_spread":    {"value": hy_val, "five_yr_mean": hy_mean, "vs_mean": hy_val - hy_mean},
+        # Regime credit feature [2] now reads baa_spread (BAA10Y); the params are
+        # named hy_* for historical continuity but populate the credit key.
+        "baa_spread":   {"value": hy_val, "five_yr_mean": hy_mean, "vs_mean": hy_val - hy_mean},
         "snapshot_date": snap_date,
     }
 
@@ -107,7 +109,7 @@ def test_hy_zscore_above_mean_positive():
 def test_hy_zscore_correct_value():
     snap = _make_snapshot(hy_val=6.0, hy_mean=4.5)
     feat = regime_features(snap, sp500_returns=_make_sp500_returns())
-    expected = (6.0 - 4.5) / _HY_STD
+    expected = (6.0 - 4.5) / _BAA_STD
     assert abs(feat[2] - expected) < 1e-9
 
 

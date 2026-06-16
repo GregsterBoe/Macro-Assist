@@ -50,6 +50,7 @@ def _make_snapshot(nfci: float = -0.3, t10: float = 4.2, t2: float = 4.5,
         "treasury_10y": {"value": t10},
         "treasury_2y":  {"value": t2},
         "hy_spread":    {"value": hy, "five_yr_mean": hy_mean},
+        "baa_spread":   {"value": hy, "five_yr_mean": hy_mean},  # regime credit feature [2]
     }
 
 
