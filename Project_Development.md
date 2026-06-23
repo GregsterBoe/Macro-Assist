@@ -496,7 +496,7 @@ Not on critical path. Listed for future planning.
 
 1. **WP-16.B.1 — Conviction floor → config flag, default OFF on this branch.** Allow all-Neutral tables. Re-score and ask: does the calibration of the calls it *does* make improve when calls aren't forced? (Selection effect: fewer, more honest calls should be better calibrated.)
 
-2. **WP-16.B.2 — Calibration measurement (prerequisite for everything in this track *and* Phase 18).** Add **Brier score** + a **reliability diagram** (predicted confidence vs realized hit-rate) to `summarize_accuracy.py`. Today the system tracks accuracy but not calibration — and accuracy alone rewards overconfidence. Brier becomes the north-star eval metric. **This is the hard gate for the whole loosening/weighting/input-value programme: B.1, B.3, B.4 and WP-18.4/18.5 are all judged by it, and none of them is falsifiable until it exists — so build it first.** (Also the precursor to the Phase 15 "Bayesian confidence calibration" backlog item.)
+2. **WP-16.B.2 — Calibration measurement (prerequisite for everything in this track *and* Phase 18). *(Done — branch `main`; baseline → KB-007)*.** Added a `calibration()` pass to `summarize_accuracy.py`: per-window + overall **Brier score**, **Brier Skill Score** (vs the base-rate forecast), **ECE**, and a confidence-binned **reliability diagram** (rendered in `accuracy_report.md` + the `calibration`/`calibration_feedback` keys of `accuracy_summary.json`); scores *decisive* directional calls only (score ∈ {0,1}). Tests: `tests/test_summarize_accuracy.py` — 12 pure unit tests (perfect/over/under-confident, bin edges, ECE weighting, version filter). **Baseline finding (KB-007): confidence is anti-informative — BSS −0.195 overall (−0.344 feedback-era), decisive calls right only ~36% (30% recent), below chance and worsening with horizon.** Brier is now the **north-star eval metric**: every B.1/B.3/B.4 + WP-18.4/18.5 + 16.C change must move Brier/BSS, not just accuracy. Directly elevates **B.1** (forcing directional calls likely manufactures the below-chance decisive calls). (Also the precursor to the Phase 15 "Bayesian confidence calibration" backlog item.)
 
 3. **WP-16.B.3 — Emergent signal weights.** Log, per prediction, which primitive signals were "active" (from the dashboard + quant context). Offline, regress realized outcomes on the active-signal vector to derive a **data-driven signal-weight table** that is injected into the prompt — progressively replacing hand-tuned thresholds. This is "invent the rules, discover the consequences," done with the backtest rather than by intuition. **Shares its per-prediction logging substrate with Phase 18 and consumes Phase 18's input-value ranking as a prior** (whole-section value from 18.4 → signal weights here); build the logging once for both.
 
@@ -529,7 +529,7 @@ Not on critical path. Listed for future planning.
 
 | Priority | Work Package | Effort | Prerequisite | Status |
 |----------|-------------|--------|--------------|--------|
-| 1 | **WP-16.B.2 — Brier / reliability scoring** (north-star metric) | Low | Phase 8 + scoring loop | 🔲 |
+| 1 | **WP-16.B.2 — Brier / reliability scoring** (north-star metric) | Low | Phase 8 + scoring loop | ✅ Done (baseline KB-007: BSS −0.20 overall, confidence anti-informative) |
 | 2 | **WP-16.A.1 — `fragility.py` prototype** (starting point) | Medium | Phase 8 | ✅ Done |
 | 3 | **WP-16.A.2 — Fragility backtest gate** | Medium | A.1 | ✅ Done (GO — composite AUC 0.66–0.71, 4–6d lead) |
 | 4 | WP-16.C.1 — Ensemble the analysis agent | Low | B.2 | 🔲 |
