@@ -50,6 +50,7 @@ def _make_snapshot(nfci: float = -0.3, t10: float = 4.2, t2: float = 4.5,
         "treasury_10y": {"value": t10},
         "treasury_2y":  {"value": t2},
         "hy_spread":    {"value": hy, "five_yr_mean": hy_mean},
+        "baa_spread":   {"value": hy, "five_yr_mean": hy_mean},  # regime credit feature [2]
     }
 
 
@@ -103,8 +104,9 @@ def _make_distribution_table() -> dict:
 
 class TestBuildQuantContext:
 
-    def test_all_three_subsections_present(self):
-        """Golden path: all three subsections appear in the output."""
+    def test_active_subsections_present(self):
+        """Golden path: the active subsections appear; the retired Regime block
+        (WP-17.4 / KB-006) must NOT appear in the note."""
         hist   = _make_histories()
         snap   = _make_snapshot()
         mdata  = _make_market_data()
@@ -121,8 +123,8 @@ class TestBuildQuantContext:
 
         assert "## Quantitative Context" in output
         assert "**Volatility" in output
-        assert "**Regime" in output
         assert "**Conditional return distribution" in output
+        assert "**Regime" not in output   # retired
 
     def test_returns_string(self):
         hist  = _make_histories()

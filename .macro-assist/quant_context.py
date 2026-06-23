@@ -1,13 +1,15 @@
 """
 quant_context.py — Build the ## Quantitative Context markdown block (Phase 12).
 
-Combines outputs from four quantitative modules:
+Combines outputs from these quantitative modules:
   - vol_forecast  (Phase 9): HAR-RV vol forecasts + Variance Risk Premium
-  - regime        (Phase 10): HMM macro regime classification
   - conditional   (Phase 11): empirical forward-return distributions
   - fragility     (Phase 16): system fragility / phase-transition monitor
                    (SHADOW — FRAGILITY_MODE ladder log/show/active, default
                    'log': computed + logged only, not shown, zero note impact)
+  - regime        (Phase 10): HMM macro regime — RETIRED (WP-17.4 / KB-006:
+                   validated as redundant dead weight; a 4-feature rule beat it).
+                   _build_regime_block is kept but no longer wired into the note.
 
 build_quant_context() is called from collect_and_analyze.py after data fetch
 and its output is prepended to the Claude user message after the Notable Moves block.
@@ -196,32 +198,11 @@ def collect_quant_raw(
         if vol_raw:
             raw["vol_forecasts"] = vol_raw
 
-    # --- Regime ---
-    try:
-        _model = regime_model
-        if _model is None:
-            if not DEFAULT_MODEL_PATH.exists():
-                raise FileNotFoundError(DEFAULT_MODEL_PATH)
-            _model = load_regime_model()
-
-        sp500_ret: Optional[pd.Series] = None
-        if histories and "sp500" in histories:
-            close = histories["sp500"]
-            if len(close) >= 2:
-                sp500_ret = pd.Series(np.log(close.values[1:] / close.values[:-1]))
-
-        feats  = regime_features(snapshot, sp500_ret)
-        feats  = np.where(np.isnan(feats), 0.0, feats)
-        result = predict_regime(_model, feats)
-
-        raw["regime"] = {
-            "state":         result["state"],
-            "state_label":   result["state_label"],
-            "posterior":     [round(p, 4) for p in result["posterior"]],
-            "top_posterior": round(max(result["posterior"]), 4),
-        }
-    except Exception:
-        pass
+    # --- Regime: RETIRED (WP-17.4 / KB-006) ---
+    # The HMM regime layer was validated as redundant dead weight: a 4-feature
+    # rule beat it (drawdown AUC 0.70 vs 0.55) and it added nothing within stress
+    # strata. Dropped from the daily note + log. regime.py / refit_models are
+    # left in place (model still fit weekly, now unconsumed) pending cleanup.
 
     # --- Conditional distribution ---
     try:
@@ -298,9 +279,7 @@ def build_quant_context(
     if vol_block:
         sections.append(vol_block)
 
-    regime_block = _build_regime_block(snapshot, histories, regime_model)
-    if regime_block:
-        sections.append(regime_block)
+    # Regime (HMM) subsection retired — WP-17.4 / KB-006 (redundant dead weight).
 
     cond_block = _build_conditional_block(snapshot, distribution_table)
     if cond_block:
