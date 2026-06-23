@@ -18,6 +18,9 @@ from regime_backtest import (
     _fit_robust,
     forward_metrics,
     regime_skill,
+    walk_forward_inference_compare,
+    compare_inference_skill,
+    _INFERENCE_METHODS,
 )
 
 
@@ -185,3 +188,51 @@ def test_regime_skill_keys_present():
     r = regime_skill(pit, close, horizons=(5,))[5]
     assert {"separation", "auc_riskoff_drawdown", "auc_highvol_fwdvol",
             "auc_riskoff_drawdown_hiconf", "n_hiconf"}.issubset(r)
+
+
+# ---------------------------------------------------------------------------
+# WP-17.3 inference comparison
+# ---------------------------------------------------------------------------
+
+_INFER_FAST = dict(n_states=2, train_window=60, min_train=30, refit_every=10,
+                   infer_window=30, n_iter=50)
+
+
+def test_inference_compare_produces_all_methods():
+    feats, dates = _two_regime_features(n=200)
+    cmp = walk_forward_inference_compare(feats, dates, **_INFER_FAST)
+    assert not cmp.empty
+    for col in ("label_point", "label_viterbi", "label_smoothed", "label_gmm", "post_point"):
+        assert col in cmp.columns
+    assert cmp["post_point"].between(0, 1).all()
+
+
+def test_inference_compare_survives_singular():
+    feats, dates = _collinear_features(n=120)
+    cmp = walk_forward_inference_compare(feats, dates, **_INFER_FAST)
+    assert isinstance(cmp, pd.DataFrame)   # must not raise
+
+
+def test_compare_inference_skill_keys():
+    feats, dates = _two_regime_features(n=200)
+    cmp = walk_forward_inference_compare(feats, dates, **_INFER_FAST)
+    _, close = _planted_skill_inputs(n=len(cmp) + 60)
+    close = close.iloc[: len(cmp)]
+    close.index = cmp.index
+    res = compare_inference_skill(cmp, close, horizon=5)
+    assert set(res).issubset(set(_INFERENCE_METHODS))
+    for m, r in res.items():
+        assert {"auc_riskoff_drawdown", "auc_highvol_fwdvol", "n_labels"}.issubset(r)
+
+
+def test_label_states_works_on_gmm():
+    """GMM reuse of label_states: a 4-state GMM on 4-feature data yields valid
+    economic labels (not a crash), which the inference comparison relies on."""
+    from sklearn.mixture import GaussianMixture
+    from regime import label_states
+    feats, _ = _two_regime_features(n=240)
+    g = GaussianMixture(n_components=4, covariance_type="full",
+                        reg_covar=1e-4, random_state=0).fit(feats)
+    labels = label_states(g)
+    assert len(labels) == 4
+    assert all(isinstance(v, str) for v in labels.values())
