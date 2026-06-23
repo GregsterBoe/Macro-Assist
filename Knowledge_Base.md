@@ -320,3 +320,61 @@ data.
 **Caveats.** Scored ~2010→2026 (GFC mostly in the 252-day warmup). High-Vol→vol
 is partly circular (vol percentile is an input); the load-bearing number is the
 less-circular Risk-Off→drawdown (0.55). n_states=4, full covariance throughout.
+
+---
+
+## KB-006 — Regime HMM is redundant; a 4-feature rule beats it (WP-17.4)
+
+**Date:** 2026-06-16 · **Branch:** `feature/regime-validation` · **Harness:**
+`.macro-assist/regime_backtest.py --bucket` (18y, ~3,900 walk-forward readings).
+The keep/cut gate.
+
+**What we tested.** Does the HMM regime — even in its best Viterbi inference
+(KB-005) — add drawdown-prediction skill beyond simply conditioning on the same
+4 macro features? Compared Risk-Off→drawdown AUC for the HMM vs a transparent
+equal-weight rule-based stress score (`+nfci_pct, −yc_slope, +credit_z,
++vol_pct`), their redundancy, and the regime AUC *within stress terciles*.
+
+**Headline — DROP the HMM. It is redundant and worse than a trivial rule.**
+
+| @10d, drawdown ≥5% | AUC |
+|---|---|
+| **rule-based stress score → drawdown** | **0.697** |
+| HMM regime (Viterbi) → drawdown | 0.553 |
+| regime AUC *within* stress terciles (mean) | **0.507** (≈ chance) |
+| redundancy (Spearman, regime vs rule) | 0.336 |
+
+The simple linear rule on the same inputs is **far** better (0.697 vs 0.553),
+and once stress level is known the regime adds **nothing** (within-tercile mean
+0.507). The low redundancy (0.336) means the HMM isn't even a noisy version of
+the rule — it's worse *and* capturing something other than the stress that
+actually predicts drawdowns.
+
+**The nuance that's easy to forget.** The rule is **in-sample-standardised**
+(full-sample mean/std), a mild look-ahead that flatters its 0.697; a fully-OOS
+rule would score a little lower. But the decision does **not** rest on that
+number — the **within-tercile 0.507** (standardisation-free) and the **0.336
+redundancy** independently show the HMM has no incremental value. The rule's
+score also leans partly on `vol_pct` (persistent/semi-circular for drawdowns),
+the same caveat as fragility's vix_term — but it's still simpler and better.
+
+**What it changes.**
+- **WP-17.3b (fix the live inference path) is CANCELLED** — do not fix a layer
+  we're dropping. The KB-005 "salvageable via sequence inference" path is moot
+  because even salvaged it loses to a 4-line rule.
+- **Recommendation: remove the HMM regime block from the daily note.** The
+  macro-stress dimension it gestures at is already served better by (a) the
+  Phase-16 **fragility monitor** (variance/credit/vix composite, AUC 0.69–0.72,
+  KB-002) and (b) the trivial stress rule here — so dropping the HMM loses no
+  information. Adding the stress rule as a *new* block would itself be redundant
+  with fragility; prefer consolidation over another stress gauge.
+- **Closes Goal-2's core question for the regime layer.** Full arc: under-trained
+  (HY-OAS truncation, fixed → BAA10Y, KB/WP-17.1) → persisted model invalid for
+  validation (70.5% divergence, KB-003) → startprob-dominated inference → no
+  skill as wired (KB-004) → fixable via sequence inference but only to 0.55
+  (KB-005) → **still redundant vs a 4-feature rule (KB-006) → drop.** A complex
+  component validated as dead weight; the disciplined outcome is to simplify.
+
+**Caveat.** Scored ~2010→2026 (GFC mostly in the warmup). The verdict is about
+the HMM's *incremental* value for drawdown prediction; it does not test other
+conceivable uses of regime state, but none are currently wired into the product.
