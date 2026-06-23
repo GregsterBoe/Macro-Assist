@@ -398,6 +398,15 @@ Phases 1–14 are deployed and stable; their full design notes and Claude Code
 prompts now live in [Project_Development_Archive.md](Project_Development_Archive.md).
 Measured results live in `Knowledge_Base.md`.
 
+> **Archive-on-completion convention (default editing behaviour).** When a **WP**
+> is marked Done *and* its result is recorded in `Knowledge_Base.md`, trim its
+> entry here to a one-line status + verdict + KB pointer (kept inline under its
+> phase — the method/harness/reproduce detail is redundant with the KB entry and
+> the code). When an **entire phase** closes, move its remaining detail to
+> `Project_Development_Archive.md` and add a row to the table below. **Never trim
+> before the result is in the KB** (no information loss), and don't archive
+> context a still-open sibling WP depends on.
+
 | Phase | What it added | Status |
 |-------|---------------|--------|
 | 1 | FRED liquidity series + Net Liquidity | ✅ 2026-04-28 |
