@@ -342,6 +342,147 @@ def _round(v, nd: int = 3):
 
 
 # ---------------------------------------------------------------------------
+# WP-17.3 — inference path vs. concept.
+#
+# KB-004: the production label path (single-point predict_proba) is dominated by
+# startprob_ and carries no skill — the labels don't even track their own input
+# features. Before declaring the regime CONCEPT dead, test whether a different
+# INFERENCE recovers skill on the SAME fitted models:
+#   point    — single current vector (production; startprob-dominated)
+#   viterbi  — Viterbi over the trailing window, take the last state
+#   smoothed — forward-backward posterior at the last step of the window
+#   gmm      — plain Gaussian mixture (no temporal structure) baseline
+# One walk-forward pass fits HMM+GMM once per weekly refit and labels every day
+# under all four (the fit is the cost; inference is cheap).
+# ---------------------------------------------------------------------------
+
+def _fit_gmm_robust(features, n_states, random_state):
+    """Fit a GaussianMixture with a fallback ladder mirroring _fit_robust."""
+    from sklearn.mixture import GaussianMixture
+    from numpy.linalg import LinAlgError
+    X = np.asarray(features, dtype=float)
+    for cov in ("full", "diag"):
+        try:
+            g = GaussianMixture(n_components=n_states, covariance_type=cov,
+                                reg_covar=1e-4, random_state=random_state,
+                                max_iter=200)
+            g.fit(X)
+            return g
+        except (LinAlgError, ValueError):
+            continue
+    return None
+
+
+def walk_forward_inference_compare(
+    features: np.ndarray,
+    dates: pd.DatetimeIndex,
+    n_states: int = _N_STATES,
+    train_window: int = _TRAIN_WINDOW,
+    min_train: int = _MIN_TRAIN,
+    refit_every: int = _REFIT_EVERY,
+    infer_window: int = 120,
+    random_state: int = _RANDOM_STATE,
+    n_iter: int = _N_ITER,
+    covariance_type: str = "full",
+) -> pd.DataFrame:
+    """Walk forward (look-ahead-safe), refitting HMM + GMM weekly on the trailing
+    window strictly before each date, and label every day under four inference
+    methods. Returns a DataFrame indexed by date with columns:
+        label_point, label_viterbi, label_smoothed, label_gmm, post_point.
+    """
+    features = np.asarray(features, dtype=float)
+    dates = pd.DatetimeIndex(dates)
+    if len(features) != len(dates):
+        raise ValueError("features and dates must align")
+
+    rows: list[dict] = []
+    hmm = gmm = None
+    hmm_labels: dict = {}
+    gmm_labels: dict = {}
+    last_fit = -10**9
+
+    for i, d in enumerate(dates):
+        if i < min_train:
+            continue
+        if hmm is None or (i - last_fit) >= refit_every:
+            X_train = features[max(0, i - train_window):i]   # strictly before d
+            if len(X_train) < min_train:
+                continue
+            new_hmm, _ = _fit_robust(X_train, n_states, random_state, n_iter,
+                                     prefer=covariance_type)
+            new_gmm = _fit_gmm_robust(X_train, n_states, random_state)
+            last_fit = i
+            if new_hmm is not None:
+                hmm, hmm_labels = new_hmm, label_states(new_hmm)
+            if new_gmm is not None:
+                gmm, gmm_labels = new_gmm, label_states(new_gmm)
+            if hmm is None:
+                continue
+
+        x = features[i].reshape(1, -1)
+        seq = features[max(0, i - infer_window + 1):i + 1]
+        row = {"date": d}
+
+        # point (production)
+        s_pt, lbl_pt, post_pt = _point_label(hmm, features[i], hmm_labels)
+        row["label_point"], row["post_point"] = lbl_pt, post_pt
+        # sequence inference (transition matrix acts)
+        try:
+            vit = int(hmm.predict(seq)[-1])
+            row["label_viterbi"] = hmm_labels.get(vit, f"State {vit}")
+            sm = int(np.argmax(hmm.predict_proba(seq)[-1]))
+            row["label_smoothed"] = hmm_labels.get(sm, f"State {sm}")
+        except (ValueError, np.linalg.LinAlgError):
+            row["label_viterbi"] = lbl_pt
+            row["label_smoothed"] = lbl_pt
+        # gmm baseline (no temporal structure)
+        if gmm is not None:
+            try:
+                g = int(gmm.predict(x)[0])
+                row["label_gmm"] = gmm_labels.get(g, f"State {g}")
+            except (ValueError, np.linalg.LinAlgError):
+                row["label_gmm"] = lbl_pt
+        else:
+            row["label_gmm"] = lbl_pt
+
+        rows.append(row)
+
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame(rows).set_index("date")
+
+
+_INFERENCE_METHODS = ("point", "viterbi", "smoothed", "gmm")
+
+
+def compare_inference_skill(
+    cmp_df: pd.DataFrame,
+    sp500_close: pd.Series,
+    horizon: int = 10,
+    drawdown_threshold: float = 0.05,
+) -> dict:
+    """Re-score the 17.2 skill metric for each inference method's label path.
+    Returns {method: {auc_riskoff_drawdown, auc_highvol_fwdvol, n_labels}}.
+    The High-Vol→fwd-vol AUC is the floor test: a working inference should make
+    the High-Vol label track forward vol (well above 0.50)."""
+    out: dict = {}
+    for method in _INFERENCE_METHODS:
+        col = f"label_{method}"
+        if col not in cmp_df.columns:
+            continue
+        mini = pd.DataFrame({"label": cmp_df[col], "top_posterior": 1.0},
+                            index=cmp_df.index)
+        skill = regime_skill(mini, sp500_close, horizons=(horizon,),
+                             drawdown_threshold=drawdown_threshold)[horizon]
+        out[method] = {
+            "auc_riskoff_drawdown": skill["auc_riskoff_drawdown"],
+            "auc_highvol_fwdvol":   skill["auc_highvol_fwdvol"],
+            "n_labels": int(cmp_df[col].nunique()),
+        }
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Real-data fetch + CLI (needs FRED_API_KEY; reuses refit_models feature logic)
 # ---------------------------------------------------------------------------
 
@@ -517,11 +658,73 @@ def _print_skill_verdict(skill: dict) -> None:
     print("------------------------------------------------------------")
 
 
+def run_inference_comparison(years: int = 18, n_states: int = _N_STATES,
+                             horizon: int = 10, drawdown_threshold: float = 0.05) -> dict:
+    """WP-17.3: does a different inference path recover skill the production
+    single-point path lacks (KB-004)? Compares point / viterbi / smoothed / gmm
+    on the same walk-forward fits. Needs FRED_API_KEY."""
+    print(f"Fetching regime inputs (FRED + yfinance, {years}y)...")
+    fred_series, sp500_close = _fetch_raw_inputs(years)
+    from refit_models import _build_feature_matrix
+    features, dates = _build_feature_matrix(fred_series, sp500_close)
+    print(f"  {len(features)} valid feature-days {dates[0].date()}..{dates[-1].date()}\n")
+
+    print("Walk-forward refit (HMM + GMM, all inference methods)...")
+    cmp_df = walk_forward_inference_compare(features, dates, n_states=n_states)
+    if cmp_df.empty:
+        print("No readings — insufficient history.")
+        return {}
+    print(f"  {len(cmp_df)} readings\n")
+
+    res = compare_inference_skill(cmp_df, sp500_close, horizon=horizon,
+                                  drawdown_threshold=drawdown_threshold)
+    print("============================================================")
+    print(f"INFERENCE COMPARISON @ {horizon}d (drawdown >= {drawdown_threshold:.0%})")
+    print(f"  {'method':<10} {'RiskOff->DD':>12} {'HighVol->vol':>13} {'labels':>7}")
+    print("  " + "-" * 46)
+    for m in _INFERENCE_METHODS:
+        if m not in res:
+            continue
+        r = res[m]
+        dd = "n/a" if r["auc_riskoff_drawdown"] is None else f"{r['auc_riskoff_drawdown']:.3f}"
+        hv = "n/a" if r["auc_highvol_fwdvol"] is None else f"{r['auc_highvol_fwdvol']:.3f}"
+        print(f"  {m:<10} {dd:>12} {hv:>13} {r['n_labels']:>7}")
+    _print_inference_verdict(res)
+    return {"cmp": cmp_df, "skill": res}
+
+
+def _print_inference_verdict(res: dict) -> None:
+    # Floor test: does any non-point method make High-Vol track forward vol?
+    floor = [(m, res[m]["auc_highvol_fwdvol"]) for m in ("viterbi", "smoothed", "gmm")
+             if res.get(m, {}).get("auc_highvol_fwdvol") is not None]
+    best_floor = max((v for _, v in floor), default=None)
+    dd = [(m, res[m]["auc_riskoff_drawdown"]) for m in _INFERENCE_METHODS
+          if res.get(m, {}).get("auc_riskoff_drawdown") is not None]
+    best_dd = max((v for _, v in dd), default=None)
+    print("\n------------------------------------------------------------")
+    print("VERDICT (is it the inference path or the concept?)")
+    if best_floor is None:
+        print("  Inconclusive — no scorable labels.")
+    elif best_floor >= 0.60:
+        print(f"  INFERENCE WAS THE PROBLEM (best High-Vol→vol AUC {best_floor:.3f}).")
+        print("  A sequence/GMM inference makes labels track features again — fix the")
+        print("  live inference path, then re-run the skill gate + model selection.")
+        if best_dd is not None and best_dd >= 0.55:
+            print(f"  Risk-Off→drawdown also recovers (best {best_dd:.3f}) — regime layer salvageable.")
+    else:
+        print(f"  CONCEPT LOOKS DEAD (best High-Vol→vol AUC {best_floor:.3f}).")
+        print("  Even sequence/GMM inference can't make the labels track features or")
+        print("  the future on these 4 features. Simplify or drop the regime layer.")
+    print("------------------------------------------------------------")
+
+
 if __name__ == "__main__":
     import sys
     if "--diagnose" in sys.argv:
         diagnose_features()
     elif "--skill" in sys.argv:
         run_regime_skill()
+    elif "--infer" in sys.argv:
+        run_inference_comparison()
     else:
         run_regime_audit()
