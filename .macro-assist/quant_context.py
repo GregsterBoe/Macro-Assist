@@ -463,6 +463,45 @@ def _build_fragility_block(
     return "\n".join(lines)
 
 
+def build_nonlive_signals_block(
+    snapshot: dict,
+    histories: Optional[dict] = None,
+    regime_model=None,
+) -> str:
+    """Render quant signals that are COMPUTED but NOT sent live to the model.
+
+    As of WP-17.4 / Phase 16 two such signals exist:
+      - Fragility monitor — live mode is 'log' (shadow), so _build_fragility_block
+        returns '' in production. Here we force mode='show' so the reading renders.
+      - HMM regime block — retired (WP-17.4 / KB-006, redundant) and unwired from
+        the note, but _build_regime_block is kept. Rendered here for reference.
+
+    Returns a markdown block (with a clear "withheld" header), or '' if neither
+    signal renders. This is for inspection only; nothing here reaches the LLM.
+    """
+    parts: list[str] = []
+
+    frag = _build_fragility_block(histories, mode="show")
+    if frag:
+        parts.append(frag)
+
+    regime = _build_regime_block(snapshot, histories, regime_model)
+    if regime:
+        parts.append(
+            "_(retired WP-17.4 — redundant per KB-006; shown for reference only)_\n"
+            + regime
+        )
+
+    if not parts:
+        return ""
+
+    header = (
+        "## NON-LIVE SIGNALS (computed, NOT sent to the model)\n"
+        "_The payload above does NOT include the following. Inspection only._"
+    )
+    return header + "\n\n" + "\n\n".join(parts)
+
+
 def _build_conditional_block(
     snapshot: dict,
     distribution_table: Optional[dict],

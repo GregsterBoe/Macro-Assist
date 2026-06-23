@@ -17,6 +17,7 @@ import pytest
 
 from quant_context import (
     build_quant_context,
+    build_nonlive_signals_block,
     _build_vol_block,
     _build_regime_block,
     _build_conditional_block,
@@ -255,6 +256,32 @@ class TestBuildRegimeBlock:
         model = _make_regime_model()
         block = _build_regime_block(snap, {}, model)
         assert "**Regime" in block
+
+
+class TestBuildNonliveSignalsBlock:
+
+    def test_empty_when_no_signals(self, monkeypatch, tmp_path):
+        # No histories (no fragility fetch) and no model on disk => nothing renders.
+        import quant_context as _qc
+        monkeypatch.setattr(_qc, "DEFAULT_MODEL_PATH", tmp_path / "absent.pkl")
+        snap = _make_snapshot()
+        assert build_nonlive_signals_block(snap, None, regime_model=None) == ""
+
+    def test_renders_fragility_in_show_mode_regardless_of_env(self, monkeypatch):
+        # Live mode is 'log' (block hidden in the note); the non-live preview must
+        # still surface the reading by forcing 'show'.
+        monkeypatch.setenv(_FRAGILITY_MODE_ENV, "log")
+        snap  = _make_snapshot()
+        block = build_nonlive_signals_block(snap, _make_frag_histories(), regime_model=None)
+        assert "NON-LIVE SIGNALS" in block
+        assert "**Fragility Monitor" in block
+
+    def test_includes_retired_regime_block(self):
+        snap  = _make_snapshot()
+        model = _make_regime_model()
+        block = build_nonlive_signals_block(snap, _make_histories(), regime_model=model)
+        assert "**Regime" in block
+        assert "retired WP-17.4" in block
 
 
 class TestBuildConditionalBlock:
