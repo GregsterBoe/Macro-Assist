@@ -268,3 +268,55 @@ real Risk-Off→drawdown signal), so this is a property of the labels, not a bug
 **Caveats.** 18y fetch ⇒ scored ~2010→2026 (2011, 2015-16, 2018Q4, 2020, 2022;
 the 2008 GFC sits mostly in the 252-day warmup, so it is largely excluded).
 n_states=4, default covariance — both revisited in WP-17.3.
+
+---
+
+## KB-005 — Regime: inference path was the bug, not the concept (WP-17.3)
+
+**Date:** 2026-06-16 · **Branch:** `feature/regime-validation` · **Harness:**
+`.macro-assist/regime_backtest.py --infer` (18y, 3,922 walk-forward readings
+~2010→2026). Same look-ahead-safe fits, four inference methods compared.
+
+**What we tested.** KB-004 showed the production label path (single-point
+`predict_proba`) carries no skill and the labels don't track their own inputs —
+traced to `startprob_` domination. Does a *different inference* recover skill on
+the *same* walk-forward HMM/GMM fits?
+
+**Headline — it was the inference, and the layer is salvageable (but modest).**
+
+| inference @10d | Risk-Off → drawdown AUC | High-Vol → fwd-vol AUC |
+|---|---|---|
+| `point` (production) | 0.465 | 0.495 |
+| `viterbi` (seq → last state) | **0.553** | **0.646** |
+| `smoothed` (fwd-bwd last step) | 0.553 | 0.646 |
+| `gmm` (no temporal structure) | 0.499 | 0.615 |
+
+Feeding the **trailing sequence** (so the transition matrix + emissions act,
+instead of `startprob_` alone) makes the High-Vol label track forward vol again
+(0.495 → 0.646 — the floor test passes) and lifts Risk-Off→drawdown from
+*below* chance to **0.553**.
+
+**The nuance that matters.** The **HMM with sequence inference beats the GMM on
+the drawdown axis** (0.553 vs 0.499) while matching it on the (partly circular)
+vol axis. So the HMM's temporal structure earns its place — **but only if live
+inference uses the sequence.** Risk-Off→drawdown 0.55 is in the **weak band**
+(WP-17.2 scale: ≥0.58 separates / 0.53–0.58 weak / <0.53 decorative): real and
+correctly-signed, not strong. `viterbi` and `smoothed` were identical on this
+data.
+
+**What it changes.**
+- **Concrete production bug:** `predict_regime` / `quant_context` feed a single
+  feature vector; they should feed a **trailing feature sequence** and take the
+  Viterbi/smoothed last state. This moves the live regime block from *no-skill +
+  false 0.9 confidence* (KB-004) to *modestly informative*. Until fixed, the
+  regime block in the daily note is misleading and should not be trusted.
+- The fix is non-trivial: the live path must reconstruct the recent (~120-day)
+  4-feature matrix at inference, not just today's snapshot.
+- The regime layer is **worth fixing, not dropping** — but given the modest 0.55,
+  **WP-17.4 (does it beat the simpler Phase-11 conditional bucket?)** is the real
+  keep/cut gate, and the **model-selection sweep** (n_states, covariance) should
+  run to see if the weak signal strengthens.
+
+**Caveats.** Scored ~2010→2026 (GFC mostly in the 252-day warmup). High-Vol→vol
+is partly circular (vol percentile is an input); the load-bearing number is the
+less-circular Risk-Off→drawdown (0.55). n_states=4, full covariance throughout.
