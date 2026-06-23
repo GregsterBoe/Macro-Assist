@@ -33,7 +33,11 @@
       "Bash(python3 -m venv /home/gregster/Documents/Projects/Macro-Assist/venv)",
       "Bash(venv/bin/python -m pytest .macro-assist/tests/test_quant_context.py -v)",
       "Bash(python .macro-assist/bump_version.py)",
-      "Bash(python -m pytest tests/test_quant_context.py -q)"
+      "Bash(python -m pytest tests/test_quant_context.py -q)",
+      "Bash(python -m pytest tests/test_regime_backtest.py -q)",
+      "Bash(python -m pytest tests/test_regime_backtest.py tests/test_regime.py -q)",
+      "Bash(python -m pytest \"tests/test_regime_backtest.py::test_walk_forward_survives_singular_windows\" -q)",
+      "Bash(python -m pytest tests/test_regime_features.py tests/test_quant_context.py tests/test_regime_backtest.py tests/test_conditional.py -q)"
     ]
   }
 }

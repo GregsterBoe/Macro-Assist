@@ -154,3 +154,227 @@ pct ≈ 24.0**. The 90th-pct cut *is* the validated top-decile flag, so the live
   mode** (widen ranges + tail-risk bullet when Elevated; never flip direction).
   The expensive LLM-pipeline backtest still should **not** run until after a
   shadow period confirms the wiring behaves.
+
+---
+
+## KB-003 — Regime layer: look-ahead-safe ≠ full-sample labels; single-point inference is startprob-dominated (WP-17.1)
+
+**Date:** 2026-06-16 · **Branch:** `feature/regime-validation` · **Harness:**
+`.macro-assist/regime_backtest.py` (pure-numerical; needs FRED for NFCI / yields
+/ BAA10Y + yfinance for SP500). Reproduce: `FRED_API_KEY=… python
+.macro-assist/regime_backtest.py`.
+
+**What we tested.** Two WP-17.1 questions about the HMM regime layer (Phase 10),
+which had never been backtested the way fragility was: (1) is the persisted /
+full-sample model a valid basis for validating regime skill, and (2) how
+look-ahead-safe is the live regime path? Walk-forward refit (weekly, trailing
+~5y, single-point classify — mirrors production) vs. a full-sample fit, over
+**2,357 daily readings (~2016→2026, COVID + 2022 in sample; no GFC at the 12y
+fetch), 472 weekly refits, 8 needing a diag/carry fallback.**
+
+**Headline — you cannot validate the regime layer on the persisted model.** The
+look-ahead-safe (walk-forward) labels disagree with the full-sample labels on
+**70.5%** of days. Any skill test (WP-17.2) **must** refit walk-forward; scoring
+the persisted full-sample model would be measuring a different label series than
+the live system produces.
+
+**The nuance that's easy to forget (and the bigger finding).** The full-sample
+model produced **only 1 distinct label across all 2,357 days** (vs. 4 for the
+walk-forward path). This is not a harness bug — it traces to the **single-point
+inference** the live pipeline uses: `regime_features` returns one (4,) vector and
+`predict_regime` classifies it alone, so `predict_proba` = normalised
+`startprob_ × emission`. A full-sample EM fit converges to a near one-hot
+`startprob_`, so *every* single-day classification collapses to that one state.
+The walk-forward path looks like it distinguishes regimes (4 labels) **only
+because each weekly refit's favoured state differs** — within any one refit the
+label is effectively pinned by `startprob_`. So the HMM's transition matrix does
+no work at inference; the live "regime" is closer to a startprob-weighted
+Gaussian-mixture pick than a sequential HMM state. **Flag for WP-17.3:** test
+single-point vs. sequence (Viterbi) inference and GMM-vs-HMM directly — the HMM
+may be earning none of its temporal machinery in the live path.
+
+**Methodological caveats.**
+1. 12y fetch ⇒ features span ~2016→2026 (COVID, 2022 — **no 2008 GFC**); re-run
+   with `years≈18` for GFC coverage in the skill gate.
+2. `label_states` maps state indices → economic labels *per fit* (median NFCI /
+   vol split), so cross-refit label identity isn't guaranteed — compare by the
+   economic label string, not the raw state index.
+3. This is the look-ahead/divergence audit, **not** a skill measurement — it says
+   nothing yet about whether the (walk-forward) labels predict forward returns.
+
+**What it changes.**
+- WP-17.1 **Done**. The skill gate (WP-17.2) scores the **walk-forward** label
+  path, never the persisted model.
+- WP-17.3 elevated in importance: single-point inference is `startprob_`-
+  dominated, so "is the HMM better than a GMM / does sequence inference help?"
+  is now a first-order question, not a refinement.
+- Production context: the regime model was additionally **under-trained** (the
+  HY-OAS feature only had ~3y on FRED — see WP-17.1), now fixed by switching the
+  credit feature to **BAA10Y**; re-run `refit_models.py` after merge.
+
+**Incidental.** The earlier 3.6% divergence figure is **void** — it was measured
+on the ~2y truncated window where the full-sample model also collapsed to a
+single label, so the comparison was meaningless.
+
+---
+
+## KB-004 — Regime layer has NO out-of-sample skill as wired (WP-17.2)
+
+**Date:** 2026-06-16 · **Branch:** `feature/regime-validation` · **Harness:**
+`.macro-assist/regime_backtest.py --skill` (18y fetch, BAA10Y credit feature).
+Scored on the **walk-forward** label path only (KB-003).
+
+**What we tested.** Do the regime labels separate the future? Over **3,922
+walk-forward readings (~2010→2026), 785 weekly refits**: forward 5/10/20-day
+SP500 return + realized vol per label, AUC of Risk-Off predicting a ≥5% forward
+drawdown (least-circular test), AUC of High-Vol predicting top-tercile forward
+vol (partly circular — vol-percentile is an input), and a high-posterior subset.
+
+**Headline — NO SKILL. The regime layer is decorative as currently wired.**
+
+| AUC (0.50 = none) | 5d | 10d | 20d |
+|---|---|---|---|
+| Risk-Off → drawdown | 0.482 | 0.465 | 0.485 |
+| High-Vol → top-tercile fwd vol *(circular)* | 0.499 | 0.495 | 0.496 |
+
+The Risk-Off→drawdown AUC is at/below chance at every horizon, and the
+label→forward-return separation is perverse (e.g. 5d: "Risk-Off High-Vol" mean
+fwd ret **+0.0033** vs "Risk-On Low-Vol" **+0.0017** — the wrong way round).
+
+**The smoking gun (why it fails).** The **High-Vol→forward-vol AUC is ~0.50**.
+Realized vol is highly persistent and the vol percentile is a *direct input
+feature*, so a label that meant anything would predict forward vol with AUC well
+above 0.5. It doesn't — **the labels don't even track their own inputs.** Cause
+(per KB-003): single-point inference makes `predict_proba ≈ startprob_ ×
+emission`, and the fitted `startprob_` is near one-hot, so the label is pinned by
+`startprob_` regardless of the day's features. Confirmed by the confidence
+column: **3,920 of 3,922 days read posterior ≥0.8** — near-universal false
+confidence. The scorer itself is sound (the planted-signal unit test recovers a
+real Risk-Off→drawdown signal), so this is a property of the labels, not a bug.
+
+**What it changes.**
+- The HMM regime block as it feeds the daily note carries **no predictive
+  information**. It should not be trusted as-is.
+- **Before dropping the regime *concept*, WP-17.3 must isolate cause from
+  concept:** the failure is in the *inference path* (startprob-dominated single
+  point), not necessarily the model. Test **sequence/Viterbi inference** (use the
+  trailing window, let the transition matrix act) and a **GMM baseline**; also
+  fix or bypass the degenerate `startprob_`. Only if proper inference still shows
+  no skill is the regime concept itself dead.
+- This is the mirror image of fragility (KB-001/002): same disciplined gate, but
+  here the gate says **stop** — exactly its purpose. Do not spend LLM-pipeline
+  budget on regime context until 17.3 resolves the inference path.
+
+**Caveats.** 18y fetch ⇒ scored ~2010→2026 (2011, 2015-16, 2018Q4, 2020, 2022;
+the 2008 GFC sits mostly in the 252-day warmup, so it is largely excluded).
+n_states=4, default covariance — both revisited in WP-17.3.
+
+---
+
+## KB-005 — Regime: inference path was the bug, not the concept (WP-17.3)
+
+**Date:** 2026-06-16 · **Branch:** `feature/regime-validation` · **Harness:**
+`.macro-assist/regime_backtest.py --infer` (18y, 3,922 walk-forward readings
+~2010→2026). Same look-ahead-safe fits, four inference methods compared.
+
+**What we tested.** KB-004 showed the production label path (single-point
+`predict_proba`) carries no skill and the labels don't track their own inputs —
+traced to `startprob_` domination. Does a *different inference* recover skill on
+the *same* walk-forward HMM/GMM fits?
+
+**Headline — it was the inference, and the layer is salvageable (but modest).**
+
+| inference @10d | Risk-Off → drawdown AUC | High-Vol → fwd-vol AUC |
+|---|---|---|
+| `point` (production) | 0.465 | 0.495 |
+| `viterbi` (seq → last state) | **0.553** | **0.646** |
+| `smoothed` (fwd-bwd last step) | 0.553 | 0.646 |
+| `gmm` (no temporal structure) | 0.499 | 0.615 |
+
+Feeding the **trailing sequence** (so the transition matrix + emissions act,
+instead of `startprob_` alone) makes the High-Vol label track forward vol again
+(0.495 → 0.646 — the floor test passes) and lifts Risk-Off→drawdown from
+*below* chance to **0.553**.
+
+**The nuance that matters.** The **HMM with sequence inference beats the GMM on
+the drawdown axis** (0.553 vs 0.499) while matching it on the (partly circular)
+vol axis. So the HMM's temporal structure earns its place — **but only if live
+inference uses the sequence.** Risk-Off→drawdown 0.55 is in the **weak band**
+(WP-17.2 scale: ≥0.58 separates / 0.53–0.58 weak / <0.53 decorative): real and
+correctly-signed, not strong. `viterbi` and `smoothed` were identical on this
+data.
+
+**What it changes.**
+- **Concrete production bug:** `predict_regime` / `quant_context` feed a single
+  feature vector; they should feed a **trailing feature sequence** and take the
+  Viterbi/smoothed last state. This moves the live regime block from *no-skill +
+  false 0.9 confidence* (KB-004) to *modestly informative*. Until fixed, the
+  regime block in the daily note is misleading and should not be trusted.
+- The fix is non-trivial: the live path must reconstruct the recent (~120-day)
+  4-feature matrix at inference, not just today's snapshot.
+- The regime layer is **worth fixing, not dropping** — but given the modest 0.55,
+  **WP-17.4 (does it beat the simpler Phase-11 conditional bucket?)** is the real
+  keep/cut gate, and the **model-selection sweep** (n_states, covariance) should
+  run to see if the weak signal strengthens.
+
+**Caveats.** Scored ~2010→2026 (GFC mostly in the 252-day warmup). High-Vol→vol
+is partly circular (vol percentile is an input); the load-bearing number is the
+less-circular Risk-Off→drawdown (0.55). n_states=4, full covariance throughout.
+
+---
+
+## KB-006 — Regime HMM is redundant; a 4-feature rule beats it (WP-17.4)
+
+**Date:** 2026-06-16 · **Branch:** `feature/regime-validation` · **Harness:**
+`.macro-assist/regime_backtest.py --bucket` (18y, ~3,900 walk-forward readings).
+The keep/cut gate.
+
+**What we tested.** Does the HMM regime — even in its best Viterbi inference
+(KB-005) — add drawdown-prediction skill beyond simply conditioning on the same
+4 macro features? Compared Risk-Off→drawdown AUC for the HMM vs a transparent
+equal-weight rule-based stress score (`+nfci_pct, −yc_slope, +credit_z,
++vol_pct`), their redundancy, and the regime AUC *within stress terciles*.
+
+**Headline — DROP the HMM. It is redundant and worse than a trivial rule.**
+
+| @10d, drawdown ≥5% | AUC |
+|---|---|
+| **rule-based stress score → drawdown** | **0.697** |
+| HMM regime (Viterbi) → drawdown | 0.553 |
+| regime AUC *within* stress terciles (mean) | **0.507** (≈ chance) |
+| redundancy (Spearman, regime vs rule) | 0.336 |
+
+The simple linear rule on the same inputs is **far** better (0.697 vs 0.553),
+and once stress level is known the regime adds **nothing** (within-tercile mean
+0.507). The low redundancy (0.336) means the HMM isn't even a noisy version of
+the rule — it's worse *and* capturing something other than the stress that
+actually predicts drawdowns.
+
+**The nuance that's easy to forget.** The rule is **in-sample-standardised**
+(full-sample mean/std), a mild look-ahead that flatters its 0.697; a fully-OOS
+rule would score a little lower. But the decision does **not** rest on that
+number — the **within-tercile 0.507** (standardisation-free) and the **0.336
+redundancy** independently show the HMM has no incremental value. The rule's
+score also leans partly on `vol_pct` (persistent/semi-circular for drawdowns),
+the same caveat as fragility's vix_term — but it's still simpler and better.
+
+**What it changes.**
+- **WP-17.3b (fix the live inference path) is CANCELLED** — do not fix a layer
+  we're dropping. The KB-005 "salvageable via sequence inference" path is moot
+  because even salvaged it loses to a 4-line rule.
+- **Recommendation: remove the HMM regime block from the daily note.** The
+  macro-stress dimension it gestures at is already served better by (a) the
+  Phase-16 **fragility monitor** (variance/credit/vix composite, AUC 0.69–0.72,
+  KB-002) and (b) the trivial stress rule here — so dropping the HMM loses no
+  information. Adding the stress rule as a *new* block would itself be redundant
+  with fragility; prefer consolidation over another stress gauge.
+- **Closes Goal-2's core question for the regime layer.** Full arc: under-trained
+  (HY-OAS truncation, fixed → BAA10Y, KB/WP-17.1) → persisted model invalid for
+  validation (70.5% divergence, KB-003) → startprob-dominated inference → no
+  skill as wired (KB-004) → fixable via sequence inference but only to 0.55
+  (KB-005) → **still redundant vs a 4-feature rule (KB-006) → drop.** A complex
+  component validated as dead weight; the disciplined outcome is to simplify.
+
+**Caveat.** Scored ~2010→2026 (GFC mostly in the warmup). The verdict is about
+the HMM's *incremental* value for drawdown prediction; it does not test other
+conceivable uses of regime state, but none are currently wired into the product.
