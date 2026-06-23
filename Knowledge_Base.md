@@ -215,3 +215,56 @@ may be earning none of its temporal machinery in the live path.
 **Incidental.** The earlier 3.6% divergence figure is **void** — it was measured
 on the ~2y truncated window where the full-sample model also collapsed to a
 single label, so the comparison was meaningless.
+
+---
+
+## KB-004 — Regime layer has NO out-of-sample skill as wired (WP-17.2)
+
+**Date:** 2026-06-16 · **Branch:** `feature/regime-validation` · **Harness:**
+`.macro-assist/regime_backtest.py --skill` (18y fetch, BAA10Y credit feature).
+Scored on the **walk-forward** label path only (KB-003).
+
+**What we tested.** Do the regime labels separate the future? Over **3,922
+walk-forward readings (~2010→2026), 785 weekly refits**: forward 5/10/20-day
+SP500 return + realized vol per label, AUC of Risk-Off predicting a ≥5% forward
+drawdown (least-circular test), AUC of High-Vol predicting top-tercile forward
+vol (partly circular — vol-percentile is an input), and a high-posterior subset.
+
+**Headline — NO SKILL. The regime layer is decorative as currently wired.**
+
+| AUC (0.50 = none) | 5d | 10d | 20d |
+|---|---|---|---|
+| Risk-Off → drawdown | 0.482 | 0.465 | 0.485 |
+| High-Vol → top-tercile fwd vol *(circular)* | 0.499 | 0.495 | 0.496 |
+
+The Risk-Off→drawdown AUC is at/below chance at every horizon, and the
+label→forward-return separation is perverse (e.g. 5d: "Risk-Off High-Vol" mean
+fwd ret **+0.0033** vs "Risk-On Low-Vol" **+0.0017** — the wrong way round).
+
+**The smoking gun (why it fails).** The **High-Vol→forward-vol AUC is ~0.50**.
+Realized vol is highly persistent and the vol percentile is a *direct input
+feature*, so a label that meant anything would predict forward vol with AUC well
+above 0.5. It doesn't — **the labels don't even track their own inputs.** Cause
+(per KB-003): single-point inference makes `predict_proba ≈ startprob_ ×
+emission`, and the fitted `startprob_` is near one-hot, so the label is pinned by
+`startprob_` regardless of the day's features. Confirmed by the confidence
+column: **3,920 of 3,922 days read posterior ≥0.8** — near-universal false
+confidence. The scorer itself is sound (the planted-signal unit test recovers a
+real Risk-Off→drawdown signal), so this is a property of the labels, not a bug.
+
+**What it changes.**
+- The HMM regime block as it feeds the daily note carries **no predictive
+  information**. It should not be trusted as-is.
+- **Before dropping the regime *concept*, WP-17.3 must isolate cause from
+  concept:** the failure is in the *inference path* (startprob-dominated single
+  point), not necessarily the model. Test **sequence/Viterbi inference** (use the
+  trailing window, let the transition matrix act) and a **GMM baseline**; also
+  fix or bypass the degenerate `startprob_`. Only if proper inference still shows
+  no skill is the regime concept itself dead.
+- This is the mirror image of fragility (KB-001/002): same disciplined gate, but
+  here the gate says **stop** — exactly its purpose. Do not spend LLM-pipeline
+  budget on regime context until 17.3 resolves the inference path.
+
+**Caveats.** 18y fetch ⇒ scored ~2010→2026 (2011, 2015-16, 2018Q4, 2020, 2022;
+the 2008 GFC sits mostly in the 252-day warmup, so it is largely excluded).
+n_states=4, default covariance — both revisited in WP-17.3.
