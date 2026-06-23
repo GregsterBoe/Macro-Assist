@@ -483,6 +483,68 @@ def compare_inference_skill(
 
 
 # ---------------------------------------------------------------------------
+# WP-17.4 — incremental value over the simpler bucket.
+#
+# Does the HMM regime add drawdown-prediction skill beyond simply conditioning on
+# the same macro inputs? The real Phase-11 bucket (conditional.assign_bucket)
+# keys off the truncated HY-OAS series (WP-17.5), so it isn't computable over
+# full history; instead compare the HMM (in its best Viterbi inference, KB-005)
+# against a transparent rule-based stress score on the same 4 features. If the
+# HMM doesn't beat the rule and adds nothing within stress strata, it is
+# redundant — keep the rule, drop the HMM.
+# ---------------------------------------------------------------------------
+
+def feature_stress_score(features: np.ndarray) -> np.ndarray:
+    """Transparent rule-based macro-stress score on the 4 regime features:
+    +nfci_pct, −yc_slope, +credit_z, +vol_pct (each standardised, equal weight).
+    Higher = more stressed. AUC is rank-based, so the standardisation scale is
+    irrelevant — only the (fixed, equal) cross-feature weighting matters."""
+    X = np.asarray(features, dtype=float)
+    z = (X - np.nanmean(X, axis=0)) / (np.nanstd(X, axis=0) + 1e-9)
+    signs = np.array([1.0, -1.0, 1.0, 1.0])    # stress direction per feature
+    return (z * signs).sum(axis=1)
+
+
+def regime_vs_bucket(
+    cmp_df: pd.DataFrame,
+    features: np.ndarray,
+    dates: pd.DatetimeIndex,
+    sp500_close: pd.Series,
+    horizon: int = 10,
+    drawdown_threshold: float = 0.05,
+    regime_col: str = "label_viterbi",
+) -> dict:
+    """Compare the HMM regime (best inference) vs the rule-based stress score at
+    predicting forward drawdowns, plus a redundancy + within-stratum check.
+    Returns auc_bucket, auc_regime, spearman (redundancy), within-tercile regime
+    AUCs and their mean (incremental value)."""
+    from fragility_backtest import auc, drawdown_label
+
+    stress = pd.Series(feature_stress_score(features),
+                       index=pd.DatetimeIndex(dates)).reindex(cmp_df.index)
+    close = pd.Series(sp500_close).astype(float)
+    close = close[~close.index.duplicated(keep="last")]
+    aligned = close.reindex(cmp_df.index, method="ffill")
+    dd = drawdown_label(aligned, threshold=drawdown_threshold, horizon=horizon).reindex(cmp_df.index)
+    risk_off = cmp_df[regime_col].astype(str).str.contains("Risk-Off").astype(float)
+
+    terc = pd.qcut(stress.rank(method="first"), 3, labels=["low", "mid", "high"])
+    within = {}
+    for t in ("low", "mid", "high"):
+        m = (terc == t).to_numpy()
+        within[t] = _round(auc(risk_off[m], dd[m])) if int(m.sum()) > 30 else None
+    vals = [v for v in within.values() if v is not None]
+
+    return {
+        "auc_bucket_stress": _round(auc(stress, dd)),
+        "auc_regime":        _round(auc(risk_off, dd)),
+        "redundancy_spearman": _round(float(pd.Series(stress).corr(risk_off, method="spearman"))),
+        "within_tercile_regime_auc": within,
+        "within_tercile_mean": _round(float(np.mean(vals))) if vals else None,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Real-data fetch + CLI (needs FRED_API_KEY; reuses refit_models feature logic)
 # ---------------------------------------------------------------------------
 
@@ -718,6 +780,61 @@ def _print_inference_verdict(res: dict) -> None:
     print("------------------------------------------------------------")
 
 
+def run_regime_vs_bucket(years: int = 18, n_states: int = _N_STATES,
+                         horizon: int = 10, drawdown_threshold: float = 0.05) -> dict:
+    """WP-17.4 keep/cut gate: does the HMM regime (best Viterbi inference) add
+    drawdown skill over a simple rule-based stress score on the same features?
+    Needs FRED_API_KEY."""
+    print(f"Fetching regime inputs (FRED + yfinance, {years}y)...")
+    fred_series, sp500_close = _fetch_raw_inputs(years)
+    from refit_models import _build_feature_matrix
+    features, dates = _build_feature_matrix(fred_series, sp500_close)
+    print(f"  {len(features)} valid feature-days {dates[0].date()}..{dates[-1].date()}\n")
+
+    print("Walk-forward (HMM sequence inference) + rule-based bucket...")
+    cmp_df = walk_forward_inference_compare(features, dates, n_states=n_states)
+    if cmp_df.empty:
+        print("No readings — insufficient history.")
+        return {}
+    # Align the feature matrix to the emitted (post-warmup) dates.
+    pos = {d: k for k, d in enumerate(pd.DatetimeIndex(dates))}
+    keep = [pos[d] for d in cmp_df.index]
+    feats_aligned = np.asarray(features)[keep]
+
+    r = regime_vs_bucket(cmp_df, feats_aligned, cmp_df.index, sp500_close,
+                         horizon=horizon, drawdown_threshold=drawdown_threshold)
+
+    print("============================================================")
+    print(f"REGIME vs SIMPLE BUCKET @ {horizon}d (drawdown >= {drawdown_threshold:.0%})")
+    print(f"  rule-based stress score -> drawdown AUC : {r['auc_bucket_stress']}")
+    print(f"  HMM regime (Viterbi)    -> drawdown AUC : {r['auc_regime']}")
+    print(f"  redundancy (Spearman regime vs rule)    : {r['redundancy_spearman']}")
+    print(f"  regime AUC within stress terciles       : {r['within_tercile_regime_auc']}"
+          f"  (mean {r['within_tercile_mean']})")
+    _print_bucket_verdict(r)
+    return {"cmp": cmp_df, "result": r}
+
+
+def _print_bucket_verdict(r: dict) -> None:
+    ab, ar = r["auc_bucket_stress"], r["auc_regime"]
+    wm = r["within_tercile_mean"]
+    print("\n------------------------------------------------------------")
+    print("VERDICT (does the HMM earn its complexity over a simple rule?)")
+    if ab is None or ar is None:
+        print("  Inconclusive — no scorable days.")
+    elif ar > ab + 0.02 and (wm or 0) >= 0.52:
+        print(f"  REGIME ADDS VALUE (regime {ar:.3f} > rule {ab:.3f}; within-stratum {wm}).")
+        print("  Worth fixing the live inference path (WP-17.3b) and keeping the layer.")
+    elif ar <= ab and (wm or 0.5) <= 0.52:
+        print(f"  REDUNDANT (regime {ar:.3f} <= rule {ab:.3f}; within-stratum {wm}).")
+        print("  The HMM adds nothing over a trivial rule on the same inputs — simplify:")
+        print("  drop the HMM, keep the rule/bucket. Don't spend on WP-17.3b.")
+    else:
+        print(f"  MARGINAL (regime {ar:.3f} vs rule {ab:.3f}; within-stratum {wm}).")
+        print("  Weak incremental value — keep only if the live fix is cheap.")
+    print("------------------------------------------------------------")
+
+
 if __name__ == "__main__":
     import sys
     if "--diagnose" in sys.argv:
@@ -726,5 +843,7 @@ if __name__ == "__main__":
         run_regime_skill()
     elif "--infer" in sys.argv:
         run_inference_comparison()
+    elif "--bucket" in sys.argv:
+        run_regime_vs_bucket()
     else:
         run_regime_audit()

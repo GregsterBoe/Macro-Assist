@@ -21,6 +21,8 @@ from regime_backtest import (
     walk_forward_inference_compare,
     compare_inference_skill,
     _INFERENCE_METHODS,
+    feature_stress_score,
+    regime_vs_bucket,
 )
 
 
@@ -236,3 +238,32 @@ def test_label_states_works_on_gmm():
     labels = label_states(g)
     assert len(labels) == 4
     assert all(isinstance(v, str) for v in labels.values())
+
+
+# ---------------------------------------------------------------------------
+# WP-17.4 regime vs simple bucket
+# ---------------------------------------------------------------------------
+
+def test_feature_stress_score_direction():
+    # Higher NFCI/credit/vol and more-inverted curve => higher stress score.
+    calm = np.array([[0.1, 150.0, -0.5, 10.0]])
+    stressed = np.array([[0.9, -50.0, 2.0, 90.0]])
+    feats = np.vstack([calm, stressed, calm, stressed])
+    s = feature_stress_score(feats)
+    assert s[1] > s[0] and s[3] > s[2]
+
+
+def test_regime_vs_bucket_keys_and_planted():
+    # Build aligned regime labels + features + close where both the stress score
+    # and Risk-Off coincide with drawdowns; harness should score both > 0.5.
+    pit, close = _planted_skill_inputs(n=300)
+    n = len(pit)
+    # Features: high stress exactly on the Risk-Off (stressed) days.
+    feats = np.tile(np.array([0.1, 150.0, -0.5, 10.0]), (n, 1))
+    is_ro = pit["label"].str.contains("Risk-Off").to_numpy()
+    feats[is_ro] = np.array([0.9, -50.0, 2.0, 90.0])
+    cmp = pd.DataFrame({"label_viterbi": pit["label"].to_numpy()}, index=pit.index)
+    r = regime_vs_bucket(cmp, feats, pit.index, close, horizon=10)
+    assert {"auc_bucket_stress", "auc_regime", "redundancy_spearman",
+            "within_tercile_regime_auc", "within_tercile_mean"}.issubset(r)
+    assert r["auc_regime"] is not None and r["auc_regime"] > 0.5
