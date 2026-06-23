@@ -2146,6 +2146,78 @@ def _analyze_structured(
     return None
 
 
+def build_payload_preview(
+    user_message_structured: str,
+    nonlive_block: str = "",
+    system_prompt_chars: int = 0,
+    free_text_extras: "dict | None" = None,
+    today: "datetime | None" = None,
+) -> str:
+    """Build a human-readable preview of what the LLM receives, plus withheld signals.
+
+    Returns a markdown document with three parts:
+      1. a section-size index (rough picture, scannable),
+      2. the verbatim main-analysis payload (structured path — what is live), and
+      3. the non-live signals block (computed but withheld from the model).
+
+    `free_text_extras` (optional) names the bits the free-text *fallback* path
+    additionally appends (portfolio, accuracy) so the preview is honest about the
+    two code paths without dumping their full text.
+    """
+    date_str = (today or datetime.now()).strftime("%A, %B %d, %Y")
+
+    # Rough index: count lines per top-level "## " section of the live payload.
+    sections: list[tuple[str, int, int]] = []
+    cur_name, cur_lines, cur_chars = "(preamble)", 0, 0
+    for line in user_message_structured.splitlines():
+        if line.startswith("## "):
+            if cur_lines or cur_chars:
+                sections.append((cur_name, cur_lines, cur_chars))
+            cur_name, cur_lines, cur_chars = line[3:].strip(), 0, 0
+        cur_lines += 1
+        cur_chars += len(line) + 1
+    sections.append((cur_name, cur_lines, cur_chars))
+
+    index_lines = [f"- {name}: {ln} lines / {ch} chars" for name, ln, ch in sections]
+    total_chars = len(user_message_structured)
+
+    out: list[str] = [
+        f"# LLM Payload Preview — {date_str}",
+        "",
+        "Rough picture of the **main analysis agent** input (`claude-sonnet-4-6`, "
+        "structured path — the live one). System prompt + the verbatim user message "
+        "below, then signals we compute but withhold.",
+        "",
+        f"- System prompt: ~{system_prompt_chars} chars (`prompts/system_prompt_structured.md`)",
+        f"- User message: {total_chars} chars across {len(sections)} section(s)",
+        "",
+        "## Section index (user message)",
+        *index_lines,
+    ]
+    if free_text_extras:
+        extra_names = ", ".join(k for k, v in free_text_extras.items() if v)
+        if extra_names:
+            out += [
+                "",
+                f"_Free-text fallback path additionally appends: {extra_names} "
+                "(excluded from the live structured path)._",
+            ]
+
+    out += [
+        "",
+        "=" * 72,
+        "MAIN ANALYSIS PAYLOAD (verbatim — what the model receives)",
+        "=" * 72,
+        "",
+        user_message_structured,
+    ]
+
+    if nonlive_block:
+        out += ["", "=" * 72, "", nonlive_block]
+
+    return "\n".join(out)
+
+
 def analyze_with_claude(
     fred_data: dict,
     market_data: dict,
@@ -2234,10 +2306,38 @@ Prediction review date (5 business days): {review_date}
         + "\nGenerate the macro intelligence note as specified in your instructions."
     )
 
-    if os.environ.get("MACRO_DEBUG"):
-        print("=" * 72 + "\nUSER MESSAGE\n" + "=" * 72)
-        print(user_message)
-        print("=" * 72)
+    # --- LLM payload preview (transparency; reuses already-fetched data) ---
+    # Writes a rough picture of what the model receives + the signals we compute
+    # but withhold (shadow fragility forced to 'show', retired HMM regime). Gated
+    # on MACRO_PREVIEW so the normal run is unaffected; the daily Action sets it.
+    if os.environ.get("MACRO_PREVIEW"):
+        try:
+            from quant_context import build_nonlive_signals_block
+            nonlive_block = build_nonlive_signals_block(fred_data, histories)
+            # Live path is structured → its system prompt is the relevant one.
+            _sp_structured = PROMPTS_DIR / "system_prompt_structured.md"
+            _sp_chars = (
+                len(_sp_structured.read_text()) if _STRUCTURED_OUTPUT_AVAILABLE
+                and _sp_structured.exists() else len(system_prompt)
+            )
+            preview = build_payload_preview(
+                user_message_structured,
+                nonlive_block=nonlive_block,
+                system_prompt_chars=_sp_chars,
+                free_text_extras={
+                    "portfolio": portfolio_context,
+                    "accuracy": accuracy_context,
+                },
+                today=today,
+            )
+            _pv_dir = REPO_ROOT / "results" / "llm_payload_preview"
+            _pv_dir.mkdir(parents=True, exist_ok=True)
+            _pv_path = _pv_dir / f"{today.strftime('%Y-%m-%d')}.md"
+            _pv_path.write_text(preview, encoding="utf-8")
+            _log("PREVIEW", "OK", f"LLM payload preview → {_pv_path.name}")
+        except Exception as _pv_exc:
+            _log("PREVIEW", "WARN",
+                 f"payload preview skipped: {type(_pv_exc).__name__}: {_pv_exc}")
 
     # --- Structured output path (MA-1 / MA-2 / MA-3a) ---
     if _STRUCTURED_OUTPUT_AVAILABLE:

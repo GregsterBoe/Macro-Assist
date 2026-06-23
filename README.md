@@ -494,7 +494,7 @@ Output is written to `Economy/YYYY/MM-Month/` relative to the repo root by defau
 export VAULT_ROOT=/path/to/your/vault
 ```
 
-Set `MACRO_DEBUG=1` to print the full assembled user message to stdout before the Claude call — useful for inspecting what data is being injected.
+Set `MACRO_PREVIEW=1` to write a payload preview to `results/llm_payload_preview/<date>.md` — a section-size index plus the verbatim user message the model receives, and the signals computed but withheld from it (shadow fragility, retired HMM regime). Useful for inspecting what data is being injected. (The daily Action sets this automatically and prints the file to its log.)
 
 Run prediction scoring:
 ```bash
