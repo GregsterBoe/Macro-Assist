@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python -m pytest tests/test_regime.py -q)"
+      "Bash(python -m pytest tests/test_regime.py -q)",
+      "Bash(python -c ' *)"
     ]
   }
 }
