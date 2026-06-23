@@ -253,6 +253,95 @@ def label_divergence(pit_df: pd.DataFrame, full_df: pd.DataFrame) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# WP-17.2 — skill gate: do the (walk-forward) regime labels separate the future?
+#
+# Scored ONLY on the walk-forward label path (KB-003: the persisted/full-sample
+# model is degenerate and 70.5% divergent, so it must never be the basis). The
+# 'High-Vol' axis predicting forward vol is partly circular (the vol-percentile
+# feature is an input), like fragility's vix_term — the less-circular, more
+# decision-relevant test is whether 'Risk-Off' (NFCI/credit axis) leads
+# drawdowns and worse forward returns.
+# ---------------------------------------------------------------------------
+
+def forward_metrics(close: pd.Series, horizon: int) -> tuple[pd.Series, pd.Series]:
+    """For each date: forward cumulative return and forward annualised realized
+    vol over the next `horizon` trading days. NaN where the window is incomplete.
+    """
+    close = pd.Series(close).astype(float)
+    arr = close.to_numpy()
+    n = len(arr)
+    logret = np.diff(np.log(arr))           # logret[i] = i -> i+1
+    fret = np.full(n, np.nan)
+    fvol = np.full(n, np.nan)
+    for i in range(n):
+        end = min(i + horizon, n - 1)
+        if end > i:
+            fret[i] = arr[end] / arr[i] - 1.0
+            seg = logret[i:end]
+            if len(seg) >= 2:
+                fvol[i] = float(np.std(seg, ddof=1)) * np.sqrt(252)
+    return pd.Series(fret, index=close.index), pd.Series(fvol, index=close.index)
+
+
+def regime_skill(
+    pit_df: pd.DataFrame,
+    sp500_close: pd.Series,
+    horizons: tuple[int, ...] = (5, 10, 20),
+    drawdown_threshold: float = 0.05,
+) -> dict:
+    """Score the walk-forward regime labels against forward SP500 outcomes.
+
+    Per horizon: a label→forward-outcome separation table, the AUC of the
+    Risk-Off label predicting a forward drawdown, the AUC of the High-Vol label
+    predicting top-tercile forward vol, and the Risk-Off→drawdown AUC restricted
+    to high-posterior (>=0.8) days as a confidence/calibration check.
+    """
+    from fragility_backtest import auc, drawdown_label
+
+    labels = pit_df["label"].astype(str)
+    risk_off = labels.str.contains("Risk-Off").astype(float)
+    high_vol = labels.str.contains("High-Vol").astype(float)
+    hi_conf = pit_df["top_posterior"] >= 0.8
+
+    close = pd.Series(sp500_close).astype(float)
+    close = close[~close.index.duplicated(keep="last")]
+    aligned = close.reindex(pit_df.index, method="ffill")
+
+    out: dict = {}
+    for h in horizons:
+        fret, fvol = forward_metrics(aligned, h)
+        dd = drawdown_label(aligned, threshold=drawdown_threshold, horizon=h).reindex(pit_df.index)
+
+        grp = pd.DataFrame({"label": labels, "fret": fret, "fvol": fvol}).groupby("label")
+        separation = {
+            lbl: {
+                "n": int(g["fret"].notna().sum()),
+                "mean_fret": round(float(g["fret"].mean()), 4),
+                "median_fret": round(float(g["fret"].median()), 4),
+                "mean_fwd_vol": round(float(g["fvol"].mean()), 4),
+            }
+            for lbl, g in grp
+        }
+
+        vol_hi = (fvol >= fvol.quantile(2.0 / 3.0)).astype(float)
+        auc_ro_dd_hi = (auc(risk_off[hi_conf], dd[hi_conf])
+                        if int(hi_conf.sum()) > 20 else None)
+
+        out[h] = {
+            "separation": separation,
+            "auc_riskoff_drawdown": _round(auc(risk_off, dd)),
+            "auc_highvol_fwdvol":   _round(auc(high_vol, vol_hi)),
+            "auc_riskoff_drawdown_hiconf": _round(auc_ro_dd_hi),
+            "n_hiconf": int(hi_conf.sum()),
+        }
+    return out
+
+
+def _round(v, nd: int = 3):
+    return None if v is None else round(float(v), nd)
+
+
+# ---------------------------------------------------------------------------
 # Real-data fetch + CLI (needs FRED_API_KEY; reuses refit_models feature logic)
 # ---------------------------------------------------------------------------
 
@@ -371,9 +460,68 @@ def run_regime_audit(years: int = 12, n_states: int = _N_STATES) -> dict:
     return {"divergence": div, "pit": pit, "full": full}
 
 
+def run_regime_skill(years: int = 18, n_states: int = _N_STATES,
+                     drawdown_threshold: float = 0.05) -> dict:
+    """WP-17.2 skill gate: walk forward (look-ahead-safe), then score whether the
+    regime labels separate forward SP500 returns / vol / drawdowns. Default 18y
+    so the 2008 GFC is in sample. Needs FRED_API_KEY."""
+    print(f"Fetching regime inputs (FRED + yfinance, {years}y)...")
+    fred_series, sp500_close = _fetch_raw_inputs(years)
+    from refit_models import _build_feature_matrix
+    features, dates = _build_feature_matrix(fred_series, sp500_close)
+    print(f"  {len(features)} valid feature-days {dates[0].date()}..{dates[-1].date()}\n")
+
+    print("Walk-forward refit (look-ahead-safe)...")
+    pit = walk_forward_regime(features, dates, n_states=n_states)
+    if pit.empty:
+        print("No readings — insufficient history.")
+        return {}
+    print(f"  {len(pit)} readings, {int(pit['refit'].sum())} refits\n")
+
+    skill = regime_skill(pit, sp500_close, drawdown_threshold=drawdown_threshold)
+
+    print("============================================================")
+    print(f"REGIME SKILL GATE (walk-forward labels; drawdown >= {drawdown_threshold:.0%})")
+    for h, r in skill.items():
+        print(f"\n--- Horizon {h} trading days ---")
+        print("  Forward outcome by regime label:")
+        for lbl, s in sorted(r["separation"].items()):
+            print(f"    {lbl:<22} n={s['n']:<5} mean_ret={s['mean_fret']:+.4f} "
+                  f"med_ret={s['median_fret']:+.4f} mean_fwd_vol={s['mean_fwd_vol']:.3f}")
+        print("  AUC (0.50 = no skill):")
+        print(f"    Risk-Off  -> drawdown      : {r['auc_riskoff_drawdown']}")
+        print(f"    Risk-Off  -> drawdown (hi-conf, n={r['n_hiconf']}): {r['auc_riskoff_drawdown_hiconf']}")
+        print(f"    High-Vol  -> top-tercile fwd vol (partly circular): {r['auc_highvol_fwdvol']}")
+
+    _print_skill_verdict(skill)
+    return {"pit": pit, "skill": skill}
+
+
+def _print_skill_verdict(skill: dict) -> None:
+    aucs = [r["auc_riskoff_drawdown"] for r in skill.values()
+            if r["auc_riskoff_drawdown"] is not None]
+    best = max(aucs) if aucs else None
+    print("\n------------------------------------------------------------")
+    print("VERDICT (Risk-Off -> drawdown is the least-circular skill test)")
+    if best is None:
+        print("  Inconclusive — no scorable days.")
+    elif best >= 0.58:
+        print(f"  SEPARATES THE FUTURE (best Risk-Off->drawdown AUC {best:.3f}).")
+        print("  The regime layer earns its place; proceed to 17.3 (model selection).")
+    elif best >= 0.53:
+        print(f"  WEAK (best AUC {best:.3f}). Marginal — compare against the simpler")
+        print("  conditional bucket (17.4) before keeping the HMM.")
+    else:
+        print(f"  NO SKILL (best AUC {best:.3f}). The regime layer is decorative;")
+        print("  simplify or drop it (and revisit the startprob-dominated inference).")
+    print("------------------------------------------------------------")
+
+
 if __name__ == "__main__":
     import sys
     if "--diagnose" in sys.argv:
         diagnose_features()
+    elif "--skill" in sys.argv:
+        run_regime_skill()
     else:
         run_regime_audit()

@@ -16,6 +16,8 @@ from regime_backtest import (
     full_sample_regime,
     label_divergence,
     _fit_robust,
+    forward_metrics,
+    regime_skill,
 )
 
 
@@ -133,3 +135,53 @@ def test_walk_forward_survives_singular_windows():
     assert isinstance(df, pd.DataFrame)
     if not df.empty:
         assert df["fit_cov"].isin(["full", "diag", "carry"]).all()
+
+
+# ---------------------------------------------------------------------------
+# WP-17.2 skill gate
+# ---------------------------------------------------------------------------
+
+def test_forward_metrics_basic():
+    close = pd.Series([100.0, 110.0, 99.0, 99.0, 99.0],
+                      index=pd.date_range("2024-01-01", periods=5, freq="B"))
+    fret, fvol = forward_metrics(close, horizon=2)
+    # From index 0 over next 2 days: 100 -> 99 => -1%.
+    assert fret.iloc[0] == pytest.approx(99.0 / 100.0 - 1.0)
+    assert np.isnan(fret.iloc[-1])     # no forward window
+
+
+def _planted_skill_inputs(n: int = 300, seed: int = 0):
+    """Risk-Off labels coincide with a falling, high-vol market; Risk-On with a
+    calm rising one — a regime layer with skill must recover this."""
+    rng = np.random.default_rng(seed)
+    idx = pd.bdate_range("2010-01-01", periods=n)
+    rets = rng.normal(0.0005, 0.006, n)
+    labels = ["Risk-On Low-Vol"] * n
+    post = np.full(n, 0.9)
+    # Two stressed windows: downward drift + high vol, labelled Risk-Off High-Vol.
+    for lo, hi in [(80, 110), (200, 230)]:
+        rets[lo:hi] = rng.normal(-0.004, 0.02, hi - lo)
+        for k in range(lo, hi):
+            labels[k] = "Risk-Off High-Vol"
+    close = pd.Series(100.0 * np.exp(np.cumsum(rets)), index=idx)
+    pit = pd.DataFrame({"label": labels, "top_posterior": post}, index=idx)
+    return pit, close
+
+
+def test_regime_skill_recovers_planted_signal():
+    pit, close = _planted_skill_inputs()
+    skill = regime_skill(pit, close, horizons=(5, 10), drawdown_threshold=0.05)
+    assert set(skill) == {5, 10}
+    r = skill[10]
+    # Risk-Off should lead drawdowns better than chance...
+    assert r["auc_riskoff_drawdown"] is not None and r["auc_riskoff_drawdown"] > 0.5
+    # ...and Risk-Off forward returns should be worse than Risk-On.
+    sep = r["separation"]
+    assert sep["Risk-Off High-Vol"]["mean_fret"] < sep["Risk-On Low-Vol"]["mean_fret"]
+
+
+def test_regime_skill_keys_present():
+    pit, close = _planted_skill_inputs()
+    r = regime_skill(pit, close, horizons=(5,))[5]
+    assert {"separation", "auc_riskoff_drawdown", "auc_highvol_fwdvol",
+            "auc_riskoff_drawdown_hiconf", "n_hiconf"}.issubset(r)
