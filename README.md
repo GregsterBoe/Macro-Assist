@@ -496,6 +496,8 @@ export VAULT_ROOT=/path/to/your/vault
 
 Set `MACRO_PREVIEW=1` to write a payload preview to `results/llm_payload_preview/<date>.md` — a section-size index plus the verbatim user message the model receives, and the signals computed but withheld from it (shadow fragility, retired HMM regime). Useful for inspecting what data is being injected. (The daily Action sets this automatically and prints the file to its log.)
 
+Set `CONVICTION_FLOOR=off` to run the WP-16.B.1 experiment arm — the model may then return an all-Neutral predictions table instead of being forced to commit to a direction (default `on` preserves production behaviour). Each note records the arm in its `conviction_floor` frontmatter, and `summarize_accuracy.py` reports a Brier/BSS A/B between the arms once both have scored data.
+
 Run prediction scoring:
 ```bash
 python .macro-assist/score_predictions.py

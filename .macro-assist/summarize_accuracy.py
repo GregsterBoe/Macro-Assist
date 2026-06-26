@@ -256,6 +256,21 @@ def calibration(scores: list[dict], min_version: str | None = None) -> dict:
     return {"windows": per_window, "overall": _brier_and_reliability(all_items)}
 
 
+def calibration_by_floor(scores: list[dict]) -> dict:
+    """Overall calibration split by the WP-16.B.1 conviction-floor arm.
+
+    Returns {"on": <overall calib>, "off": <overall calib>} for whichever arms
+    have scored data — the A/B readout for "does allowing all-Neutral improve
+    calibration?". Empty/absent until floor-off notes have been scored.
+    """
+    arms: dict = {}
+    for arm in ("on", "off"):
+        subset = [s for s in scores if s.get("conviction_floor") == arm]
+        if subset:
+            arms[arm] = calibration(subset)["overall"]
+    return arms
+
+
 # ---------------------------------------------------------------------------
 # JSON output
 # ---------------------------------------------------------------------------
@@ -268,6 +283,7 @@ def write_json(
     version_stats: dict,
     calib: dict | None = None,
     calib_feedback: dict | None = None,
+    calib_by_floor: dict | None = None,
 ) -> None:
     output = {
         "generated_at":        date.today().isoformat(),
@@ -279,6 +295,7 @@ def write_json(
         "version_windows":     version_stats,
         "calibration":         calib,
         "calibration_feedback": calib_feedback,
+        "calibration_by_conviction_floor": calib_by_floor,
         "_note": (
             "accuracy is on a 0-1 scale where 0.5 = random (coin-flip). "
             "directional_acc excludes flat moves and Neutral calls - "
@@ -323,7 +340,23 @@ def _calibration_verdict(c: dict | None) -> str:
     return "underconfident" if signed_gap > 0 else "overconfident"
 
 
-def _calibration_md_lines(calib: dict) -> list[str]:
+def _floor_ab_md_lines(by_floor: dict) -> list[str]:
+    """One-line A/B readout of conviction-floor on vs off (WP-16.B.1)."""
+    if not by_floor or not ({"on", "off"} <= set(by_floor)):
+        return []   # need both arms scored before the comparison means anything
+    lines = ["**Conviction-floor A/B (WP-16.B.1):**", ""]
+    for arm in ("on", "off"):
+        c = by_floor[arm]
+        bss = f"{c['brier_skill_score']:+.3f}" if c["brier_skill_score"] is not None else "n/a"
+        lines.append(
+            f"- floor **{arm}**: Brier {c['brier']:.3f} | BSS {bss} | ECE {c['ece']:.3f} | "
+            f"base-rate {c['base_rate']:.0%} | n={c['n']}"
+        )
+    lines.append("")
+    return lines
+
+
+def _calibration_md_lines(calib: dict, by_floor: dict | None = None) -> list[str]:
     """Render the Brier / reliability-diagram section as markdown lines."""
     lines = [
         "---",
@@ -350,6 +383,8 @@ def _calibration_md_lines(calib: dict) -> list[str]:
     else:
         lines += ["*No decisive directional calls scored yet.*", ""]
         return lines
+
+    lines += _floor_ab_md_lines(by_floor or {})
 
     for window in WINDOWS:
         c = calib.get("windows", {}).get(window)
@@ -380,6 +415,7 @@ def write_markdown(
     n_feedback: int = 0,
     version_stats: dict | None = None,
     calib: dict | None = None,
+    calib_by_floor: dict | None = None,
 ) -> None:
     today = date.today().isoformat()
     lines = [
@@ -486,7 +522,7 @@ def write_markdown(
 
     # Calibration — Brier / reliability (WP-16.B.2)
     if calib:
-        lines += _calibration_md_lines(calib)
+        lines += _calibration_md_lines(calib, calib_by_floor)
 
     # Calibration note
     lines += [
@@ -592,10 +628,12 @@ def main() -> None:
 
     calib          = calibration(scores)
     calib_feedback = calibration(scores, min_version=MIN_FEEDBACK_VERSION)
+    calib_by_floor = calibration_by_floor(scores)
 
     print_summary(stats, len(scores), calib)
-    write_json(stats, len(scores), feedback_stats, n_feedback, version_stats, calib, calib_feedback)
-    write_markdown(stats, len(scores), n_feedback, version_stats, calib)
+    write_json(stats, len(scores), feedback_stats, n_feedback, version_stats,
+               calib, calib_feedback, calib_by_floor)
+    write_markdown(stats, len(scores), n_feedback, version_stats, calib, calib_by_floor)
 
 
 if __name__ == "__main__":

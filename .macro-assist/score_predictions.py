@@ -402,6 +402,7 @@ def main() -> None:
     for report_date, path in eligible:
         fm = parse_frontmatter(path)
         agent_version = fm.get("agent_version", "unknown")
+        conviction_floor = fm.get("conviction_floor", "unknown")  # WP-16.B.1 arm tag
 
         predictions = parse_predictions(path)
         if predictions is None:
@@ -414,10 +415,11 @@ def main() -> None:
             continue
 
         output = {
-            "report_date":   report_date.isoformat(),
-            "agent_version": agent_version,
-            "scored_at":     today.isoformat(),
-            "windows":       window_results,
+            "report_date":      report_date.isoformat(),
+            "agent_version":    agent_version,
+            "conviction_floor": conviction_floor,
+            "scored_at":        today.isoformat(),
+            "windows":          window_results,
         }
 
         score_path = SCORES_DIR / f"{report_date.isoformat()}.json"
