@@ -1004,7 +1004,46 @@ def fetch_upcoming_events(today: datetime, lookahead_days: int = 7) -> str:
 # Accuracy context (self-calibration feedback loop)
 # ---------------------------------------------------------------------------
 
-def load_accuracy_context() -> str:
+# ---------------------------------------------------------------------------
+# Conviction floor (WP-16.B.1) — design-by-emergence experiment flag
+# ---------------------------------------------------------------------------
+# The "conviction floor" is the set of prompt pressures that forbid an
+# all-Neutral predictions table (min-conviction rule, high-signal MUST-call,
+# contrarian-instead-of-Neutral, and the dynamic accuracy-context language).
+# KB-007 found decisive directional calls are right only ~36% of the time —
+# forcing a call when the honest read is "no edge" plausibly manufactures those
+# below-chance calls. This flag turns the floor OFF so we can re-score Brier and
+# test that. Default ON preserves current production behaviour.
+#
+# Mechanism: the floor instructions in the prompt files are wrapped in
+# <!-- CF:ON-... --> / <!-- CF:OFF-... --> sentinels; _render_conviction strips
+# the inactive arm at load time, so each run's prompt genuinely omits the floor
+# (clean A/B, no contradictory instructions). load_accuracy_context softens its
+# language on the same flag, and the note frontmatter records which arm ran.
+
+def conviction_floor_on() -> bool:
+    """True unless CONVICTION_FLOOR is explicitly off/0/false/no (default ON)."""
+    return os.getenv("CONVICTION_FLOOR", "on").strip().lower() not in ("off", "0", "false", "no")
+
+
+def _render_conviction(text: str, floor_on: bool) -> str:
+    """Strip the inactive conviction-floor sentinel arm from a prompt.
+
+    Blocks wrapped in `<!-- CF:ON-START -->...<!-- CF:ON-END -->` are kept only
+    when the floor is on; `<!-- CF:OFF-START -->...<!-- CF:OFF-END -->` only when
+    off. All sentinel markers are removed either way, so the rendered prompt is
+    clean in both modes.
+    """
+    drop = "OFF" if floor_on else "ON"
+    text = re.sub(
+        rf"<!-- CF:{drop}-START -->.*?<!-- CF:{drop}-END -->\n?",
+        "", text, flags=re.DOTALL,
+    )
+    text = re.sub(r"<!-- CF:(?:ON|OFF)-(?:START|END) -->\n?", "", text)
+    return text
+
+
+def load_accuracy_context(floor_on: bool = True) -> str:
     """
     Read accuracy_summary.json and return a compact text block for injection
     into the Claude prompt. Returns empty string if no data exists yet.
@@ -1048,7 +1087,11 @@ def load_accuracy_context() -> str:
         "",
         "### Best Prediction Window Per Asset",
         "Anchor YOUR confidence to the window where directional accuracy is highest at n≥8.",
-        "Calling an asset Neutral at 50% when you have a ≥70% signal at T+10 or T+20 wastes genuine edge.",
+        (
+            "Calling an asset Neutral at 50% when you have a ≥70% signal at T+10 or T+20 wastes genuine edge."
+            if floor_on else
+            "An all-Neutral table is acceptable when the honest read is no edge — make a directional call ONLY where you have genuine conviction."
+        ),
         "",
         "| Asset | Best Window | Dir. Acc | n | Guidance |",
         "|-------|------------|---------|---|----------|",
@@ -1063,7 +1106,10 @@ def load_accuracy_context() -> str:
         dacc   = b["dacc"]
         n      = b["n"]
         if dacc >= 0.70:
-            guidance = f"STRONG signal — make a directional call at ≥55% confidence"
+            guidance = (
+                "STRONG signal — make a directional call at ≥55% confidence" if floor_on
+                else "STRONG signal — directional call supported at ≥55% if evidence agrees; Neutral OK otherwise"
+            )
         elif dacc >= 0.60:
             guidance = f"Moderate signal — directional call permitted at 52–60%"
         elif dacc <= 0.40:
@@ -1073,16 +1119,27 @@ def load_accuracy_context() -> str:
         lines.append(f"| {asset} | {wlabel} | {dacc:.0%} | {n} | {guidance} |")
 
     lines.append("")
-    lines += [
-        "### Bias Rules (MANDATORY)",
-        "- Any asset whose best-window directional accuracy is <40% at n≥8: weight market structure",
-        "  and momentum at least equally to macro fundamentals. Do not repeat a call the data shows",
-        "  has been wrong 8+ times — that is miscalibration, not caution.",
-        "- Any asset whose best-window directional accuracy is ≥70% at n≥10: you MUST make a",
-        "  directional call when the macro evidence points in a direction. Neutral at 50% is",
-        "  not conservative here — it discards a real edge.",
-        "",
-    ]
+    if floor_on:
+        lines += [
+            "### Bias Rules (MANDATORY)",
+            "- Any asset whose best-window directional accuracy is <40% at n≥8: weight market structure",
+            "  and momentum at least equally to macro fundamentals. Do not repeat a call the data shows",
+            "  has been wrong 8+ times — that is miscalibration, not caution.",
+            "- Any asset whose best-window directional accuracy is ≥70% at n≥10: you MUST make a",
+            "  directional call when the macro evidence points in a direction. Neutral at 50% is",
+            "  not conservative here — it discards a real edge.",
+            "",
+        ]
+    else:
+        lines += [
+            "### Bias Rules",
+            "- Any asset whose best-window directional accuracy is <40% at n≥8: weight market structure",
+            "  and momentum at least equally to macro fundamentals. Do not repeat a call the data shows",
+            "  has been wrong 8+ times — that is miscalibration, not caution.",
+            "- Conviction floor OFF: an all-Neutral table is acceptable. Make a directional call only where",
+            "  you have genuine conviction; do not manufacture a call to avoid Neutral.",
+            "",
+        ]
 
     # --- Per-window breakdown (unchanged) -----------------------------------------
     lines.append("### Full Window Breakdown")
@@ -2228,13 +2285,16 @@ def analyze_with_claude(
     quant_context: str = "",
 ) -> "str | AnalysisOutput":
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-    system_prompt = (PROMPTS_DIR / "system_prompt.md").read_text()
+    _floor_on = conviction_floor_on()
+    if not _floor_on:
+        _log("CONVICTION", "INFO", "conviction floor OFF — all-Neutral tables permitted (WP-16.B.1)")
+    system_prompt = _render_conviction((PROMPTS_DIR / "system_prompt.md").read_text(), _floor_on)
 
     from parse_positions import get_portfolio_summary, format_portfolio_for_prompt
 
     review_date      = next_review_date(today)
 
-    accuracy_context = load_accuracy_context()
+    accuracy_context = load_accuracy_context(_floor_on)
     if accuracy_context:
         _log("ACCURACY", "OK", "accuracy history loaded")
     else:
@@ -2342,7 +2402,9 @@ Prediction review date (5 business days): {review_date}
     # --- Structured output path (MA-1 / MA-2 / MA-3a) ---
     if _STRUCTURED_OUTPUT_AVAILABLE:
         _log("CLAUDE", "INFO", "attempting structured output (tool_use)...")
-        system_prompt_structured = (PROMPTS_DIR / "system_prompt_structured.md").read_text()
+        system_prompt_structured = _render_conviction(
+            (PROMPTS_DIR / "system_prompt_structured.md").read_text(), _floor_on
+        )
         structured = _analyze_structured(client, system_prompt_structured, user_message_structured)
         if structured is not None:
             _log("OVERRIDE", "INFO", "checking accuracy-based overrides (structured path)...")
@@ -2494,6 +2556,7 @@ date: {date_str}
 day: {day_name}
 type: macro-intelligence
 agent_version: {PIPELINE_VERSION}
+conviction_floor: {"on" if conviction_floor_on() else "off"}
 tags: [macro, daily-note, economics]
 ---
 

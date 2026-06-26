@@ -1,6 +1,6 @@
 # Prediction Accuracy Report
 
-*Generated: 2026-06-23 | Reports scored: 59 | Feedback-loop reports (v0.3+): 42*
+*Generated: 2026-06-26 | Reports scored: 59 | Feedback-loop reports (v0.3+): 42*
 
 > Accuracy scale: 0% = always wrong, 50% = random, 100% = always right.
 > **Directional accuracy** excludes flat moves and Neutral calls — it is the

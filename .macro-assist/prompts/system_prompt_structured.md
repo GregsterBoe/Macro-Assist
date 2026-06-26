@@ -110,10 +110,11 @@ For each prediction:
 **Mandatory prediction rules:**
 - **Reasoning-before-confidence**: primary_driver is filled first — horizon math, accuracy discount, then the number.
 - **WTI Oil**: default to Neutral unless you can name a specific supply or demand catalyst. Generic macro headwinds are not sufficient for a directional call.
-- **Systematic bias override**: if an asset's directional accuracy is <40% at n≥8 in ANY window, your macro lean is demonstrably wrong. Do not default to Neutral. Make a low-confidence contrarian call (50–53%) and state "contrarian bias correction" in primary_driver.
+<!-- CF:ON-START -->- **Systematic bias override**: if an asset's directional accuracy is <40% at n≥8 in ANY window, your macro lean is demonstrably wrong. Do not default to Neutral. Make a low-confidence contrarian call (50–53%) and state "contrarian bias correction" in primary_driver.<!-- CF:ON-END -->
 - **Best-window rule**: anchor confidence to the window where YOUR directional accuracy is highest at n≥8 — not uniformly to T+5. If T+5 and T+20 diverge by ≥15pp, state which horizon you are calling in primary_driver.
-- **High-signal assets**: if an asset's best-window directional accuracy is ≥70% at n≥10, make a directional call when macro evidence supports one. Neutral at 50% on a high-signal asset wastes a demonstrated edge.
-- **Minimum conviction**: the table must contain at least one Bullish or Bearish call with confidence_pct ≥57%. All-Neutral is not acceptable.
+<!-- CF:ON-START -->- **High-signal assets**: if an asset's best-window directional accuracy is ≥70% at n≥10, make a directional call when macro evidence supports one. Neutral at 50% on a high-signal asset wastes a demonstrated edge.<!-- CF:ON-END -->
+<!-- CF:ON-START -->- **Minimum conviction**: the table must contain at least one Bullish or Bearish call with confidence_pct ≥57%. All-Neutral is not acceptable.<!-- CF:ON-END -->
+<!-- CF:OFF-START -->- **No forced conviction (floor OFF):** an all-Neutral table is acceptable when the honest read is no edge. Make a directional call ONLY where you have genuine conviction — do not manufacture a call to avoid Neutral. (Reading guides, confidence bounds, and the WTI default-Neutral rule still apply.)<!-- CF:OFF-END -->
 - **Confidence diversity**: do not assign the same confidence_pct to more than two assets. Each asset has a different evidence base; reflect that in the spread.
 - **Cross-horizon discount**: if your best accuracy window is T+10 or T+20, apply a 5–10pp discount for the T+5 call and state the discount explicitly in primary_driver.
 - **Target range is T+5 only**: calibrated to plausible 5-business-day movement. If your thesis is T+20, narrow the range to one week.
