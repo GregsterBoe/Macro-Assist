@@ -501,3 +501,57 @@ invisible to this screen.
 The FRED macro core is explicitly **not** a prune target — it is where the
 non-redundant information lives. Next observability step: WP-18.3 citation screen
 (does the model actually *reference* the redundant inputs?) before paying for 18.4.
+
+## KB-010 — Redundancy and model-attention point at *different* prune candidates (WP-18.3)
+
+**Date:** 2026-06-27 · **Branch:** `main` · **Harness:**
+`.macro-assist/citation_screen.py` over **78 scored notes** (all versions), joined
+to the KB-009 ledger. Measures how often the model **names** each input in its
+free-prose rationale (Executive Summary, asset/theme sections, Key Risks, Primary
+Driver cells); the templated Macro Dashboard table and the raw Data Snapshot are
+excluded so the rate reflects chosen wording, not template.
+
+**Headline — citation and redundancy are nearly anti-correlated, so the two
+screens nominate different inputs.** The model heavily cites most of the
+*redundant* market series (they are headline assets / forecast targets) while
+ignoring several *orthogonal* macro-plumbing inputs. KB-009's redundancy alone
+would prune inputs the model actively engages; KB-010's attention finds prunables
+KB-009 rated high-info. **The WP-18.4 queue is the union of the two, not either
+alone.** Result: zero inputs are *both* redundant (≥0.80) and rarely cited (≤10%),
+so the composite "high" bucket is empty — the signal is in the two tails.
+
+**Clear citation-side prune candidates (rarely named):**
+- **`baa_spread` — 0/78, never cited.** Correlated with the cited `hy_spread`
+  (0.62, below the 0.80 redundancy bar so the tool only marks it "watch"), and its
+  one live consumer — the HMM regime credit feature — was **retired (KB-006)**.
+  Strongest standalone prune: a human reads 0 citations + dead consumer as "drop."
+- **Net-liquidity raw components** — `reverse_repo` 0/78, `fed_total_assets` 2/78
+  (3%), `treasury_gen_acct` 7/78 (9%). Rarely cited *individually* because the
+  model uses the synthesised **`net_liquidity`** (cited 42/78, 54%). These three
+  are high-entropy/orthogonal so KB-009 would *never* flag them — a citation-only
+  finding: drop the three raw lines, keep the synthesised aggregate.
+- **Low-attention sectors** — `xlre` 13%, `xlp` 17%, `xlv` 23%, `xlu` 26%;
+  combined with the redundant clones `xlb/xlc/xli/xly` (14–49%), this reinforces
+  KB-009's "collapse the sector block." Exceptions that earn their place: `xle`
+  (78%, tracks oil) and `xlk` (65%).
+
+**Caveats / what this is NOT.** (a) **Template confound:** the six forecast assets
+(`sp500`, `gold`, `wti_oil`, `treasury_10y`, `dxy`, `bitcoin`) are named *by
+construction* in the 5-Day Predictions table → their ~100% rates are structural,
+not free attention; they are forecast *targets* and not prunable regardless. (b)
+**Screen, not verdict** — the model can use an input without naming it (it's in the
+payload either way) or name one that didn't move the call; citation ≠ causal
+weight. (c) The alias map is fallible and some aliases are broad ("claims",
+"oil", "dollar"). (d) Pools all 78 notes across versions/regimes; a feedback-era
+(`--min-version v0.3`) re-run could differ.
+
+**Why it matters / how to apply.** Refined **WP-18.4 ablation queue** (union of
+KB-009 redundancy + KB-010 attention, cheapest/clearest first; each judged on
+Brier, n≥30 per arm):
+1. **Drop `baa_spread`** — 0 citations + correlated with cited `hy_spread` + dead
+   consumer (regime retired). The single clearest cut.
+2. **Drop the three raw net-liquidity components**, keep synthesised `net_liquidity`
+   — prompt-economy win the redundancy screen could not see.
+3. **Collapse the sector block** to SP500 + XLE (± XLK) — both screens agree.
+4. **Lower priority:** `vix3m`, `nasdaq`, `real_yield_10y` — redundant (KB-009) but
+   heavily cited (64–95%), so test only if 1–3 don't move Brier.
