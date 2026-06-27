@@ -1,8 +1,9 @@
 """
-test_conviction_floor.py — WP-16.B.1 conviction-floor flag + prompt rendering.
+test_conviction_floor.py — WP-16 run-config + prompt rendering.
 
-Pure unit tests for the env flag and the sentinel-stripping prompt renderer,
-plus a guard that the real prompt files round-trip cleanly in both arms.
+Pure unit tests for run_config() profile resolution, the env flags, the
+sentinel-stripping prompt renderer (CF/BR/PR), and a guard that the real prompt
+files round-trip cleanly in both the control and loosened arms.
 """
 
 from __future__ import annotations
@@ -18,72 +19,130 @@ import collect_and_analyze as ca
 
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 
+# Toggle keys a config dict must carry for _render_prompt.
+_CTRL = {"conviction_floor": True,  "base_rate_first": False, "prune_rules": False}
+_LOOSE = {"conviction_floor": False, "base_rate_first": True,  "prune_rules": True}
+
+
+def _clean_env(monkeypatch):
+    for k in ("MACRO_PROFILE", "MACRO_MODEL", "CONVICTION_FLOOR", "BASE_RATE_FIRST", "PRUNE_RULES"):
+        monkeypatch.delenv(k, raising=False)
+
+
+class TestRunConfig:
+
+    def test_default_is_control(self, monkeypatch):
+        _clean_env(monkeypatch)
+        cfg = ca.run_config()
+        assert cfg["profile"] == "control"
+        assert cfg["model"] == "claude-sonnet-4-6"
+        assert cfg == {"profile": "control", "model": "claude-sonnet-4-6",
+                       "conviction_floor": True, "base_rate_first": False, "prune_rules": False}
+
+    def test_loosened_profile(self, monkeypatch):
+        _clean_env(monkeypatch)
+        monkeypatch.setenv("MACRO_PROFILE", "loosened")
+        cfg = ca.run_config()
+        assert cfg["model"] == "claude-opus-4-8"
+        assert cfg["conviction_floor"] is False
+        assert cfg["base_rate_first"] is True
+        assert cfg["prune_rules"] is True
+
+    def test_unknown_profile_falls_back_to_control(self, monkeypatch):
+        _clean_env(monkeypatch)
+        monkeypatch.setenv("MACRO_PROFILE", "bogus")
+        assert ca.run_config()["profile"] == "control"
+
+    def test_individual_env_overrides_profile(self, monkeypatch):
+        _clean_env(monkeypatch)
+        monkeypatch.setenv("MACRO_PROFILE", "loosened")
+        monkeypatch.setenv("CONVICTION_FLOOR", "on")   # override the loosened default
+        monkeypatch.setenv("MACRO_MODEL", "claude-haiku-4-5")
+        cfg = ca.run_config()
+        assert cfg["conviction_floor"] is True
+        assert cfg["model"] == "claude-haiku-4-5"
+        assert cfg["base_rate_first"] is True          # untouched loosened default
+
 
 class TestConvictionFloorFlag:
 
     def test_default_on(self, monkeypatch):
-        monkeypatch.delenv("CONVICTION_FLOOR", raising=False)
+        _clean_env(monkeypatch)
         assert ca.conviction_floor_on() is True
 
     @pytest.mark.parametrize("val", ["off", "OFF", "0", "false", "No", " off "])
     def test_off_values(self, monkeypatch, val):
+        _clean_env(monkeypatch)
         monkeypatch.setenv("CONVICTION_FLOOR", val)
         assert ca.conviction_floor_on() is False
 
     @pytest.mark.parametrize("val", ["on", "1", "true", "yes", "anything"])
     def test_on_values(self, monkeypatch, val):
+        _clean_env(monkeypatch)
         monkeypatch.setenv("CONVICTION_FLOOR", val)
         assert ca.conviction_floor_on() is True
 
 
-class TestRenderConviction:
+class TestRenderPrompt:
 
     SAMPLE = (
         "intro line\n"
         "<!-- CF:ON-START -->- floor rule: all-Neutral not acceptable<!-- CF:ON-END -->\n"
         "- neutral keep line\n"
         "<!-- CF:OFF-START -->- floor OFF: all-Neutral acceptable<!-- CF:OFF-END -->\n"
+        "<!-- BR:ON-START -->- base-rate-first rule<!-- BR:ON-END -->\n"
+        "<!-- PR:OFF-START -->- hard override rule<!-- PR:OFF-END -->\n"
         "outro line\n"
     )
 
-    def test_floor_on_keeps_on_drops_off(self):
-        out = ca._render_conviction(self.SAMPLE, True)
-        assert "floor rule" in out
-        assert "floor OFF" not in out
-        assert "CF:" not in out          # all markers stripped
+    def test_control_keeps_forcing_and_overrides_drops_loosened(self):
+        out = ca._render_prompt(self.SAMPLE, _CTRL)
+        assert "floor rule" in out          # CF:ON kept (floor on)
+        assert "floor OFF" not in out       # CF:OFF dropped
+        assert "base-rate-first rule" not in out   # BR:ON dropped (brf off)
+        assert "hard override rule" in out  # PR:OFF kept (not pruning)
         assert "neutral keep line" in out
+        assert "CF:" not in out and "BR:" not in out and "PR:" not in out
 
-    def test_floor_off_keeps_off_drops_on(self):
-        out = ca._render_conviction(self.SAMPLE, False)
-        assert "floor rule" not in out
-        assert "floor OFF" in out
-        assert "CF:" not in out
+    def test_loosened_drops_forcing_and_overrides_adds_loosened(self):
+        out = ca._render_prompt(self.SAMPLE, _LOOSE)
+        assert "floor rule" not in out      # CF:ON dropped (floor off)
+        assert "floor OFF" in out           # CF:OFF kept
+        assert "base-rate-first rule" in out   # BR:ON kept (brf on)
+        assert "hard override rule" not in out # PR:OFF dropped (pruned)
         assert "neutral keep line" in out
+        assert "CF:" not in out and "BR:" not in out and "PR:" not in out
 
     def test_no_markers_is_identity(self):
         plain = "no sentinels here\njust text\n"
-        assert ca._render_conviction(plain, True) == plain
-        assert ca._render_conviction(plain, False) == plain
+        assert ca._render_prompt(plain, _CTRL) == plain
+        assert ca._render_prompt(plain, _LOOSE) == plain
 
 
 class TestRealPromptFiles:
-    """Guard the actual prompt files: markers must be balanced and strip clean."""
+    """Guard the actual prompt files: markers balanced, strip clean in both arms."""
+
+    @pytest.mark.parametrize("fname", ["system_prompt.md", "system_prompt_structured.md"])
+    def test_markers_balanced(self, fname):
+        raw = (PROMPTS_DIR / fname).read_text(encoding="utf-8")
+        for tag in ("CF", "BR", "PR"):
+            assert raw.count(f"<!-- {tag}:ON-START -->") == raw.count(f"<!-- {tag}:ON-END -->")
+            assert raw.count(f"<!-- {tag}:OFF-START -->") == raw.count(f"<!-- {tag}:OFF-END -->")
 
     @pytest.mark.parametrize("fname", ["system_prompt.md", "system_prompt_structured.md"])
     def test_round_trips_both_arms(self, fname):
         raw = (PROMPTS_DIR / fname).read_text(encoding="utf-8")
-        # Balanced sentinels.
-        assert raw.count("<!-- CF:ON-START -->") == raw.count("<!-- CF:ON-END -->")
-        assert raw.count("<!-- CF:OFF-START -->") == raw.count("<!-- CF:OFF-END -->")
-        assert raw.count("<!-- CF:ON-START -->") >= 1   # the floor exists by default
+        ctrl = ca._render_prompt(raw, _CTRL)
+        loose = ca._render_prompt(raw, _LOOSE)
+        for rendered in (ctrl, loose):
+            assert "CF:" not in rendered and "BR:" not in rendered and "PR:" not in rendered
+        # conviction floor only in control; base-rate-first only in loosened
+        assert "not acceptable" in ctrl and "not acceptable" not in loose
+        assert "Base-rate-first" in loose and "Base-rate-first" not in ctrl
 
-        on = ca._render_conviction(raw, True)
-        off = ca._render_conviction(raw, False)
-        for rendered in (on, off):
-            assert "CF:" not in rendered           # no leaked markers
-        # The all-Neutral floor language only appears in the ON arm.
-        assert "not acceptable" in on
-        assert "not acceptable" not in off
-        # The OFF arm explicitly permits Neutral.
-        assert "floor OFF" in off
-        assert "floor OFF" not in on
+    def test_structured_prunes_hard_overrides_when_loosened(self):
+        raw = (PROMPTS_DIR / "system_prompt_structured.md").read_text(encoding="utf-8")
+        ctrl = ca._render_prompt(raw, _CTRL)
+        loose = ca._render_prompt(raw, _LOOSE)
+        assert "Macro headwinds must be severe" in ctrl
+        assert "Macro headwinds must be severe" not in loose

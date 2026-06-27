@@ -536,22 +536,30 @@ Not on critical path. Listed for future planning.
 
 ### Phase 16 — Suggested Execution Order
 
+> **Execution philosophy (revised 2026-06-27 — loosen prompt testing, keep numeric rigor).** Two classes of change, deliberately treated differently:
+> - **Prompt / model-behavior levers** — conviction floor (B.1), prune hard rules (B.4), ensembling (C.1), analog retrieval (C.2), base-rate-first (C.3). These are model-entangled with slow, noisy 5–20-day feedback, so per-lever Brier A/B gating is low-ROI and risks overfitting the prompt to one model. **Apply research-grounded reasonable defaults, bundle them behind one "loosened" config, ship, and monitor the bundle in aggregate** against the KB-007 baseline (is *loosened* better than *current*?). Do **not** gate each lever on n≥30. Keep it one-line reversible.
+> - **Calculated / numerical inputs** — input information-value (Phase 18), emergent signal weights (B.3), and the quant layers (17.5). Deterministic and model-independent, so backtests transfer. **Keep the look-ahead-safe numeric testing.**
+> - **B.2 (Brier) stays the aggregate north-star** — it now judges the *bundle* (and, via the run matrix, the *model choice*), not each individual lever.
+> - **Accepted trade-off:** bundling forfeits per-lever attribution. The run matrix still cleanly separates **model** and **bundle on/off**; it just can't separate the levers *inside* the bundle. That's the deliberate cost of moving fast on the prompt side.
+>
+> Net effect on the table below: B.1 / B.4 / C.1 / C.2 / C.3 are executed as one **loosened-config bundle on reasonable assumptions** (not sequential gated experiments); B.3, Phase 18, and 17.5 retain numeric rigor; B.2 monitors the aggregate.
+
 | Priority | Work Package | Effort | Prerequisite | Status |
 |----------|-------------|--------|--------------|--------|
 | 1 | **WP-16.B.2 — Brier / reliability scoring** (north-star metric) | Low | Phase 8 + scoring loop | ✅ Done (baseline KB-007: BSS −0.20 overall, confidence anti-informative) |
 | 2 | **WP-16.A.1 — `fragility.py` prototype** (starting point) | Medium | Phase 8 | ✅ Done |
 | 3 | **WP-16.A.2 — Fragility backtest gate** | Medium | A.1 | ✅ Done (GO — composite AUC 0.66–0.71, 4–6d lead) |
-| 4 | WP-16.C.1 — Ensemble the analysis agent | Low | B.2 | 🔲 |
+| 4 | WP-16.C.1 — Ensemble the analysis agent | Low | B.2 | 🔲 (v2 of loosened bundle — deferred; N× cost) |
 | 5 | WP-16.A.3 — Recalibrate weights + thresholds (de-overlapped) | Medium | A.2 | ✅ Done (`var_led_vix35`; AUC 0.69–0.72 honest-n, precision 0.53–0.73, 4–8d lead) |
 | 5b | WP-16.A.4 — Shadow-wire fragility into quant context | Medium | A.3 | 🟡 Shadow-wired (FRAGILITY_MODE ladder, default `log` = logged-only, zero note impact; safe to merge to `main`) |
 | 5c | WP-16.A.5 — Observe JSONL ≥20 days, escalate log→show→active | Medium | A.4 | 🔲 |
-| 6 | WP-16.B.1 — Conviction floor → flag, re-score | Low | B.2 | 🟡 Built (`CONVICTION_FLOOR` flag, A/B wired); awaiting floor-off data |
-| 7 | WP-16.C.2 — Analog-episode retrieval | Medium | Phase 11 | 🔲 |
-| 8 | WP-16.C.3 — Base-rate-first prompting | Low | B.2 | 🔲 |
-| 9 | WP-16.B.3 — Emergent signal weights | High | B.2 + signal-active logging | 🔲 |
-| 10 | WP-16.B.4 — Prune prompt rules | Medium | B.3 | 🔲 |
+| 6 | WP-16.B.1 — Conviction floor → flag | Low | B.2 | ✅ In loosened bundle (floor OFF when `MACRO_PROFILE=loosened`) |
+| 7 | WP-16.C.2 — Analog-episode retrieval | Medium | Phase 11 | 🔲 (v2 of loosened bundle — deferred) |
+| 8 | WP-16.C.3 — Base-rate-first prompting | Low | B.2 | ✅ In loosened bundle (BR:ON sentinel) |
+| 9 | WP-16.B.3 — Emergent signal weights | High | B.2 + signal-active logging | 🔲 (numeric track — keep rigor) |
+| 10 | WP-16.B.4 — Prune prompt rules | Medium | B.3 | ✅ In loosened bundle (hard directional overrides pruned via PR:OFF) |
 
-**Order rationale:** the Brier metric (B.2) comes first because every other package is judged by it. The fragility prototype (A.1) is the next concrete build per the brief. Ensembling (C.1) is sequenced early because it's the cheapest, highest-leverage research lever. The heavy "let weights emerge" work (B.3/B.4) comes last — it needs the calibration metric and signal-active logs to exist first.
+**Order rationale (superseded by the 2026-06-27 execution philosophy above):** the prompt levers B.1/B.4/C.3 now ship together as the **loosened bundle** (run via `MACRO_PROFILE=loosened`, Opus 4.8 main), monitored in aggregate by B.2's Brier A/B-by-profile — not as sequential gated experiments. C.1 (ensembling, N× cost) and C.2 (analog retrieval) are deferred to a v2 bundle. B.3 (emergent weights) and Phase 18 stay on the numeric-rigor track. **Run-config mechanism:** `run_config()` resolves profile + per-lever env overrides; the prompt files carry CF/BR/PR sentinels stripped at load by `_render_prompt`; the note frontmatter records the resolved config; `summarize_accuracy.calibration_by_profile` does the headline A/B.
 
 ---
 
