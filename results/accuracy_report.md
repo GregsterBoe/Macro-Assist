@@ -1,6 +1,6 @@
 # Prediction Accuracy Report
 
-*Generated: 2026-06-22 | Reports scored: 59 | Feedback-loop reports (v0.3+): 42*
+*Generated: 2026-06-27 | Reports scored: 59 | Feedback-loop reports (v0.3+): 42*
 
 > Accuracy scale: 0% = always wrong, 50% = random, 100% = always right.
 > **Directional accuracy** excludes flat moves and Neutral calls — it is the
@@ -173,7 +173,7 @@ Use this to confirm that structural improvements translate into better predictio
 | DXY | 25% | 0% (n=1) | 2 | 52% |
 | Bitcoin | 25% | 0% (n=1) | 2 | 54% |
 
-### v1.4  (10 scored / 17 total reports in this version)
+### v1.4  (10 scored / 18 total reports in this version)
 
 **T+5 (1 week)** — overall: 44% | directional: 33% | reports: 10
 
@@ -196,6 +196,41 @@ Use this to confirm that structural improvements translate into better predictio
 | 10Y Treasury Yield | 50% | — (n=0) | 5 | 53% |
 | DXY | 30% | 0% (n=2) | 5 | 52% |
 | Bitcoin | 80% | 100% (n=3) | 5 | 52% |
+
+---
+
+## Calibration — Brier / Reliability *(WP-16.B.2)*
+
+> **Brier**: mean squared error of stated confidence vs outcome — lower is better (0 = perfect, 0.25 = always guessing 50/50).
+> **BSS** (Brier Skill Score) > 0 ⇒ the confidence numbers beat simply predicting the base rate.
+> **Gap** = actual hit-rate − predicted confidence: **+ underconfident**, **− overconfident**.
+> Decisive directional calls only (Neutral / flat excluded — no binary outcome to calibrate).
+
+**Overall (all windows):** Brier **0.276** | BSS -0.195 | ECE 0.219 | base-rate 36% | n=441 — *overconfident*
+
+### T+5 (1 week) — Brier 0.268 | BSS -0.101 | ECE 0.159 | n=148 — *overconfident*
+
+| Confidence bin | n | Predicted | Actual | Gap |
+|----------------|---|-----------|--------|-----|
+| 50-60 | 78 | 54% | 40% | -14% (over) |
+| 60-70 | 66 | 62% | 44% | -18% (over) |
+| 70-80 | 4 | 70% | 50% | -20% (over) |
+
+### T+10 (2 weeks) — Brier 0.271 | BSS -0.161 | ECE 0.225 | n=151 — *overconfident*
+
+| Confidence bin | n | Predicted | Actual | Gap |
+|----------------|---|-----------|--------|-----|
+| 50-60 | 80 | 54% | 30% | -24% (over) |
+| 60-70 | 67 | 62% | 42% | -20% (over) |
+| 70-80 | 4 | 70% | 100% | +30% (under) |
+
+### T+20 (1 month) — Brier 0.291 | BSS -0.395 | ECE 0.291 | n=142 — *overconfident*
+
+| Confidence bin | n | Predicted | Actual | Gap |
+|----------------|---|-----------|--------|-----|
+| 50-60 | 68 | 54% | 28% | -26% (over) |
+| 60-70 | 69 | 62% | 29% | -33% (over) |
+| 70-80 | 5 | 70% | 60% | -10% (over) |
 
 ---
 

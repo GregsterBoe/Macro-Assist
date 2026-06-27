@@ -51,6 +51,9 @@ jobs:
           VAULT_ROOT:        ${{ github.workspace }}/vault
           SUPADATA_API_KEY:  ${{ secrets.SUPADATA_API_KEY }}
           MACRO_PREVIEW:     "1"   # write results/llm_payload_preview/<date>.md
+          # WP-16 experiment arm — set the repo variable MACRO_PROFILE to "loosened"
+          # to switch the daily run for a period (alternate-in-time A/B). Default control.
+          MACRO_PROFILE:     ${{ vars.MACRO_PROFILE || 'control' }}
         run: python macro-assist/.macro-assist/collect_and_analyze.py ${{ inputs.force && '--force' || '' }}
 
       - name: Print LLM payload preview

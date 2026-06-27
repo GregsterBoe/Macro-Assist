@@ -1004,7 +1004,87 @@ def fetch_upcoming_events(today: datetime, lookahead_days: int = 7) -> str:
 # Accuracy context (self-calibration feedback loop)
 # ---------------------------------------------------------------------------
 
-def load_accuracy_context() -> str:
+# ---------------------------------------------------------------------------
+# Run profile (WP-16 loosened-bundle experiment)
+# ---------------------------------------------------------------------------
+# MACRO_PROFILE selects an experiment arm:
+#   control  (default) — current production config: Sonnet main, conviction
+#                        floor ON, no base-rate-first restructure, hard rules kept.
+#   loosened           — the WP-16 prompt bundle on reasonable assumptions
+#                        (revised 2026-06-27): Opus 4.8 main, conviction floor OFF
+#                        (B.1, KB-007), base-rate-first ON (C.3), hard rules pruned
+#                        (B.4). Per the "loosen prompt testing" decision, these
+#                        levers ship together and are judged in aggregate by Brier
+#                        — not gated individually.
+#
+# Each toggle also has an individual env override (CONVICTION_FLOOR, BASE_RATE_FIRST,
+# PRUNE_RULES, MACRO_MODEL) so a run matrix can mix them; the profile only sets
+# defaults. The prompt files wrap each lever's text in <!-- CF/BR/PR:ON|OFF -->
+# sentinels; _render_prompt strips the inactive arms so each run's prompt is clean
+# (no contradictory instructions). The note frontmatter records the resolved config.
+
+_PROFILES = {
+    "control":  {"model": "claude-sonnet-4-6", "conviction_floor": True,  "base_rate_first": False, "prune_rules": False},
+    "loosened": {"model": "claude-opus-4-8",   "conviction_floor": False, "base_rate_first": True,  "prune_rules": True},
+}
+
+# prompt-render sentinel tag -> config key it gates ("TAG:ON" kept when the key is True)
+_PROMPT_TOGGLES = {"CF": "conviction_floor", "BR": "base_rate_first", "PR": "prune_rules"}
+
+
+def _profile_name() -> str:
+    name = os.getenv("MACRO_PROFILE", "control").strip().lower()
+    return name if name in _PROFILES else "control"
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    """Resolve a boolean env override: off/0/false/no -> False, else True; unset -> default."""
+    v = os.getenv(name)
+    if v is None or not v.strip():
+        return default
+    return v.strip().lower() not in ("off", "0", "false", "no")
+
+
+def run_config() -> dict:
+    """Resolve the active run config: profile defaults + individual env overrides."""
+    p = _PROFILES[_profile_name()]
+    return {
+        "profile":          _profile_name(),
+        "model":            os.getenv("MACRO_MODEL", "").strip() or p["model"],
+        "conviction_floor": _env_bool("CONVICTION_FLOOR", p["conviction_floor"]),
+        "base_rate_first":  _env_bool("BASE_RATE_FIRST",  p["base_rate_first"]),
+        "prune_rules":      _env_bool("PRUNE_RULES",      p["prune_rules"]),
+    }
+
+
+def main_model() -> str:
+    """The model for the main analysis + adversarial review (sub-agents stay Haiku)."""
+    return run_config()["model"]
+
+
+def conviction_floor_on() -> bool:
+    """True if the conviction-floor forcing rules are active for this run (default ON)."""
+    return run_config()["conviction_floor"]
+
+
+def _render_prompt(text: str, config: dict) -> str:
+    """Strip the inactive sentinel arms from a prompt for the active config.
+
+    For each toggle tag (CF/BR/PR), blocks wrapped in `<!-- TAG:ON-START -->...
+    <!-- TAG:ON-END -->` are kept only when the config key is True; `TAG:OFF` only
+    when False. All markers are removed either way, so the rendered prompt is clean.
+    """
+    for tag, key in _PROMPT_TOGGLES.items():
+        drop = "OFF" if config[key] else "ON"
+        text = re.sub(
+            rf"<!-- {tag}:{drop}-START -->.*?<!-- {tag}:{drop}-END -->\n?",
+            "", text, flags=re.DOTALL,
+        )
+    text = re.sub(r"<!-- (?:CF|BR|PR):(?:ON|OFF)-(?:START|END) -->\n?", "", text)
+    return text
+
+
+def load_accuracy_context(floor_on: bool = True) -> str:
     """
     Read accuracy_summary.json and return a compact text block for injection
     into the Claude prompt. Returns empty string if no data exists yet.
@@ -1048,7 +1128,11 @@ def load_accuracy_context() -> str:
         "",
         "### Best Prediction Window Per Asset",
         "Anchor YOUR confidence to the window where directional accuracy is highest at n≥8.",
-        "Calling an asset Neutral at 50% when you have a ≥70% signal at T+10 or T+20 wastes genuine edge.",
+        (
+            "Calling an asset Neutral at 50% when you have a ≥70% signal at T+10 or T+20 wastes genuine edge."
+            if floor_on else
+            "An all-Neutral table is acceptable when the honest read is no edge — make a directional call ONLY where you have genuine conviction."
+        ),
         "",
         "| Asset | Best Window | Dir. Acc | n | Guidance |",
         "|-------|------------|---------|---|----------|",
@@ -1063,7 +1147,10 @@ def load_accuracy_context() -> str:
         dacc   = b["dacc"]
         n      = b["n"]
         if dacc >= 0.70:
-            guidance = f"STRONG signal — make a directional call at ≥55% confidence"
+            guidance = (
+                "STRONG signal — make a directional call at ≥55% confidence" if floor_on
+                else "STRONG signal — directional call supported at ≥55% if evidence agrees; Neutral OK otherwise"
+            )
         elif dacc >= 0.60:
             guidance = f"Moderate signal — directional call permitted at 52–60%"
         elif dacc <= 0.40:
@@ -1073,16 +1160,27 @@ def load_accuracy_context() -> str:
         lines.append(f"| {asset} | {wlabel} | {dacc:.0%} | {n} | {guidance} |")
 
     lines.append("")
-    lines += [
-        "### Bias Rules (MANDATORY)",
-        "- Any asset whose best-window directional accuracy is <40% at n≥8: weight market structure",
-        "  and momentum at least equally to macro fundamentals. Do not repeat a call the data shows",
-        "  has been wrong 8+ times — that is miscalibration, not caution.",
-        "- Any asset whose best-window directional accuracy is ≥70% at n≥10: you MUST make a",
-        "  directional call when the macro evidence points in a direction. Neutral at 50% is",
-        "  not conservative here — it discards a real edge.",
-        "",
-    ]
+    if floor_on:
+        lines += [
+            "### Bias Rules (MANDATORY)",
+            "- Any asset whose best-window directional accuracy is <40% at n≥8: weight market structure",
+            "  and momentum at least equally to macro fundamentals. Do not repeat a call the data shows",
+            "  has been wrong 8+ times — that is miscalibration, not caution.",
+            "- Any asset whose best-window directional accuracy is ≥70% at n≥10: you MUST make a",
+            "  directional call when the macro evidence points in a direction. Neutral at 50% is",
+            "  not conservative here — it discards a real edge.",
+            "",
+        ]
+    else:
+        lines += [
+            "### Bias Rules",
+            "- Any asset whose best-window directional accuracy is <40% at n≥8: weight market structure",
+            "  and momentum at least equally to macro fundamentals. Do not repeat a call the data shows",
+            "  has been wrong 8+ times — that is miscalibration, not caution.",
+            "- Conviction floor OFF: an all-Neutral table is acceptable. Make a directional call only where",
+            "  you have genuine conviction; do not manufacture a call to avoid Neutral.",
+            "",
+        ]
 
     # --- Per-window breakdown (unchanged) -----------------------------------------
     lines.append("### Full Window Breakdown")
@@ -1290,7 +1388,7 @@ def adversarial_review(
     original_table = match.group(1)
 
     response = client.messages.create(
-        model="claude-sonnet-4-6",
+        model=main_model(),
         max_tokens=250,
         messages=[{"role": "user", "content": f"{_ADVERSARIAL_PROMPT}\n\nREPORT:\n{draft_analysis}"}],
     )
@@ -1422,7 +1520,7 @@ def _adversarial_review_structured(
     context = f"## Key Risks\n{risks_text}\n\n## 5-Day Predictions\n{pred_table}"
 
     response = client.messages.create(
-        model="claude-sonnet-4-6",
+        model=main_model(),
         max_tokens=250,
         messages=[{"role": "user", "content": f"{_ADVERSARIAL_PROMPT}\n\nREPORT:\n{context}"}],
     )
@@ -2083,7 +2181,7 @@ def _analyze_structured(
     for attempt in range(2):
         try:
             response = client.messages.create(
-                model="claude-sonnet-4-6",
+                model=main_model(),
                 max_tokens=5000,
                 system=system_prompt,
                 tools=tools,
@@ -2181,12 +2279,13 @@ def build_payload_preview(
     index_lines = [f"- {name}: {ln} lines / {ch} chars" for name, ln, ch in sections]
     total_chars = len(user_message_structured)
 
+    _cfg = run_config()
     out: list[str] = [
         f"# LLM Payload Preview — {date_str}",
         "",
-        "Rough picture of the **main analysis agent** input (`claude-sonnet-4-6`, "
-        "structured path — the live one). System prompt + the verbatim user message "
-        "below, then signals we compute but withhold.",
+        f"Rough picture of the **main analysis agent** input (model `{_cfg['model']}`, "
+        f"profile `{_cfg['profile']}`, structured path — the live one). System prompt + the "
+        "verbatim user message below, then signals we compute but withhold.",
         "",
         f"- System prompt: ~{system_prompt_chars} chars (`prompts/system_prompt_structured.md`)",
         f"- User message: {total_chars} chars across {len(sections)} section(s)",
@@ -2228,13 +2327,19 @@ def analyze_with_claude(
     quant_context: str = "",
 ) -> "str | AnalysisOutput":
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-    system_prompt = (PROMPTS_DIR / "system_prompt.md").read_text()
+    _cfg = run_config()
+    _floor_on = _cfg["conviction_floor"]
+    if _cfg["profile"] != "control":
+        _log("PROFILE", "INFO",
+             f"run profile '{_cfg['profile']}' — model={_cfg['model']}, floor={'on' if _floor_on else 'off'}, "
+             f"base_rate_first={_cfg['base_rate_first']}, prune_rules={_cfg['prune_rules']}")
+    system_prompt = _render_prompt((PROMPTS_DIR / "system_prompt.md").read_text(), _cfg)
 
     from parse_positions import get_portfolio_summary, format_portfolio_for_prompt
 
     review_date      = next_review_date(today)
 
-    accuracy_context = load_accuracy_context()
+    accuracy_context = load_accuracy_context(_floor_on)
     if accuracy_context:
         _log("ACCURACY", "OK", "accuracy history loaded")
     else:
@@ -2342,7 +2447,9 @@ Prediction review date (5 business days): {review_date}
     # --- Structured output path (MA-1 / MA-2 / MA-3a) ---
     if _STRUCTURED_OUTPUT_AVAILABLE:
         _log("CLAUDE", "INFO", "attempting structured output (tool_use)...")
-        system_prompt_structured = (PROMPTS_DIR / "system_prompt_structured.md").read_text()
+        system_prompt_structured = _render_prompt(
+            (PROMPTS_DIR / "system_prompt_structured.md").read_text(), _cfg
+        )
         structured = _analyze_structured(client, system_prompt_structured, user_message_structured)
         if structured is not None:
             _log("OVERRIDE", "INFO", "checking accuracy-based overrides (structured path)...")
@@ -2384,7 +2491,7 @@ Prediction review date (5 business days): {review_date}
     _reset_structured_success()
     _log("CLAUDE", "INFO", "generating analysis (free-text path)...")
     response = client.messages.create(
-        model="claude-sonnet-4-6",
+        model=main_model(),
         max_tokens=5000,
         system=system_prompt,
         messages=[{"role": "user", "content": user_message}],
@@ -2427,6 +2534,15 @@ def build_note(
 
     date_str = today.strftime("%Y-%m-%d")
     day_name = today.strftime("%A")
+
+    # Run config (WP-16 experiment arm) — recorded in frontmatter so the scorer
+    # can attribute outcomes to the config that produced them.
+    _rc = run_config()
+    _onoff = lambda b: "on" if b else "off"
+    _config_summary = (
+        f"{_rc['profile']} · {_rc['model']} · floor={_onoff(_rc['conviction_floor'])} · "
+        f"base_rate_first={_onoff(_rc['base_rate_first'])} · prune_rules={_onoff(_rc['prune_rules'])}"
+    )
 
     # Markets table rows (vix3m and vix_term_ratio excluded via MARKET_LABELS filter)
     market_rows = "\n".join(
@@ -2494,6 +2610,12 @@ date: {date_str}
 day: {day_name}
 type: macro-intelligence
 agent_version: {PIPELINE_VERSION}
+config: {_config_summary}
+profile: {_rc['profile']}
+model: {_rc['model']}
+conviction_floor: {_onoff(_rc['conviction_floor'])}
+base_rate_first: {_onoff(_rc['base_rate_first'])}
+prune_rules: {_onoff(_rc['prune_rules'])}
 tags: [macro, daily-note, economics]
 ---
 

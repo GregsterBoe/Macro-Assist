@@ -378,3 +378,57 @@ the same caveat as fragility's vix_term — but it's still simpler and better.
 **Caveat.** Scored ~2010→2026 (GFC mostly in the warmup). The verdict is about
 the HMM's *incremental* value for drawdown prediction; it does not test other
 conceivable uses of regime state, but none are currently wired into the product.
+
+## KB-007 — The model's directional confidence is anti-informative (WP-16.B.2 baseline)
+
+**Date:** 2026-06-23 · **Branch:** `main` · **Harness:**
+`.macro-assist/summarize_accuracy.py` (calibration block), over 59 scored
+reports / 441 decisive directional calls. The first run of the new Brier /
+reliability metric — establishes the calibration baseline the whole
+loosening/weighting programme (Goal 1 + Phase 18) is judged against.
+
+**What we measured.** Read each call's stated confidence (0–100) as P(call is
+correct) and scored it against the binary outcome of *decisive* calls (Bullish/
+Bearish on a non-flat move; Neutral/flat excluded). Brier (lower=better),
+Brier Skill Score vs the constant base-rate forecast (BSS>0 ⇒ confidence beats
+guessing the base rate), ECE, and a confidence-binned reliability diagram.
+
+**Headline — confidence is not just overconfident, it is below chance and
+anti-informative. BSS < 0 at every horizon, worsening with horizon and in the
+recent (feedback-era) versions.**
+
+| Set | n | base-rate (hit %) | Brier | BSS | ECE | read |
+|---|---|---|---|---|---|---|
+| Overall (all 59 reports) | 441 | **36%** | 0.276 | **−0.195** | 0.219 | overconfident |
+| T+5 | 148 | 42% | 0.268 | −0.101 | 0.159 | overconfident |
+| T+10 | 151 | 37% | 0.271 | −0.161 | 0.225 | overconfident |
+| T+20 | 142 | **30%** | 0.291 | **−0.395** | 0.291 | overconfident |
+| Feedback-era (≥v0.3) | 268 | **30%** | 0.279 | **−0.344** | 0.264 | overconfident |
+
+Reliability bins are flat-to-inverted: the 60–70% confidence bin hits no better
+(often worse) than the 50–60% bin (e.g. T+10: 50–60→30%, 60–70→42%, but T+20:
+50–60→28%, 60–70→29%). Raising stated confidence does not earn a higher hit-rate.
+
+**Two distinct problems (don't conflate them).**
+1. **Skill:** decisive directional calls are right only ~36% of the time —
+   *below* a coin flip. This is an accuracy problem, not just calibration.
+2. **Calibration:** within that, confidence does not order outcomes (BSS<0,
+   ECE 0.22). The confidence number currently carries negative information.
+
+**Caveats / what this is NOT.** (a) "Decisive" excludes flat moves and Neutral
+calls, so this measures skill *conditional on the model committing to a
+direction on a move large enough to resolve* — the population most exposed to
+being wrong. (b) Below-chance ≠ "just fade it": these are the hard-to-call
+large moves, and per-asset varies wildly (10Y T+20 directional was 64% in the
+accuracy table, Bitcoin/SP500 far below). (c) Pools all assets/versions; the
+feedback-era subset being *worse* is the concerning part — recent structural
+changes have not improved (and may have hurt) directional calibration.
+
+**Why it matters / how to apply.** This is the **north-star baseline** for
+Goal 1 and Phase 18: any loosening (B.1), reweighting (B.3), input pruning
+(18.4), or LLM lever (16.C) must move **Brier/BSS**, not just accuracy. The
+immediate implication for **WP-16.B.1 (conviction floor)**: forcing a directional
+call when the honest read is "no edge" is plausibly *generating* these
+below-chance decisive calls — allowing all-Neutral tables and re-scoring Brier
+is now a high-priority test, not a nicety. Decision metric for everything
+downstream: **BSS > 0 with ECE < 0.05 at n ≥ 30.**

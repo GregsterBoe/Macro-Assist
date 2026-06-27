@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-22",
+  "generated_at": "2026-06-27",
   "n_reports_total": 59,
   "windows": {
     "t5": {
@@ -829,7 +829,7 @@
       }
     },
     "v1.4": {
-      "n_reports_in_pipeline": 17,
+      "n_reports_in_pipeline": 18,
       "n_reports_scored": 10,
       "windows": {
         "t5": {
@@ -939,5 +939,227 @@
       }
     }
   },
-  "_note": "accuracy is on a 0-1 scale where 0.5 = random (coin-flip). directional_acc excludes flat moves and Neutral calls - it measures signal quality on clear directional bets. feedback_windows includes only reports from v0.3+ (adversarial review era) and is used by the daily bias override logic. version_windows shows per-version stats for the 5 most recent pipeline versions."
+  "calibration": {
+    "windows": {
+      "t5": {
+        "n": 148,
+        "brier": 0.2679,
+        "base_rate": 0.419,
+        "brier_skill_score": -0.101,
+        "ece": 0.1593,
+        "bins": [
+          {
+            "range": "50-60",
+            "n": 78,
+            "mean_conf": 0.536,
+            "hit_rate": 0.397,
+            "gap": -0.139
+          },
+          {
+            "range": "60-70",
+            "n": 66,
+            "mean_conf": 0.621,
+            "hit_rate": 0.439,
+            "gap": -0.181
+          },
+          {
+            "range": "70-80",
+            "n": 4,
+            "mean_conf": 0.7,
+            "hit_rate": 0.5,
+            "gap": -0.2
+          }
+        ]
+      },
+      "t10": {
+        "n": 151,
+        "brier": 0.2709,
+        "base_rate": 0.371,
+        "brier_skill_score": -0.161,
+        "ece": 0.2246,
+        "bins": [
+          {
+            "range": "50-60",
+            "n": 80,
+            "mean_conf": 0.54,
+            "hit_rate": 0.3,
+            "gap": -0.24
+          },
+          {
+            "range": "60-70",
+            "n": 67,
+            "mean_conf": 0.62,
+            "hit_rate": 0.418,
+            "gap": -0.202
+          },
+          {
+            "range": "70-80",
+            "n": 4,
+            "mean_conf": 0.7,
+            "hit_rate": 1.0,
+            "gap": 0.3
+          }
+        ]
+      },
+      "t20": {
+        "n": 142,
+        "brier": 0.2906,
+        "base_rate": 0.296,
+        "brier_skill_score": -0.395,
+        "ece": 0.2911,
+        "bins": [
+          {
+            "range": "50-60",
+            "n": 68,
+            "mean_conf": 0.543,
+            "hit_rate": 0.279,
+            "gap": -0.263
+          },
+          {
+            "range": "60-70",
+            "n": 69,
+            "mean_conf": 0.622,
+            "hit_rate": 0.29,
+            "gap": -0.333
+          },
+          {
+            "range": "70-80",
+            "n": 5,
+            "mean_conf": 0.7,
+            "hit_rate": 0.6,
+            "gap": -0.1
+          }
+        ]
+      }
+    },
+    "overall": {
+      "n": 441,
+      "brier": 0.2762,
+      "base_rate": 0.363,
+      "brier_skill_score": -0.195,
+      "ece": 0.2187,
+      "bins": [
+        {
+          "range": "50-60",
+          "n": 226,
+          "mean_conf": 0.539,
+          "hit_rate": 0.327,
+          "gap": -0.212
+        },
+        {
+          "range": "60-70",
+          "n": 202,
+          "mean_conf": 0.621,
+          "hit_rate": 0.381,
+          "gap": -0.24
+        },
+        {
+          "range": "70-80",
+          "n": 13,
+          "mean_conf": 0.7,
+          "hit_rate": 0.692,
+          "gap": -0.008
+        }
+      ]
+    }
+  },
+  "calibration_feedback": {
+    "windows": {
+      "t5": {
+        "n": 93,
+        "brier": 0.2699,
+        "base_rate": 0.366,
+        "brier_skill_score": -0.164,
+        "ece": 0.1901,
+        "bins": [
+          {
+            "range": "50-60",
+            "n": 67,
+            "mean_conf": 0.531,
+            "hit_rate": 0.373,
+            "gap": -0.158
+          },
+          {
+            "range": "60-70",
+            "n": 26,
+            "mean_conf": 0.618,
+            "hit_rate": 0.346,
+            "gap": -0.272
+          }
+        ]
+      },
+      "t10": {
+        "n": 95,
+        "brier": 0.2807,
+        "base_rate": 0.274,
+        "brier_skill_score": -0.412,
+        "ece": 0.2846,
+        "bins": [
+          {
+            "range": "50-60",
+            "n": 69,
+            "mean_conf": 0.536,
+            "hit_rate": 0.246,
+            "gap": -0.289
+          },
+          {
+            "range": "60-70",
+            "n": 26,
+            "mean_conf": 0.618,
+            "hit_rate": 0.346,
+            "gap": -0.272
+          }
+        ]
+      },
+      "t20": {
+        "n": 80,
+        "brier": 0.2886,
+        "base_rate": 0.237,
+        "brier_skill_score": -0.594,
+        "ece": 0.3263,
+        "bins": [
+          {
+            "range": "50-60",
+            "n": 55,
+            "mean_conf": 0.538,
+            "hit_rate": 0.236,
+            "gap": -0.302
+          },
+          {
+            "range": "60-70",
+            "n": 25,
+            "mean_conf": 0.62,
+            "hit_rate": 0.24,
+            "gap": -0.38
+          }
+        ]
+      }
+    },
+    "overall": {
+      "n": 268,
+      "brier": 0.2793,
+      "base_rate": 0.295,
+      "brier_skill_score": -0.344,
+      "ece": 0.2643,
+      "bins": [
+        {
+          "range": "50-60",
+          "n": 191,
+          "mean_conf": 0.535,
+          "hit_rate": 0.288,
+          "gap": -0.247
+        },
+        {
+          "range": "60-70",
+          "n": 77,
+          "mean_conf": 0.619,
+          "hit_rate": 0.312,
+          "gap": -0.307
+        }
+      ]
+    }
+  },
+  "calibration_by_profile": {},
+  "calibration_by_conviction_floor": {},
+  "_note": "accuracy is on a 0-1 scale where 0.5 = random (coin-flip). directional_acc excludes flat moves and Neutral calls - it measures signal quality on clear directional bets. feedback_windows includes only reports from v0.3+ (adversarial review era) and is used by the daily bias override logic. version_windows shows per-version stats for the 5 most recent pipeline versions. calibration (WP-16.B.2) scores stated confidence as a probability forecast: brier (lower=better, 0=perfect), brier_skill_score (>0 beats the base-rate forecast), ece (expected calibration error), and reliability bins (gap>0 underconfident, <0 overconfident); decisive directional calls only. calibration_feedback restricts to MIN_FEEDBACK_VERSION+."
 }

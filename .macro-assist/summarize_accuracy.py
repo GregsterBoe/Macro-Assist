@@ -154,6 +154,136 @@ def aggregate(scores: list[dict], min_version: str | None = None) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Calibration (WP-16.B.2) — Brier score + reliability diagram
+# ---------------------------------------------------------------------------
+#
+# A directional call carries a stated confidence (0-100), which we read as the
+# model's P(this call is correct). For decisive calls (score 0 or 1 — Bullish/
+# Bearish on a non-flat move) the realized outcome is binary, so confidence is a
+# probability forecast we can score for *calibration*, not just accuracy:
+#
+#   Brier = mean((confidence/100 - outcome)^2)         lower is better; 0 = perfect
+#   Base-rate forecast Brier = p*(1-p)                  "always predict the base rate"
+#   Brier Skill Score = 1 - Brier/Brier_ref             >0 ⇒ confidence beats the base rate
+#   ECE  = sum_bins (n_bin/N) * |hit_rate - mean_conf|  expected calibration error
+#
+# The reliability diagram bins calls by stated confidence and compares mean
+# predicted confidence to the realized hit-rate per bin (gap > 0 ⇒ underconfident,
+# gap < 0 ⇒ overconfident). Neutral / flat (score 0.5) calls are excluded: there
+# is no binary directional outcome to calibrate against.
+
+CALIB_BIN_EDGES = [0, 50, 60, 70, 80, 90, 100]
+
+
+def _brier_and_reliability(items: list[dict]) -> dict | None:
+    """Compute Brier / BSS / ECE + reliability bins from decisive observations.
+
+    `items` is a list of {"confidence": int 0-100, "score": float}. Only score
+    in {0.0, 1.0} (decisive directional calls) is used. Returns None if no
+    decisive calls are present.
+    """
+    decisive = [i for i in items if i["score"] in (0.0, 1.0)]
+    n = len(decisive)
+    if n == 0:
+        return None
+
+    probs    = [i["confidence"] / 100.0 for i in decisive]
+    outcomes = [float(i["score"]) for i in decisive]  # 1.0 correct / 0.0 wrong
+
+    brier     = sum((p - o) ** 2 for p, o in zip(probs, outcomes)) / n
+    base_rate = sum(outcomes) / n
+    brier_ref = base_rate * (1.0 - base_rate)  # Brier of the constant base-rate forecast
+    bss       = (1.0 - brier / brier_ref) if brier_ref > 0 else None
+
+    bins: list[dict] = []
+    ece = 0.0
+    for lo, hi in zip(CALIB_BIN_EDGES[:-1], CALIB_BIN_EDGES[1:]):
+        # Bins are [lo, hi); the final bin includes 100.
+        in_bin = [
+            (p, o) for p, o in zip(probs, outcomes)
+            if lo <= p * 100 < hi or (hi == CALIB_BIN_EDGES[-1] and p * 100 == hi)
+        ]
+        if not in_bin:
+            continue
+        bn        = len(in_bin)
+        mean_conf = sum(p for p, _ in in_bin) / bn
+        hit_rate  = sum(o for _, o in in_bin) / bn
+        ece += (bn / n) * abs(hit_rate - mean_conf)
+        bins.append({
+            "range":     f"{lo}-{hi}",
+            "n":         bn,
+            "mean_conf": round(mean_conf, 3),
+            "hit_rate":  round(hit_rate, 3),
+            "gap":       round(hit_rate - mean_conf, 3),  # + underconfident / - overconfident
+        })
+
+    return {
+        "n":                 n,
+        "brier":             round(brier, 4),
+        "base_rate":         round(base_rate, 3),
+        "brier_skill_score": round(bss, 3) if bss is not None else None,
+        "ece":               round(ece, 4),
+        "bins":              bins,
+    }
+
+
+def calibration(scores: list[dict], min_version: str | None = None) -> dict:
+    """Per-window + overall calibration stats from the score files.
+
+    Pools decisive calls across assets within each window (calibration is a
+    property of the confidence numbers, not the asset). `overall` pools every
+    window together for the headline figure.
+    """
+    if min_version is not None:
+        min_vk = _version_key(min_version)
+        scores = [s for s in scores if _version_key(s.get("agent_version", "v0.0")) >= min_vk]
+
+    per_window: dict = {}
+    all_items: list[dict] = []
+    for window in WINDOWS:
+        items: list[dict] = []
+        for report in scores:
+            wdata = report.get("windows", {}).get(window)
+            if not wdata:
+                continue
+            for adata in wdata.get("assets", {}).values():
+                if adata.get("score") is None:
+                    continue
+                items.append({"confidence": adata["confidence"], "score": adata["score"]})
+        per_window[window] = _brier_and_reliability(items)
+        all_items.extend(items)
+
+    return {"windows": per_window, "overall": _brier_and_reliability(all_items)}
+
+
+def calibration_by(scores: list[dict], field: str) -> dict:
+    """Overall calibration split by any score-file frontmatter field.
+
+    Returns {value: <overall calib>} for each distinct value of `field` that has
+    scored data, ignoring the 'unknown'/absent bucket (pre-experiment notes).
+    The A/B readout for "does this arm calibrate better?".
+    """
+    arms: dict = {}
+    values = sorted({s.get(field) for s in scores if s.get(field) not in (None, "unknown")})
+    for v in values:
+        subset = [s for s in scores if s.get(field) == v]
+        c = calibration(subset)["overall"]
+        if c:
+            arms[v] = c
+    return arms
+
+
+def calibration_by_floor(scores: list[dict]) -> dict:
+    """Calibration split by the WP-16.B.1 conviction-floor arm (on/off)."""
+    return calibration_by(scores, "conviction_floor")
+
+
+def calibration_by_profile(scores: list[dict]) -> dict:
+    """Calibration split by WP-16 run profile (control/loosened) — the headline A/B."""
+    return calibration_by(scores, "profile")
+
+
+# ---------------------------------------------------------------------------
 # JSON output
 # ---------------------------------------------------------------------------
 
@@ -163,6 +293,10 @@ def write_json(
     feedback_stats: dict,
     n_feedback: int,
     version_stats: dict,
+    calib: dict | None = None,
+    calib_feedback: dict | None = None,
+    calib_by_floor: dict | None = None,
+    calib_by_profile: dict | None = None,
 ) -> None:
     output = {
         "generated_at":        date.today().isoformat(),
@@ -172,13 +306,21 @@ def write_json(
         "n_feedback_reports":  n_feedback,
         "feedback_windows":    feedback_stats,
         "version_windows":     version_stats,
+        "calibration":         calib,
+        "calibration_feedback": calib_feedback,
+        "calibration_by_profile": calib_by_profile,
+        "calibration_by_conviction_floor": calib_by_floor,
         "_note": (
             "accuracy is on a 0-1 scale where 0.5 = random (coin-flip). "
             "directional_acc excludes flat moves and Neutral calls - "
             "it measures signal quality on clear directional bets. "
             f"feedback_windows includes only reports from {MIN_FEEDBACK_VERSION}+ "
             "(adversarial review era) and is used by the daily bias override logic. "
-            f"version_windows shows per-version stats for the {TRACK_LATEST_N_VERSIONS} most recent pipeline versions."
+            f"version_windows shows per-version stats for the {TRACK_LATEST_N_VERSIONS} most recent pipeline versions. "
+            "calibration (WP-16.B.2) scores stated confidence as a probability forecast: "
+            "brier (lower=better, 0=perfect), brier_skill_score (>0 beats the base-rate forecast), "
+            "ece (expected calibration error), and reliability bins (gap>0 underconfident, <0 overconfident); "
+            "decisive directional calls only. calibration_feedback restricts to MIN_FEEDBACK_VERSION+."
         ),
     }
     payload = json.dumps(output, indent=2)
@@ -201,11 +343,95 @@ def _acc_bar(accuracy: float | None, n: int, width: int = 20) -> str:
     return f"[{bar}] {accuracy:.0%}  (n={n})"
 
 
+def _calibration_verdict(c: dict | None) -> str:
+    """One-word calibration read from the n-weighted signed gap + ECE."""
+    if not c or not c.get("bins"):
+        return "no data"
+    n = c["n"]
+    signed_gap = sum((b["n"] / n) * b["gap"] for b in c["bins"])
+    if c["ece"] < 0.03:
+        return "well-calibrated"
+    return "underconfident" if signed_gap > 0 else "overconfident"
+
+
+def _ab_md_lines(title: str, by_value: dict) -> list[str]:
+    """One-line-per-arm A/B readout of a calibration split. Needs ≥2 arms."""
+    if not by_value or len(by_value) < 2:
+        return []   # need at least two arms scored before the comparison means anything
+    lines = [f"**{title}:**", ""]
+    for arm, c in by_value.items():
+        bss = f"{c['brier_skill_score']:+.3f}" if c["brier_skill_score"] is not None else "n/a"
+        lines.append(
+            f"- **{arm}**: Brier {c['brier']:.3f} | BSS {bss} | ECE {c['ece']:.3f} | "
+            f"base-rate {c['base_rate']:.0%} | n={c['n']}"
+        )
+    lines.append("")
+    return lines
+
+
+def _calibration_md_lines(calib: dict, by_floor: dict | None = None,
+                          by_profile: dict | None = None) -> list[str]:
+    """Render the Brier / reliability-diagram section as markdown lines."""
+    lines = [
+        "---",
+        "",
+        "## Calibration — Brier / Reliability *(WP-16.B.2)*",
+        "",
+        "> **Brier**: mean squared error of stated confidence vs outcome — lower is better "
+        "(0 = perfect, 0.25 = always guessing 50/50).",
+        "> **BSS** (Brier Skill Score) > 0 ⇒ the confidence numbers beat simply predicting the base rate.",
+        "> **Gap** = actual hit-rate − predicted confidence: **+ underconfident**, **− overconfident**.",
+        "> Decisive directional calls only (Neutral / flat excluded — no binary outcome to calibrate).",
+        "",
+    ]
+
+    ov = calib.get("overall")
+    if ov:
+        bss = f"{ov['brier_skill_score']:+.3f}" if ov["brier_skill_score"] is not None else "n/a"
+        lines += [
+            f"**Overall (all windows):** Brier **{ov['brier']:.3f}** | BSS {bss} | "
+            f"ECE {ov['ece']:.3f} | base-rate {ov['base_rate']:.0%} | n={ov['n']} "
+            f"— *{_calibration_verdict(ov)}*",
+            "",
+        ]
+    else:
+        lines += ["*No decisive directional calls scored yet.*", ""]
+        return lines
+
+    lines += _ab_md_lines("Profile A/B (WP-16 — control vs loosened)", by_profile or {})
+    lines += _ab_md_lines("Conviction-floor A/B (WP-16.B.1)", by_floor or {})
+
+    for window in WINDOWS:
+        c = calib.get("windows", {}).get(window)
+        if not c:
+            continue
+        bss = f"{c['brier_skill_score']:+.3f}" if c["brier_skill_score"] is not None else "n/a"
+        lines += [
+            f"### {WINDOW_LABELS[window]} — Brier {c['brier']:.3f} | BSS {bss} | "
+            f"ECE {c['ece']:.3f} | n={c['n']} — *{_calibration_verdict(c)}*",
+            "",
+            "| Confidence bin | n | Predicted | Actual | Gap |",
+            "|----------------|---|-----------|--------|-----|",
+        ]
+        for b in c["bins"]:
+            tag = "under" if b["gap"] > 0 else ("over" if b["gap"] < 0 else "exact")
+            lines.append(
+                f"| {b['range']} | {b['n']} | {b['mean_conf']:.0%} | "
+                f"{b['hit_rate']:.0%} | {b['gap']:+.0%} ({tag}) |"
+            )
+        lines.append("")
+
+    return lines
+
+
 def write_markdown(
     stats: dict,
     n_reports: int,
     n_feedback: int = 0,
     version_stats: dict | None = None,
+    calib: dict | None = None,
+    calib_by_floor: dict | None = None,
+    calib_by_profile: dict | None = None,
 ) -> None:
     today = date.today().isoformat()
     lines = [
@@ -310,6 +536,10 @@ def write_markdown(
                 )
                 lines.append("")
 
+    # Calibration — Brier / reliability (WP-16.B.2)
+    if calib:
+        lines += _calibration_md_lines(calib, calib_by_floor, calib_by_profile)
+
     # Calibration note
     lines += [
         "---",
@@ -333,10 +563,19 @@ def write_markdown(
 # Terminal output
 # ---------------------------------------------------------------------------
 
-def print_summary(stats: dict, n_reports: int) -> None:
+def print_summary(stats: dict, n_reports: int, calib: dict | None = None) -> None:
     print(f"\n{'='*60}")
     print(f"Prediction Accuracy Summary  |  Reports scored: {n_reports}")
     print(f"{'='*60}")
+
+    if calib and calib.get("overall"):
+        ov = calib["overall"]
+        bss = f"{ov['brier_skill_score']:+.3f}" if ov["brier_skill_score"] is not None else "n/a"
+        print(
+            f"\nCalibration (decisive calls, n={ov['n']}):  "
+            f"Brier {ov['brier']:.3f}  BSS {bss}  ECE {ov['ece']:.3f}  "
+            f"→ {_calibration_verdict(ov)}"
+        )
 
     for window in WINDOWS:
         wdata = stats.get(window)
@@ -403,9 +642,16 @@ def main() -> None:
         }
     print(f"Per-version tracking: {', '.join(latest_versions) or 'none'}")
 
-    print_summary(stats, len(scores))
-    write_json(stats, len(scores), feedback_stats, n_feedback, version_stats)
-    write_markdown(stats, len(scores), n_feedback, version_stats)
+    calib            = calibration(scores)
+    calib_feedback   = calibration(scores, min_version=MIN_FEEDBACK_VERSION)
+    calib_by_floor   = calibration_by_floor(scores)
+    calib_by_profile = calibration_by_profile(scores)
+
+    print_summary(stats, len(scores), calib)
+    write_json(stats, len(scores), feedback_stats, n_feedback, version_stats,
+               calib, calib_feedback, calib_by_floor, calib_by_profile)
+    write_markdown(stats, len(scores), n_feedback, version_stats, calib,
+                   calib_by_floor, calib_by_profile)
 
 
 if __name__ == "__main__":
