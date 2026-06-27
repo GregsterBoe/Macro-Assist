@@ -1,0 +1,351 @@
+{
+  "as_of": "2026-06-27",
+  "n_notes": 78,
+  "min_version": null,
+  "rare_rate": 0.1,
+  "ledger_used": true,
+  "inputs": {
+    "sp500": {
+      "cited_in": 78,
+      "total": 78,
+      "rate": 1.0,
+      "redundant": true,
+      "info_score": 0.041,
+      "ledger_flags": "REDUNDANT",
+      "prune_priority": "watch"
+    },
+    "nasdaq": {
+      "cited_in": 74,
+      "total": 78,
+      "rate": 0.9487,
+      "redundant": true,
+      "info_score": 0.0411,
+      "ledger_flags": "REDUNDANT",
+      "prune_priority": "watch"
+    },
+    "gold": {
+      "cited_in": 78,
+      "total": 78,
+      "rate": 1.0,
+      "redundant": false,
+      "info_score": 0.5535,
+      "ledger_flags": "-",
+      "prune_priority": "keep"
+    },
+    "wti_oil": {
+      "cited_in": 78,
+      "total": 78,
+      "rate": 1.0,
+      "redundant": false,
+      "info_score": 0.3782,
+      "ledger_flags": "-",
+      "prune_priority": "keep"
+    },
+    "vix": {
+      "cited_in": 71,
+      "total": 78,
+      "rate": 0.9103,
+      "redundant": true,
+      "info_score": 0.0199,
+      "ledger_flags": "REDUNDANT",
+      "prune_priority": "watch"
+    },
+    "vix3m": {
+      "cited_in": 50,
+      "total": 78,
+      "rate": 0.641,
+      "redundant": true,
+      "info_score": 0.0203,
+      "ledger_flags": "STALE,REDUNDANT",
+      "prune_priority": "watch"
+    },
+    "dxy": {
+      "cited_in": 78,
+      "total": 78,
+      "rate": 1.0,
+      "redundant": false,
+      "info_score": 0.5484,
+      "ledger_flags": "-",
+      "prune_priority": "keep"
+    },
+    "bitcoin": {
+      "cited_in": 77,
+      "total": 78,
+      "rate": 0.9872,
+      "redundant": false,
+      "info_score": 0.577,
+      "ledger_flags": "-",
+      "prune_priority": "keep"
+    },
+    "xle": {
+      "cited_in": 61,
+      "total": 78,
+      "rate": 0.7821,
+      "redundant": false,
+      "info_score": 0.3497,
+      "ledger_flags": "-",
+      "prune_priority": "keep"
+    },
+    "xlk": {
+      "cited_in": 51,
+      "total": 78,
+      "rate": 0.6538,
+      "redundant": true,
+      "info_score": 0.057,
+      "ledger_flags": "REDUNDANT",
+      "prune_priority": "watch"
+    },
+    "xlf": {
+      "cited_in": 35,
+      "total": 78,
+      "rate": 0.4487,
+      "redundant": false,
+      "info_score": 0.2238,
+      "ledger_flags": "-",
+      "prune_priority": "keep"
+    },
+    "xli": {
+      "cited_in": 36,
+      "total": 78,
+      "rate": 0.4615,
+      "redundant": true,
+      "info_score": 0.1593,
+      "ledger_flags": "REDUNDANT",
+      "prune_priority": "watch"
+    },
+    "xly": {
+      "cited_in": 38,
+      "total": 78,
+      "rate": 0.4872,
+      "redundant": true,
+      "info_score": 0.1305,
+      "ledger_flags": "REDUNDANT",
+      "prune_priority": "watch"
+    },
+    "xlv": {
+      "cited_in": 18,
+      "total": 78,
+      "rate": 0.2308,
+      "redundant": false,
+      "info_score": 0.3715,
+      "ledger_flags": "-",
+      "prune_priority": "keep"
+    },
+    "xlu": {
+      "cited_in": 20,
+      "total": 78,
+      "rate": 0.2564,
+      "redundant": false,
+      "info_score": 0.3257,
+      "ledger_flags": "-",
+      "prune_priority": "keep"
+    },
+    "xlp": {
+      "cited_in": 13,
+      "total": 78,
+      "rate": 0.1667,
+      "redundant": false,
+      "info_score": 0.3689,
+      "ledger_flags": "-",
+      "prune_priority": "keep"
+    },
+    "xlb": {
+      "cited_in": 11,
+      "total": 78,
+      "rate": 0.141,
+      "redundant": true,
+      "info_score": 0.1763,
+      "ledger_flags": "REDUNDANT",
+      "prune_priority": "watch"
+    },
+    "xlre": {
+      "cited_in": 10,
+      "total": 78,
+      "rate": 0.1282,
+      "redundant": false,
+      "info_score": 0.3338,
+      "ledger_flags": "-",
+      "prune_priority": "keep"
+    },
+    "xlc": {
+      "cited_in": 28,
+      "total": 78,
+      "rate": 0.359,
+      "redundant": true,
+      "info_score": 0.1814,
+      "ledger_flags": "REDUNDANT",
+      "prune_priority": "watch"
+    },
+    "fed_funds_rate": {
+      "cited_in": 64,
+      "total": 78,
+      "rate": 0.8205,
+      "redundant": false,
+      "info_score": 0.7981,
+      "ledger_flags": "STALE,redund-n/a",
+      "prune_priority": "keep"
+    },
+    "cpi": {
+      "cited_in": 78,
+      "total": 78,
+      "rate": 1.0,
+      "redundant": false,
+      "info_score": 0.9635,
+      "ledger_flags": "STALE,redund-n/a",
+      "prune_priority": "keep"
+    },
+    "gdp": {
+      "cited_in": 38,
+      "total": 78,
+      "rate": 0.4872,
+      "redundant": false,
+      "info_score": 0.9675,
+      "ledger_flags": "STALE,redund-n/a",
+      "prune_priority": "keep"
+    },
+    "unemployment": {
+      "cited_in": 74,
+      "total": 78,
+      "rate": 0.9487,
+      "redundant": false,
+      "info_score": 0.7709,
+      "ledger_flags": "STALE,redund-n/a",
+      "prune_priority": "keep"
+    },
+    "m2": {
+      "cited_in": 78,
+      "total": 78,
+      "rate": 1.0,
+      "redundant": false,
+      "info_score": 0.9079,
+      "ledger_flags": "STALE,redund-n/a",
+      "prune_priority": "keep"
+    },
+    "treasury_10y": {
+      "cited_in": 78,
+      "total": 78,
+      "rate": 1.0,
+      "redundant": true,
+      "info_score": 0.1189,
+      "ledger_flags": "REDUNDANT",
+      "prune_priority": "watch"
+    },
+    "treasury_2y": {
+      "cited_in": 76,
+      "total": 78,
+      "rate": 0.9744,
+      "redundant": false,
+      "info_score": 0.177,
+      "ledger_flags": "-",
+      "prune_priority": "keep"
+    },
+    "hy_spread": {
+      "cited_in": 50,
+      "total": 78,
+      "rate": 0.641,
+      "redundant": false,
+      "info_score": 0.3404,
+      "ledger_flags": "-",
+      "prune_priority": "keep"
+    },
+    "baa_spread": {
+      "cited_in": 0,
+      "total": 78,
+      "rate": 0.0,
+      "redundant": false,
+      "info_score": 0.364,
+      "ledger_flags": "-",
+      "prune_priority": "watch"
+    },
+    "philly_fed_mfg": {
+      "cited_in": 53,
+      "total": 78,
+      "rate": 0.6795,
+      "redundant": false,
+      "info_score": 0.918,
+      "ledger_flags": "redund-n/a",
+      "prune_priority": "keep"
+    },
+    "real_yield_10y": {
+      "cited_in": 60,
+      "total": 78,
+      "rate": 0.7692,
+      "redundant": true,
+      "info_score": 0.1159,
+      "ledger_flags": "REDUNDANT",
+      "prune_priority": "watch"
+    },
+    "breakeven_10y": {
+      "cited_in": 65,
+      "total": 78,
+      "rate": 0.8333,
+      "redundant": false,
+      "info_score": 0.4491,
+      "ledger_flags": "-",
+      "prune_priority": "keep"
+    },
+    "fed_total_assets": {
+      "cited_in": 2,
+      "total": 78,
+      "rate": 0.0256,
+      "redundant": false,
+      "info_score": 0.9071,
+      "ledger_flags": "redund-n/a",
+      "prune_priority": "watch"
+    },
+    "treasury_gen_acct": {
+      "cited_in": 7,
+      "total": 78,
+      "rate": 0.0897,
+      "redundant": false,
+      "info_score": 0.9484,
+      "ledger_flags": "redund-n/a",
+      "prune_priority": "watch"
+    },
+    "reverse_repo": {
+      "cited_in": 0,
+      "total": 78,
+      "rate": 0.0,
+      "redundant": false,
+      "info_score": 0.8315,
+      "ledger_flags": "-",
+      "prune_priority": "watch"
+    },
+    "jobless_claims": {
+      "cited_in": 26,
+      "total": 78,
+      "rate": 0.3333,
+      "redundant": false,
+      "info_score": 0.598,
+      "ledger_flags": "redund-n/a",
+      "prune_priority": "keep"
+    },
+    "nfci": {
+      "cited_in": 29,
+      "total": 78,
+      "rate": 0.3718,
+      "redundant": false,
+      "info_score": 0.9525,
+      "ledger_flags": "redund-n/a",
+      "prune_priority": "keep"
+    },
+    "net_liquidity": {
+      "cited_in": 42,
+      "total": 78,
+      "rate": 0.5385,
+      "redundant": null,
+      "info_score": null,
+      "ledger_flags": null,
+      "prune_priority": "keep"
+    },
+    "yield_curve": {
+      "cited_in": 45,
+      "total": 78,
+      "rate": 0.5769,
+      "redundant": null,
+      "info_score": null,
+      "ledger_flags": null,
+      "prune_priority": "keep"
+    }
+  }
+}
