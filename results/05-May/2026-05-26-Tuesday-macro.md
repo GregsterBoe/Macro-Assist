@@ -2,6 +2,7 @@
 date: 2026-05-26
 day: Tuesday
 type: macro-intelligence
+agent_version: v1.2
 tags: [macro, daily-note, economics]
 ---
 

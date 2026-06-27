@@ -55,76 +55,6 @@
 Accuracy broken out by the 5 most recently deployed pipeline versions.
 Use this to confirm that structural improvements translate into better predictions.
 
-### v0.6  (1 scored / 1 total reports in this version)
-
-**T+5 (1 week)** — overall: 50% | directional: 50% | reports: 1
-
-| Asset | Accuracy | Directional | n | Avg Confidence |
-|-------|----------|-------------|---|----------------|
-| S&P 500 | 100% | 100% (n=1) | 1 | 52% |
-| Gold | 50% | — (n=0) | 1 | 53% |
-| WTI Oil | 0% | 0% (n=1) | 1 | 51% |
-| 10Y Treasury Yield | 50% | — (n=0) | 1 | 50% |
-| DXY | 50% | — (n=0) | 1 | 62% |
-| Bitcoin | 50% | — (n=0) | 1 | 50% |
-
-**T+10 (2 weeks)** — overall: 42% | directional: 33% | reports: 1
-
-| Asset | Accuracy | Directional | n | Avg Confidence |
-|-------|----------|-------------|---|----------------|
-| S&P 500 | 100% | 100% (n=1) | 1 | 52% |
-| Gold | 50% | — (n=0) | 1 | 53% |
-| WTI Oil | 0% | 0% (n=1) | 1 | 51% |
-| 10Y Treasury Yield | 50% | — (n=0) | 1 | 50% |
-| DXY | 50% | — (n=0) | 1 | 62% |
-| Bitcoin | 0% | 0% (n=1) | 1 | 50% |
-
-**T+20 (1 month)** — overall: 33% | directional: 25% | reports: 1
-
-| Asset | Accuracy | Directional | n | Avg Confidence |
-|-------|----------|-------------|---|----------------|
-| S&P 500 | 100% | 100% (n=1) | 1 | 52% |
-| Gold | 50% | — (n=0) | 1 | 53% |
-| WTI Oil | 0% | 0% (n=1) | 1 | 51% |
-| 10Y Treasury Yield | 50% | — (n=0) | 1 | 50% |
-| DXY | 0% | 0% (n=1) | 1 | 62% |
-| Bitcoin | 0% | 0% (n=1) | 1 | 50% |
-
-### v0.7  (4 scored / 4 total reports in this version)
-
-**T+5 (1 week)** — overall: 46% | directional: 40% | reports: 4
-
-| Asset | Accuracy | Directional | n | Avg Confidence |
-|-------|----------|-------------|---|----------------|
-| S&P 500 | 100% | 100% (n=4) | 4 | 52% |
-| Gold | 50% | — (n=0) | 4 | 50% |
-| WTI Oil | 12% | 0% (n=3) | 4 | 50% |
-| 10Y Treasury Yield | 50% | — (n=0) | 4 | 50% |
-| DXY | 50% | — (n=0) | 4 | 57% |
-| Bitcoin | 0% | 0% (n=3) | 3 | 52% |
-
-**T+10 (2 weeks)** — overall: 39% | directional: 27% | reports: 4
-
-| Asset | Accuracy | Directional | n | Avg Confidence |
-|-------|----------|-------------|---|----------------|
-| S&P 500 | 75% | 75% (n=4) | 4 | 52% |
-| Gold | 50% | — (n=0) | 4 | 50% |
-| WTI Oil | 12% | 0% (n=3) | 4 | 50% |
-| 10Y Treasury Yield | 50% | — (n=0) | 4 | 50% |
-| DXY | 38% | 0% (n=1) | 4 | 57% |
-| Bitcoin | 0% | 0% (n=3) | 3 | 52% |
-
-**T+20 (1 month)** — overall: 34% | directional: 18% | reports: 4
-
-| Asset | Accuracy | Directional | n | Avg Confidence |
-|-------|----------|-------------|---|----------------|
-| S&P 500 | 83% | 100% (n=2) | 3 | 52% |
-| Gold | 50% | — (n=0) | 4 | 50% |
-| WTI Oil | 12% | 0% (n=3) | 4 | 50% |
-| 10Y Treasury Yield | 50% | — (n=0) | 4 | 50% |
-| DXY | 12% | 0% (n=3) | 4 | 57% |
-| Bitcoin | 0% | 0% (n=3) | 3 | 52% |
-
 ### v1.0  (1 scored / 1 total reports in this version)
 
 **T+5 (1 week)** — overall: 50% | directional: 50% | reports: 1
@@ -173,7 +103,11 @@ Use this to confirm that structural improvements translate into better predictio
 | DXY | 25% | 0% (n=1) | 2 | 52% |
 | Bitcoin | 25% | 0% (n=1) | 2 | 54% |
 
-### v1.4  (10 scored / 18 total reports in this version)
+### v1.2  (0 scored / 1 total reports in this version)
+
+*No scored predictions yet — T+5 window has not closed on any v1.2 reports.*
+
+### v1.4  (10 scored / 21 total reports in this version)
 
 **T+5 (1 week)** — overall: 44% | directional: 33% | reports: 10
 
@@ -196,6 +130,10 @@ Use this to confirm that structural improvements translate into better predictio
 | 10Y Treasury Yield | 50% | — (n=0) | 5 | 53% |
 | DXY | 30% | 0% (n=2) | 5 | 52% |
 | Bitcoin | 80% | 100% (n=3) | 5 | 52% |
+
+### v1.5  (0 scored / 0 total reports in this version)
+
+*No scored predictions yet — T+5 window has not closed on any v1.5 reports.*
 
 ---
 

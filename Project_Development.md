@@ -327,7 +327,8 @@ Every generated note and score file carries an `agent_version` field that identi
 | v1.1 | 2026-05-26 – 2026-05-26 | + MA-3b: synthesis agent |
 | v1.2 | 2026-05-26 – 2026-05-28 | + Phase 9/10: HAR-RV vol forecasting + HMM regime classification |
 | v1.3 | 2026-05-29 – 2026-05-29 | + Phase 11: conditional return distribution lookup (18-bucket state model) |
-| v1.4 | 2026-05-29 – present | + Phase 12: quantitative context block (HAR-RV vol + HMM regime + conditional dist) |
+| v1.4 | 2026-05-29 – 2026-06-26 | + Phase 12: quantitative context block (HAR-RV vol + HMM regime + conditional dist); Phase 14: weekly refit + monitoring |
+| v1.5 | 2026-06-27 – present | + WP-16: run profiles (control/loosened arms), conviction-floor flag, Brier/reliability calibration, base-rate-first |
 
 ### Output Schema
 
@@ -338,7 +339,7 @@ Every `*-macro.md` file carries `agent_version` in its YAML frontmatter, inserte
 date: YYYY-MM-DD
 day: Monday
 type: macro-intelligence
-agent_version: v1.4
+agent_version: v1.5
 tags: [macro, daily-note, economics]
 ---
 ```

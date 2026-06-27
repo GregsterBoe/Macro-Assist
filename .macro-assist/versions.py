@@ -21,7 +21,7 @@ from datetime import date
 # ---------------------------------------------------------------------------
 # Current pipeline version — stamped into every generated note's YAML frontmatter.
 # ---------------------------------------------------------------------------
-PIPELINE_VERSION: str = "v1.4"
+PIPELINE_VERSION: str = "v1.5"
 
 # ---------------------------------------------------------------------------
 # Minimum version included in the accuracy feedback loop.
@@ -47,8 +47,8 @@ VERSION_MILESTONES: list[tuple[str, date, date]] = [
     ("v1.1", date(2026, 5, 26), date(2026, 5, 25)),  # + MA-3b: synthesis agent (superseded same day by v1.2)
     ("v1.2", date(2026, 5, 26), date(2026, 5, 28)),  # + Phase 9/10: HAR-RV vol + HMM regime
     ("v1.3", date(2026, 5, 29), date(2026, 5, 28)),  # + Phase 11: conditional distributions (superseded same day by v1.4)
-    ("v1.4", date(2026, 5, 29), date(2026, 5, 29)),  # + Phase 12: quantitative context block
-    ("v1.5", date(2026, 5, 30), date(2099, 12, 31)), # + Phase 14: weekly refit + monitoring
+    ("v1.4", date(2026, 5, 29), date(2026, 6, 26)),  # + Phase 12: quant context block; Phase 14: weekly refit + monitoring
+    ("v1.5", date(2026, 6, 27), date(2099, 12, 31)), # + WP-16: run profiles (control/loosened), conviction-floor flag, Brier calibration
 ]
 
 
