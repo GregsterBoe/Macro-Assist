@@ -432,3 +432,72 @@ call when the honest read is "no edge" is plausibly *generating* these
 below-chance decisive calls — allowing all-Neutral tables and re-scoring Brier
 is now a high-priority test, not a nicety. Decision metric for everything
 downstream: **BSS > 0 with ECE < 0.05 at n ≥ 30.**
+
+## KB-009 — Input payload is redundancy-heavy in the market/sector block; the FRED macro series are the orthogonal core (WP-18.2)
+
+**Date:** 2026-06-27 · **Branch:** `main` · **Harness:**
+`.macro-assist/input_ledger.py` over **36 inputs × 1367 business days** (5y FRED +
+market + sector panel). First run of the cheap input-quality screen — narrows the
+WP-18.4 ablation candidate list. **A screen, not a verdict** (see caveats).
+
+**What we measured (zero LLM cost).** Per input series: **staleness** (days past
+the series' *true* last print — taken pre-ffill), normalised **entropy** of the
+level distribution, MAD-scaled **robust σ**, and **redundancy** = max |corr| with
+any other input, computed on **first differences** (levels are non-stationary and
+correlate spuriously). Redundancy is assessed **only among daily-active series**
+(non-zero change fraction ≥0.6); ffilled sub-daily FRED series produce mostly-zero
+change vectors that manufacture artifacts, so they are flagged `redund-n/a` and
+ranked by entropy alone. Ranking key `info_score = entropy·(1−max|corr|)`.
+
+**Headline — the daily market/sector block is highly collinear (a handful of
+factors), while the FRED macro series carry the orthogonal information.**
+
+Redundancy clusters (the prune candidates, |corr| on changes):
+- **Volatility:** `vix ≈ vix3m` (**0.978**) — near-duplicate; `vix3m` is *also*
+  9d stale (a daily series) and used only for the term-structure ratio.
+- **Equity beta:** `sp500 ≈ nasdaq` (0.957); `nasdaq ≈ xlk` (0.934); `sp500 ≈`
+  xlk/xly/xli/xlc (0.81–0.88); `xli ≈ xlb` (0.804). The equity complex collapses
+  onto ~one factor — most sector ETFs add little beyond SP500 directionally.
+  Differentiated sectors: `xle` (tracks `wti_oil` 0.582, not SP500), `xlu↔xlre`
+  (rate-sensitive pair 0.649), `xlv/xlp` (defensives ~0.6).
+- **Rates:** `treasury_10y ≈ real_yield_10y` (0.856); `treasury_2y ≈ 10y` (0.788).
+  `breakeven_10y` is the *independent* one (0.426) — it carries the inflation-
+  expectations signal the nominal/real pair does not.
+
+Orthogonal / high-info (NOT prune candidates): the FRED macro block — gdp, cpi,
+m2, nfci, fed_total_assets, treasury_gen_acct, reverse_repo, philly_fed_mfg,
+fed_funds_rate, unemployment, jobless_claims — plus gold (−0.286 vs dxy), bitcoin
+(0.397), dxy (0.408), and the credit spreads (hy↔baa 0.619, independent of equity
+and rates).
+
+**Staleness.** Only one *real* abandonment signal: **`vix3m` 9d stale** for a
+daily series — investigate the yfinance feed (and it's already a prune candidate:
+redundant + single-use). The monthly-macro STALE flags (cpi/m2/unemployment/
+fed_funds 57d, gdp 177d quarterly) are **cadence artifacts** — FRED dates these
+month-/quarter-start and adds release lag, so they routinely exceed a 45d limit
+without being abandoned. Implication: the `monthly` freshness limit (45d) is too
+tight for FRED's dating convention; consider ~75d before treating monthly staleness
+as a signal.
+
+**Caveats / what this is NOT.** (a) **Screen, not verdict** — high |corr| ≠ no
+marginal value; a redundant input may be the cleaner/faster member of a pair or
+matter only at the tails. The keep/cut decision is the WP-18.4 outcome-grounded
+ablation, against Brier (KB-007). (b) Entropy measures *distribution richness*, not
+predictive value — an orthogonal series can be orthogonal *noise*; orthogonality
+buys a 18.4 test, not a keep. (c) Redundancy is change-correlation among daily
+series only; cross-frequency redundancy (e.g. a daily proxy for a monthly macro
+read) is not captured here. (d) Pearson is linear — non-linear dependence is
+invisible to this screen.
+
+**Why it matters / how to apply.** This is the **candidate queue for WP-18.4**
+(drop-one ablations, one lever at a time, n≥30 per arm, judged on Brier):
+1. **Drop `vix3m`** — redundant (0.978) + stale + single-use (term-structure ratio
+   can be derived without feeding it as a standalone input).
+2. **Collapse the sector block** — test giving the model SP500 + the *differentiated*
+   sectors (XLE, XLU/XLRE, XLV) only, dropping the SP500-clones (XLK/XLY/XLI/XLC/
+   XLF/XLB); the prompt-economy payoff is large (sectors are ~1k chars).
+3. **`nasdaq` vs `sp500`** — one of the two index series may suffice.
+4. **`real_yield_10y` vs `treasury_10y`** — keep `breakeven_10y` (the independent one).
+The FRED macro core is explicitly **not** a prune target — it is where the
+non-redundant information lives. Next observability step: WP-18.3 citation screen
+(does the model actually *reference* the redundant inputs?) before paying for 18.4.
