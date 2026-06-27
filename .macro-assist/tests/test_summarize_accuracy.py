@@ -18,9 +18,11 @@ from summarize_accuracy import (
     _brier_and_reliability,
     _calibration_verdict,
     _calibration_md_lines,
-    _floor_ab_md_lines,
+    _ab_md_lines,
     calibration,
+    calibration_by,
     calibration_by_floor,
+    calibration_by_profile,
     CALIB_BIN_EDGES,
     WINDOWS,
 )
@@ -32,11 +34,13 @@ def _items(*pairs: tuple[int, float]) -> list[dict]:
 
 
 def _report(version: str, window: str, assets: dict[str, tuple[str, int, float]],
-            conviction_floor: str | None = None) -> dict:
+            conviction_floor: str | None = None, profile: str | None = None) -> dict:
     """Build a minimal score-file dict. assets: name -> (bias, confidence, score)."""
     report: dict = {"agent_version": version}
     if conviction_floor is not None:
         report["conviction_floor"] = conviction_floor
+    if profile is not None:
+        report["profile"] = profile
     return {
         **report,
         "windows": {
@@ -143,32 +147,48 @@ class TestCalibrationAggregation:
         assert calib["windows"]["t20"] is None
 
 
-class TestCalibrationByFloor:
+class TestCalibrationBySplit:
 
     def test_empty_when_no_tagged_reports(self):
-        # Pre-flag reports have no conviction_floor field → no arms.
-        assert calibration_by_floor([_report("v1.0", "t5", {"A": ("Bullish", 70, 1.0)})]) == {}
+        # Pre-experiment reports have no conviction_floor/profile field → no arms.
+        rs = [_report("v1.0", "t5", {"A": ("Bullish", 70, 1.0)})]
+        assert calibration_by_floor(rs) == {}
+        assert calibration_by_profile(rs) == {}
 
-    def test_splits_on_and_off_arms(self):
+    def test_floor_splits_on_and_off_arms(self):
         reports = [
             _report("v1.0", "t5", {"A": ("Bullish", 70, 1.0)}, conviction_floor="on"),
             _report("v1.0", "t5", {"B": ("Bearish", 70, 0.0)}, conviction_floor="off"),
         ]
         by_floor = calibration_by_floor(reports)
         assert set(by_floor) == {"on", "off"}
-        assert by_floor["on"]["n"] == 1
-        assert by_floor["off"]["n"] == 1
+        assert by_floor["on"]["n"] == 1 and by_floor["off"]["n"] == 1
 
-    def test_ab_md_only_when_both_arms_present(self):
-        one_arm = {"on": {"brier": 0.2, "brier_skill_score": 0.0, "ece": 0.1, "base_rate": 0.5, "n": 5}}
-        assert _floor_ab_md_lines(one_arm) == []          # need both arms
+    def test_profile_split(self):
+        reports = [
+            _report("v1.0", "t5", {"A": ("Bullish", 70, 1.0)}, profile="control"),
+            _report("v1.0", "t5", {"B": ("Bearish", 70, 0.0)}, profile="loosened"),
+        ]
+        by_profile = calibration_by_profile(reports)
+        assert set(by_profile) == {"control", "loosened"}
+
+    def test_calibration_by_ignores_unknown_bucket(self):
+        reports = [
+            _report("v1.0", "t5", {"A": ("Bullish", 70, 1.0)}, profile="loosened"),
+            _report("v1.0", "t5", {"B": ("Bearish", 70, 0.0)}),  # no profile → "unknown", excluded
+        ]
+        assert set(calibration_by(reports, "profile")) == {"loosened"}
+
+    def test_ab_md_only_when_two_or_more_arms(self):
+        one_arm = {"control": {"brier": 0.2, "brier_skill_score": 0.0, "ece": 0.1, "base_rate": 0.5, "n": 5}}
+        assert _ab_md_lines("Profile A/B", one_arm) == []   # need ≥2 arms
         both = {
-            "on":  {"brier": 0.28, "brier_skill_score": -0.2, "ece": 0.22, "base_rate": 0.36, "n": 40},
-            "off": {"brier": 0.23, "brier_skill_score": 0.05, "ece": 0.04, "base_rate": 0.55, "n": 35},
+            "control":  {"brier": 0.28, "brier_skill_score": -0.2, "ece": 0.22, "base_rate": 0.36, "n": 40},
+            "loosened": {"brier": 0.23, "brier_skill_score": 0.05, "ece": 0.04, "base_rate": 0.55, "n": 35},
         }
-        text = "\n".join(_floor_ab_md_lines(both))
-        assert "Conviction-floor A/B" in text
-        assert "floor **on**" in text and "floor **off**" in text
+        text = "\n".join(_ab_md_lines("Profile A/B (WP-16 — control vs loosened)", both))
+        assert "Profile A/B" in text
+        assert "**control**" in text and "**loosened**" in text
 
 
 class TestCalibrationMarkdown:

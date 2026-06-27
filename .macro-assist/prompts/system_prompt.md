@@ -148,6 +148,7 @@ Review date: {the prediction review date provided in the user message}
 Rules for predictions:
 - **Reasoning-before-confidence discipline**: Fill Primary Driver BEFORE setting Confidence. This column order is intentional — write out the horizon calculation first (e.g. "T+20 base accuracy 70%; −10pp cross-horizon discount → 60%"), then output that computed number as Confidence. Do not backfill the reasoning after choosing a figure.
 - Confidence must be between 50% and 70% by default.
+<!-- BR:ON-START -->- **Base-rate-first**: when a Conditional return distribution (or other quant base rate) is present for an asset, state that base rate in Primary Driver BEFORE your directional view, then justify any deviation from it. Anchor confidence to the base rate — treat a directional call as an explicit, reasoned departure from the conditional distribution, not a free-form guess.<!-- BR:ON-END -->
 - Target Range must be a specific numeric range, not "higher" or "lower".
 - Primary Driver must name the specific data point or catalyst driving the view.
 - If data is insufficient to form a view, state Neutral with 50% confidence and explain why.

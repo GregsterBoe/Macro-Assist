@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-26",
+  "generated_at": "2026-06-27",
   "n_reports_total": 59,
   "windows": {
     "t5": {
@@ -1159,6 +1159,7 @@
       ]
     }
   },
+  "calibration_by_profile": {},
   "calibration_by_conviction_floor": {},
   "_note": "accuracy is on a 0-1 scale where 0.5 = random (coin-flip). directional_acc excludes flat moves and Neutral calls - it measures signal quality on clear directional bets. feedback_windows includes only reports from v0.3+ (adversarial review era) and is used by the daily bias override logic. version_windows shows per-version stats for the 5 most recent pipeline versions. calibration (WP-16.B.2) scores stated confidence as a probability forecast: brier (lower=better, 0=perfect), brier_skill_score (>0 beats the base-rate forecast), ece (expected calibration error), and reliability bins (gap>0 underconfident, <0 overconfident); decisive directional calls only. calibration_feedback restricts to MIN_FEEDBACK_VERSION+."
 }
