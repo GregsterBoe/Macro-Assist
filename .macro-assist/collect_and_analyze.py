@@ -93,7 +93,9 @@ FRED_SERIES = {
     "treasury_10y":      "DGS10",
     "treasury_2y":       "DGS2",
     "hy_spread":         "BAMLH0A0HYM2",        # HY corporate bond OAS spread (%)
-    "baa_spread":        "BAA10Y",              # Moody's Baa − 10Y; regime credit feature (long history)
+    # baa_spread (BAA10Y) removed 2026-06-27 (WP-18.4 cleanup): its only consumer was the
+    # retired HMM regime credit feature (KB-006); 0/78 model citations (KB-010). refit_models.py
+    # keeps its own BAA10Y fetch for any future regime revival.
     "philly_fed_mfg":    "GACDFSA066MSFRBPHI",  # Philly Fed diffusion index; >0 expanding
     "real_yield_10y":    "DFII10",              # 10Y TIPS real yield (daily)
     "breakeven_10y":     "T10YIE",              # 10Y inflation breakeven rate (daily)
@@ -118,7 +120,6 @@ FRED_SERIES_FREQUENCY = {
     "treasury_10y":      "daily",
     "treasury_2y":       "daily",
     "hy_spread":         "daily",
-    "baa_spread":        "daily",
     "philly_fed_mfg":    "monthly",
     "real_yield_10y":    "daily",
     "breakeven_10y":     "daily",
@@ -253,7 +254,7 @@ def fetch_fred_data(fred: Fred) -> dict:
         # 5-year mean of raw value for spread/index/rate series
         # Note: philly_fed_mfg mean includes COVID-era extremes (~-56 in Apr 2020)
         # Note: jobless_claims 5yr window (starts ~2021) excludes COVID spike — post-crisis baseline
-        if name in ("hy_spread", "baa_spread", "philly_fed_mfg", "real_yield_10y",
+        if name in ("hy_spread", "philly_fed_mfg", "real_yield_10y",
                     "breakeven_10y", "nfci", "jobless_claims") and len(series) >= 12:
             data[name]["five_yr_mean"] = round(float(series.mean()), 3)
             data[name]["vs_mean"]      = round(float(latest) - float(series.mean()), 3)

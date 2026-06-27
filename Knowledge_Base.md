@@ -549,7 +549,13 @@ weight. (c) The alias map is fallible and some aliases are broad ("claims",
 KB-009 redundancy + KB-010 attention, cheapest/clearest first; each judged on
 Brier, n≥30 per arm):
 1. **Drop `baa_spread`** — 0 citations + correlated with cited `hy_spread` + dead
-   consumer (regime retired). The single clearest cut.
+   consumer (regime retired). The single clearest cut. **✅ Done 2026-06-27** —
+   removed from `FRED_SERIES` + frequency map + the 5yr-mean branch in
+   `collect_and_analyze.py` (no longer fetched or fed to the LLM). This was
+   *cleanup*, not an 18.4 ablation: with no live consumer and 0 model attention
+   there is nothing for an outcome A/B to measure, and it does not perturb the
+   running loosened A/B. `refit_models.py`/`regime_features.py` keep their own
+   BAA10Y references for a possible future regime revival.
 2. **Drop the three raw net-liquidity components**, keep synthesised `net_liquidity`
    — prompt-economy win the redundancy screen could not see.
 3. **Collapse the sector block** to SP500 + XLE (± XLK) — both screens agree.
