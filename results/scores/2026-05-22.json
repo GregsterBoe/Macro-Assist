@@ -1,7 +1,12 @@
 {
   "report_date": "2026-05-22",
   "agent_version": "v0.7",
-  "scored_at": "2026-06-22",
+  "conviction_floor": "unknown",
+  "profile": "unknown",
+  "model": "unknown",
+  "base_rate_first": "unknown",
+  "prune_rules": "unknown",
+  "scored_at": "2026-06-29",
   "windows": {
     "t5": {
       "eval_date": "2026-05-29",
@@ -132,40 +137,49 @@
     "t20": {
       "eval_date": "2026-06-19",
       "assets": {
+        "S&P 500": {
+          "bias": "Bullish",
+          "confidence": 51,
+          "entry_price": 7473.4702,
+          "eval_price": 7472.79,
+          "eval_date": "2026-06-19",
+          "pct_change": -0.009,
+          "score": 0.5
+        },
         "Gold": {
           "bias": "Neutral",
           "confidence": 50,
           "entry_price": 4521.0,
-          "eval_price": 4214.5,
+          "eval_price": 4181.8999,
           "eval_date": "2026-06-19",
-          "pct_change": -6.779,
+          "pct_change": -7.501,
           "score": 0.5
         },
         "WTI Oil": {
           "bias": "Bullish",
           "confidence": 51,
           "entry_price": 96.6,
-          "eval_price": 74.6,
+          "eval_price": 74.82,
           "eval_date": "2026-06-19",
-          "pct_change": -22.774,
+          "pct_change": -22.547,
           "score": 0.0
         },
         "10Y Treasury Yield": {
           "bias": "Neutral",
           "confidence": 50,
           "entry_price": 4.558,
-          "eval_price": 4.491,
+          "eval_price": 4.509,
           "eval_date": "2026-06-19",
-          "pct_change": -1.47,
+          "pct_change": -1.075,
           "score": 0.5
         },
         "DXY": {
           "bias": "Bearish",
           "confidence": 55,
           "entry_price": 99.32,
-          "eval_price": 100.838,
+          "eval_price": 101.02,
           "eval_date": "2026-06-19",
-          "pct_change": 1.528,
+          "pct_change": 1.712,
           "score": 0.0
         },
         "Bitcoin": {
@@ -179,8 +193,8 @@
         }
       },
       "summary": {
-        "n_scored": 5,
-        "accuracy": 0.2
+        "n_scored": 6,
+        "accuracy": 0.25
       }
     }
   }

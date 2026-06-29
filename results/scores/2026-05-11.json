@@ -1,7 +1,12 @@
 {
   "report_date": "2026-05-11",
   "agent_version": "v0.5",
-  "scored_at": "2026-06-22",
+  "conviction_floor": "unknown",
+  "profile": "unknown",
+  "model": "unknown",
+  "base_rate_first": "unknown",
+  "prune_rules": "unknown",
+  "scored_at": "2026-06-29",
   "windows": {
     "t5": {
       "eval_date": "2026-05-18",
