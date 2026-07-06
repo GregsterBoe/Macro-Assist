@@ -1,0 +1,57 @@
+{
+  "report_date": "2026-06-26",
+  "agent_version": "v1.4",
+  "conviction_floor": "unknown",
+  "profile": "unknown",
+  "model": "unknown",
+  "base_rate_first": "unknown",
+  "prune_rules": "unknown",
+  "scored_at": "2026-07-06",
+  "windows": {
+    "t5": {
+      "eval_date": "2026-07-03",
+      "assets": {
+        "Gold": {
+          "bias": "Bullish",
+          "confidence": 52,
+          "entry_price": 4078.7,
+          "eval_price": 4170.1001,
+          "eval_date": "2026-07-03",
+          "pct_change": 2.241,
+          "score": 1.0
+        },
+        "WTI Oil": {
+          "bias": "Neutral",
+          "confidence": 52,
+          "entry_price": 69.23,
+          "eval_price": 68.5,
+          "eval_date": "2026-07-03",
+          "pct_change": -1.054,
+          "score": 0.5
+        },
+        "DXY": {
+          "bias": "Bearish",
+          "confidence": 51,
+          "entry_price": 101.36,
+          "eval_price": 101.064,
+          "eval_date": "2026-07-03",
+          "pct_change": -0.292,
+          "score": 0.5
+        },
+        "Bitcoin": {
+          "bias": "Bearish",
+          "confidence": 51,
+          "entry_price": 60016.4297,
+          "eval_price": 62544.1992,
+          "eval_date": "2026-07-03",
+          "pct_change": 4.212,
+          "score": 0.0
+        }
+      },
+      "summary": {
+        "n_scored": 4,
+        "accuracy": 0.5
+      }
+    }
+  }
+}
