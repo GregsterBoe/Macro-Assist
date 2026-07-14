@@ -15,13 +15,13 @@ Variables used by the slice (SPF code): TBOND (10Y Treasury), TBILL (3M bill),
 UNEMP, CPI, RGDP. TBOND/TBILL anchor the rates path directly; DXY and gold are
 *downstream* of the rate path (handled by the L2 analyst, not SPF).
 
-CONFIRMED 2026-07-14 against `Median_TBOND_Level.xlsx`: sheet `Median_Level`;
-columns YEAR, QUARTER, TBOND1..TBOND6 (quarterly) + TBONDA..TBONDD (annual,
-ignored). For the rate variables the quarterly mapping is 1=T-1, 2=T current,
-3..6=T+1..T+4 (see RATE_HORIZONS). The published files carry a malformed
-docProps/core.xml timestamp that crashes openpyxl — handled in `_read_spf_workbook`.
-Non-rate variables (RGDP/CPI/UNEMP) may use a different horizon layout — verify per
-variable against the SPF documentation PDF. See HORIZON_NOTE.
+CONFIRMED 2026-07-14 against the published median-level workbooks for **TBOND,
+TBILL, and UNEMP** — all identical: sheet `Median_Level`; columns YEAR, QUARTER,
+<VAR>1..<VAR>6 (quarterly) + <VAR>A..<VAR>D (annual, ignored). Quarterly mapping
+1=T-1, 2=T current, 3..6=T+1..T+4 (see RATE_HORIZONS). The published files carry a
+malformed docProps/core.xml timestamp that crashes openpyxl — handled in
+`_read_spf_workbook`. Still to verify: RGDP / CPI (growth-vs-level files may use a
+different horizon layout). See HORIZON_NOTE.
 """
 from __future__ import annotations
 
