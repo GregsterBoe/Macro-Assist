@@ -74,9 +74,10 @@ ExoOutput:
 
 ## 3. Pipeline (L0–L4) for the monetary slice
 
-- **L0 adapters (deterministic):** FOMC statements + minutes + speeches (Fed site),
-  economic calendar + **survey/economist consensus**. Normalise, timestamp,
-  dedup. Point-in-time enforced here.
+- **L0 adapters (deterministic):** FOMC statements + minutes + speeches (Fed site)
+  for the *evolving* signal, anchored to two **free, non-market, point-in-time
+  consensus benchmarks** (see §6.5). Normalise, timestamp, dedup. Point-in-time
+  enforced here.
 - **L1 extract (cheap model):** each document → `Evidence[]` with a
   hawkish/dovish stance + salience. Deterministic transforms for numeric calendar
   rows.
@@ -118,12 +119,12 @@ Record the result as **KB-012** when the slice has data.
 ## 6. Two honest constraints that shape everything
 
 1. **Market-light tension.** The cleanest "consensus" for rates is the
-   market-implied path (fed-funds futures) — but that is market data, and using it
-   would let the arm secretly re-derive from prices and contaminate the A/B. So the
-   slice uses **survey/economist consensus** as the core benchmark; the
-   market-implied path may appear **only as an explicitly-flagged optional
-   comparator**, never a core input. Honor this or the "no market data" claim (and
-   the A/B) is a lie.
+   market-implied path (fed-funds / SOFR futures) — but that is market data, and
+   using it would let the arm secretly re-derive from prices and contaminate the
+   A/B. So the slice uses the two **non-market** consensus benchmarks in §6.5
+   (economist survey + Fed projections) as the core anchor; the market-implied path
+   may appear **only as an explicitly-flagged optional comparator**, never a core
+   input. Honor this or the "no market data" claim (and the A/B) is a lie.
 2. **LLMs cannot be cleanly backtested on dated public text.** The extraction/
    analyst models were trained on historical FOMC documents and *know what happened
    after* a given historical date — so a historical backtest of this branch is
@@ -132,6 +133,33 @@ Record the result as **KB-012** when the slice has data.
    A/B); historical runs are for **pipeline shakedown only, clearly flagged**. This
    sets timeline expectations: the go/no-go read is weeks-to-months out, and the
    KB-011 commitment metric is the early tell.
+
+## 6.5. Data sources — LOCKED (researched 2026-07-14, zero paid deps)
+
+Two independent, **free, official, non-market, point-in-time** consensus
+benchmarks — and the **gap between them is itself an expectations-tension signal**
+(economists disagreeing with the Fed's dots):
+
+| Role | Source | Access | Cadence | Point-in-time? |
+|---|---|---|---|---|
+| **Economist consensus** | Philadelphia Fed **Survey of Professional Forecasters (SPF)** — TBOND (10Y), TBILL (3M), UNEMP, CPI, RGDP | free Excel download (Philly Fed "real-time data research") | quarterly (since 1968) | **yes** — each row tagged by survey quarter |
+| **Policymaker consensus** | FRED **Summary of Economic Projections (SEP / "dot plot")** — `FEDTARMD` (median fed funds) + release `rid=326` (63 series) | **existing `fredapi` adapter — no new dep** | quarterly (Mar/Jun/Sep/Dec) | yes |
+| Evolving signal | FOMC statements / minutes / speeches | Fed website (free text) | ~monthly | yes (dated) |
+
+- **New plumbing = one small SPF Excel adapter** (download + parse the relevant
+  worksheet with pandas/openpyxl); the SEP side reuses the existing FRED adapter.
+- Both consensus sources are **non-market**, so they satisfy §6.1 — futures are
+  excluded (or flagged-optional only).
+- **Cadence is a feature:** between quarterly consensus updates the benchmark is a
+  fixed anchor and the branch tracks *new FOMC communication* against it — exactly
+  the expectations-gap mechanism.
+
+**Deferred (do NOT take now):** high-frequency, day-of *release* consensus (exact
+CPI/NFP beat-miss) is the one thing not cleanly free — Trading Economics API
+(true survey consensus, but free tier heavily sample-limited → paid), or
+freemium/scraper feeds (FinanceFlowAPI, Pineify, Apify fed-watch, DataSetIQ) with
+ToS/reliability risk. The monetary slice does **not** need it; take that paid
+dependency only if a later high-frequency macro-nowcast branch is built.
 
 ## 7. Cost & cadence
 
@@ -142,9 +170,13 @@ not re-run the full pipeline daily for a signal that changes monthly.
 
 ## 8. WP-19.B scope (what "the slice" delivers, next)
 
-L0 monetary adapters (point-in-time) → L1 extractor + `Evidence` schema + tests →
-L2 monetary analyst producing the capped `BranchBrief` + tests → L3 lift to
-`ExoOutput` → L4 arm-tagging so `summarize_accuracy` shows the exogenous-vs-market
-A/B. First milestone: produce **one** valid arm-tagged `ExoOutput` for today and
-have it appear as its own arm in `accuracy_report.md` (unscored until outcomes
-resolve).
+L0 monetary adapters (point-in-time): **SPF Excel adapter** (economist consensus)
++ **FRED SEP pull** via the existing adapter (policymaker dots) + FOMC
+statement/minutes/speech fetch. → L1 extractor + `Evidence` schema + tests → L2
+monetary analyst producing the capped `BranchBrief` (net stance, SPF-vs-SEP gap,
+asset implications) + tests → L3 lift to `ExoOutput` → L4 arm-tagging so
+`summarize_accuracy` shows the exogenous-vs-market A/B. First milestone: produce
+**one** valid arm-tagged `ExoOutput` for today and have it appear as its own arm
+in `accuracy_report.md` (unscored until outcomes resolve). Build order within B:
+start with the two deterministic consensus adapters (SPF + SEP) — zero LLM, fully
+testable — before the FOMC-text extraction/analyst LLM layers.
