@@ -1,0 +1,5 @@
+# Local SPF downloads. Only the median TBOND workbook is tracked, as the
+# fixture that test_spf.py's real-file confirmation runs against.
+*
+!.gitignore
+!Median_TBOND_Level.xlsx
