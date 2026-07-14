@@ -79,6 +79,14 @@ def short_rate_gap(
     Approximation, stated plainly: SPF's 3-month T-bill (quarterly average) vs the
     SEP's year-end fed-funds median — different instrument and timing, so read the
     *sign and size* as tension, not a precise basis-point spread.
+
+    Interpretation note: during an easing cycle the 3M bill structurally trades a
+    little *below* the fed-funds midpoint (it prices the average rate over the next
+    quarter, i.e. anticipated cuts), so a modest **negative** gap is partly
+    mechanical, not disagreement. The genuinely informative signals are a
+    **positive** gap (economists above the Fed → hawkish-surprise risk) or a
+    *large* negative one. Confirmed live 2026-07-14: SEP path 2026/27/28 =
+    3.8/3.6/3.4, longer-run 3.1; SPF TBILL 3.64 → gap −0.16 (near-neutral).
     """
     sep_val = sep_path_by_year.get(year)
     if spf_short_rate is None or sep_val is None:
