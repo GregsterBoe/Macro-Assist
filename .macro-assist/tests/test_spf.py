@@ -26,8 +26,14 @@ from exogenous.spf import (
     survey_release_date,
 )
 
-# Real median-level workbook committed as a fixture (confirms the live layout).
-_REAL_TBOND = Path(__file__).resolve().parent.parent / "exogenous" / "example" / "Median_TBOND_Level.xlsx"
+# Real median-level workbooks committed as fixtures (confirm the live layout).
+_EXAMPLE = Path(__file__).resolve().parent.parent / "exogenous" / "example"
+_REAL_TBOND = _EXAMPLE / "Median_TBOND_Level.xlsx"
+_REAL_FIXTURES = {
+    "TBOND": _EXAMPLE / "Median_TBOND_Level.xlsx",
+    "TBILL": _EXAMPLE / "Median_TBILL_Level.xlsx",
+    "UNEMP": _EXAMPLE / "Median_UNEMP_Level.xlsx",
+}
 
 
 def _spf_frame() -> pd.DataFrame:
@@ -174,14 +180,16 @@ class TestRateHorizons:
         assert RATE_HORIZONS["current_q"] == 2 and RATE_HORIZONS["q4_ahead"] == 6
 
 
-@pytest.mark.skipif(not _REAL_TBOND.exists(), reason="real SPF fixture not present")
+@pytest.mark.skipif(not _REAL_TBOND.exists(), reason="real SPF fixtures not present")
 class TestRealFile:
-    """Confirms the adapter reads the actual published workbook (metadata quirk,
-    sheet, columns, point-in-time) — not just synthetic frames."""
+    """Confirms the adapter reads the actual published workbooks (metadata quirk,
+    sheet, columns, point-in-time) — not just synthetic frames. Covers the three
+    confirmed variables (TBOND/TBILL/UNEMP), all the same 6-quarterly layout."""
 
-    def test_reads_and_is_point_in_time(self):
-        s = load_spf_file(_REAL_TBOND, "TBOND")          # current-quarter consensus
-        assert len(s) > 100                               # surveyed since 1992
+    @pytest.mark.parametrize("var", list(_REAL_FIXTURES))
+    def test_reads_and_is_point_in_time(self, var):
+        s = load_spf_file(_REAL_FIXTURES[var], var)      # current-quarter consensus
+        assert len(s) > 100
         assert s.index.is_monotonic_increasing
         # As-of before the 2026-Q2 survey (released mid-May) we must not see it.
         got = latest_before(s, date(2026, 3, 1))
