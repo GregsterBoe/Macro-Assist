@@ -18,7 +18,9 @@ dot plot — correct for the live/forward branch (the only mode we validate; DES
 CONFIRM-ON-FIRST-RUN: the exact FEDTARMD index encoding (target-year dates vs
 meeting dates) isn't verifiable without a FRED key; `parse_sep_path` groups by
 calendar year and takes the latest value per year, which is robust to either. Run
-`python -m exogenous.sep` (FRED_API_KEY set) once to confirm the shape.
+(from the repo root, FRED_API_KEY set) to confirm the shape:
+  FRED_API_KEY=... python .macro-assist/exogenous/sep.py \
+      --spf-tbill .macro-assist/exogenous/example/Median_TBILL_Level.xlsx
 
 Pure parsing + gap math (top) are unit-tested; the fetch shell (bottom) needs a
 FRED key (user-run, like input_ledger / regime_backtest).
@@ -115,7 +117,14 @@ def fetch_sep(fred=None) -> dict:
     from fredapi import Fred
 
     if fred is None:
-        fred = Fred(api_key=os.environ["FRED_API_KEY"])
+        key = os.environ.get("FRED_API_KEY")
+        if not key:
+            raise SystemExit(
+                "FRED_API_KEY not set — export it to fetch the SEP dot plot, e.g.\n"
+                "  FRED_API_KEY=... python .macro-assist/exogenous/sep.py "
+                "--spf-tbill .macro-assist/exogenous/example/Median_TBILL_Level.xlsx"
+            )
+        fred = Fred(api_key=key)
 
     ff = _fred_get_with_retry(fred, SEP_SERIES["fed_funds_median"], "2015-01-01")
     lr = _fred_get_with_retry(fred, SEP_SERIES["fed_funds_median_longrun"], "2015-01-01")
