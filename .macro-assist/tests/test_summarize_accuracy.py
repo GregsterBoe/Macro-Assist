@@ -18,11 +18,14 @@ from summarize_accuracy import (
     _brier_and_reliability,
     _calibration_verdict,
     _calibration_md_lines,
+    _commitment_md_lines,
     _ab_md_lines,
     calibration,
     calibration_by,
     calibration_by_floor,
     calibration_by_profile,
+    commitment_stats,
+    commitment_by_arm,
     CALIB_BIN_EDGES,
     WINDOWS,
 )
@@ -189,6 +192,85 @@ class TestCalibrationBySplit:
         text = "\n".join(_ab_md_lines("Profile A/B (WP-16 — control vs loosened)", both))
         assert "Profile A/B" in text
         assert "**control**" in text and "**loosened**" in text
+
+
+class TestCommitment:
+
+    def test_none_when_empty(self):
+        assert commitment_stats([]) is None
+        assert commitment_stats([_report("v1.0", "t5", {})]) is None
+
+    def test_all_neutral_zero_commitment(self):
+        r = [_report("v1.0", "t5", {"A": ("Neutral", 60, 0.5), "B": ("Neutral", 55, 0.5)})]
+        c = commitment_stats(r)
+        assert c["commitment_rate"] == 0.0 and c["neutral_rate"] == 1.0
+        assert c["net_decisive_edge"] == 0.0 and c["n_decisive"] == 0
+
+    def test_directional_rates_and_edge(self):
+        # A,B right · C wrong · D neutral · E committed-but-flat-outcome (0.5). total=5
+        r = [_report("v1.0", "t5", {
+            "A": ("Bullish", 70, 1.0),
+            "B": ("Bearish", 70, 1.0),
+            "C": ("Bullish", 70, 0.0),
+            "D": ("Neutral", 50, 0.5),
+            "E": ("Bearish", 60, 0.5),
+        })]
+        c = commitment_stats(r)
+        assert c["n_resolved"] == 5
+        assert c["n_directional"] == 4          # A,B,C,E
+        assert c["commitment_rate"] == 0.8
+        assert c["right_decisive_rate"] == pytest.approx(2 / 5, abs=1e-3)
+        assert c["wrong_decisive_rate"] == pytest.approx(1 / 5, abs=1e-3)
+        assert c["net_decisive_edge"] == pytest.approx((2 - 1) / 5, abs=1e-3)
+        assert c["n_decisive"] == 3             # A,B,C (E's flat outcome not decisive)
+        assert c["hit_rate_when_decisive"] == pytest.approx(2 / 3, abs=1e-3)
+
+    def test_skips_unresolved(self):
+        r = [_report("v1.0", "t5", {"A": ("Bullish", 70, None), "B": ("Bullish", 70, 1.0)})]
+        assert commitment_stats(r)["n_resolved"] == 1
+
+    def test_bias_fallback_uses_score(self):
+        # blank bias → infer: score 1/0 is directional, 0.5 is non-committal
+        r = [_report("v1.0", "t5", {"A": ("", 70, 1.0), "B": ("", 70, 0.5)})]
+        c = commitment_stats(r)
+        assert c["n_directional"] == 1
+        assert c["right_decisive_rate"] == pytest.approx(1 / 2, abs=1e-3)
+        assert c["neutral_rate"] == pytest.approx(1 / 2, abs=1e-3)
+
+    def test_by_arm_splits_loosened_vs_baseline(self):
+        reports = [
+            _report("v1.0", "t5", {"A": ("Bullish", 70, 1.0)}, profile="loosened"),
+            _report("v1.0", "t5", {"B": ("Bearish", 70, 0.0)}, profile="control"),
+            _report("v1.0", "t5", {"C": ("Neutral", 50, 0.5)}),   # no profile → baseline
+        ]
+        by = commitment_by_arm(reports)
+        assert set(by) == {"baseline", "loosened"}
+        assert by["loosened"]["n_resolved"] == 1
+        assert by["baseline"]["n_resolved"] == 2     # control + untagged both pool into baseline
+
+    def test_net_edge_negative_when_more_wrong(self):
+        r = [_report("v1.0", "t5", {
+            "A": ("Bullish", 70, 0.0), "B": ("Bearish", 70, 0.0), "C": ("Bullish", 70, 1.0),
+        })]
+        assert commitment_stats(r)["net_decisive_edge"] < 0
+
+    def test_md_verdict_thesis_holds(self):
+        by = {
+            "baseline": {"n_resolved": 100, "commitment_rate": 0.56, "neutral_rate": 0.44,
+                         "decisive_rate": 0.46, "wrong_decisive_rate": 0.29,
+                         "right_decisive_rate": 0.17, "net_decisive_edge": -0.125,
+                         "hit_rate_when_decisive": 0.36, "n_decisive": 46, "n_directional": 56},
+            "loosened": {"n_resolved": 30, "commitment_rate": 0.20, "neutral_rate": 0.80,
+                         "decisive_rate": 0.07, "wrong_decisive_rate": 0.07,
+                         "right_decisive_rate": 0.0, "net_decisive_edge": -0.067,
+                         "hit_rate_when_decisive": 0.0, "n_decisive": 2, "n_directional": 6},
+        }
+        text = "\n".join(_commitment_md_lines(by))
+        assert "Commitment" in text and "thesis holds" in text
+        assert "baseline" in text and "loosened" in text
+
+    def test_md_empty_when_no_arms(self):
+        assert _commitment_md_lines({}) == []
 
 
 class TestCalibrationMarkdown:

@@ -561,3 +561,35 @@ Brier, n≥30 per arm):
 3. **Collapse the sector block** to SP500 + XLE (± XLK) — both screens agree.
 4. **Lower priority:** `vix3m`, `nasdaq`, `real_yield_10y` — redundant (KB-009) but
    heavily cited (64–95%), so test only if 1–3 don't move Brier.
+
+## KB-011 — Loosened arm commits far less and bleeds less (early read) (WP-16.B.1 reframe)
+
+**Date:** 2026-07-14 · **Branch:** `main` · **Harness:**
+`.macro-assist/summarize_accuracy.py` `commitment_by_arm` (new). This is the
+loosened-vs-baseline A/B that KB-008 was reserved for. The decisive-only Brier
+A/B needs n≥30 decisive calls, which floor-off makes rare (loosened has only **2**
+decisive scored calls after 12 notes) — so instead this scores the **commitment
+decision over all resolved calls**, giving a directional read now. Uses the
+model's stated `bias` (Neutral vs directional) to separate "the model declined to
+commit" from "the market was flat" (score 0.5 conflates them).
+
+**Baseline (n=1179 resolved, pre-loosened / all non-loosened notes) corroborates
+KB-007:** commit-rate **56%**, hit-rate-when-decisive **36%**, wrong-decisive 29%,
+right-decisive 17%, **net decisive edge −0.125** (bleeds ~12.5 net wrong-decisive
+per 100 calls — below chance, as KB-007 found).
+
+**Loosened (n=30 resolved so far):** commit-rate **20%** (↓ from 56% — the floor-off
+lever is large and working), neutral-rate 80%, wrong-decisive **7%** (↓ from 29%),
+**net edge −0.067** (↑ from −0.125, i.e. *less* bleed). Read: **loosened commits
+much less and bleeds less — the thesis holds directionally.**
+
+**Caveats.** (a) Loosened decisive n=2 (both wrong, right-decisive 0%), so we can
+say it commits *less* and cuts *wrong* commitments, **not** yet that its surviving
+commitments are *better* — hit-rate-when-decisive is unmeasurable at n=2. (b) The
+commit-rate and wrong-rate deltas rest on n=30 (more trustworthy than n=2 but
+still small). (c) 'baseline' pools all non-loosened notes across versions (no
+contemporaneous control — the daily var runs one profile at a time). (d) net-edge
+improving partly reflects fewer decisive calls overall, not necessarily sharper
+ones. **Decision still gated on the decisive-only Brier A/B at n≥30** (KB-007 bar:
+BSS>0, ECE<0.05); this metric is the early tell, not the verdict. Rendered in
+`accuracy_report.md` → "Commitment" section; JSON key `commitment_by_arm`.

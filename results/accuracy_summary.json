@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-13",
+  "generated_at": "2026-07-14",
   "n_reports_total": 74,
   "windows": {
     "t5": {
@@ -915,7 +915,7 @@
       }
     },
     "v1.5": {
-      "n_reports_in_pipeline": 11,
+      "n_reports_in_pipeline": 12,
       "n_reports_scored": 5,
       "windows": {
         "t5": {
@@ -1250,6 +1250,32 @@
           "gap": -0.62
         }
       ]
+    }
+  },
+  "commitment_by_arm": {
+    "baseline": {
+      "n_resolved": 1179,
+      "commitment_rate": 0.559,
+      "neutral_rate": 0.441,
+      "decisive_rate": 0.459,
+      "wrong_decisive_rate": 0.292,
+      "right_decisive_rate": 0.167,
+      "net_decisive_edge": -0.125,
+      "hit_rate_when_decisive": 0.364,
+      "n_decisive": 541,
+      "n_directional": 659
+    },
+    "loosened": {
+      "n_resolved": 30,
+      "commitment_rate": 0.2,
+      "neutral_rate": 0.8,
+      "decisive_rate": 0.067,
+      "wrong_decisive_rate": 0.067,
+      "right_decisive_rate": 0.0,
+      "net_decisive_edge": -0.067,
+      "hit_rate_when_decisive": 0.0,
+      "n_decisive": 2,
+      "n_directional": 6
     }
   },
   "_note": "accuracy is on a 0-1 scale where 0.5 = random (coin-flip). directional_acc excludes flat moves and Neutral calls - it measures signal quality on clear directional bets. feedback_windows includes only reports from v0.3+ (adversarial review era) and is used by the daily bias override logic. version_windows shows per-version stats for the 5 most recent pipeline versions. calibration (WP-16.B.2) scores stated confidence as a probability forecast: brier (lower=better, 0=perfect), brier_skill_score (>0 beats the base-rate forecast), ece (expected calibration error), and reliability bins (gap>0 underconfident, <0 overconfident); decisive directional calls only. calibration_feedback restricts to MIN_FEEDBACK_VERSION+."

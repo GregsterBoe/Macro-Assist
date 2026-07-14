@@ -1,6 +1,6 @@
 # Prediction Accuracy Report
 
-*Generated: 2026-07-13 | Reports scored: 74 | Feedback-loop reports (v0.3+): 58*
+*Generated: 2026-07-14 | Reports scored: 74 | Feedback-loop reports (v0.3+): 58*
 
 > Accuracy scale: 0% = always wrong, 50% = random, 100% = always right.
 > **Directional accuracy** excludes flat moves and Neutral calls — it is the
@@ -195,7 +195,7 @@ Use this to confirm that structural improvements translate into better predictio
 | DXY | 25% | 0% (n=5) | 10 | 52% |
 | Bitcoin | 40% | 33% (n=6) | 10 | 52% |
 
-### v1.5  (5 scored / 11 total reports in this version)
+### v1.5  (5 scored / 12 total reports in this version)
 
 **T+5 (1 week)** — overall: 47% | directional: 0% | reports: 5
 
@@ -242,6 +242,22 @@ Use this to confirm that structural improvements translate into better predictio
 | 50-60 | 101 | 54% | 28% | -26% (over) |
 | 60-70 | 75 | 62% | 28% | -34% (over) |
 | 70-80 | 5 | 70% | 60% | -10% (over) |
+
+---
+
+## Commitment — does the loosened arm commit *less* and *better*? *(WP-16.B.1 reframe)*
+
+> KB-007: decisive calls are below chance, so the loosened arm (floor off) aims to **commit less**. This scores the commitment decision over *all* resolved calls (usable at low n, unlike the decisive-only Brier).
+> **commit-rate** = calls made directional (not Neutral). **wrong/right-decisive** = per resolved call, a commitment that resolved wrong/right. **net edge** = right − wrong per call (KB-007 baseline < 0; higher is better).
+
+| Arm | n resolved | commit-rate | wrong-dec | right-dec | net edge | hit-rate\|decisive |
+|-----|-----------:|------------:|----------:|----------:|---------:|-------------------:|
+| baseline | 1179 | 56% | 29% | 17% | -0.125 | 36% (n=541) |
+| loosened | 30 | 20% | 7% | 0% | -0.067 | 0% (n=2) |
+
+Loosened vs baseline: commit-rate -36%, wrong-decisive -22%, net edge +0.058 — _loosened commits less **and** bleeds less — the thesis holds so far._
+
+> Directional read only — small loosened n. Confirm with the decisive-only Brier A/B above once it reaches n≥30.
 
 ---
 
