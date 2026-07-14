@@ -15,11 +15,13 @@ Variables used by the slice (SPF code): TBOND (10Y Treasury), TBILL (3M bill),
 UNEMP, CPI, RGDP. TBOND/TBILL anchor the rates path directly; DXY and gold are
 *downstream* of the rate path (handled by the L2 analyst, not SPF).
 
-CONFIRM-ON-FIRST-RUN: the exact horizon-column layout differs by variable (rate
-variables start at the current quarter; GDP/CPI files may lead with a prior-quarter
-backcast). `parse_spf` selects horizon **by position** into the sorted numeric-
-suffixed columns; verify the position→quarter mapping once per variable against the
-SPF documentation PDF before trusting a specific horizon. See HORIZON_NOTE.
+CONFIRMED 2026-07-14 against `Median_TBOND_Level.xlsx`: sheet `Median_Level`;
+columns YEAR, QUARTER, TBOND1..TBOND6 (quarterly) + TBONDA..TBONDD (annual,
+ignored). For the rate variables the quarterly mapping is 1=T-1, 2=T current,
+3..6=T+1..T+4 (see RATE_HORIZONS). The published files carry a malformed
+docProps/core.xml timestamp that crashes openpyxl — handled in `_read_spf_workbook`.
+Non-rate variables (RGDP/CPI/UNEMP) may use a different horizon layout — verify per
+variable against the SPF documentation PDF. See HORIZON_NOTE.
 """
 from __future__ import annotations
 
@@ -45,12 +47,36 @@ SPF_VARIABLES: dict[str, str] = {
 _SPF_RELEASE_MONTH: dict[int, int] = {1: 2, 2: 5, 3: 8, 4: 11}
 _SPF_RELEASE_DAY = 15
 
+# CONFIRMED against Median_TBOND_Level.xlsx (2026-07-14): the rate variables carry
+# six quarterly columns TBOND1..TBOND6 (plus annual TBONDA..TBONDD, which are
+# letter-suffixed and thus ignored by _horizon_columns). The quarterly columns map
+# relative to the survey quarter T as:
+#   1 → T-1 (prior-quarter backcast) · 2 → T (current) · 3..6 → T+1..T+4
+# So a bare `horizon=1` is the least-useful backcast; use the named constants below.
+RATE_HORIZONS: dict[str, int] = {
+    "prev_q":    1,   # quarter before the survey (backcast)
+    "current_q": 2,   # quarter of the survey (near-term nowcast)
+    "q1_ahead":  3,
+    "q2_ahead":  4,
+    "q3_ahead":  5,
+    "q4_ahead":  6,
+}
+
 HORIZON_NOTE = (
     "horizon is a 1-based position into the sorted numeric-suffixed forecast "
-    "columns (e.g. TBOND1, TBOND2, ...). Rate variables start at the current "
-    "quarter; some level variables lead with a prior-quarter backcast. Verify the "
-    "position→quarter mapping per variable against the SPF documentation PDF."
+    "columns; for the rate variables (TBOND/TBILL) the mapping is CONFIRMED: "
+    "1=T-1 backcast, 2=T current, 3..6=T+1..T+4 (use RATE_HORIZONS names). Other "
+    "level variables (RGDP/CPI/UNEMP) may differ — verify against the SPF doc PDF."
 )
+
+
+def _resolve_horizon(horizon: "int | str") -> int:
+    """Accept a RATE_HORIZONS name or a raw 1-based position."""
+    if isinstance(horizon, str):
+        if horizon not in RATE_HORIZONS:
+            raise ValueError(f"unknown horizon name {horizon!r}; use {list(RATE_HORIZONS)} or an int")
+        return RATE_HORIZONS[horizon]
+    return horizon
 
 
 # ---------------------------------------------------------------------------
@@ -86,14 +112,16 @@ def _horizon_columns(columns: list, var_code: str) -> list:
     return [c for _, c in sorted(hits, key=lambda t: t[0])]
 
 
-def parse_spf(df: pd.DataFrame, var_code: str, horizon: int = 1) -> pd.Series:
+def parse_spf(df: pd.DataFrame, var_code: str, horizon: "int | str" = "current_q") -> pd.Series:
     """Median forecast for one variable/horizon, indexed by survey release date.
 
     `df` is a raw SPF median-level worksheet (columns: YEAR, QUARTER, <VAR>1,
-    <VAR>2, ...). `horizon` is 1-based (see HORIZON_NOTE). NaN / non-numeric
-    forecasts and rows with an unparseable year/quarter are dropped. The index is
-    the *availability* date, so the series is directly point-in-time safe.
+    <VAR>2, ...). `horizon` is a RATE_HORIZONS name (default "current_q") or a raw
+    1-based position (see HORIZON_NOTE). NaN / non-numeric forecasts and rows with
+    an unparseable year/quarter are dropped. The index is the *availability* date,
+    so the series is directly point-in-time safe.
     """
+    horizon = _resolve_horizon(horizon)
     cols = list(df.columns)
     ycol = _find_col(cols, "year")
     qcol = _find_col(cols, "quarter")
@@ -154,14 +182,45 @@ def snapshot_from_series(series_by_var: dict[str, pd.Series], asof) -> dict[str,
 SPF_DATA_FILES_PAGE = "https://www.philadelphiafed.org/surveys-and-data/data-files"
 
 
-def load_spf_file(path: "str | Path", var_code: str, horizon: int = 1,
+def _read_spf_workbook(path: "str | Path", sheet: "int | str" = 0) -> pd.DataFrame:
+    """Read an SPF .xlsx, working around Philly Fed's malformed core.xml timestamp.
+
+    The published median-level workbooks store a bare date (not datetime) in
+    docProps/core.xml, which crashes openpyxl's strict property parser. We strip
+    those dcterms from an in-memory copy before handing the bytes to pandas.
+    """
+    import io
+    import re
+    import warnings
+    import zipfile
+
+    with zipfile.ZipFile(path) as zin:
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zout:
+            for item in zin.infolist():
+                data = zin.read(item.filename)
+                if item.filename == "docProps/core.xml":
+                    data = re.sub(
+                        rb"<dcterms:(created|modified)[^>]*>[^<]*</dcterms:(created|modified)>",
+                        b"", data,
+                    )
+                zout.writestr(item, data)
+    buf.seek(0)
+    with warnings.catch_warnings():
+        # SPF workbooks carry an unparseable header/footer; harmless.
+        warnings.filterwarnings("ignore", message="Cannot parse header or footer")
+        return pd.read_excel(buf, sheet_name=sheet, engine="openpyxl")
+
+
+def load_spf_file(path: "str | Path", var_code: str, horizon: "int | str" = "current_q",
                   sheet: "int | str" = 0) -> pd.Series:
     """Read a downloaded SPF median-level workbook → point-in-time forecast series."""
-    df = pd.read_excel(path, sheet_name=sheet)
+    df = _read_spf_workbook(path, sheet)
     return parse_spf(df, var_code, horizon)
 
 
-def load_spf_snapshot(files: dict[str, "str | Path"], asof, horizon: int = 1) -> dict[str, dict]:
+def load_spf_snapshot(files: dict[str, "str | Path"], asof,
+                      horizon: "int | str" = "current_q") -> dict[str, dict]:
     """Convenience: {our_var: xlsx_path} → point-in-time consensus snapshot for `asof`.
 
     `files` keys are SPF_VARIABLES codes (e.g. "treasury_10y"); each path is that

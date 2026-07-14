@@ -16,12 +16,18 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from exogenous.spf import (
+    RATE_HORIZONS,
     SPF_VARIABLES,
+    _resolve_horizon,
     latest_before,
+    load_spf_file,
     parse_spf,
     snapshot_from_series,
     survey_release_date,
 )
+
+# Real median-level workbook committed as a fixture (confirms the live layout).
+_REAL_TBOND = Path(__file__).resolve().parent.parent / "exogenous" / "example" / "Median_TBOND_Level.xlsx"
 
 
 def _spf_frame() -> pd.DataFrame:
@@ -128,3 +134,55 @@ class TestSnapshot:
 
 def test_variable_map_covers_slice_targets():
     assert {"treasury_10y", "treasury_3m", "unemployment", "cpi"} <= set(SPF_VARIABLES)
+
+
+class TestRateHorizons:
+    """Layout confirmed against Median_TBOND_Level.xlsx: TBOND1..6 (quarterly) +
+    TBONDA..D (annual, must be ignored); 1=T-1, 2=T current, 3..6=T+1..T+4."""
+
+    def _full_rate_frame(self) -> pd.DataFrame:
+        return pd.DataFrame({
+            "YEAR": [2026], "QUARTER": [2],
+            "TBOND1": [4.20], "TBOND2": [4.31], "TBOND3": [4.30],
+            "TBOND4": [4.30], "TBOND5": [4.25], "TBOND6": [4.20],
+            "TBONDA": [4.27], "TBONDB": [4.21], "TBONDC": [4.15], "TBONDD": [4.10],
+        })
+
+    def test_annual_letter_columns_ignored(self):
+        # only the 6 numeric-suffixed columns are horizons
+        s6 = parse_spf(self._full_rate_frame(), "TBOND", horizon=6)
+        assert s6.iloc[0] == 4.20
+        with pytest.raises(ValueError):     # there is no 7th quarterly horizon
+            parse_spf(self._full_rate_frame(), "TBOND", horizon=7)
+
+    def test_named_horizons_select_expected_quarter(self):
+        f = self._full_rate_frame()
+        assert parse_spf(f, "TBOND", "prev_q").iloc[0] == 4.20     # col 1 = T-1
+        assert parse_spf(f, "TBOND", "current_q").iloc[0] == 4.31  # col 2 = T
+        assert parse_spf(f, "TBOND", "q1_ahead").iloc[0] == 4.30   # col 3 = T+1
+
+    def test_default_is_current_quarter(self):
+        assert parse_spf(self._full_rate_frame(), "TBOND").iloc[0] == 4.31
+
+    def test_resolve_horizon(self):
+        assert _resolve_horizon("current_q") == 2
+        assert _resolve_horizon(3) == 3
+        with pytest.raises(ValueError):
+            _resolve_horizon("bogus")
+
+    def test_rate_horizons_map(self):
+        assert RATE_HORIZONS["current_q"] == 2 and RATE_HORIZONS["q4_ahead"] == 6
+
+
+@pytest.mark.skipif(not _REAL_TBOND.exists(), reason="real SPF fixture not present")
+class TestRealFile:
+    """Confirms the adapter reads the actual published workbook (metadata quirk,
+    sheet, columns, point-in-time) — not just synthetic frames."""
+
+    def test_reads_and_is_point_in_time(self):
+        s = load_spf_file(_REAL_TBOND, "TBOND")          # current-quarter consensus
+        assert len(s) > 100                               # surveyed since 1992
+        assert s.index.is_monotonic_increasing
+        # As-of before the 2026-Q2 survey (released mid-May) we must not see it.
+        got = latest_before(s, date(2026, 3, 1))
+        assert got is not None and got[0] < date(2026, 5, 1)
