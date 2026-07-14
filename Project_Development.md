@@ -623,3 +623,53 @@ Cut each branch from `main` *after* the Phase-16 merge so they don't entangle wi
 5. **WP-18.5 — Feed results into weighting (closes the loop with WP-16.B.3).** The input-value ranking becomes a **prior for the emergent signal-weight table**: down-weight or drop low-value inputs, up-weight high-value ones, and eventually reorder/prune the prompt itself. This is the explicit join between point-1 (quality test) and point-2 (weighting) — Phase 18 produces the evidence, [WP-16.B.3](#) consumes it.
 
 **Suggested order:** B.2 (build first, it gates everything) → 18.2 + 18.3 (cheap screens, in parallel, zero/low cost) → 18.4 (ablate only the flagged candidates) → 18.5 / B.3 (let weights emerge from the evidence). Branch off `main`; shares `feature/loosen-control`'s B.2 work, so sequence after B.2 lands there.
+
+---
+
+## Exogenous Information Engine (Phase 19) — *second prediction branch: real-world information, market-data-light*
+
+**Premise.** Phases 1–18 predict the market by analysing *market* data (prices, vol, positioning) plus some real-world economic data (FRED). This phase opens a **parallel second branch**: predict/condition the market from **independent real-world information with minimal or no market data**, via a scalable, structured framework that compacts many information streams into a bounded payload — *not* a context dump into an LLM. Branch topology is deliberate: it is developed and judged independently and only ever *competes with* the market-only pipeline on the shared scoreboard.
+
+**Honest framing — read before building (the reframe that makes this not-stupid).** The literal goal "reason over public information to call market direction" is a losing game: public information is already priced, we have no latency or proprietary-data edge, and KB-007 shows the existing system's decisive directional calls are already *below chance* — bolting a noisier, harder-to-calibrate input stream onto a system that cannot calibrate its current inputs adds variance, not signal. The naive "dump lots of context and hope" version is the stupid version and is explicitly out of scope. **The target is therefore reframed** from directional prediction to the places where structured real-world reasoning genuinely has edge *and* where being wrong is cheap:
+- **Expectations gaps** — markets move on *surprise* (reality vs consensus), not on facts. Real-world info measures the "reality" side; the gap vs consensus is the tradeable part.
+- **Regime & tail-risk conditioning** — what world are we in, the outcome distribution, what is building in the tails. Feeds the *risk* layer, not a directional call.
+- **Causal transmission / scenario mapping** — "if X happens, here is the mechanism and the exposed assets." Decision-support, which LLMs are genuinely strong at.
+- **Slow-fundamental nowcasting & cross-sectional / relative reads** — aggregate many weak leading signals to slightly lead official data, or rank sectors, where mispricings persist longer than at the index level.
+
+The output of this branch is therefore **context — expectations-gaps, regime/tail reads, scenario→exposure maps — plus at most an optional *scored lean*; never a levered index-level directional bet.** If the target ever drifts back to "call SPX direction from the news," stop.
+
+**The one source-selection principle.** The existing system's honest limitation (see the Phase-16 strategic-context note) is that it *reacts* because its inputs are coincident/lagging. **A real-world source earns a place only if it is *leading* or carries *expectations-divergence*.** "More context" is never a reason to add a source; "this leads price, or measures a consensus gap" is. Note the system already ingests non-market information (FRED = real-world economics, COT positioning, YouTube analyst transcripts), so this phase *systematises and expands the non-market side with a real framework* — it is not from scratch.
+
+**Hard gate (inherited from Phases 16–18).** Every branch is judged by the **same Brier / commitment discipline** (WP-16.B.2 + the KB-011 commitment metric) and **A/B'd against the market-only arm** via the existing `profile` / run-config machinery. A branch that does not beat market-only on the scoreboard is unfalsifiable complexity and is cut. Standing rules carry over: **cheap screens before expensive LLM calls; one branch at a time; point-in-time discipline on every backtest** (no look-ahead — the Phase-17 rigor applies double to real-world *text*, which is easy to leak future knowledge into).
+
+**Information-source taxonomy** (judged first on lead / expectations-gap, then on cost):
+
+| Branch | Example sources | Signal type | Lead? | Access |
+|---|---|---|---|---|
+| Monetary / policy | Fed speeches, minutes, statements; econ calendar + **consensus** | expectations-gap, regime | medium | free text |
+| Macro nowcast | official releases (FRED) + consensus; freight/shipping, EIA energy, claims trend | expectations-gap, fundamentals | some | free/cheap |
+| Alt-data leading | Google Trends, job postings, electricity demand, retail/app proxies | fundamentals nowcast | **genuine** | mixed cost |
+| Corporate / sector | earnings-call transcripts, guidance tone, estimate revisions | relative, sector | medium | semi-free |
+| Positioning / sentiment | COT (have), fund flows, AAII / put-call, social | contrarian / regime | coincident | mixed |
+| Policy / geopolitical events | fiscal, regulatory, geopolitics | catalyst→exposure map | event | free text |
+| Expert synthesis | analyst notes, YouTube transcripts (have) | human reasoning | varies | free |
+
+**Compaction architecture — a map-reduce evidence pipeline** with a fixed contract at every level and a **per-branch token budget**, so branches scale without blowing the payload (total ≈ N branches × cap):
+- **L0 — Source adapters (deterministic):** pull each source on its own cadence, normalise, timestamp, dedup; enforce point-in-time. No LLM.
+- **L1 — Extractors (cheap model, Haiku-class):** raw text/data → a structured evidence schema `{claim, direction, magnitude, affected_assets, confidence, source, date}`. This is where the "dump" is prevented — nothing passes downstream as free prose.
+- **L2 — Branch analysts (the "narrowing"):** one bounded-budget agent per branch consumes its evidence and emits a **fixed-size structured brief** (~400–600 tokens): stance on the branch's domain, what *changed* vs last period, the expectations-gap read, confidence, citations. The hard cap is the scalability guarantee. Mirrors the existing MA-* / sector sub-agent pattern.
+- **L3 — Synthesiser (expensive model, Opus-class):** consumes the N capped briefs (total bounded) → the reframed output (gaps, regime/tail, scenario→exposure, optional scored lean).
+- **L4 — Scoring / feedback:** every brief and the synthesis carry falsifiable claims scored on **Brier / commitment**, reusing the Phase-18 input-value + `commitment_by_arm` machinery → measure *which branches earn their tokens*; prune the losers.
+
+Design commitments: structured contracts not prose; provenance + staleness on every claim; cheap-extract / expensive-synthesise (the Haiku/Opus split already in use); and **deliberate market-data independence** so the A/B measures the *marginal* value of real-world reasoning, not a leak of price information.
+
+**Work packages / roadmap (cheap-first; do NOT build the framework before proving one slice):**
+1. **WP-19.A — Reframe & target lock (design only, ~free).** Commit the target (expectations-gap + regime/tail, not direction), the falsifiable output schema, and exactly how L4 scores it. Deliverable: this phase entry + one KB-style success bar (must beat market-only on Brier/commitment at n≥N).
+2. **WP-19.B — One vertical slice (L0→L4 for a single branch).** Recommended first branch: **monetary / rates-expectations** — free text, genuine expectations-gap tradability, and it maps onto assets we already forecast (10Y, DXY, gold). Prove it produces a signal that tracks surprises / moves Brier. *If this one slice cannot clear the bar, the concept is weak and we have spent very little — that is the entire point of going narrow first.*
+3. **WP-19.C — Generalise the branch contract.** Only after B works, extract the L0–L2 skeleton + brief schema so branch #2/#3 are cheap to add and the payload stays bounded.
+4. **WP-19.D — Add branches by measured value.** One at a time, each gated on "does it improve the scored output vs without it" (Phase-18 ablation discipline). Prune losers immediately.
+5. **WP-19.E — Integrate or kill.** A/B the exogenous arm vs market-only (via `profile`) on Brier/commitment. Outcome is one of: keep (as a context/risk section in the note), merge into the main pipeline, or kill.
+
+**Kill criteria (pre-committed).** Cut the whole branch if, after 2–3 branches, it does not beat market-only on Brier/commitment. Watch-items: cost blow-up (mitigate via cheap extraction, caching, cadence-appropriate refresh — policy monthly, news daily); alt-data access/reliability (start free/scrapeable, treat paid feeds as later bets gated on the free ones); look-ahead bias in text backtests (point-in-time from day one).
+
+**Branch strategy.** Develop on `feature/exogenous-engine` off `main`. Independent of the market-only pipeline; integrates only at WP-19.E via the existing `profile` / run-config A/B. Start with WP-19.A (design) then the WP-19.B single vertical slice.
