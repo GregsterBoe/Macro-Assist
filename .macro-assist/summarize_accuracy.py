@@ -284,6 +284,92 @@ def calibration_by_profile(scores: list[dict]) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Commitment metric (WP-16.B.1 reframe) — measurable at low n
+# ---------------------------------------------------------------------------
+# KB-007 showed decisive directional calls are below chance, so the loosened
+# arm's thesis is "commit less". The decisive-only Brier that judges that needs
+# n>=30 decisive calls, which floor-off makes rare (→ months away). This metric
+# instead scores the *commitment decision itself* over ALL resolved calls, so it
+# yields a directional read now:
+#   - commitment_rate     : fraction of calls the model made directional (not Neutral)
+#   - wrong/right_decisive_rate : per resolved call, how often a commitment
+#                           resolved wrong (score 0) / right (score 1)
+#   - net_decisive_edge   : (right - wrong) / resolved — KB-007 baseline is < 0;
+#                           committing less should raise it toward 0 by cutting
+#                           wrong commitments faster than right ones.
+# Uses the model's stated `bias` (Neutral vs Bullish/Bearish) to separate "the
+# model declined to commit" from "the market was flat" — the score 0.5 bucket
+# conflates the two; bias does not.
+
+def commitment_stats(scores: list[dict]) -> dict | None:
+    """Aggregate commitment quality over every *resolved* call (score not None)."""
+    total = neutral = directional = wrong = right = flat_outcome = 0
+    for report in scores:
+        for window in WINDOWS:
+            wdata = report.get("windows", {}).get(window)
+            if not wdata:
+                continue
+            for adata in wdata.get("assets", {}).values():
+                score = adata.get("score")
+                if score is None:
+                    continue
+                total += 1
+                bias = str(adata.get("bias", "")).strip().lower()
+                if bias == "neutral":
+                    neutral += 1
+                elif bias in ("bullish", "bearish"):
+                    directional += 1
+                    if score == 1.0:
+                        right += 1
+                    elif score == 0.0:
+                        wrong += 1
+                    else:
+                        flat_outcome += 1     # committed, but the market didn't move enough
+                else:
+                    # Bias missing/odd — fall back to the score's own signal.
+                    if score in (0.0, 1.0):
+                        directional += 1
+                        right += int(score == 1.0)
+                        wrong += int(score == 0.0)
+                    else:
+                        neutral += 1
+    if total == 0:
+        return None
+    decisive = wrong + right
+    return {
+        "n_resolved":             total,
+        "commitment_rate":        round(directional / total, 3),
+        "neutral_rate":           round(neutral / total, 3),
+        "decisive_rate":          round(decisive / total, 3),
+        "wrong_decisive_rate":    round(wrong / total, 3),
+        "right_decisive_rate":    round(right / total, 3),
+        "net_decisive_edge":      round((right - wrong) / total, 3),
+        "hit_rate_when_decisive": round(right / decisive, 3) if decisive else None,
+        "n_decisive":             decisive,
+        "n_directional":          directional,
+    }
+
+
+def commitment_by_arm(scores: list[dict]) -> dict:
+    """Commitment stats split as loosened vs baseline (everything not loosened).
+
+    There is no contemporaneous control arm (the daily var runs one profile at a
+    time), so 'baseline' pools the pre-loosened / KB-007-era population — the
+    honest comparator for 'does committing less avoid bad calls?'.
+    """
+    loosened = [s for s in scores if s.get("profile") == "loosened"]
+    baseline = [s for s in scores if s.get("profile") != "loosened"]
+    out: dict = {}
+    b = commitment_stats(baseline)
+    l = commitment_stats(loosened)
+    if b:
+        out["baseline"] = b
+    if l:
+        out["loosened"] = l
+    return out
+
+
+# ---------------------------------------------------------------------------
 # JSON output
 # ---------------------------------------------------------------------------
 
@@ -297,6 +383,7 @@ def write_json(
     calib_feedback: dict | None = None,
     calib_by_floor: dict | None = None,
     calib_by_profile: dict | None = None,
+    commitment: dict | None = None,
 ) -> None:
     output = {
         "generated_at":        date.today().isoformat(),
@@ -310,6 +397,7 @@ def write_json(
         "calibration_feedback": calib_feedback,
         "calibration_by_profile": calib_by_profile,
         "calibration_by_conviction_floor": calib_by_floor,
+        "commitment_by_arm":   commitment,
         "_note": (
             "accuracy is on a 0-1 scale where 0.5 = random (coin-flip). "
             "directional_acc excludes flat moves and Neutral calls - "
@@ -424,6 +512,60 @@ def _calibration_md_lines(calib: dict, by_floor: dict | None = None,
     return lines
 
 
+def _commitment_md_lines(by_arm: dict) -> list[str]:
+    """Render the commitment metric (loosened vs baseline) as markdown."""
+    if not by_arm:
+        return []
+    lines = [
+        "---",
+        "",
+        "## Commitment — does the loosened arm commit *less* and *better*? *(WP-16.B.1 reframe)*",
+        "",
+        "> KB-007: decisive calls are below chance, so the loosened arm (floor off) "
+        "aims to **commit less**. This scores the commitment decision over *all* resolved "
+        "calls (usable at low n, unlike the decisive-only Brier).",
+        "> **commit-rate** = calls made directional (not Neutral). "
+        "**wrong/right-decisive** = per resolved call, a commitment that resolved wrong/right. "
+        "**net edge** = right − wrong per call (KB-007 baseline < 0; higher is better).",
+        "",
+        "| Arm | n resolved | commit-rate | wrong-dec | right-dec | net edge | hit-rate\\|decisive |",
+        "|-----|-----------:|------------:|----------:|----------:|---------:|-------------------:|",
+    ]
+    for arm in ("baseline", "loosened"):
+        c = by_arm.get(arm)
+        if not c:
+            continue
+        hr = f"{c['hit_rate_when_decisive']:.0%}" if c["hit_rate_when_decisive"] is not None else "n/a"
+        lines.append(
+            f"| {arm} | {c['n_resolved']} | {c['commitment_rate']:.0%} | "
+            f"{c['wrong_decisive_rate']:.0%} | {c['right_decisive_rate']:.0%} | "
+            f"{c['net_decisive_edge']:+.3f} | {hr} (n={c['n_decisive']}) |"
+        )
+
+    b, l = by_arm.get("baseline"), by_arm.get("loosened")
+    if b and l:
+        commit_delta = l["commitment_rate"] - b["commitment_rate"]
+        edge_delta   = l["net_decisive_edge"] - b["net_decisive_edge"]
+        wrong_delta  = l["wrong_decisive_rate"] - b["wrong_decisive_rate"]
+        verdict = (
+            "loosened commits less **and** bleeds less — the thesis holds so far"
+            if commit_delta < 0 and wrong_delta < 0 and edge_delta >= 0
+            else "loosened commits less but the edge did not improve — watch"
+            if commit_delta < 0
+            else "loosened is not committing less — unexpected"
+        )
+        lines += [
+            "",
+            f"Loosened vs baseline: commit-rate {commit_delta:+.0%}, "
+            f"wrong-decisive {wrong_delta:+.0%}, net edge {edge_delta:+.3f} — _{verdict}._",
+            "",
+            "> Directional read only — small loosened n. Confirm with the decisive-only "
+            "Brier A/B above once it reaches n≥30.",
+            "",
+        ]
+    return lines
+
+
 def write_markdown(
     stats: dict,
     n_reports: int,
@@ -432,6 +574,7 @@ def write_markdown(
     calib: dict | None = None,
     calib_by_floor: dict | None = None,
     calib_by_profile: dict | None = None,
+    commitment: dict | None = None,
 ) -> None:
     today = date.today().isoformat()
     lines = [
@@ -539,6 +682,7 @@ def write_markdown(
     # Calibration — Brier / reliability (WP-16.B.2)
     if calib:
         lines += _calibration_md_lines(calib, calib_by_floor, calib_by_profile)
+        lines += _commitment_md_lines(commitment or {})
 
     # Calibration note
     lines += [
@@ -646,12 +790,13 @@ def main() -> None:
     calib_feedback   = calibration(scores, min_version=MIN_FEEDBACK_VERSION)
     calib_by_floor   = calibration_by_floor(scores)
     calib_by_profile = calibration_by_profile(scores)
+    commitment       = commitment_by_arm(scores)
 
     print_summary(stats, len(scores), calib)
     write_json(stats, len(scores), feedback_stats, n_feedback, version_stats,
-               calib, calib_feedback, calib_by_floor, calib_by_profile)
+               calib, calib_feedback, calib_by_floor, calib_by_profile, commitment)
     write_markdown(stats, len(scores), n_feedback, version_stats, calib,
-                   calib_by_floor, calib_by_profile)
+                   calib_by_floor, calib_by_profile, commitment)
 
 
 if __name__ == "__main__":
