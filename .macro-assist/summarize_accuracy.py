@@ -283,6 +283,16 @@ def calibration_by_profile(scores: list[dict]) -> dict:
     return calibration_by(scores, "profile")
 
 
+def calibration_by_arm(scores: list[dict]) -> dict:
+    """PHASE-19-EXO (removable hook): calibration split by arm (market vs exogenous).
+
+    Only shows once ≥2 arms have scored data, i.e. once the exogenous engine has
+    resolved leans alongside the market-only arm (DESIGN §4/§5). Inert with a single
+    arm (renders nothing). Safe to leave or delete when killing the engine (DESIGN §9).
+    """
+    return calibration_by(scores, "arm")
+
+
 # ---------------------------------------------------------------------------
 # Commitment metric (WP-16.B.1 reframe) — measurable at low n
 # ---------------------------------------------------------------------------
@@ -383,6 +393,7 @@ def write_json(
     calib_feedback: dict | None = None,
     calib_by_floor: dict | None = None,
     calib_by_profile: dict | None = None,
+    calib_by_arm: dict | None = None,
     commitment: dict | None = None,
 ) -> None:
     output = {
@@ -397,6 +408,7 @@ def write_json(
         "calibration_feedback": calib_feedback,
         "calibration_by_profile": calib_by_profile,
         "calibration_by_conviction_floor": calib_by_floor,
+        "calibration_by_arm":  calib_by_arm,
         "commitment_by_arm":   commitment,
         "_note": (
             "accuracy is on a 0-1 scale where 0.5 = random (coin-flip). "
@@ -458,7 +470,8 @@ def _ab_md_lines(title: str, by_value: dict) -> list[str]:
 
 
 def _calibration_md_lines(calib: dict, by_floor: dict | None = None,
-                          by_profile: dict | None = None) -> list[str]:
+                          by_profile: dict | None = None,
+                          by_arm: dict | None = None) -> list[str]:
     """Render the Brier / reliability-diagram section as markdown lines."""
     lines = [
         "---",
@@ -488,6 +501,7 @@ def _calibration_md_lines(calib: dict, by_floor: dict | None = None,
 
     lines += _ab_md_lines("Profile A/B (WP-16 — control vs loosened)", by_profile or {})
     lines += _ab_md_lines("Conviction-floor A/B (WP-16.B.1)", by_floor or {})
+    lines += _ab_md_lines("Exogenous A/B (Phase 19 — market vs exogenous)", by_arm or {})
 
     for window in WINDOWS:
         c = calib.get("windows", {}).get(window)
@@ -574,6 +588,7 @@ def write_markdown(
     calib: dict | None = None,
     calib_by_floor: dict | None = None,
     calib_by_profile: dict | None = None,
+    calib_by_arm: dict | None = None,
     commitment: dict | None = None,
 ) -> None:
     today = date.today().isoformat()
@@ -681,7 +696,7 @@ def write_markdown(
 
     # Calibration — Brier / reliability (WP-16.B.2)
     if calib:
-        lines += _calibration_md_lines(calib, calib_by_floor, calib_by_profile)
+        lines += _calibration_md_lines(calib, calib_by_floor, calib_by_profile, calib_by_arm)
         lines += _commitment_md_lines(commitment or {})
 
     # Calibration note
@@ -790,13 +805,14 @@ def main() -> None:
     calib_feedback   = calibration(scores, min_version=MIN_FEEDBACK_VERSION)
     calib_by_floor   = calibration_by_floor(scores)
     calib_by_profile = calibration_by_profile(scores)
+    calib_by_arm     = calibration_by_arm(scores)
     commitment       = commitment_by_arm(scores)
 
     print_summary(stats, len(scores), calib)
     write_json(stats, len(scores), feedback_stats, n_feedback, version_stats,
-               calib, calib_feedback, calib_by_floor, calib_by_profile, commitment)
+               calib, calib_feedback, calib_by_floor, calib_by_profile, calib_by_arm, commitment)
     write_markdown(stats, len(scores), n_feedback, version_stats, calib,
-                   calib_by_floor, calib_by_profile, commitment)
+                   calib_by_floor, calib_by_profile, calib_by_arm, commitment)
 
 
 if __name__ == "__main__":

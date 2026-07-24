@@ -1,0 +1,11 @@
+# Local SPF downloads. Only the median-level workbooks used as test_spf.py
+# real-file fixtures are tracked (the confirmed rate/level variables).
+*
+!.gitignore
+!Median_TBOND_Level.xlsx
+!Median_TBILL_Level.xlsx
+!Median_UNEMP_Level.xlsx
+# Synthetic FOMC shakedown fixture for the Phase-19 slice smoke run (CI).
+!SHAKEDOWN_synthetic_fomc.txt
+# Real FOMC statement (public-domain US-gov text) for the live calibration smoke.
+!fomc_20260617.txt

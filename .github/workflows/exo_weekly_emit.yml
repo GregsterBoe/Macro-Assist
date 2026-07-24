@@ -4,23 +4,21 @@ name: Exogenous Weekly Emission (Phase 19)
 # latest FOMC statement, run L0->L3, and write an `arm: exogenous` note into
 # results/ where score_predictions scans.
 #
-# ┌─ STATUS: UNDER TEST on feature/exogenous-engine — NOT integrated into main. ─┐
-# │ During the test phase this is MANUAL (workflow_dispatch) only, run against    │
-# │ feature/exogenous-engine so all exogenous notes stay on that branch and never │
-# │ touch main's pipeline. A GitHub `schedule:` cron ONLY fires from the default  │
-# │ branch, so weekly automation is deliberately OFF until integration.           │
-# │ INTEGRATION (after the test phase): merge to main, then uncomment the         │
-# │ `schedule:` block below to turn on the weekly cadence.                         │
-# └───────────────────────────────────────────────────────────────────────────────┘
+# ┌─ STATUS: INTEGRATED into main, but MODULAR / removable (DESIGN §9 kill list). ─┐
+# │ Runs weekly and auto-commits the exogenous arm's note. It is isolated: it only │
+# │ writes `*-exogenous-macro.md`, never touches the market pipeline, and can be   │
+# │ excised cleanly (delete exogenous/ + this workflow + the emitted notes/scores; │
+# │ the shared hooks are inert without exogenous data). SOFT-KILL = disable/delete │
+# │ this one workflow and the arm simply stops growing.                            │
+# └────────────────────────────────────────────────────────────────────────────────┘
 #
 # Validation is forward-only: this accumulates arm-tagged leans over time. Between
 # FOMC meetings the statement is unchanged, so weekly leans are correlated — an
 # honest limit of a monthly-cadence signal (each week is still a fresh forward call).
 
 on:
-  # INTEGRATION: uncomment to enable the weekly cadence once merged to main.
-  # schedule:
-  #   - cron: "45 6 * * 1"
+  schedule:
+    - cron: "45 6 * * 1"   # Mondays 06:45 UTC, before Weekly Scoring (07:15)
   workflow_dispatch:
     inputs:
       asof:
