@@ -17,6 +17,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from exogenous.sep import (
     GAP_ALIGNED_BAND,
     SEP_SERIES,
+    STRUCTURAL_NEG_BAND,
+    gap_interpretation,
     latest_value,
     parse_sep_path,
     short_rate_gap,
@@ -73,6 +75,31 @@ class TestShortRateGap:
 
     def test_none_when_spf_missing(self):
         assert short_rate_gap(None, self._PATH, 2026) is None
+
+
+class TestGapInterpretation:
+    """The structural nuance L2 must see so it doesn't over-read a small negative."""
+
+    def test_positive_gap_is_hawkish_tension(self):
+        assert "hawkish-surprise" in gap_interpretation(0.30)
+
+    def test_within_band_is_aligned(self):
+        assert gap_interpretation(GAP_ALIGNED_BAND / 2).startswith("aligned")
+
+    def test_modest_negative_is_structural(self):
+        # the live 2026 case: -0.16 must read as near-neutral/structural, NOT dovish tension
+        txt = gap_interpretation(-0.16)
+        assert "STRUCTURAL" in txt and "near-neutral" in txt
+
+    def test_edge_of_structural_band_still_structural(self):
+        assert "STRUCTURAL" in gap_interpretation(-STRUCTURAL_NEG_BAND)
+
+    def test_large_negative_is_dovish_tension(self):
+        assert "MATERIALLY below" in gap_interpretation(-0.60)
+
+    def test_short_rate_gap_dict_carries_interpretation(self):
+        g = short_rate_gap(3.64, {2026: 3.80}, 2026)
+        assert g["interpretation"] == gap_interpretation(-0.16)
 
 
 def test_series_ids():

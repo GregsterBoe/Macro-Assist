@@ -30,6 +30,7 @@ sys.path.insert(0, str(HERE.parent))   # .macro-assist on path
 from exogenous.analyst import ASSET_CANONICAL, brief_to_dict, synthesize_brief
 from exogenous.extract import evidence_to_dicts, extract_from_file
 from exogenous.spf import SPF_VARIABLES, latest_before, load_spf_file, load_spf_snapshot
+from exogenous.synth import exo_to_dict, render_exo_note, to_exo_output
 
 # Default SPF workbooks shipped in example/ (median-level; economist consensus).
 _EXAMPLE = HERE / "example"
@@ -128,9 +129,16 @@ def main() -> int:
         return 1
     _section("L2 BranchBrief", brief_to_dict(brief))
 
-    print("\n----- asset lean → scorer names (for the eventual A/B) -----")
-    for short, impl in brief.asset_implications.items():
-        print(f"  {ASSET_CANONICAL[short]:<20} {impl['bias']:<8} conf={impl['confidence']}")
+    # L3 — lift to the scored, arm-tagged ExoOutput + the parseable note
+    exo = to_exo_output(brief, evidence)
+    _section("L3 ExoOutput (arm-tagged, scored shape)", exo_to_dict(exo))
+    print("\n===== L3 note (as score_predictions.py parses it) =====")
+    print(render_exo_note(exo))
+
+    print("----- asset lean → scorer names (the exogenous arm of the A/B) -----")
+    for asset, lean in exo.leans.items():
+        print(f"  {asset:<20} {lean.bias:<8} conf={lean.confidence}%  "
+              f"cites={lean.citations or '—'}")
     print("\n(Eyeball: do net_stance and the asset biases follow the evidence? "
           "That is the CONFIRM-ON-FIRST-RUN gate before these leans are trusted.)")
     return 0
