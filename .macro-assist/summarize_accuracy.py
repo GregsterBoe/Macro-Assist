@@ -284,10 +284,11 @@ def calibration_by_profile(scores: list[dict]) -> dict:
 
 
 def calibration_by_arm(scores: list[dict]) -> dict:
-    """Calibration split by Phase-19 arm (market vs exogenous) — the exogenous A/B.
+    """PHASE-19-EXO (removable hook): calibration split by arm (market vs exogenous).
 
     Only shows once ≥2 arms have scored data, i.e. once the exogenous engine has
-    resolved leans alongside the market-only arm (DESIGN §4/§5).
+    resolved leans alongside the market-only arm (DESIGN §4/§5). Inert with a single
+    arm (renders nothing). Safe to leave or delete when killing the engine (DESIGN §9).
     """
     return calibration_by(scores, "arm")
 

@@ -188,3 +188,27 @@ asset implications) + tests → L3 lift to `ExoOutput` → L4 arm-tagging so
 in `accuracy_report.md` (unscored until outcomes resolve). Build order within B:
 start with the two deterministic consensus adapters (SPF + SEP) — zero LLM, fully
 testable — before the FOMC-text extraction/analyst LLM layers.
+
+## 9. Kill / removal — modular excision (integrated 2026-07-24)
+
+Phase 19 is **integrated into `main` but modular**: it runs weekly on its own and
+can be removed without touching the market-only pipeline. Two tiers:
+
+**Soft-kill (freeze the arm, zero risk):** disable or delete
+`.github/workflows/exo_weekly_emit.yml`. Emission stops; the market pipeline is
+untouched. Existing exogenous notes/scores stay in the report until you also delete
+them (below).
+
+**Hard-kill (excise entirely):**
+1. Delete `.macro-assist/exogenous/` (the whole engine).
+2. Delete its tests: `.macro-assist/tests/test_{spf,sep,extract,analyst,synth,fed_docs,emit}.py`.
+3. Delete the workflows `.github/workflows/exo_weekly_emit.yml` and `exo_slice_smoke.yml`.
+4. Delete emitted data: `results/**/*-exogenous-macro.md` and `results/scores/*__exogenous.json`.
+5. Revert the two **inert** shared hooks — `grep -rn PHASE-19-EXO .macro-assist/` finds
+   them in `score_predictions.py` (arm-keying) and `summarize_accuracy.py`
+   (`calibration_by_arm` + its threaded `calib_by_arm` params / render line). Leaving
+   them is harmless (they no-op without exogenous data); removing them is optional.
+6. Remove `beautifulsoup4` from `requirements.txt` (added only for `fed_docs`).
+
+Nothing above alters the market-only forecast, scoring, or report for the `market`
+arm — the arm-keyed score files keep `market` on the bare `{date}.json` name.
