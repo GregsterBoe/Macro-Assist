@@ -92,7 +92,11 @@ ExoOutput:
 
 Reuse the existing machinery unchanged:
 - Tag each exogenous output with `arm: "exogenous"` (frontmatter / score-file
-  field), exactly as `profile` tags the loosened arm today.
+  field), exactly as `profile` tags the loosened arm today. **BUILT (WP-19.B):**
+  `score_predictions.py` now stamps `arm = fm.get("arm", "market")` (every existing
+  market-only note defaults to `"market"`, non-breaking); `synth.render_exo_note`
+  emits the exogenous leans with `arm: exogenous` frontmatter + the same
+  `### 5-Day Predictions` table the scorer already parses.
 - `calibration_by` / `commitment_by_arm` already split by an arbitrary field →
   extend them to split on `arm` so the report shows **exogenous vs market-only**
   side by side on {10Y, DXY, gold}.

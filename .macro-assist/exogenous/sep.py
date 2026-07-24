@@ -40,6 +40,29 @@ SEP_SERIES = {
 # Gap band: |gap| below this (percentage points) reads as "aligned".
 GAP_ALIGNED_BAND = 0.10
 
+# A negative gap down to this magnitude (pp) is plausibly *structural*, not
+# disagreement: the SPF 3M-bill (quarterly average) sits below the SEP year-end
+# fed-funds midpoint when cuts are anticipated. Only a *positive* gap or a negative
+# one beyond this band is a genuine expectations-tension signal.
+STRUCTURAL_NEG_BAND = 0.35
+
+
+def gap_interpretation(gap: float) -> str:
+    """Plain-language reading of the SPF-vs-SEP gap that encodes the structural
+    caveat — so the L2 analyst sees it and does not over-read a small negative.
+    """
+    if gap > GAP_ALIGNED_BAND:
+        return ("economists ABOVE the Fed's dots — genuine hawkish-surprise tension "
+                "(economists see higher short rates than the Fed projects)")
+    if gap >= -GAP_ALIGNED_BAND:
+        return "aligned — economists and the Fed's dots agree within noise"
+    if gap >= -STRUCTURAL_NEG_BAND:
+        return ("modest negative — partly STRUCTURAL (the 3M bill trades below the "
+                "fed-funds midpoint when cuts are anticipated); treat as near-neutral, "
+                "NOT genuine disagreement")
+    return ("economists MATERIALLY below the Fed's dots — dovish tension beyond the "
+            "structural 3M-bill discount")
+
 
 # ---------------------------------------------------------------------------
 # Pure: parse the SEP path + the SPF-vs-SEP gap (no I/O)
@@ -101,6 +124,7 @@ def short_rate_gap(
         "sep_fed_funds":  round(float(sep_val), 3),
         "gap":            gap,
         "read":           read,
+        "interpretation": gap_interpretation(gap),
         "caveat":         "approx: SPF 3M-bill quarterly avg vs SEP year-end "
                           "fed-funds median — different instrument & timing; "
                           "read sign/size as tension, not a precise spread.",

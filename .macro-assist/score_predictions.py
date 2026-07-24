@@ -405,6 +405,9 @@ def main() -> None:
         # WP-16 experiment arm tags (profile + per-lever, from frontmatter)
         conviction_floor = fm.get("conviction_floor", "unknown")
         profile          = fm.get("profile", "unknown")
+        # Phase-19 A/B arm: exogenous-engine notes carry `arm: exogenous`; every
+        # existing market-only note is untagged → defaults to "market" (DESIGN §4).
+        arm              = fm.get("arm", "market")
         model            = fm.get("model", "unknown")
         base_rate_first  = fm.get("base_rate_first", "unknown")
         prune_rules      = fm.get("prune_rules", "unknown")
@@ -424,6 +427,7 @@ def main() -> None:
             "agent_version":    agent_version,
             "conviction_floor": conviction_floor,
             "profile":          profile,
+            "arm":              arm,
             "model":            model,
             "base_rate_first":  base_rate_first,
             "prune_rules":      prune_rules,
