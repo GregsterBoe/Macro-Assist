@@ -2,17 +2,25 @@ name: Exogenous Weekly Emission (Phase 19)
 
 # Live/forward emission of the monetary exogenous arm (DESIGN §4/§6.2): fetch the
 # latest FOMC statement, run L0->L3, and write an `arm: exogenous` note into
-# results/ where score_predictions scans. The existing Weekly Prediction Scoring
-# job then scores it once the 5-day window closes and summarize_accuracy shows the
-# exogenous-vs-market A/B. Runs Mondays 06:45 UTC — just before scoring (07:15).
+# results/ where score_predictions scans.
+#
+# ┌─ STATUS: UNDER TEST on feature/exogenous-engine — NOT integrated into main. ─┐
+# │ During the test phase this is MANUAL (workflow_dispatch) only, run against    │
+# │ feature/exogenous-engine so all exogenous notes stay on that branch and never │
+# │ touch main's pipeline. A GitHub `schedule:` cron ONLY fires from the default  │
+# │ branch, so weekly automation is deliberately OFF until integration.           │
+# │ INTEGRATION (after the test phase): merge to main, then uncomment the         │
+# │ `schedule:` block below to turn on the weekly cadence.                         │
+# └───────────────────────────────────────────────────────────────────────────────┘
 #
 # Validation is forward-only: this accumulates arm-tagged leans over time. Between
 # FOMC meetings the statement is unchanged, so weekly leans are correlated — an
 # honest limit of a monthly-cadence signal (each week is still a fresh forward call).
 
 on:
-  schedule:
-    - cron: "45 6 * * 1"
+  # INTEGRATION: uncomment to enable the weekly cadence once merged to main.
+  # schedule:
+  #   - cron: "45 6 * * 1"
   workflow_dispatch:
     inputs:
       asof:
