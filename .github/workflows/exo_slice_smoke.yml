@@ -1,0 +1,57 @@
+name: Exogenous Slice Smoke (Phase 19)
+
+# Manual live smoke of the monetary slice (L0 consensus → L1 FOMC extract → L2
+# brief). Runs on GitHub's runner so ANTHROPIC_API_KEY / FRED_API_KEY live as repo
+# secrets — no local env vars. This is a PIPELINE SHAKEDOWN on a synthetic fixture,
+# not a scored result (DESIGN §6.2). Trigger: Actions tab → this workflow → Run.
+
+on:
+  workflow_dispatch:
+    inputs:
+      fomc_file:
+        description: "FOMC text file to run (relative to repo root)"
+        type: string
+        default: ".macro-assist/exogenous/example/SHAKEDOWN_synthetic_fomc.txt"
+      published:
+        description: "Document publish date (YYYY-MM-DD; blank = today)"
+        type: string
+        default: ""
+      year:
+        description: "SEP target year for the gap (blank = current year)"
+        type: string
+        default: ""
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: .macro-assist/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r .macro-assist/requirements.txt
+
+      - name: Run the exogenous suite (offline, no keys)
+        run: python -m pytest .macro-assist/tests/test_spf.py .macro-assist/tests/test_sep.py .macro-assist/tests/test_extract.py .macro-assist/tests/test_analyst.py -q
+
+      - name: Live slice smoke (L0 -> L1 -> L2)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          FRED_API_KEY:      ${{ secrets.FRED_API_KEY }}
+        run: |
+          echo "::group::Monetary slice smoke output"
+          python .macro-assist/exogenous/run_slice.py \
+            --fomc "${{ inputs.fomc_file }}" \
+            ${{ inputs.published && format('--published {0}', inputs.published) || '' }} \
+            ${{ inputs.year && format('--year {0}', inputs.year) || '' }}
+          echo "::endgroup::"
