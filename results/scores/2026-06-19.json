@@ -6,7 +6,7 @@
   "model": "unknown",
   "base_rate_first": "unknown",
   "prune_rules": "unknown",
-  "scored_at": "2026-07-13",
+  "scored_at": "2026-07-20",
   "windows": {
     "t5": {
       "eval_date": "2026-06-26",
@@ -132,6 +132,69 @@
       "summary": {
         "n_scored": 6,
         "accuracy": 0.667
+      }
+    },
+    "t20": {
+      "eval_date": "2026-07-17",
+      "assets": {
+        "S&P 500": {
+          "bias": "Neutral",
+          "confidence": 50,
+          "entry_price": 7472.79,
+          "eval_price": 7457.6899,
+          "eval_date": "2026-07-17",
+          "pct_change": -0.202,
+          "score": 0.5
+        },
+        "Gold": {
+          "bias": "Bearish",
+          "confidence": 51,
+          "entry_price": 4181.8999,
+          "eval_price": 4012.7,
+          "eval_date": "2026-07-17",
+          "pct_change": -4.046,
+          "score": 1.0
+        },
+        "WTI Oil": {
+          "bias": "Neutral",
+          "confidence": 52,
+          "entry_price": 74.82,
+          "eval_price": 82.49,
+          "eval_date": "2026-07-17",
+          "pct_change": 10.251,
+          "score": 0.5
+        },
+        "10Y Treasury Yield": {
+          "bias": "Bullish",
+          "confidence": 60,
+          "entry_price": 4.509,
+          "eval_price": 4.541,
+          "eval_date": "2026-07-17",
+          "pct_change": 0.71,
+          "score": 0.5
+        },
+        "DXY": {
+          "bias": "Neutral",
+          "confidence": 53,
+          "entry_price": 101.02,
+          "eval_price": 100.75,
+          "eval_date": "2026-07-17",
+          "pct_change": -0.267,
+          "score": 0.5
+        },
+        "Bitcoin": {
+          "bias": "Bearish",
+          "confidence": 51,
+          "entry_price": 63540.8359,
+          "eval_price": 63899.4609,
+          "eval_date": "2026-07-17",
+          "pct_change": 0.564,
+          "score": 0.0
+        }
+      },
+      "summary": {
+        "n_scored": 6,
+        "accuracy": 0.5
       }
     }
   }
