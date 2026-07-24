@@ -7,3 +7,5 @@
 !Median_UNEMP_Level.xlsx
 # Synthetic FOMC shakedown fixture for the Phase-19 slice smoke run (CI).
 !SHAKEDOWN_synthetic_fomc.txt
+# Real FOMC statement (public-domain US-gov text) for the live calibration smoke.
+!fomc_20260617.txt
