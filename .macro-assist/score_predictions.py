@@ -405,8 +405,9 @@ def main() -> None:
         # WP-16 experiment arm tags (profile + per-lever, from frontmatter)
         conviction_floor = fm.get("conviction_floor", "unknown")
         profile          = fm.get("profile", "unknown")
-        # Phase-19 A/B arm: exogenous-engine notes carry `arm: exogenous`; every
-        # existing market-only note is untagged → defaults to "market" (DESIGN §4).
+        # PHASE-19-EXO (removable hook): exogenous-engine notes carry `arm: exogenous`;
+        # every market-only note is untagged → defaults to "market" (DESIGN §4). Inert
+        # if the engine is removed (all notes become "market"). See DESIGN §9 kill list.
         arm              = fm.get("arm", "market")
         model            = fm.get("model", "unknown")
         base_rate_first  = fm.get("base_rate_first", "unknown")
@@ -435,9 +436,9 @@ def main() -> None:
             "windows":          window_results,
         }
 
-        # Key score files by (date, arm) so a same-day exogenous note doesn't
-        # clobber the market note's score. Market keeps the bare name (backward
-        # compatible); other arms get a suffix. summarize globs *.json regardless.
+        # PHASE-19-EXO (removable hook): key score files by (date, arm) so a same-day
+        # exogenous note doesn't clobber the market note's score. Market keeps the bare
+        # name (backward compatible); other arms get a suffix. summarize globs *.json.
         arm_suffix = "" if arm == "market" else f"__{arm}"
         score_path = SCORES_DIR / f"{report_date.isoformat()}{arm_suffix}.json"
         score_path.write_text(json.dumps(output, indent=2), encoding="utf-8")
