@@ -435,7 +435,11 @@ def main() -> None:
             "windows":          window_results,
         }
 
-        score_path = SCORES_DIR / f"{report_date.isoformat()}.json"
+        # Key score files by (date, arm) so a same-day exogenous note doesn't
+        # clobber the market note's score. Market keeps the bare name (backward
+        # compatible); other arms get a suffix. summarize globs *.json regardless.
+        arm_suffix = "" if arm == "market" else f"__{arm}"
+        score_path = SCORES_DIR / f"{report_date.isoformat()}{arm_suffix}.json"
         score_path.write_text(json.dumps(output, indent=2), encoding="utf-8")
         scored += 1
 

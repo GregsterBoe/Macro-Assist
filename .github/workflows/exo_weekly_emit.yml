@@ -1,0 +1,70 @@
+name: Exogenous Weekly Emission (Phase 19)
+
+# Live/forward emission of the monetary exogenous arm (DESIGN §4/§6.2): fetch the
+# latest FOMC statement, run L0->L3, and write an `arm: exogenous` note into
+# results/ where score_predictions scans. The existing Weekly Prediction Scoring
+# job then scores it once the 5-day window closes and summarize_accuracy shows the
+# exogenous-vs-market A/B. Runs Mondays 06:45 UTC — just before scoring (07:15).
+#
+# Validation is forward-only: this accumulates arm-tagged leans over time. Between
+# FOMC meetings the statement is unchanged, so weekly leans are correlated — an
+# honest limit of a monthly-cadence signal (each week is still a fresh forward call).
+
+on:
+  schedule:
+    - cron: "45 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      asof:
+        description: "Prediction date (YYYY-MM-DD; blank = today)"
+        type: string
+        default: ""
+      force:
+        description: "Overwrite an existing note for that date"
+        type: boolean
+        default: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  emit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Macro-Assist
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: .macro-assist/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r .macro-assist/requirements.txt
+
+      - name: Emit exogenous note
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          FRED_API_KEY:      ${{ secrets.FRED_API_KEY }}
+        run: |
+          echo "::group::Exogenous emission"
+          python .macro-assist/exogenous/emit.py \
+            ${{ inputs.asof && format('--asof {0}', inputs.asof) || '' }} \
+            ${{ inputs.force && '--force' || '' }}
+          echo "::endgroup::"
+
+      - name: Commit exogenous note
+        run: |
+          set -e
+          git config user.name  "macro-assist[bot]"
+          git config user.email "macro-assist[bot]@users.noreply.github.com"
+          git pull --rebase --autostash origin "$(git rev-parse --abbrev-ref HEAD)"
+          git add results/*/*-exogenous-macro.md || true
+          git diff --cached --quiet || git commit -m "exo: $(date -u +%Y-%m-%d) exogenous arm note"
+          git push origin HEAD
