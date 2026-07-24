@@ -77,7 +77,11 @@ ExoOutput:
 - **L0 adapters (deterministic):** FOMC statements + minutes + speeches (Fed site)
   for the *evolving* signal, anchored to two **free, non-market, point-in-time
   consensus benchmarks** (see §6.5). Normalise, timestamp, dedup. Point-in-time
-  enforced here.
+  enforced here. **BUILT:** `fed_docs.py` auto-fetches the latest statement
+  (calendar scan → latest ≤ as-of → body extract; URL-slug date = point-in-time
+  key); `emit.py` runs L0→L3 and writes the arm-tagged note into `results/`;
+  `exo_weekly_emit.yml` runs it weekly. Evidence is as-of the statement date; the
+  prediction is dated today (asof) so the A/B is same-day matched.
 - **L1 extract (cheap model):** each document → `Evidence[]` with a
   hawkish/dovish stance + salience. Deterministic transforms for numeric calendar
   rows.
