@@ -405,6 +405,10 @@ def main() -> None:
         # WP-16 experiment arm tags (profile + per-lever, from frontmatter)
         conviction_floor = fm.get("conviction_floor", "unknown")
         profile          = fm.get("profile", "unknown")
+        # PHASE-19-EXO (removable hook): exogenous-engine notes carry `arm: exogenous`;
+        # every market-only note is untagged → defaults to "market" (DESIGN §4). Inert
+        # if the engine is removed (all notes become "market"). See DESIGN §9 kill list.
+        arm              = fm.get("arm", "market")
         model            = fm.get("model", "unknown")
         base_rate_first  = fm.get("base_rate_first", "unknown")
         prune_rules      = fm.get("prune_rules", "unknown")
@@ -424,6 +428,7 @@ def main() -> None:
             "agent_version":    agent_version,
             "conviction_floor": conviction_floor,
             "profile":          profile,
+            "arm":              arm,
             "model":            model,
             "base_rate_first":  base_rate_first,
             "prune_rules":      prune_rules,
@@ -431,7 +436,11 @@ def main() -> None:
             "windows":          window_results,
         }
 
-        score_path = SCORES_DIR / f"{report_date.isoformat()}.json"
+        # PHASE-19-EXO (removable hook): key score files by (date, arm) so a same-day
+        # exogenous note doesn't clobber the market note's score. Market keeps the bare
+        # name (backward compatible); other arms get a suffix. summarize globs *.json.
+        arm_suffix = "" if arm == "market" else f"__{arm}"
+        score_path = SCORES_DIR / f"{report_date.isoformat()}{arm_suffix}.json"
         score_path.write_text(json.dumps(output, indent=2), encoding="utf-8")
         scored += 1
 
