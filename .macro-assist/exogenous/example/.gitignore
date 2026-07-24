@@ -5,3 +5,5 @@
 !Median_TBOND_Level.xlsx
 !Median_TBILL_Level.xlsx
 !Median_UNEMP_Level.xlsx
+# Synthetic FOMC shakedown fixture for the Phase-19 slice smoke run (CI).
+!SHAKEDOWN_synthetic_fomc.txt
