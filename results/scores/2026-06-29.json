@@ -3,10 +3,11 @@
   "agent_version": "v1.5",
   "conviction_floor": "off",
   "profile": "loosened",
+  "arm": "market",
   "model": "claude-opus-4-8",
   "base_rate_first": "on",
   "prune_rules": "on",
-  "scored_at": "2026-07-20",
+  "scored_at": "2026-07-27",
   "windows": {
     "t5": {
       "eval_date": "2026-07-06",

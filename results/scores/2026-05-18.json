@@ -3,10 +3,11 @@
   "agent_version": "v0.6",
   "conviction_floor": "unknown",
   "profile": "unknown",
+  "arm": "market",
   "model": "unknown",
   "base_rate_first": "unknown",
   "prune_rules": "unknown",
-  "scored_at": "2026-07-20",
+  "scored_at": "2026-07-27",
   "windows": {
     "t5": {
       "eval_date": "2026-05-25",
