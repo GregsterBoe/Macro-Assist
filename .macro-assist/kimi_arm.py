@@ -193,9 +193,10 @@ def render_kimi_note(preds: dict, asof: "date | str", n: int, model: str = KIMI_
     aod = date.fromisoformat(asof) if not isinstance(asof, date) else asof
     review = (aod + timedelta(days=review_days)).isoformat()
     rows = ["| Asset | Bias | Driver | Confidence | Target |", "| --- | --- | --- | --- | --- |"]
+    _abbr = {"Bullish": "Bull", "Bearish": "Bear", "Neutral": "Neut"}
     for asset in ASSETS:
         p = preds.get(asset, {"bias": "Neutral", "confidence": 50, "votes": {}, "agreement": 0.0})
-        votes = "/".join(f"{k[0]}{v}" for k, v in p.get("votes", {}).items()) or "—"
+        votes = " ".join(f"{_abbr.get(k, k)}×{v}" for k, v in p.get("votes", {}).items()) or "—"
         driver = f"ensemble n={p.get('n', 0)} votes {votes} (agreement {p.get('agreement', 0):.0%})"
         rows.append(f"| {asset} | {p['bias']} | {driver} | {p['confidence']}% | directional |")
     return (
@@ -359,7 +360,7 @@ def main() -> int:
                         force=args.force, model=args.model, debug=args.debug)
     if path is None:
         return 1
-    print(f"\nEmitted Kimi arm note: {path}\n")
+    print(f"\nKimi arm note: {path}\n")
     print(path.read_text(encoding="utf-8"))
     return 0
 
