@@ -1,0 +1,57 @@
+name: Kimi Arm Smoke (experimental)
+
+# Manual smoke of the Kimi K2.5 ensemble model arm. Runs the offline tests, then a
+# live ensemble on a committed payload-preview date so you can eyeball:
+#   - does Moonshot's Anthropic endpoint honour forced tool_choice (else JSON fallback)?
+#   - is `kimi-k2.5` the right model id?
+#   - does temperature give sample VARIATION (else confidence collapses to 100)?
+# Needs the MOONSHOT_API_KEY repo secret. Does NOT commit the note (smoke only).
+
+on:
+  workflow_dispatch:
+    inputs:
+      asof:
+        description: "Date with a committed payload preview (results/llm_payload_preview/<date>.md)"
+        type: string
+        default: "2026-07-31"
+      n:
+        description: "Ensemble samples"
+        type: string
+        default: "8"
+      temperature:
+        description: "Sampling temperature"
+        type: string
+        default: "0.9"
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: .macro-assist/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r .macro-assist/requirements.txt
+
+      - name: Offline tests
+        run: python -m pytest .macro-assist/tests/test_kimi_arm.py -q
+
+      - name: Live Kimi ensemble smoke
+        env:
+          MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
+        run: |
+          echo "::group::Kimi K2.5 ensemble"
+          python .macro-assist/kimi_arm.py \
+            --asof "${{ inputs.asof }}" --n "${{ inputs.n }}" \
+            --temperature "${{ inputs.temperature }}" --force
+          echo "::endgroup::"
