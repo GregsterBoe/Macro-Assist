@@ -257,7 +257,7 @@ def note_path(asof: date, results_dir: Path = RESULTS_DIR) -> Path:
 
 def run_kimi_arm(asof: Optional[date] = None, n: int = DEFAULT_N,
                  temperature: float = DEFAULT_TEMPERATURE, results_dir: Path = RESULTS_DIR,
-                 force: bool = False) -> Optional[Path]:
+                 force: bool = False, model: str = KIMI_MODEL) -> Optional[Path]:
     asof = asof or date.today()
     out = note_path(asof, results_dir)
     if out.exists() and not force:
@@ -276,7 +276,16 @@ def run_kimi_arm(asof: Optional[date] = None, n: int = DEFAULT_N,
     system = ENSEMBLE_SYSTEM
 
     client = build_client()
-    samples = ensemble(client, user_message, n=n, temperature=temperature)
+    try:
+        samples = ensemble(client, user_message, n=n, temperature=temperature, model=model)
+    except Exception as exc:
+        api_root = KIMI_BASE_URL.rsplit("/anthropic", 1)[0]
+        print(
+            f"\nKimi call failed with model '{model}': {exc}\n\n"
+            f"List the exact model ids on your account:\n"
+            f"  curl {api_root}/v1/models -H \"Authorization: Bearer $MOONSHOT_API_KEY\"\n"
+            f"then re-run with  --model <id>  (or set KIMI_MODEL).", file=sys.stderr)
+        return None
     if not samples:
         print("No usable samples — nothing emitted.", file=sys.stderr)
         return None
@@ -292,10 +301,13 @@ def main() -> int:
     ap.add_argument("--asof", default=None, help="YYYY-MM-DD (default today)")
     ap.add_argument("--n", type=int, default=DEFAULT_N)
     ap.add_argument("--temperature", type=float, default=DEFAULT_TEMPERATURE)
+    ap.add_argument("--model", default=os.getenv("KIMI_MODEL", KIMI_MODEL),
+                    help="Moonshot model id (list via /v1/models); default %(default)s")
     ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
     asof = date.fromisoformat(args.asof) if args.asof else date.today()
-    path = run_kimi_arm(asof=asof, n=args.n, temperature=args.temperature, force=args.force)
+    path = run_kimi_arm(asof=asof, n=args.n, temperature=args.temperature,
+                        force=args.force, model=args.model)
     if path is None:
         return 1
     print(f"\nEmitted Kimi arm note: {path}\n")
