@@ -138,14 +138,25 @@ def parse_sample(obj) -> dict:
 
 
 def parse_sample_from_text(text: str) -> dict:
-    """Best-effort: extract the first JSON object from free text and parse it."""
-    m = re.search(r"\{.*\}", text or "", re.S)
-    if not m:
-        return {}
-    try:
-        return parse_sample(json.loads(m.group(0)))
-    except (ValueError, TypeError):
-        return {}
+    """Best-effort: extract a JSON object from free text (handles prose / ``` fences).
+
+    Tries the greedy first-brace-to-last-brace span (clean JSON-only replies), then
+    individual flat `{...}` objects. Returns the first that parses to usable calls.
+    """
+    text = text or ""
+    candidates: list[str] = []
+    m = re.search(r"\{.*\}", text, re.S)
+    if m:
+        candidates.append(m.group(0))
+    candidates += re.findall(r"\{[^{}]*\}", text, re.S)
+    for c in candidates:
+        try:
+            parsed = parse_sample(json.loads(c))
+        except (ValueError, TypeError):
+            continue
+        if parsed:
+            return parsed
+    return {}
 
 
 def aggregate(samples: list[dict], abstain_threshold: float = ABSTAIN_THRESHOLD) -> dict:
@@ -222,52 +233,40 @@ def _resp_text(resp) -> str:
 
 
 def one_sample(client, system: str, user_message: str, model: str = KIMI_MODEL,
-               temperature: float = DEFAULT_TEMPERATURE, max_tokens: int = 1024,
-               debug: bool = False) -> dict:
-    """One directional-call sample → {canon_asset: bias}. Tries forced tool-use, then a
-    plain-JSON fallback. Returns {} if neither parses. `debug` prints what came back."""
+               temperature: float = DEFAULT_TEMPERATURE, debug: bool = False) -> dict:
+    """One directional-call sample → {canon_asset: bias}, via plain JSON.
+
+    K2.6 defaults **thinking ON**, which (a) is incompatible with forced tool_choice
+    and (b) eats the token budget before answering. So we DISABLE thinking (we don't
+    want reasoning for a 6-way classification) and parse JSON. Fallback keeps thinking
+    but gives it a big budget so it can finish and still answer. Returns {} if neither
+    parses; `debug` prints what came back.
+    """
     def _d(*a):
         if debug:
             print("   [debug]", *a, file=sys.stderr)
 
-    tools = [{"name": "submit_calls", "description": "Submit the six directional calls.",
-              "input_schema": SampleOutput.model_json_schema()}]
     msg = [{"role": "user", "content": user_message + _JSON_INSTRUCTION}]
-
-    # Path 1 — forced tool-use.
-    try:
-        resp = client.messages.create(model=model, max_tokens=max_tokens, temperature=temperature,
-                                      system=system, tools=tools,
-                                      tool_choice={"type": "tool", "name": "submit_calls"}, messages=msg)
-        _d("tool-use ok: stop=", getattr(resp, "stop_reason", None),
-           "blocks=", [getattr(b, "type", None) for b in resp.content])
-        block = next((b for b in resp.content if getattr(b, "type", None) == "tool_use"), None)
-        if block is not None:
-            _d("tool_use.input=", json.dumps(block.input, default=str)[:700])
-            parsed = parse_sample(block.input)
+    # (label, extra kwargs, max_tokens)
+    attempts = [
+        ("no-think", {"thinking": {"type": "disabled"}}, 1024),   # preferred: cheap, direct
+        ("think-tolerant", {}, 8000),                             # if disable is rejected
+    ]
+    for label, extra, mt in attempts:
+        try:
+            resp = client.messages.create(model=model, max_tokens=mt, temperature=temperature,
+                                          system=system, messages=msg, **extra)
+            _d(label, "stop=", getattr(resp, "stop_reason", None),
+               "blocks=", [getattr(b, "type", None) for b in resp.content])
+            txt = _resp_text(resp)
+            _d(label, "text=", txt[:800])
+            parsed = parse_sample_from_text(txt)
             if parsed:
                 return parsed
-            _d("parse_sample EMPTY from tool input")
-        txt = _resp_text(resp)
-        _d("tool-use text=", txt[:700])
-        parsed = parse_sample_from_text(txt)
-        if parsed:
-            return parsed
-    except Exception as exc:
-        _d("tool-use raised:", type(exc).__name__, str(exc)[:400])
-
-    # Path 2 — no tools, JSON only.
-    try:
-        resp = client.messages.create(model=model, max_tokens=max_tokens, temperature=temperature,
-                                      system=system, messages=msg)
-        _d("no-tools ok: stop=", getattr(resp, "stop_reason", None),
-           "blocks=", [getattr(b, "type", None) for b in resp.content])
-        txt = _resp_text(resp)
-        _d("no-tools text=", txt[:900])
-        return parse_sample_from_text(txt)
-    except Exception as exc:
-        _d("no-tools raised:", type(exc).__name__, str(exc)[:400])
-        raise
+            _d(label, "parsed EMPTY")
+        except Exception as exc:
+            _d(label, "raised:", type(exc).__name__, str(exc)[:400])
+    return {}
 
 
 def ensemble(client, user_message: str, n: int = DEFAULT_N,
