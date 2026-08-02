@@ -217,36 +217,65 @@ def build_client():
                                default_headers={"Authorization": f"Bearer {key}"})
 
 
+def _resp_text(resp) -> str:
+    return "".join(getattr(b, "text", "") for b in resp.content if getattr(b, "type", None) == "text")
+
+
 def one_sample(client, system: str, user_message: str, model: str = KIMI_MODEL,
-               temperature: float = DEFAULT_TEMPERATURE, max_tokens: int = 1024) -> dict:
-    """One directional-call sample → {canon_asset: bias}. Forced tool-use, with a
-    plain-JSON fallback for endpoint compatibility. Returns {} on failure (skipped)."""
+               temperature: float = DEFAULT_TEMPERATURE, max_tokens: int = 1024,
+               debug: bool = False) -> dict:
+    """One directional-call sample → {canon_asset: bias}. Tries forced tool-use, then a
+    plain-JSON fallback. Returns {} if neither parses. `debug` prints what came back."""
+    def _d(*a):
+        if debug:
+            print("   [debug]", *a, file=sys.stderr)
+
     tools = [{"name": "submit_calls", "description": "Submit the six directional calls.",
               "input_schema": SampleOutput.model_json_schema()}]
     msg = [{"role": "user", "content": user_message + _JSON_INSTRUCTION}]
+
+    # Path 1 — forced tool-use.
     try:
         resp = client.messages.create(model=model, max_tokens=max_tokens, temperature=temperature,
                                       system=system, tools=tools,
                                       tool_choice={"type": "tool", "name": "submit_calls"}, messages=msg)
+        _d("tool-use ok: stop=", getattr(resp, "stop_reason", None),
+           "blocks=", [getattr(b, "type", None) for b in resp.content])
         block = next((b for b in resp.content if getattr(b, "type", None) == "tool_use"), None)
         if block is not None:
-            return parse_sample(block.input)
-        text = "".join(getattr(b, "text", "") for b in resp.content if getattr(b, "type", None) == "text")
-        return parse_sample_from_text(text)
-    except Exception:
-        # Fallback: no tools, ask for JSON directly (max endpoint compatibility).
+            _d("tool_use.input=", json.dumps(block.input, default=str)[:700])
+            parsed = parse_sample(block.input)
+            if parsed:
+                return parsed
+            _d("parse_sample EMPTY from tool input")
+        txt = _resp_text(resp)
+        _d("tool-use text=", txt[:700])
+        parsed = parse_sample_from_text(txt)
+        if parsed:
+            return parsed
+    except Exception as exc:
+        _d("tool-use raised:", type(exc).__name__, str(exc)[:400])
+
+    # Path 2 — no tools, JSON only.
+    try:
         resp = client.messages.create(model=model, max_tokens=max_tokens, temperature=temperature,
                                       system=system, messages=msg)
-        text = "".join(getattr(b, "text", "") for b in resp.content if getattr(b, "type", None) == "text")
-        return parse_sample_from_text(text)
+        _d("no-tools ok: stop=", getattr(resp, "stop_reason", None),
+           "blocks=", [getattr(b, "type", None) for b in resp.content])
+        txt = _resp_text(resp)
+        _d("no-tools text=", txt[:900])
+        return parse_sample_from_text(txt)
+    except Exception as exc:
+        _d("no-tools raised:", type(exc).__name__, str(exc)[:400])
+        raise
 
 
 def ensemble(client, user_message: str, n: int = DEFAULT_N,
              temperature: float = DEFAULT_TEMPERATURE, model: str = KIMI_MODEL,
-             system: str = ENSEMBLE_SYSTEM) -> list[dict]:
+             system: str = ENSEMBLE_SYSTEM, debug: bool = False) -> list[dict]:
     samples = []
     for i in range(n):
-        s = one_sample(client, system, user_message, model=model, temperature=temperature)
+        s = one_sample(client, system, user_message, model=model, temperature=temperature, debug=debug)
         if s:
             samples.append(s)
         print(f"  sample {i+1}/{n}: {s or 'EMPTY'}", file=sys.stderr)
@@ -259,7 +288,7 @@ def note_path(asof: date, results_dir: Path = RESULTS_DIR) -> Path:
 
 def run_kimi_arm(asof: Optional[date] = None, n: int = DEFAULT_N,
                  temperature: float = DEFAULT_TEMPERATURE, results_dir: Path = RESULTS_DIR,
-                 force: bool = False, model: str = KIMI_MODEL) -> Optional[Path]:
+                 force: bool = False, model: str = KIMI_MODEL, debug: bool = False) -> Optional[Path]:
     asof = asof or date.today()
     out = note_path(asof, results_dir)
     if out.exists() and not force:
@@ -279,7 +308,7 @@ def run_kimi_arm(asof: Optional[date] = None, n: int = DEFAULT_N,
 
     client = build_client()
     try:
-        samples = ensemble(client, user_message, n=n, temperature=temperature, model=model)
+        samples = ensemble(client, user_message, n=n, temperature=temperature, model=model, debug=debug)
     except Exception as exc:
         api_root = KIMI_BASE_URL.rsplit("/anthropic", 1)[0]
         print(
@@ -306,6 +335,7 @@ def main() -> int:
     ap.add_argument("--model", default=os.getenv("KIMI_MODEL", KIMI_MODEL),
                     help="Moonshot model id (list via /v1/models); default %(default)s")
     ap.add_argument("--force", action="store_true")
+    ap.add_argument("--debug", action="store_true", help="print raw model responses per sample")
     ap.add_argument("--list-models", action="store_true",
                     help="list model ids via the working Anthropic-endpoint auth, then exit")
     args = ap.parse_args()
@@ -327,7 +357,7 @@ def main() -> int:
 
     asof = date.fromisoformat(args.asof) if args.asof else date.today()
     path = run_kimi_arm(asof=asof, n=args.n, temperature=args.temperature,
-                        force=args.force, model=args.model)
+                        force=args.force, model=args.model, debug=args.debug)
     if path is None:
         return 1
     print(f"\nEmitted Kimi arm note: {path}\n")
