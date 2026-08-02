@@ -304,7 +304,25 @@ def main() -> int:
     ap.add_argument("--model", default=os.getenv("KIMI_MODEL", KIMI_MODEL),
                     help="Moonshot model id (list via /v1/models); default %(default)s")
     ap.add_argument("--force", action="store_true")
+    ap.add_argument("--list-models", action="store_true",
+                    help="list model ids via the working Anthropic-endpoint auth, then exit")
     args = ap.parse_args()
+
+    if args.list_models:
+        client = build_client()
+        try:
+            ids = [m.id for m in client.models.list()]
+            print("Available model ids:")
+            for i in ids:
+                print(f"  {i}")
+        except Exception as exc:
+            print(f"models.list via /anthropic failed ({exc}).\n"
+                  "Try these candidate ids directly with --model:\n"
+                  "  kimi-k2-5-preview  kimi-k2-5  kimi-k2.5-preview  kimi-latest  "
+                  "moonshot-v1-128k", file=sys.stderr)
+            return 2
+        return 0
+
     asof = date.fromisoformat(args.asof) if args.asof else date.today()
     path = run_kimi_arm(asof=asof, n=args.n, temperature=args.temperature,
                         force=args.force, model=args.model)
