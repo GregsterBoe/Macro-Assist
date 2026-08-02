@@ -40,7 +40,9 @@ from pydantic import BaseModel, Field
 
 HERE = Path(__file__).resolve().parent
 
-KIMI_MODEL = os.getenv("KIMI_MODEL", "kimi-k2.5")
+# kimi-k2.5 was retired; kimi-k2.6 (Apr 2026) is its cheap general-tier successor.
+# Confirmed available on the account 2026-08 (ids use a dot: kimi-k2.6, not -k2-6).
+KIMI_MODEL = os.getenv("KIMI_MODEL", "kimi-k2.6")
 KIMI_BASE_URL = os.getenv("KIMI_BASE_URL", "https://api.moonshot.ai/anthropic")
 SYSTEM_PROMPT_FILE = HERE / "prompts" / "system_prompt_structured.md"
 PREVIEW_DIR = HERE.parent / "results" / "llm_payload_preview"
