@@ -15,10 +15,11 @@ Two ideas, one module:
    abstention). Agreement is discriminative by construction and un-clamped (33–100%),
    so a later recalibration layer can map it to a real hit-rate.
 
-MODULAR / removable (like the exogenous engine): own file + own workflow; the shared
-hooks it uses are inert without `arm:kimi` data. Kill = delete this file + its
-workflow + `results/**/*-kimi-macro.md` + `results/scores/*__kimi.json`. Grep
-`KIMI-ARM`.
+MODULAR / removable (grep KIMI-ARM). SOFT-KILL = disable/delete the daily workflow
+`kimi_arm_daily.yml` (arm freezes, market pipeline untouched). HARD-KILL = also delete
+this file + `tests/test_kimi_arm.py` + the two kimi workflows + `results/**/*-kimi-
+macro.md` + `results/scores/*__kimi.json`. The arm-keying / `calibration_by_arm` hooks
+are generic (shared with the exogenous arm) — leave them.
 
 Auth: set MOONSHOT_API_KEY (or KIMI_API_KEY). CONFIRM-ON-FIRST-RUN: verify the
 Moonshot Anthropic endpoint honours forced `tool_choice` (we fall back to JSON if
@@ -44,7 +45,6 @@ HERE = Path(__file__).resolve().parent
 # Confirmed available on the account 2026-08 (ids use a dot: kimi-k2.6, not -k2-6).
 KIMI_MODEL = os.getenv("KIMI_MODEL", "kimi-k2.6")
 KIMI_BASE_URL = os.getenv("KIMI_BASE_URL", "https://api.moonshot.ai/anthropic")
-SYSTEM_PROMPT_FILE = HERE / "prompts" / "system_prompt_structured.md"
 PREVIEW_DIR = HERE.parent / "results" / "llm_payload_preview"
 RESULTS_DIR = HERE.parent / "results"
 
@@ -301,11 +301,8 @@ def run_kimi_arm(asof: Optional[date] = None, n: int = DEFAULT_N,
               "(MACRO_PREVIEW=1).", file=sys.stderr)
         return None
     user_message = extract_user_message(preview.read_text(encoding="utf-8"))
-    system = SYSTEM_PROMPT_FILE.read_text(encoding="utf-8") if SYSTEM_PROMPT_FILE.exists() else ENSEMBLE_SYSTEM
-    # Use the focused ensemble system prompt (asks for the 6 calls); the market system
-    # prompt is huge and note-shaped. Same DATA (user_message) either way.
-    system = ENSEMBLE_SYSTEM
-
+    # Same DATA as the market arm (the preview's user message); focused ENSEMBLE_SYSTEM
+    # asks for just the six calls (the market system prompt is huge and note-shaped).
     client = build_client()
     try:
         samples = ensemble(client, user_message, n=n, temperature=temperature, model=model, debug=debug)
