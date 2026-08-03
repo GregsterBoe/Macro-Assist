@@ -7,7 +7,7 @@
   "model": "claude-opus-4-8",
   "base_rate_first": "on",
   "prune_rules": "on",
-  "scored_at": "2026-07-27",
+  "scored_at": "2026-08-03",
   "windows": {
     "t5": {
       "eval_date": "2026-07-06",
@@ -127,6 +127,69 @@
           "eval_price": 62239.1211,
           "eval_date": "2026-07-13",
           "pct_change": 3.493,
+          "score": 0.5
+        }
+      },
+      "summary": {
+        "n_scored": 6,
+        "accuracy": 0.5
+      }
+    },
+    "t20": {
+      "eval_date": "2026-07-27",
+      "assets": {
+        "S&P 500": {
+          "bias": "Neutral",
+          "confidence": 56,
+          "entry_price": 7440.4302,
+          "eval_price": 7413.1802,
+          "eval_date": "2026-07-27",
+          "pct_change": -0.366,
+          "score": 0.5
+        },
+        "Gold": {
+          "bias": "Neutral",
+          "confidence": 54,
+          "entry_price": 4022.3,
+          "eval_price": 4074.5,
+          "eval_date": "2026-07-27",
+          "pct_change": 1.298,
+          "score": 0.5
+        },
+        "WTI Oil": {
+          "bias": "Neutral",
+          "confidence": 58,
+          "entry_price": 70.75,
+          "eval_price": 82.61,
+          "eval_date": "2026-07-27",
+          "pct_change": 16.763,
+          "score": 0.5
+        },
+        "10Y Treasury Yield": {
+          "bias": "Neutral",
+          "confidence": 55,
+          "entry_price": 4.374,
+          "eval_price": 4.641,
+          "eval_date": "2026-07-27",
+          "pct_change": 6.104,
+          "score": 0.5
+        },
+        "DXY": {
+          "bias": "Neutral",
+          "confidence": 53,
+          "entry_price": 101.11,
+          "eval_price": 101.51,
+          "eval_date": "2026-07-27",
+          "pct_change": 0.396,
+          "score": 0.5
+        },
+        "Bitcoin": {
+          "bias": "Neutral",
+          "confidence": 52,
+          "entry_price": 60138.3789,
+          "eval_price": 63724.8984,
+          "eval_date": "2026-07-27",
+          "pct_change": 5.964,
           "score": 0.5
         }
       },
