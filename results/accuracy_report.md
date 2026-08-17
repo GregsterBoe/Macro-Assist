@@ -1,6 +1,6 @@
 # Prediction Accuracy Report
 
-*Generated: 2026-08-10 | Reports scored: 95 | Feedback-loop reports (v0.3+): 78*
+*Generated: 2026-08-17 | Reports scored: 106 | Feedback-loop reports (v0.3+): 83*
 
 > Accuracy scale: 0% = always wrong, 50% = random, 100% = always right.
 > **Directional accuracy** excludes flat moves and Neutral calls — it is the
@@ -11,42 +11,42 @@
 
 ## T+5 (1 week)
 
-**Overall accuracy:** 48%  |  **Directional:** 44%  |  **Reports:** 95
+**Overall accuracy:** 48%  |  **Directional:** 45%  |  **Reports:** 106
 
 | Asset | Accuracy | Directional | n | Avg Confidence |
 |-------|----------|-------------|---|----------------|
-| S&P 500 | 50% | 50% (n=34) | 94 | 55% |
-| Gold | 49% | 48% (n=56) | 95 | 58% |
-| WTI Oil | 45% | 30% (n=23) | 94 | 55% |
-| 10Y Treasury Yield | 48% | 39% (n=18) | 95 | 55% |
-| DXY | 48% | 44% (n=23) | 95 | 54% |
-| Bitcoin | 46% | 41% (n=46) | 93 | 54% |
+| S&P 500 | 51% | 54% (n=37) | 104 | 55% |
+| Gold | 52% | 54% (n=65) | 106 | 59% |
+| WTI Oil | 45% | 28% (n=25) | 104 | 56% |
+| 10Y Treasury Yield | 48% | 37% (n=19) | 106 | 57% |
+| DXY | 49% | 44% (n=23) | 106 | 54% |
+| Bitcoin | 46% | 40% (n=47) | 103 | 54% |
 
 ## T+10 (2 weeks)
 
-**Overall accuracy:** 45%  |  **Directional:** 38%  |  **Reports:** 89
+**Overall accuracy:** 46%  |  **Directional:** 39%  |  **Reports:** 95
 
 | Asset | Accuracy | Directional | n | Avg Confidence |
 |-------|----------|-------------|---|----------------|
-| S&P 500 | 44% | 33% (n=33) | 89 | 55% |
-| Gold | 43% | 39% (n=56) | 89 | 58% |
-| WTI Oil | 43% | 25% (n=24) | 89 | 54% |
-| 10Y Treasury Yield | 48% | 40% (n=15) | 89 | 55% |
-| DXY | 46% | 38% (n=29) | 89 | 55% |
-| Bitcoin | 47% | 44% (n=48) | 88 | 54% |
+| S&P 500 | 45% | 37% (n=35) | 94 | 55% |
+| Gold | 46% | 44% (n=62) | 95 | 58% |
+| WTI Oil | 44% | 25% (n=24) | 94 | 55% |
+| 10Y Treasury Yield | 48% | 40% (n=15) | 95 | 55% |
+| DXY | 46% | 37% (n=30) | 95 | 54% |
+| Bitcoin | 47% | 44% (n=48) | 93 | 54% |
 
 ## T+20 (1 month)
 
-**Overall accuracy:** 41%  |  **Directional:** 29%  |  **Reports:** 79
+**Overall accuracy:** 42%  |  **Directional:** 31%  |  **Reports:** 84
 
 | Asset | Accuracy | Directional | n | Avg Confidence |
 |-------|----------|-------------|---|----------------|
-| S&P 500 | 39% | 20% (n=30) | 79 | 55% |
-| Gold | 33% | 24% (n=51) | 79 | 58% |
-| WTI Oil | 40% | 17% (n=23) | 79 | 54% |
-| 10Y Treasury Yield | 54% | 62% (n=24) | 79 | 55% |
-| DXY | 44% | 37% (n=38) | 79 | 55% |
-| Bitcoin | 35% | 24% (n=46) | 78 | 54% |
+| S&P 500 | 41% | 27% (n=33) | 84 | 55% |
+| Gold | 34% | 25% (n=52) | 84 | 58% |
+| WTI Oil | 41% | 17% (n=23) | 84 | 54% |
+| 10Y Treasury Yield | 54% | 64% (n=25) | 84 | 55% |
+| DXY | 44% | 37% (n=38) | 84 | 55% |
+| Bitcoin | 36% | 24% (n=46) | 83 | 54% |
 
 ---
 
@@ -195,40 +195,40 @@ Use this to confirm that structural improvements translate into better predictio
 | DXY | 32% | 0% (n=7) | 20 | 52% |
 | Bitcoin | 35% | 20% (n=10) | 20 | 52% |
 
-### v1.5  (25 scored / 31 total reports in this version)
+### v1.5  (30 scored / 36 total reports in this version)
 
-**T+5 (1 week)** — overall: 49% | directional: 44% | reports: 25
+**T+5 (1 week)** — overall: 51% | directional: 54% | reports: 30
 
 | Asset | Accuracy | Directional | n | Avg Confidence |
 |-------|----------|-------------|---|----------------|
-| S&P 500 | 46% | 38% (n=8) | 25 | 56% |
-| Gold | 50% | 50% (n=10) | 25 | 56% |
+| S&P 500 | 50% | 50% (n=10) | 30 | 56% |
+| Gold | 55% | 62% (n=13) | 30 | 56% |
+| WTI Oil | 52% | 100% (n=1) | 30 | 58% |
+| 10Y Treasury Yield | 52% | 100% (n=1) | 30 | 56% |
+| DXY | 50% | — (n=0) | 30 | 55% |
+| Bitcoin | 45% | 0% (n=3) | 30 | 54% |
+
+**T+10 (2 weeks)** — overall: 51% | directional: 56% | reports: 25
+
+| Asset | Accuracy | Directional | n | Avg Confidence |
+|-------|----------|-------------|---|----------------|
+| S&P 500 | 52% | 56% (n=9) | 25 | 56% |
+| Gold | 56% | 62% (n=13) | 25 | 56% |
 | WTI Oil | 52% | 100% (n=1) | 25 | 58% |
 | 10Y Treasury Yield | 52% | 100% (n=1) | 25 | 56% |
 | DXY | 50% | — (n=0) | 25 | 54% |
 | Bitcoin | 44% | 0% (n=3) | 25 | 55% |
 
-**T+10 (2 weeks)** — overall: 48% | directional: 40% | reports: 20
+**T+20 (1 month)** — overall: 53% | directional: 69% | reports: 15
 
 | Asset | Accuracy | Directional | n | Avg Confidence |
 |-------|----------|-------------|---|----------------|
-| S&P 500 | 48% | 43% (n=7) | 20 | 56% |
-| Gold | 45% | 38% (n=8) | 20 | 56% |
-| WTI Oil | 52% | 100% (n=1) | 20 | 58% |
-| 10Y Treasury Yield | 52% | 100% (n=1) | 20 | 56% |
-| DXY | 50% | — (n=0) | 20 | 55% |
-| Bitcoin | 42% | 0% (n=3) | 20 | 54% |
-
-**T+20 (1 month)** — overall: 51% | directional: 55% | reports: 10
-
-| Asset | Accuracy | Directional | n | Avg Confidence |
-|-------|----------|-------------|---|----------------|
-| S&P 500 | 50% | 50% (n=4) | 10 | 55% |
-| Gold | 45% | 33% (n=3) | 10 | 56% |
-| WTI Oil | 55% | 100% (n=1) | 10 | 57% |
-| 10Y Treasury Yield | 50% | — (n=0) | 10 | 56% |
-| DXY | 55% | 100% (n=1) | 10 | 55% |
-| Bitcoin | 50% | 50% (n=2) | 10 | 53% |
+| S&P 500 | 60% | 71% (n=7) | 15 | 56% |
+| Gold | 50% | 50% (n=4) | 15 | 56% |
+| WTI Oil | 53% | 100% (n=1) | 15 | 58% |
+| 10Y Treasury Yield | 53% | 100% (n=1) | 15 | 56% |
+| DXY | 53% | 100% (n=1) | 15 | 55% |
+| Bitcoin | 50% | 50% (n=2) | 15 | 54% |
 
 ---
 
@@ -239,35 +239,39 @@ Use this to confirm that structural improvements translate into better predictio
 > **Gap** = actual hit-rate − predicted confidence: **+ underconfident**, **− overconfident**.
 > Decisive directional calls only (Neutral / flat excluded — no binary outcome to calibrate).
 
-**Overall (all windows):** Brier **0.273** | BSS -0.178 | ECE 0.205 | base-rate 37% | n=617 — *overconfident*
+**Overall (all windows):** Brier **0.272** | BSS -0.148 | ECE 0.190 | base-rate 38% | n=647 — *overconfident*
 
 **Exogenous A/B (Phase 19 — market vs exogenous):**
 
-- **exogenous**: Brier 0.291 | BSS -0.165 | ECE 0.125 | base-rate 50% | n=2
-- **market**: Brier 0.273 | BSS -0.178 | ECE 0.206 | base-rate 37% | n=615
+- **exogenous**: Brier 0.213 | BSS -0.334 | ECE 0.190 | base-rate 20% | n=5
+- **kimi**: Brier 0.335 | BSS -0.395 | ECE 0.352 | base-rate 60% | n=10
+- **market**: Brier 0.271 | BSS -0.148 | ECE 0.188 | base-rate 38% | n=632
 
-### T+5 (1 week) — Brier 0.266 | BSS -0.084 | ECE 0.137 | n=200 — *overconfident*
-
-| Confidence bin | n | Predicted | Actual | Gap |
-|----------------|---|-----------|--------|-----|
-| 0-50 | 2 | 38% | 50% | +12% (under) |
-| 50-60 | 119 | 54% | 44% | -10% (over) |
-| 60-70 | 75 | 62% | 43% | -19% (over) |
-| 70-80 | 4 | 70% | 50% | -20% (over) |
-
-### T+10 (2 weeks) — Brier 0.271 | BSS -0.154 | ECE 0.206 | n=205 — *overconfident*
+### T+5 (1 week) — Brier 0.268 | BSS -0.080 | ECE 0.130 | n=216 — *overconfident*
 
 | Confidence bin | n | Predicted | Actual | Gap |
 |----------------|---|-----------|--------|-----|
-| 50-60 | 127 | 54% | 34% | -20% (over) |
-| 60-70 | 74 | 62% | 40% | -21% (over) |
+| 0-50 | 3 | 40% | 33% | -7% (over) |
+| 50-60 | 124 | 54% | 46% | -8% (over) |
+| 60-70 | 77 | 62% | 43% | -19% (over) |
+| 70-80 | 5 | 71% | 60% | -11% (over) |
+| 80-90 | 1 | 83% | 100% | +17% (under) |
+| 90-100 | 6 | 96% | 50% | -46% (over) |
+
+### T+10 (2 weeks) — Brier 0.267 | BSS -0.119 | ECE 0.187 | n=214 — *overconfident*
+
+| Confidence bin | n | Predicted | Actual | Gap |
+|----------------|---|-----------|--------|-----|
+| 0-50 | 2 | 38% | 0% | -38% (over) |
+| 50-60 | 132 | 54% | 36% | -17% (over) |
+| 60-70 | 76 | 62% | 42% | -20% (over) |
 | 70-80 | 4 | 70% | 100% | +30% (under) |
 
-### T+20 (1 month) — Brier 0.283 | BSS -0.366 | ECE 0.280 | n=212 — *overconfident*
+### T+20 (1 month) — Brier 0.281 | BSS -0.316 | ECE 0.264 | n=217 — *overconfident*
 
 | Confidence bin | n | Predicted | Actual | Gap |
 |----------------|---|-----------|--------|-----|
-| 50-60 | 127 | 54% | 28% | -26% (over) |
+| 50-60 | 132 | 54% | 30% | -24% (over) |
 | 60-70 | 80 | 62% | 30% | -32% (over) |
 | 70-80 | 5 | 70% | 60% | -10% (over) |
 
@@ -280,10 +284,10 @@ Use this to confirm that structural improvements translate into better predictio
 
 | Arm | n resolved | commit-rate | wrong-dec | right-dec | net edge | hit-rate\|decisive |
 |-----|-----------:|------------:|----------:|----------:|---------:|-------------------:|
-| baseline | 1242 | 56% | 29% | 16% | -0.128 | 36% (n=563) |
-| loosened | 330 | 20% | 9% | 7% | -0.018 | 44% (n=54) |
+| baseline | 1278 | 56% | 29% | 16% | -0.125 | 36% (n=576) |
+| loosened | 420 | 20% | 7% | 10% | +0.026 | 58% (n=71) |
 
-Loosened vs baseline: commit-rate -36%, wrong-decisive -20%, net edge +0.110 — _loosened commits less **and** bleeds less — the thesis holds so far._
+Loosened vs baseline: commit-rate -36%, wrong-decisive -22%, net edge +0.151 — _loosened commits less **and** bleeds less — the thesis holds so far._
 
 > Directional read only — small loosened n. Confirm with the decisive-only Brier A/B above once it reaches n≥30.
 

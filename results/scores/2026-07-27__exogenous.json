@@ -7,7 +7,7 @@
   "model": "unknown",
   "base_rate_first": "unknown",
   "prune_rules": "unknown",
-  "scored_at": "2026-08-10",
+  "scored_at": "2026-08-17",
   "windows": {
     "t5": {
       "eval_date": "2026-08-03",
@@ -43,6 +43,42 @@
       "summary": {
         "n_scored": 3,
         "accuracy": 0.5
+      }
+    },
+    "t10": {
+      "eval_date": "2026-08-10",
+      "assets": {
+        "10Y Treasury Yield": {
+          "bias": "Bullish",
+          "confidence": 45,
+          "entry_price": 4.641,
+          "eval_price": 4.699,
+          "eval_date": "2026-08-10",
+          "pct_change": 1.25,
+          "score": 0.5
+        },
+        "DXY": {
+          "bias": "Bullish",
+          "confidence": 40,
+          "entry_price": 101.51,
+          "eval_price": 99.81,
+          "eval_date": "2026-08-10",
+          "pct_change": -1.675,
+          "score": 0.0
+        },
+        "Gold": {
+          "bias": "Bearish",
+          "confidence": 35,
+          "entry_price": 4074.5,
+          "eval_price": 4361.7998,
+          "eval_date": "2026-08-10",
+          "pct_change": 7.051,
+          "score": 0.0
+        }
+      },
+      "summary": {
+        "n_scored": 3,
+        "accuracy": 0.167
       }
     }
   }
