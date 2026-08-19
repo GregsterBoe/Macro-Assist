@@ -2,7 +2,7 @@
   "arm": "kimi",
   "base_ccy": "USD",
   "starting_nav": 100000.0,
-  "cash": 132295.65390181498,
+  "cash": 128155.89158825726,
   "instruments": {
     "S&P 500": {
       "name": "S&P 500",
@@ -35,23 +35,23 @@
   },
   "positions": {
     "10Y (IEF)": {
-      "shares": -375.1516648769864,
-      "avg_px": 93.29560089111328,
+      "shares": -374.91049391733395,
+      "avg_px": 93.28500366210938,
       "sleeve": "macro"
     },
     "Bitcoin": {
-      "shares": -0.07396357337563877,
-      "avg_px": 68167.6171875,
+      "shares": -0.07140653062880692,
+      "avg_px": 68347.5,
       "sleeve": "macro"
     },
     "Gold": {
-      "shares": 5.3859397897377885,
-      "avg_px": 4556.0,
+      "shares": 6.248084609090176,
+      "avg_px": 4561.60009765625,
       "sleeve": "macro"
     },
     "S&P 500": {
-      "shares": -2.1878111436062055,
-      "avg_px": 7717.1298828125,
+      "shares": -2.1871307138264866,
+      "avg_px": 7719.3798828125,
       "sleeve": "macro"
     }
   },
@@ -63,6 +63,14 @@
       "gross": 0.8154,
       "net": -0.3242,
       "note": "regime_gate=1.000 (no live regime \u2014 gate=1.0)"
+    },
+    {
+      "date": "2026-08-19",
+      "nav": 99919.88,
+      "cash": 128155.89,
+      "gross": 0.8531,
+      "net": -0.2826,
+      "note": "regime_gate=1.000"
     }
   ],
   "decision_log": [
@@ -112,6 +120,53 @@
         }
       },
       "note": "regime_gate=1.000 (no live regime \u2014 gate=1.0)"
+    },
+    {
+      "as_of": "2026-08-19",
+      "nav_before": 99924.36,
+      "nav_after": 99919.88,
+      "regime_gate": 1.0,
+      "targets": {
+        "S&P 500": -0.16896072637485915,
+        "Gold": 0.2852283738683496,
+        "Bitcoin": -0.048841521134464994,
+        "10Y (IEF)": -0.35
+      },
+      "trades": {
+        "10Y (IEF)": {
+          "from_shares": -375.151665,
+          "to_shares": -374.910494,
+          "px": 93.28500366210938,
+          "traded_notional": 22.5,
+          "cost": 0.02,
+          "target_w": -0.35
+        },
+        "Bitcoin": {
+          "from_shares": -0.073964,
+          "to_shares": -0.071407,
+          "px": 68347.5,
+          "traded_notional": 174.77,
+          "cost": 0.52,
+          "target_w": -0.048841521134464994
+        },
+        "Gold": {
+          "from_shares": 5.38594,
+          "to_shares": 6.248085,
+          "px": 4561.60009765625,
+          "traded_notional": 3932.76,
+          "cost": 3.93,
+          "target_w": 0.2852283738683496
+        },
+        "S&P 500": {
+          "from_shares": -2.187811,
+          "to_shares": -2.187131,
+          "px": 7719.3798828125,
+          "traded_notional": 5.25,
+          "cost": 0.01,
+          "target_w": -0.16896072637485915
+        }
+      },
+      "note": "regime_gate=1.000"
     }
   ]
 }

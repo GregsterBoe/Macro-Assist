@@ -2,7 +2,7 @@
   "arm": "market",
   "base_ccy": "USD",
   "starting_nav": 100000.0,
-  "cash": 64965.0,
+  "cash": 65010.66628828399,
   "instruments": {
     "S&P 500": {
       "name": "S&P 500",
@@ -35,8 +35,8 @@
   },
   "positions": {
     "Gold": {
-      "shares": 7.683358176334356,
-      "avg_px": 4555.2998046875,
+      "shares": 7.673338009678444,
+      "avg_px": 4562.0,
       "sleeve": "macro"
     }
   },
@@ -48,6 +48,14 @@
       "gross": 0.3501,
       "net": 0.3501,
       "note": "regime_gate=1.000 (no live regime \u2014 gate=1.0)"
+    },
+    {
+      "date": "2026-08-19",
+      "nav": 100016.43,
+      "cash": 65010.67,
+      "gross": 0.35,
+      "net": 0.35,
+      "note": "regime_gate=1.000"
     }
   ],
   "decision_log": [
@@ -70,6 +78,26 @@
         }
       },
       "note": "regime_gate=1.000 (no live regime \u2014 gate=1.0)"
+    },
+    {
+      "as_of": "2026-08-19",
+      "nav_before": 100016.48,
+      "nav_after": 100016.43,
+      "regime_gate": 1.0,
+      "targets": {
+        "Gold": 0.35
+      },
+      "trades": {
+        "Gold": {
+          "from_shares": 7.683358,
+          "to_shares": 7.673338,
+          "px": 4562.0,
+          "traded_notional": 45.71,
+          "cost": 0.05,
+          "target_w": 0.35
+        }
+      },
+      "note": "regime_gate=1.000"
     }
   ]
 }
