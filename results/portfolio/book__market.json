@@ -35,8 +35,8 @@
   },
   "positions": {
     "Gold": {
-      "shares": 7.68774540349402,
-      "avg_px": 4552.7001953125,
+      "shares": 7.683358176334356,
+      "avg_px": 4555.2998046875,
       "sleeve": "macro"
     }
   },
@@ -47,7 +47,7 @@
       "cash": 64965.0,
       "gross": 0.3501,
       "net": 0.3501,
-      "note": "regime_gate=1.000"
+      "note": "regime_gate=1.000 (no live regime \u2014 gate=1.0)"
     }
   ],
   "decision_log": [
@@ -62,14 +62,14 @@
       "trades": {
         "Gold": {
           "from_shares": 0.0,
-          "to_shares": 7.687745,
-          "px": 4552.7001953125,
+          "to_shares": 7.683358,
+          "px": 4555.2998046875,
           "traded_notional": 35000.0,
           "cost": 35.0,
           "target_w": 0.35
         }
       },
-      "note": "regime_gate=1.000"
+      "note": "regime_gate=1.000 (no live regime \u2014 gate=1.0)"
     }
   ]
 }

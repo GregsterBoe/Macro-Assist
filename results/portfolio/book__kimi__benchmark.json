@@ -2,7 +2,7 @@
   "arm": "kimi-benchmark",
   "base_ccy": "USD",
   "starting_nav": 100000.0,
-  "cash": -111.13826855867208,
+  "cash": -111.37527422937399,
   "instruments": {
     "S&P 500": {
       "name": "S&P 500",
@@ -35,31 +35,31 @@
   },
   "positions": {
     "10Y (IEF)": {
-      "shares": 543.3641030635544,
-      "avg_px": 93.28900146484375,
+      "shares": 540.5005918097713,
+      "avg_px": 93.29560089111328,
       "sleeve": "macro"
     },
     "Bitcoin": {
-      "shares": 0.08146757547423394,
-      "avg_px": 68360.1328125,
+      "shares": 0.08343605584808292,
+      "avg_px": 68167.6171875,
       "sleeve": "macro"
     },
     "Gold": {
-      "shares": 4.713600246902198,
-      "avg_px": 4553.0,
+      "shares": 4.953028321859444,
+      "avg_px": 4556.0,
       "sleeve": "macro"
     },
     "S&P 500": {
-      "shares": 2.886935017448537,
-      "avg_px": 7717.509765625,
+      "shares": 2.7626901036757423,
+      "avg_px": 7717.1298828125,
       "sleeve": "macro"
     }
   },
   "nav_history": [
     {
       "date": "2026-08-19",
-      "nav": 99888.86,
-      "cash": -111.14,
+      "nav": 99888.62,
+      "cash": -111.38,
       "gross": 1.0011,
       "net": 1.0011,
       "note": "benchmark init (equal-vol)"
@@ -69,46 +69,46 @@
     {
       "as_of": "2026-08-19",
       "nav_before": 100000.0,
-      "nav_after": 99888.86,
+      "nav_after": 99888.62,
       "regime_gate": null,
       "targets": {
-        "S&P 500": 0.22279949189883863,
-        "Gold": 0.21461021924145707,
-        "Bitcoin": 0.055691342793310006,
-        "10Y (IEF)": 0.5068989460663943
+        "S&P 500": 0.21320038356026433,
+        "Gold": 0.22565997034391624,
+        "Bitcoin": 0.05687637114686987,
+        "10Y (IEF)": 0.5042632749489496
       },
       "trades": {
         "10Y (IEF)": {
           "from_shares": 0.0,
-          "to_shares": 543.364103,
-          "px": 93.28900146484375,
-          "traded_notional": 50689.89,
-          "cost": 50.69,
-          "target_w": 0.5068989460663943
+          "to_shares": 540.500592,
+          "px": 93.29560089111328,
+          "traded_notional": 50426.33,
+          "cost": 50.43,
+          "target_w": 0.5042632749489496
         },
         "Bitcoin": {
           "from_shares": 0.0,
-          "to_shares": 0.081468,
-          "px": 68360.1328125,
-          "traded_notional": 5569.13,
-          "cost": 16.71,
-          "target_w": 0.055691342793310006
+          "to_shares": 0.083436,
+          "px": 68167.6171875,
+          "traded_notional": 5687.64,
+          "cost": 17.06,
+          "target_w": 0.05687637114686987
         },
         "Gold": {
           "from_shares": 0.0,
-          "to_shares": 4.7136,
-          "px": 4553.0,
-          "traded_notional": 21461.02,
-          "cost": 21.46,
-          "target_w": 0.21461021924145707
+          "to_shares": 4.953028,
+          "px": 4556.0,
+          "traded_notional": 22566.0,
+          "cost": 22.57,
+          "target_w": 0.22565997034391624
         },
         "S&P 500": {
           "from_shares": 0.0,
-          "to_shares": 2.886935,
-          "px": 7717.509765625,
-          "traded_notional": 22279.95,
-          "cost": 22.28,
-          "target_w": 0.22279949189883863
+          "to_shares": 2.76269,
+          "px": 7717.1298828125,
+          "traded_notional": 21320.04,
+          "cost": 21.32,
+          "target_w": 0.21320038356026433
         }
       },
       "note": "benchmark init (equal-vol)"

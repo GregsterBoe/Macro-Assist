@@ -21,8 +21,11 @@ from portfolio.rebalance import (
     build_asset_signals,
     conditional_sigma_annual,
     equal_vol_weights,
+    find_note,
     format_report,
+    note_arm,
     parse_note_signals,
+    sizing_config_for,
     v1_instruments,
 )
 
@@ -149,6 +152,68 @@ def test_live_regime_degrades_to_none_without_fred_key(monkeypatch):
 
     monkeypatch.delenv("FRED_API_KEY", raising=False)
     assert R.live_regime(date(2026, 8, 19)) is None
+
+
+# A kimi note: ensemble-vote drivers, no conditional bands (the real format).
+KIMI_NOTE = """\
+---
+date: 2026-08-19
+arm: kimi
+---
+### 5-Day Predictions
+
+| Asset | Bias | Driver | Confidence | Target |
+| --- | --- | --- | --- | --- |
+| S&P 500 | Bearish | ensemble n=12 votes Bear×8 (agreement 67%) | 67% | directional |
+| Gold | Bullish | ensemble n=12 votes Bull×11 (agreement 92%) | 92% | directional |
+| 10Y Treasury Yield | Bullish | ensemble n=12 votes Bull×12 (agreement 100%) | 100% | directional |
+| Bitcoin | Bearish | ensemble n=12 votes Bear×9 (agreement 75%) | 75% | directional |
+
+Review date: 2026-08-24
+"""
+
+
+# ---------------------------------------------------------------------------
+# Arm routing (regression: exogenous must not borrow the market note)
+# ---------------------------------------------------------------------------
+def test_note_arm_from_frontmatter():
+    assert note_arm(KIMI_NOTE) == "kimi"
+    assert note_arm(NOTE) == "market"           # no frontmatter -> market
+    assert note_arm("---\narm: exogenous\n---\nx") == "exogenous"
+
+
+def test_find_note_matches_arm_and_skips_when_absent(tmp_path):
+    (tmp_path / "2026-08-19-Wednesday-macro.md").write_text(NOTE)
+    (tmp_path / "2026-08-19-kimi-macro.md").write_text(KIMI_NOTE)
+    assert find_note(date(2026, 8, 19), "market", tmp_path).name.endswith("Wednesday-macro.md")
+    assert find_note(date(2026, 8, 19), "kimi", tmp_path).name.endswith("kimi-macro.md")
+    # No exogenous note exists -> skip, never fall back to another arm's note.
+    assert find_note(date(2026, 8, 19), "exogenous", tmp_path) is None
+
+
+# ---------------------------------------------------------------------------
+# Kimi arm: ensemble confidence, no conditional band -> must still trade
+# ---------------------------------------------------------------------------
+def test_kimi_arm_sizes_without_conditional_bands():
+    signals = build_asset_signals(parse_note_signals(KIMI_NOTE), HAR)
+    book, bench = _fresh_books()
+    rec = advance_books(date(2026, 8, 19), "kimi", signals, PRICES, book, bench,
+                        har_sigmas=HAR, cfg=sizing_config_for("kimi"))
+    # With require_distribution=False the kimi book actually takes positions.
+    assert book.positions, "kimi book should not be inert"
+    # Bearish S&P -> short; Bullish 10Y -> short the bond proxy (invert).
+    assert rec["targets"]["S&P 500"]["weight"] < 0
+    assert rec["targets"]["Gold"]["weight"] > 0
+    assert rec["targets"]["10Y (IEF)"]["weight"] < 0
+
+
+def test_market_arm_still_abstains_without_band():
+    # Regression: the default config must NOT size band-less calls.
+    signals = build_asset_signals(parse_note_signals(KIMI_NOTE), HAR)
+    book, bench = _fresh_books()
+    advance_books(date(2026, 8, 19), "market", signals, PRICES, book, bench,
+                  har_sigmas=HAR, cfg=sizing_config_for("market"))
+    assert not book.positions  # all abstain: no conditional band under default cfg
 
 
 def test_format_report_renders_table():
