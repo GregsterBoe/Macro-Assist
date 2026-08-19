@@ -1,6 +1,6 @@
 # Prediction Accuracy Report
 
-*Generated: 2026-08-17 | Reports scored: 106 | Feedback-loop reports (v0.3+): 83*
+*Generated: 2026-08-19 | Reports scored: 106 | Feedback-loop reports (v0.3+): 83*
 
 > Accuracy scale: 0% = always wrong, 50% = random, 100% = always right.
 > **Directional accuracy** excludes flat moves and Neutral calls — it is the
@@ -195,7 +195,7 @@ Use this to confirm that structural improvements translate into better predictio
 | DXY | 32% | 0% (n=7) | 20 | 52% |
 | Bitcoin | 35% | 20% (n=10) | 20 | 52% |
 
-### v1.5  (30 scored / 36 total reports in this version)
+### v1.5  (30 scored / 38 total reports in this version)
 
 **T+5 (1 week)** — overall: 51% | directional: 54% | reports: 30
 
@@ -280,14 +280,16 @@ Use this to confirm that structural improvements translate into better predictio
 ## Commitment — does the loosened arm commit *less* and *better*? *(WP-16.B.1 reframe)*
 
 > KB-007: decisive calls are below chance, so the loosened arm (floor off) aims to **commit less**. This scores the commitment decision over *all* resolved calls (usable at low n, unlike the decisive-only Brier).
-> **commit-rate** = calls made directional (not Neutral). **wrong/right-decisive** = per resolved call, a commitment that resolved wrong/right. **net edge** = right − wrong per call (KB-007 baseline < 0; higher is better).
+> **commit-rate** = calls made directional (not Neutral). **bull / bear** = share of *all* resolved calls made Bullish / Bearish. **bear-share** = bearish ÷ directional (~50% = symmetric; near 0 = a one-sided 'long or abstain' book that cannot call a decline — looks calibrated only while markets rise). **wrong/right-decisive** = per resolved call, a commitment that resolved wrong/right. **net edge** = right − wrong per call (KB-007 baseline < 0; higher is better).
 
-| Arm | n resolved | commit-rate | wrong-dec | right-dec | net edge | hit-rate\|decisive |
-|-----|-----------:|------------:|----------:|----------:|---------:|-------------------:|
-| baseline | 1278 | 56% | 29% | 16% | -0.125 | 36% (n=576) |
-| loosened | 420 | 20% | 7% | 10% | +0.026 | 58% (n=71) |
+| Arm | n resolved | commit-rate | bull | bear | bear-share | wrong-dec | right-dec | net edge | hit-rate\|decisive |
+|-----|-----------:|------------:|-----:|-----:|-----------:|----------:|----------:|---------:|-------------------:|
+| baseline | 1278 | 56% | 30% | 26% | 47% | 29% | 16% | -0.125 | 36% (n=576) |
+| loosened | 420 | 20% | 19% | 1% | 7% | 7% | 10% | +0.026 | 58% (n=71) |
 
 Loosened vs baseline: commit-rate -36%, wrong-decisive -22%, net edge +0.151 — _loosened commits less **and** bleeds less — the thesis holds so far._
+
+> ⚠️ **One-sided book**: only 7% of the loosened arm's 85 directional calls were Bearish (6 bear / 79 bull). It abstains from the downside rather than calling it, so any decisive hit-rate is inflated by a rising-market regime and untested against a drawdown. The target arm is abstain-capable **and** symmetric — watch bear-share into the next risk-off.
 
 > Directional read only — small loosened n. Confirm with the decisive-only Brier A/B above once it reaches n≥30.
 
