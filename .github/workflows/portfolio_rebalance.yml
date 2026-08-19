@@ -1,0 +1,71 @@
+name: Weekly Paper-Portfolio Rebalance
+
+# Phase 20 (WP-20.D). Advances each arm's virtual book + its buy-and-hold
+# benchmark from the week's committed macro note, then commits the ledger JSON
+# and a short report. Purely downstream of the prediction pipeline — it only
+# *reads* notes, never alters them. Soft-kill = disable/delete this workflow.
+
+on:
+  schedule:
+    # Mondays at 07:45 UTC — after the daily note (06:30) and the weekly
+    # scoring job (07:15), so the week's predictions are committed first.
+    - cron: "45 7 * * 1"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Rebalance date (YYYY-MM-DD); blank = today (UTC)"
+        required: false
+        default: ""
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  rebalance:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Macro-Assist
+        uses: actions/checkout@v4
+        with:
+          path: macro-assist
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: macro-assist/.macro-assist/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r macro-assist/.macro-assist/requirements.txt
+
+      - name: Rebalance paper books (per arm)
+        working-directory: macro-assist/.macro-assist
+        env:
+          # Used only by the regime gate; absent ⇒ gate degrades to 1.0, never fails.
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: |
+          set -e
+          DATE_ARG="${{ github.event.inputs.date }}"
+          DATE_FLAG=""
+          if [ -n "$DATE_ARG" ]; then DATE_FLAG="--date $DATE_ARG"; fi
+          # Each arm skips gracefully if it has no note for the date.
+          for ARM in market exogenous kimi; do
+            echo "=== rebalancing arm: $ARM ==="
+            python -m portfolio.rebalance --arm "$ARM" $DATE_FLAG
+          done
+
+      - name: Commit ledgers & reports
+        run: |
+          set -e
+          cd macro-assist
+          git config user.name  "macro-assist[bot]"
+          git config user.email "macro-assist[bot]@users.noreply.github.com"
+          git pull --rebase --autostash origin "$(git rev-parse --abbrev-ref HEAD)"
+          git add results/portfolio/
+          git diff --cached --quiet || git commit -m "portfolio: $(date -u +%Y-%m-%d) weekly rebalance"
+          git push origin HEAD
