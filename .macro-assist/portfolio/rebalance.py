@@ -435,9 +435,22 @@ def _load_or_init(path: Path, arm: str) -> Book:
     return book
 
 
-def run(asof: date, arm: str = "market", portfolio_dir: Path = PORTFOLIO_DIR) -> Optional[dict]:
+def already_rebalanced(book: Book, asof: date) -> bool:
+    """True if the book's decision log already has a rebalance for `asof` — the
+    guard that keeps `run()` idempotent (a re-run or CI retry must not double-stamp
+    the same weekly signal onto the NAV series)."""
+    return any(r.get("as_of") == asof.isoformat() for r in book.decision_log)
+
+
+def run(
+    asof: date,
+    arm: str = "market",
+    portfolio_dir: Path = PORTFOLIO_DIR,
+    force: bool = False,
+) -> Optional[dict]:
     """Live weekly rebalance for one arm: read the note, fetch prices, size,
-    advance the book + benchmark, and persist ledger + report."""
+    advance the book + benchmark, and persist ledger + report. Idempotent per
+    (date, arm) unless `force=True`."""
     note_path = find_note(asof, arm)
     if note_path is None:
         print(f"No macro note found for {asof} / arm={arm}; skipping.")
@@ -447,6 +460,16 @@ def run(asof: date, arm: str = "market", portfolio_dir: Path = PORTFOLIO_DIR) ->
         print(f"No predictions table in {note_path.name}; skipping.")
         return None
 
+    book_path = portfolio_dir / f"book__{arm}.json"
+    bench_path = portfolio_dir / f"book__{arm}__benchmark.json"
+    book = _load_or_init(book_path, arm)
+    bench = _load_or_init(bench_path, f"{arm}-benchmark")
+
+    # Idempotency: skip a date the book has already booked (before any network).
+    if already_rebalanced(book, asof) and not force:
+        print(f"{arm} book already rebalanced for {asof}; skipping (use --force to redo).")
+        return None
+
     prices, har = fetch_prices_and_har(asof)
     if not prices:
         print("No prices fetched; skipping rebalance.")
@@ -454,11 +477,6 @@ def run(asof: date, arm: str = "market", portfolio_dir: Path = PORTFOLIO_DIR) ->
 
     signals = build_asset_signals(note_signals, har)
     regime = live_regime(asof)
-
-    book_path = portfolio_dir / f"book__{arm}.json"
-    bench_path = portfolio_dir / f"book__{arm}__benchmark.json"
-    book = _load_or_init(book_path, arm)
-    bench = _load_or_init(bench_path, f"{arm}-benchmark")
 
     record = advance_books(
         asof, arm, signals, prices, book, bench,
@@ -483,8 +501,10 @@ def main(argv: Optional[list[str]] = None) -> None:
     p.add_argument("--date", type=date.fromisoformat, default=date.today(),
                    help="Rebalance date (YYYY-MM-DD); default today.")
     p.add_argument("--arm", default="market", choices=["market", "exogenous", "kimi"])
+    p.add_argument("--force", action="store_true",
+                   help="Redo a date already booked (overrides the idempotency guard).")
     args = p.parse_args(argv)
-    run(args.date, args.arm)
+    run(args.date, args.arm, force=args.force)
 
 
 if __name__ == "__main__":

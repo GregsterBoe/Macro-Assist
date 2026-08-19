@@ -18,6 +18,7 @@ import pytest
 from portfolio.book import Book
 from portfolio.rebalance import (
     advance_books,
+    already_rebalanced,
     build_asset_signals,
     conditional_sigma_annual,
     equal_vol_weights,
@@ -214,6 +215,16 @@ def test_market_arm_still_abstains_without_band():
     advance_books(date(2026, 8, 19), "market", signals, PRICES, book, bench,
                   har_sigmas=HAR, cfg=sizing_config_for("market"))
     assert not book.positions  # all abstain: no conditional band under default cfg
+
+
+def test_already_rebalanced_guards_the_date():
+    signals = build_asset_signals(parse_note_signals(NOTE), HAR)
+    book, bench = _fresh_books()
+    assert already_rebalanced(book, date(2026, 8, 19)) is False
+    advance_books(date(2026, 8, 19), "market", signals, PRICES, book, bench, har_sigmas=HAR)
+    # After booking that date, the guard reports it as done (⇒ run() would skip).
+    assert already_rebalanced(book, date(2026, 8, 19)) is True
+    assert already_rebalanced(book, date(2026, 8, 26)) is False
 
 
 def test_format_report_renders_table():
