@@ -314,6 +314,7 @@ def calibration_by_arm(scores: list[dict]) -> dict:
 def commitment_stats(scores: list[dict]) -> dict | None:
     """Aggregate commitment quality over every *resolved* call (score not None)."""
     total = neutral = directional = wrong = right = flat_outcome = 0
+    bullish = bearish = 0
     for report in scores:
         for window in WINDOWS:
             wdata = report.get("windows", {}).get(window)
@@ -329,6 +330,8 @@ def commitment_stats(scores: list[dict]) -> dict | None:
                     neutral += 1
                 elif bias in ("bullish", "bearish"):
                     directional += 1
+                    bullish += int(bias == "bullish")
+                    bearish += int(bias == "bearish")
                     if score == 1.0:
                         right += 1
                     elif score == 0.0:
@@ -350,6 +353,12 @@ def commitment_stats(scores: list[dict]) -> dict | None:
         "n_resolved":             total,
         "commitment_rate":        round(directional / total, 3),
         "neutral_rate":           round(neutral / total, 3),
+        "bullish_rate":           round(bullish / total, 3),
+        "bearish_rate":           round(bearish / total, 3),
+        # Directional symmetry: share of committed calls that were bearish.
+        # ~0.5 = symmetric; near 0 = a one-sided "long or abstain" book that
+        # cannot call a decline (looks calibrated only while markets rise).
+        "bearish_share_of_directional": round(bearish / directional, 3) if directional else None,
         "decisive_rate":          round(decisive / total, 3),
         "wrong_decisive_rate":    round(wrong / total, 3),
         "right_decisive_rate":    round(right / total, 3),
@@ -357,6 +366,8 @@ def commitment_stats(scores: list[dict]) -> dict | None:
         "hit_rate_when_decisive": round(right / decisive, 3) if decisive else None,
         "n_decisive":             decisive,
         "n_directional":          directional,
+        "n_bullish":              bullish,
+        "n_bearish":              bearish,
     }
 
 
@@ -539,19 +550,28 @@ def _commitment_md_lines(by_arm: dict) -> list[str]:
         "aims to **commit less**. This scores the commitment decision over *all* resolved "
         "calls (usable at low n, unlike the decisive-only Brier).",
         "> **commit-rate** = calls made directional (not Neutral). "
+        "**bull / bear** = share of *all* resolved calls made Bullish / Bearish. "
+        "**bear-share** = bearish ÷ directional (~50% = symmetric; near 0 = a one-sided "
+        "'long or abstain' book that cannot call a decline — looks calibrated only while "
+        "markets rise). "
         "**wrong/right-decisive** = per resolved call, a commitment that resolved wrong/right. "
         "**net edge** = right − wrong per call (KB-007 baseline < 0; higher is better).",
         "",
-        "| Arm | n resolved | commit-rate | wrong-dec | right-dec | net edge | hit-rate\\|decisive |",
-        "|-----|-----------:|------------:|----------:|----------:|---------:|-------------------:|",
+        "| Arm | n resolved | commit-rate | bull | bear | bear-share | wrong-dec | right-dec | net edge | hit-rate\\|decisive |",
+        "|-----|-----------:|------------:|-----:|-----:|-----------:|----------:|----------:|---------:|-------------------:|",
     ]
     for arm in ("baseline", "loosened"):
         c = by_arm.get(arm)
         if not c:
             continue
         hr = f"{c['hit_rate_when_decisive']:.0%}" if c["hit_rate_when_decisive"] is not None else "n/a"
+        bs = (
+            f"{c['bearish_share_of_directional']:.0%}"
+            if c.get("bearish_share_of_directional") is not None else "n/a"
+        )
         lines.append(
             f"| {arm} | {c['n_resolved']} | {c['commitment_rate']:.0%} | "
+            f"{c.get('bullish_rate', 0):.0%} | {c.get('bearish_rate', 0):.0%} | {bs} | "
             f"{c['wrong_decisive_rate']:.0%} | {c['right_decisive_rate']:.0%} | "
             f"{c['net_decisive_edge']:+.3f} | {hr} (n={c['n_decisive']}) |"
         )
@@ -573,6 +593,19 @@ def _commitment_md_lines(by_arm: dict) -> list[str]:
             f"Loosened vs baseline: commit-rate {commit_delta:+.0%}, "
             f"wrong-decisive {wrong_delta:+.0%}, net edge {edge_delta:+.3f} — _{verdict}._",
             "",
+        ]
+        l_bear_share = l.get("bearish_share_of_directional")
+        if l_bear_share is not None and l["n_directional"] >= 10 and l_bear_share < 0.15:
+            lines += [
+                f"> ⚠️ **One-sided book**: only {l_bear_share:.0%} of the loosened arm's "
+                f"{l['n_directional']} directional calls were Bearish "
+                f"({l['n_bearish']} bear / {l['n_bullish']} bull). It abstains from the "
+                "downside rather than calling it, so any decisive hit-rate is inflated by "
+                "a rising-market regime and untested against a drawdown. The target arm is "
+                "abstain-capable **and** symmetric — watch bear-share into the next risk-off.",
+                "",
+            ]
+        lines += [
             "> Directional read only — small loosened n. Confirm with the decisive-only "
             "Brier A/B above once it reaches n≥30.",
             "",

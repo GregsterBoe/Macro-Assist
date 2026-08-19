@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-17",
+  "generated_at": "2026-08-19",
   "n_reports_total": 106,
   "windows": {
     "t5": {
@@ -915,7 +915,7 @@
       }
     },
     "v1.5": {
-      "n_reports_in_pipeline": 36,
+      "n_reports_in_pipeline": 38,
       "n_reports_scored": 30,
       "windows": {
         "t5": {
@@ -1477,25 +1477,35 @@
       "n_resolved": 1278,
       "commitment_rate": 0.559,
       "neutral_rate": 0.441,
+      "bullish_rate": 0.296,
+      "bearish_rate": 0.264,
+      "bearish_share_of_directional": 0.471,
       "decisive_rate": 0.451,
       "wrong_decisive_rate": 0.288,
       "right_decisive_rate": 0.163,
       "net_decisive_edge": -0.125,
       "hit_rate_when_decisive": 0.361,
       "n_decisive": 576,
-      "n_directional": 715
+      "n_directional": 715,
+      "n_bullish": 378,
+      "n_bearish": 337
     },
     "loosened": {
       "n_resolved": 420,
       "commitment_rate": 0.202,
       "neutral_rate": 0.798,
+      "bullish_rate": 0.188,
+      "bearish_rate": 0.014,
+      "bearish_share_of_directional": 0.071,
       "decisive_rate": 0.169,
       "wrong_decisive_rate": 0.071,
       "right_decisive_rate": 0.098,
       "net_decisive_edge": 0.026,
       "hit_rate_when_decisive": 0.577,
       "n_decisive": 71,
-      "n_directional": 85
+      "n_directional": 85,
+      "n_bullish": 79,
+      "n_bearish": 6
     }
   },
   "_note": "accuracy is on a 0-1 scale where 0.5 = random (coin-flip). directional_acc excludes flat moves and Neutral calls - it measures signal quality on clear directional bets. feedback_windows includes only reports from v0.3+ (adversarial review era) and is used by the daily bias override logic. version_windows shows per-version stats for the 5 most recent pipeline versions. calibration (WP-16.B.2) scores stated confidence as a probability forecast: brier (lower=better, 0=perfect), brier_skill_score (>0 beats the base-rate forecast), ece (expected calibration error), and reliability bins (gap>0 underconfident, <0 overconfident); decisive directional calls only. calibration_feedback restricts to MIN_FEEDBACK_VERSION+."
