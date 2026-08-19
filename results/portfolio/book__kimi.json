@@ -1,0 +1,58 @@
+{
+  "arm": "kimi",
+  "base_ccy": "USD",
+  "starting_nav": 100000.0,
+  "cash": 100000.0,
+  "instruments": {
+    "S&P 500": {
+      "name": "S&P 500",
+      "ticker": "^GSPC",
+      "asset_class": "equity",
+      "currency": "USD",
+      "cost_bps": 10.0
+    },
+    "Gold": {
+      "name": "Gold",
+      "ticker": "GC=F",
+      "asset_class": "commodity",
+      "currency": "USD",
+      "cost_bps": 10.0
+    },
+    "Bitcoin": {
+      "name": "Bitcoin",
+      "ticker": "BTC-USD",
+      "asset_class": "crypto",
+      "currency": "USD",
+      "cost_bps": 30.0
+    },
+    "10Y (IEF)": {
+      "name": "10Y (IEF)",
+      "ticker": "IEF",
+      "asset_class": "bond",
+      "currency": "USD",
+      "cost_bps": 10.0
+    }
+  },
+  "positions": {},
+  "nav_history": [
+    {
+      "date": "2026-08-19",
+      "nav": 100000.0,
+      "cash": 100000.0,
+      "gross": 0.0,
+      "net": 0.0,
+      "note": "regime_gate=1.000"
+    }
+  ],
+  "decision_log": [
+    {
+      "as_of": "2026-08-19",
+      "nav_before": 100000.0,
+      "nav_after": 100000.0,
+      "regime_gate": 1.0,
+      "targets": {},
+      "trades": {},
+      "note": "regime_gate=1.000"
+    }
+  ]
+}
