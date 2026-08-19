@@ -61,6 +61,18 @@ TRADING_DAYS = 252
 IQR_TO_SIGMA = 1.349  # p75 − p25 = 1.349σ for a normal
 
 
+def sizing_config_for(arm: str) -> SizingConfig:
+    """Per-arm sizing config. The **kimi** arm is the ensemble-confidence
+    experiment: its notes carry ensemble-agreement (not conditional base rates),
+    so it sizes off direction + HAR vol + agreement-as-confidence with
+    `require_distribution=False` — otherwise every kimi call would abstain and the
+    arm would never trade. Market / exogenous keep the conservative default
+    (abstain without a measurable distribution)."""
+    if arm == "kimi":
+        return SizingConfig(horizon=HORIZON, require_distribution=False)
+    return SizingConfig(horizon=HORIZON)
+
+
 @dataclass(frozen=True)
 class InstrumentMap:
     """Maps a predicted asset (note key) onto a tradeable book instrument."""
@@ -321,19 +333,27 @@ def format_report(record: dict) -> str:
 # ---------------------------------------------------------------------------
 # Live layer (lazy imports; the only network / model-touching code)
 # ---------------------------------------------------------------------------
+def note_arm(text: str) -> str:
+    """The arm a note belongs to, from its frontmatter `arm:` field. Notes with
+    no `arm` field are the original market pipeline ⇒ 'market'."""
+    if not text.startswith("---"):
+        return "market"
+    end = text.find("---", 3)
+    fm = text[3:end] if end != -1 else ""
+    m = re.search(r"^arm:\s*(\S+)", fm, re.MULTILINE)
+    return m.group(1).strip() if m else "market"
+
+
 def find_note(asof: date, arm: str, results_dir: Path = RESULTS_DIR) -> Optional[Path]:
-    """Locate the committed macro note for (date, arm). market ⇒ '*-macro.md'
-    without the kimi tag; kimi ⇒ '*-kimi-macro.md'. Falls back to frontmatter arm."""
-    candidates = sorted(results_dir.rglob(f"{asof.isoformat()}*-macro.md"))
-    for path in candidates:
+    """Locate the committed macro note for (date, arm), matched by the note's
+    frontmatter `arm:` field. Returns None if no note for that arm exists on the
+    date — the caller then skips (no silent fallback to another arm's note)."""
+    for path in sorted(results_dir.rglob(f"{asof.isoformat()}*-macro.md")):
         if "test" in path.name.lower():
             continue
-        is_kimi = "kimi" in path.name.lower()
-        if arm == "kimi" and is_kimi:
+        if note_arm(path.read_text(encoding="utf-8")) == arm:
             return path
-        if arm == "market" and not is_kimi:
-            return path
-    return candidates[0] if candidates else None
+    return None
 
 
 def fetch_prices_and_har(asof: date, lookback_days: int = 130) -> tuple[dict[str, float], dict[str, float]]:
@@ -442,7 +462,8 @@ def run(asof: date, arm: str = "market", portfolio_dir: Path = PORTFOLIO_DIR) ->
 
     record = advance_books(
         asof, arm, signals, prices, book, bench,
-        regime=regime, har_sigmas=har, note_path=str(note_path.name),
+        regime=regime, har_sigmas=har, cfg=sizing_config_for(arm),
+        note_path=str(note_path.name),
     )
 
     book.save(book_path)
