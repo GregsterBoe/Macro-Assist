@@ -46,7 +46,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Optional
 
-from portfolio.book import Book, Instrument, buy_and_hold
+from portfolio.book import Book, Instrument
 from portfolio.sizing import AssetSignal, RegimeState, SizingConfig, size_positions
 
 # ---------------------------------------------------------------------------

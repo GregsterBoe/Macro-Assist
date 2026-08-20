@@ -43,7 +43,6 @@ build_distribution_table_for_backtest(historical_snapshots, forward_returns,
 from __future__ import annotations
 
 import json
-import sys
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Optional

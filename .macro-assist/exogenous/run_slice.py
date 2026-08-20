@@ -27,7 +27,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))   # .macro-assist on path
 
-from exogenous.analyst import ASSET_CANONICAL, brief_to_dict, synthesize_brief
+from exogenous.analyst import brief_to_dict, synthesize_brief
 from exogenous.extract import evidence_to_dicts, extract_from_file
 from exogenous.spf import SPF_VARIABLES, latest_before, load_spf_file, load_spf_snapshot
 from exogenous.synth import exo_to_dict, render_exo_note, to_exo_output

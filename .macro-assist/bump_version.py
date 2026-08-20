@@ -118,9 +118,9 @@ def bump(new_version: str, capability: str) -> None:
     _update_versions_py(new_version, capability, today, yesterday)
     _update_project_doc(new_version, capability, today, yesterday)
     print(
-        f"\nDone. Run post-bump hooks:\n"
-        f"  python .macro-assist/tag_versions.py\n"
-        f"  python .macro-assist/summarize_accuracy.py"
+        "\nDone. Run post-bump hooks:\n"
+        "  python .macro-assist/tag_versions.py\n"
+        "  python .macro-assist/summarize_accuracy.py"
     )
 
 

@@ -626,18 +626,18 @@ def write_markdown(
 ) -> None:
     today = date.today().isoformat()
     lines = [
-        f"# Prediction Accuracy Report",
-        f"",
+        "# Prediction Accuracy Report",
+        "",
         f"*Generated: {today} | Reports scored: {n_reports} "
         f"| Feedback-loop reports ({MIN_FEEDBACK_VERSION}+): {n_feedback}*",
-        f"",
-        f"> Accuracy scale: 0% = always wrong, 50% = random, 100% = always right.",
-        f"> **Directional accuracy** excludes flat moves and Neutral calls — it is the",
-        f"> signal quality metric. Anything above ~60% with n > 10 is meaningful.",
-        f">",
+        "",
+        "> Accuracy scale: 0% = always wrong, 50% = random, 100% = always right.",
+        "> **Directional accuracy** excludes flat moves and Neutral calls — it is the",
+        "> signal quality metric. Anything above ~60% with n > 10 is meaningful.",
+        ">",
         f"> The **bias override** (daily pipeline) uses only {MIN_FEEDBACK_VERSION}+ reports",
-        f"> (adversarial review era). Earlier reports appear below for historical reference.",
-        f"",
+        "> (adversarial review era). Earlier reports appear below for historical reference.",
+        "",
     ]
 
     for window in WINDOWS:
@@ -655,13 +655,13 @@ def write_markdown(
 
         lines += [
             f"## {WINDOW_LABELS[window]}",
-            f"",
+            "",
             f"**Overall accuracy:** {ov:.0%}  |  "
             f"**Directional:** {f'{ov_d:.0%}' if ov_d is not None else 'n/a'}  |  "
             f"**Reports:** {n_rep}",
-            f"",
-            f"| Asset | Accuracy | Directional | n | Avg Confidence |",
-            f"|-------|----------|-------------|---|----------------|",
+            "",
+            "| Asset | Accuracy | Directional | n | Avg Confidence |",
+            "|-------|----------|-------------|---|----------------|",
         ]
 
         for asset in ASSET_ORDER:
@@ -708,8 +708,8 @@ def write_markdown(
                 lines += [
                     f"**{WINDOW_LABELS[window]}** — overall: {ov:.0%} | directional: {dir_str} | reports: {n_rep}",
                     "",
-                    f"| Asset | Accuracy | Directional | n | Avg Confidence |",
-                    f"|-------|----------|-------------|---|----------------|",
+                    "| Asset | Accuracy | Directional | n | Avg Confidence |",
+                    "|-------|----------|-------------|---|----------------|",
                 ]
                 for asset in ASSET_ORDER:
                     astat = wdata["by_asset"].get(asset)

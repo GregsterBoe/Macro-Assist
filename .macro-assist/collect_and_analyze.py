@@ -15,7 +15,6 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional
 
 import anthropic
 import pandas as pd
@@ -1153,11 +1152,11 @@ def load_accuracy_context(floor_on: bool = True) -> str:
                 else "STRONG signal — directional call supported at ≥55% if evidence agrees; Neutral OK otherwise"
             )
         elif dacc >= 0.60:
-            guidance = f"Moderate signal — directional call permitted at 52–60%"
+            guidance = "Moderate signal — directional call permitted at 52–60%"
         elif dacc <= 0.40:
-            guidance = f"SYSTEMATIC BIAS — direction demonstrably wrong; apply bias rules"
+            guidance = "SYSTEMATIC BIAS — direction demonstrably wrong; apply bias rules"
         else:
-            guidance = f"Coin flip — Neutral acceptable; widen range if directional"
+            guidance = "Coin flip — Neutral acceptable; widen range if directional"
         lines.append(f"| {asset} | {wlabel} | {dacc:.0%} | {n} | {guidance} |")
 
     lines.append("")
@@ -2013,7 +2012,6 @@ def _scrub_prompt_artifacts(text: str) -> str:
 
 try:
     from schemas import AnalysisOutput, AssetPrediction, PortfolioRiskOutput, SectorOpportunityOutput
-    from pydantic import ValidationError as PydanticValidationError
     _STRUCTURED_OUTPUT_AVAILABLE = True
 except ImportError:
     _STRUCTURED_OUTPUT_AVAILABLE = False
