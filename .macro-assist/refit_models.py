@@ -317,7 +317,7 @@ def main() -> None:
         _log("ABORT", f"Only {len(feature_matrix)} valid days — need ≥{_MIN_FIT_DAYS}")
         sys.exit(1)
 
-    model = fit_regime_model(feature_matrix, model_path=DEFAULT_MODEL_PATH)
+    fit_regime_model(feature_matrix, model_path=DEFAULT_MODEL_PATH)
     _log("REGIME", f"HMM fitted on {len(feature_matrix)} days → {DEFAULT_MODEL_PATH.name}")
 
     _log("STEP", "4/4  Building conditional distribution table ...")

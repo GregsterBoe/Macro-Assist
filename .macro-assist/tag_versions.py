@@ -19,7 +19,7 @@ import re
 from datetime import date
 from pathlib import Path
 
-from versions import VERSION_MILESTONES, version_for_date
+from versions import version_for_date
 
 RESULTS_DIR = Path(__file__).resolve().parent.parent / "results"
 SCORES_DIR  = RESULTS_DIR / "scores"

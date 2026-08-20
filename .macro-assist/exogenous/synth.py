@@ -19,7 +19,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, asdict
 from datetime import date, timedelta
-from typing import Optional
 
 from exogenous.analyst import ASSET_CANONICAL, BranchBrief
 

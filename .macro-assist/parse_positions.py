@@ -543,7 +543,6 @@ def format_portfolio_for_prompt(summary: dict) -> str:
 
 if __name__ == "__main__":
     import io
-    import json
 
     # Force UTF-8 output so € symbol prints correctly on Windows terminals
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
