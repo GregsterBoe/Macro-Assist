@@ -62,31 +62,35 @@ Cosmetic but pyflakes-flagged (`f"..."` with no `{}`): `bump_version.py:121`, `c
 a one-line status + KB pointer, and closed phases moved to
 `Project_Development_Archive.md`. Do these in order; each is self-contained.
 
-### Task 5a — Prune the WP-19.B build-log (self-flagged)
+> **Tier-3 progress (2026-08-20):** 5a + 5b done; 5c already-compliant (no-op); 5d deferred with rationale. `Project_Development.md` **96.7 KB → 85.3 KB (~12% smaller)**, markdown integrity verified.
+
+### Task 5a — Prune the WP-19.B build-log (self-flagged) — ✅ DONE
+Replaced the ~600-word build-log with a one-line pointer to `exogenous/` + `DESIGN.md` + git; kept the summary and the KB-013 early-read.
 Line ~670 is a single ~600-word build-log paragraph the doc **itself** marks:
 *"Original build-log retained below for now; git + DESIGN.md are the source of truth. Safe to prune to this summary."*
 **Action:** collapse it to the 3–4-line summary already sitting above it (status, what it built, KB-012-pending, kill-procedure pointer). Keep the KB refs and the "Phase-19 integration status" block.
 
-### Task 5b — Trim completed Phase-16.A WPs
-WP-16.A.1 / A.2 / A.3 / A.4 are all **Done** with results in `Knowledge_Base.md` (KB-001/002 etc.). Their multi-paragraph method/result detail (lines ~479–495) duplicates the KB.
-**Action:** trim each Done WP to `status + one-line verdict + KB pointer`. Keep A.5 (open — monitoring) intact.
+### Task 5b — Trim completed Phase-16.A WPs — ✅ DONE
+Trimmed A.1/A.2/A.3 from multi-bullet method+result blocks to single status+verdict+key-numbers+KB-pointer lines (KB-001/002). **Kept A.4 fully intact** — its `FRAGILITY_MODE` log/show/active ladder is live operational context the still-open A.5 (and WP-18.1's non-live preview) depend on. A.5 untouched.
 
-### Task 5c — Trim Phase-17 completed WPs
-17.1–17.4 all **Done**, 17.3b **CANCELLED**, verdicts in KB-003…006 (lines ~595–603). Same treatment. Keep WP-17.5 (still "later"/open).
-**Action:** trim to status + verdict + KB pointer.
+### Task 5c — Trim Phase-17 completed WPs — ✅ ALREADY COMPLIANT (no-op)
+On inspection, 17.2/17.3/17.3b/17.4 are **already** single-line status+verdict+KB-pointer entries (KB-004…006). 17.1 carries extra detail (the `BAMLH0A0HYM2`→`BAA10Y` credit-feature bug fix) but that's context the **open WP-17.5** explicitly references ("truncated HY-OAS input"), so per the convention's guardrail it stays. No change needed.
 
-### Task 5d — Archive closed phases → `Project_Development_Archive.md`
+### Task 5d — Archive closed phases → `Project_Development_Archive.md` — ⏸ DEFERRED (nothing cleanly closed)
 Per the convention's "when an entire phase closes, move its detail to the archive + add a table row."
 - **Phase 16.A** is effectively closed bar A.5 monitoring — consider moving the design detail once A.5 resolves (judgment call; may defer).
 - **Phase 19** is INTEGRATED + forward-only (only KB-012 verdict pending) — a candidate to move the design/build detail to the archive, leaving the "integration status + kill procedure" summary inline.
-**Action:** for each genuinely-closed phase, cut detail to the archive and add a row to the completed-phases table (line ~411). **Do NOT archive** phases with open sibling WPs a reader still needs (Phase 20 → 20.E open; Phase 18 → 18.4/18.5 open; Phase 16.B/C open). Leave those.
-**Note:** obey the convention's guardrail — *never trim before the result is in the KB, and don't remove context an open WP depends on.*
+**Assessment (2026-08-20):** none of Phases 16–20 are cleanly closed right now — each has a live/open sibling: 16.A→A.5 (monitoring), 17→17.5 (later), 18→18.4/18.5, 19→forward-validation live + KB-012 pending + 19.C/D/E future, 20→20.E, 16.B/C open. Phases 1–14 are already archived (table at line ~411). So there is nothing to archive without violating the "don't remove context an open decision depends on" guardrail. The 5a/5b prunes already reclaimed the bulk (~11 KB). **Revisit when a phase actually closes** — e.g. archive Phase 19's design/build detail (keep the integration-status + kill block inline) once KB-012 resolves to keep-or-kill.
 
 ---
 
 ## Tier 4 — Test-suite health
 
-### Task 6 — Quarantine live-data-dependent tests
+### Task 6 — Quarantine live-data-dependent tests — ✅ DONE 2026-08-20
+**Resolution:** the 3 yfinance tests were *already* `@pytest.mark.integration`; the real gap was `pytest.ini` not excluding them. Added `addopts = -m "not integration"` so the default run is the pure suite (run integration explicitly with `pytest -m integration`). Fixed the isolation leak in `test_empty_on_no_data` by monkeypatching `quant_context.DEFAULT_TABLE_PATH` to a tmp path (mirrors the existing `DEFAULT_MODEL_PATH` pattern). **Default suite now: 431 passed, 8 deselected, 1 xfailed — green, no network asserts.**
+**Follow-up spotted (not done):** `test_point_in_time.py` makes real ALFRED/FRED network calls (~113s of the run) but is **not** marked `integration`, so it still runs by default. It's an important look-ahead-leakage guard, so I left it in the default run rather than silently demoting a safety test — decide whether to mark it `integration` (faster default, but the leakage guard only runs on explicit `-m integration`) or leave it.
+
+<details><summary>Original task note</summary>
 4 tests fail on a clean run — **none are pure**, so they break the "no-network unit
 suite" contract and produce false reds as market data / yfinance auto-adjust drift:
 - `test_vol_forecast.py::test_r_squared_in_range` — downloads live `^GSPC`, asserts R²∈[0.2,0.7]; currently 0.094.
@@ -97,17 +101,31 @@ suite" contract and produce false reds as market data / yfinance auto-adjust dri
 **Action:** (a) mark the three yfinance tests `@pytest.mark.network` (or `integration`) and register the marker in `pytest.ini` so the default run skips them / they run explicitly; (b) fix `test_empty_on_no_data` to monkeypatch `DEFAULT_TABLE_PATH` / point the data dir at a tmp path so it no longer reads real on-disk distributions.
 **Done when:** default `pytest .macro-assist/tests` is fully green with no network dependence.
 **Context:** the regime tests exercise the HMM layer that was **retired from the note** (KB-006) but is still used by the portfolio gate (`rebalance.live_regime`) — so keep the tests, just quarantine the live ones.
+</details>
 
 ---
 
 ## Tier 5 — Judgment calls (discuss before doing)
 
-### Task 7 — Decide the fate of the retired HMM regime code
-KB-006 dropped the regime block from the daily note, but `regime.py`, `regime_features.py`, `conditional.py`, `regime_backtest.py` and `_build_regime_block` (in `quant_context.py`) all remain. `_build_regime_block` is now reachable **only** via `build_nonlive_signals_block` (the WP-18.1 payload-preview "withheld signals" view); `regime.py`/`predict_regime` is still a live dependency of the **portfolio gate** (`portfolio/rebalance.live_regime`).
-**Not dead — do not auto-delete.** Decision needed: keep the preview-only `_build_regime_block` for inspection, or remove it and simplify `build_nonlive_signals_block` to fragility-only. Recommend **keep** (cheap, documents a withheld signal) unless you want the surface gone.
+### Task 7 — Retire the HMM regime cleanly (keep code, stop it running) — ✅ DONE 2026-08-20
+Decision (user): keep the code for possible future use, but ensure it does **not run for now**. Implemented a single greppable switch `regime_enabled()` in `regime.py` (grep `REGIME-RETIRED`), **default OFF**, env-overridable with `REGIME_ENABLED=1` to revive every consumer at once. Gated all three execution sites so each degrades gracefully:
+- **portfolio gate** (`rebalance.live_regime`) → returns None ⇒ book runs ungated (gate=1.0);
+- **weekly refit** (`refit_models`) → skips the HMM fit (keeps the feature-matrix build the *non-retired* conditional table needs; stale `regime_model.pkl` left untouched);
+- **payload preview** (`quant_context.build_nonlive_signals_block`) → omits the regime block.
+Tests: added `regime_enabled` default/override tests + split the quant_context preview test into default-omitted / enabled-included. Suite green.
 
-### Task 8 — (Optional) Split `collect_and_analyze.py` (2867 lines, 52 top-level defs)
-Not urgent — no duplicate defs, minimal dead code inside. But it's ~5× the next-largest module and mixes fetching, prompt-building, LLM orchestration, and rendering. If it keeps growing, consider extracting the FRED/market/COT **data-fetch** layer and the **payload/prompt-build** layer into their own modules. Flagged for awareness only; leave unless you want to invest.
+### Task 8 — Split `collect_and_analyze.py` — ✅ DONE 2026-08-20
+Split the 2865-line monolith into focused modules (AST-based move; public API preserved via re-exports + `__all__`, so `point_in_time.py`, `input_ledger.py`, `exogenous/sep.py`, and the tests still `from collect_and_analyze import ...` unchanged):
+- `pipeline_common.py` (58) — logger, paths, structured-output flag, `next_review_date` (shared foundation, no pipeline imports → no cycles)
+- `fred_data.py` (222) — FRED fetch
+- `market_data.py` (616) — market/sector/technicals/COT/notable-moves
+- `calendar_events.py` (98) — FOMC/econ calendar
+- `pipeline_config.py` (216) — run-config, prompt rendering, accuracy context
+- `llm_analysis.py` (1331) — YouTube + all multi-agent LLM orchestration
+- `collect_and_analyze.py` (**463**, was 2865) — slim orchestrator (`main`, `build_note`, `validate_data`, `get_output_path`, `_run_fetch_check`) + re-exports
+
+All 7 pyflakes-clean; CLI entry (`collect_and_analyze.py --help`) loads all modules; full suite **442 passed / 8 deselected / 1 xfailed**.
+**Optional follow-up:** `llm_analysis.py` (1331) is still the largest — it's one cohesive concern (the LLM pipeline) but could later split into agents / synthesis / note-markdown if it keeps growing. Left as one module for now (it's the least test-covered area, so lower-churn is safer).
 
 ---
 

@@ -404,8 +404,15 @@ def live_regime(asof: date) -> Optional[RegimeState]:
 
     from regime import (
         DEFAULT_MODEL_PATH, label_states, load_regime_model, predict_regime,
+        regime_enabled,
     )
     from regime_features import regime_features
+
+    # REGIME-RETIRED (KB-006): the HMM gate is off by default — no regime gating,
+    # book runs ungated (gate=1.0). Set REGIME_ENABLED=1 to revive it.
+    if not regime_enabled():
+        print("  live_regime: HMM regime retired (KB-006) — gate defaults to 1.0")
+        return None
 
     if not DEFAULT_MODEL_PATH.exists() or not os.environ.get("FRED_API_KEY"):
         print("  live_regime: no model artifact or FRED_API_KEY — gate defaults to 1.0")

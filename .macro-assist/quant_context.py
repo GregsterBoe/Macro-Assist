@@ -34,7 +34,7 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 from vol_forecast import har_rv_forecast, variance_risk_premium
-from regime import predict_regime, load_regime_model, label_states, DEFAULT_MODEL_PATH
+from regime import predict_regime, load_regime_model, label_states, DEFAULT_MODEL_PATH, regime_enabled
 from regime_features import regime_features
 from conditional import (
     assign_bucket,
@@ -485,12 +485,15 @@ def build_nonlive_signals_block(
     if frag:
         parts.append(frag)
 
-    regime = _build_regime_block(snapshot, histories, regime_model)
-    if regime:
-        parts.append(
-            "_(retired WP-17.4 — redundant per KB-006; shown for reference only)_\n"
-            + regime
-        )
+    # REGIME-RETIRED (KB-006): the HMM block is off by default and does not run.
+    # Set REGIME_ENABLED=1 to surface it here for inspection / a revival.
+    if regime_enabled():
+        regime = _build_regime_block(snapshot, histories, regime_model)
+        if regime:
+            parts.append(
+                "_(retired WP-17.4 — redundant per KB-006; shown for reference only)_\n"
+                + regime
+            )
 
     if not parts:
         return ""

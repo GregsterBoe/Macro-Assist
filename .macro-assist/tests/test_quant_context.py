@@ -136,8 +136,15 @@ class TestBuildQuantContext:
         )
         assert isinstance(output, str)
 
-    def test_empty_on_no_data(self):
-        """With no histories and no model, output should be empty."""
+    def test_empty_on_no_data(self, monkeypatch, tmp_path):
+        """With no histories, no model, and no on-disk distribution table, output is empty.
+
+        The conditional block reads the persisted distribution table from
+        DEFAULT_TABLE_PATH regardless of histories, so isolate the test from the
+        committed table (otherwise it renders a conditional block and this fails).
+        """
+        import quant_context as _qc
+        monkeypatch.setattr(_qc, "DEFAULT_TABLE_PATH", tmp_path / "absent.json")
         snap   = _make_snapshot()
         output = build_quant_context(snap, date(2023, 1, 4))
         assert output == ""
@@ -276,7 +283,18 @@ class TestBuildNonliveSignalsBlock:
         assert "NON-LIVE SIGNALS" in block
         assert "**Fragility Monitor" in block
 
-    def test_includes_retired_regime_block(self):
+    def test_regime_block_omitted_by_default(self, monkeypatch):
+        # REGIME-RETIRED (KB-006): the HMM regime is off by default, so even with a
+        # model in hand the non-live preview must NOT render its block.
+        monkeypatch.delenv("REGIME_ENABLED", raising=False)
+        snap  = _make_snapshot()
+        model = _make_regime_model()
+        block = build_nonlive_signals_block(snap, _make_frag_histories(), regime_model=model)
+        assert "**Regime" not in block
+
+    def test_includes_retired_regime_block_when_enabled(self, monkeypatch):
+        # With REGIME_ENABLED=1 the retired block is surfaced again (revival path).
+        monkeypatch.setenv("REGIME_ENABLED", "1")
         snap  = _make_snapshot()
         model = _make_regime_model()
         block = build_nonlive_signals_block(snap, _make_histories(), regime_model=model)

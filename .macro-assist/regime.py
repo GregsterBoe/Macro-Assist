@@ -10,6 +10,7 @@ stable_regime_label: Anti-flicker layer — only relabels after min_dwell confid
 """
 from __future__ import annotations
 
+import os
 import pickle
 import sys
 from pathlib import Path
@@ -23,6 +24,27 @@ if str(_HERE) not in sys.path:
 
 DATA_DIR           = _HERE / "data"
 DEFAULT_MODEL_PATH = DATA_DIR / "regime_model.pkl"
+
+
+# ---------------------------------------------------------------------------
+# Retirement switch  (grep: REGIME-RETIRED)
+# ---------------------------------------------------------------------------
+# The HMM regime layer was found REDUNDANT (WP-17.4 / KB-006): a 4-feature
+# stress rule beats it on drawdown AUC and adds nothing within stress strata,
+# and its macro-stress dimension is already covered by the Phase-16 fragility
+# monitor. The code is intentionally kept (we may revive it later), but it is
+# RETIRED — it must not run in production. Every consumer (the portfolio-book
+# regime gate, the weekly model refit, and the payload-preview block) checks
+# `regime_enabled()` and degrades gracefully when it is off.
+#
+# Default OFF. To re-enable every consumer at once — for an experiment or a
+# revival — set the env var:  REGIME_ENABLED=1
+_REGIME_ENABLED_OFF_VALUES = {"", "0", "false", "no", "off"}
+
+
+def regime_enabled() -> bool:
+    """Whether the retired HMM regime layer is active. Default False (KB-006)."""
+    return os.environ.get("REGIME_ENABLED", "0").strip().lower() not in _REGIME_ENABLED_OFF_VALUES
 
 # Feature-vector column indices (matching regime_features.py)
 _NFCI_IDX = 0
