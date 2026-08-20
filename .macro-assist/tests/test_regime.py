@@ -17,8 +17,27 @@ from regime import (
     predict_regime,
     label_states,
     stable_regime_label,
+    regime_enabled,
 )
 from regime_features import regime_features
+
+
+# ---------------------------------------------------------------------------
+# Retirement switch (REGIME-RETIRED / KB-006)
+# ---------------------------------------------------------------------------
+
+def test_regime_disabled_by_default(monkeypatch):
+    monkeypatch.delenv("REGIME_ENABLED", raising=False)
+    assert regime_enabled() is False
+
+
+@pytest.mark.parametrize("val,expected", [
+    ("1", True), ("true", True), ("on", True), ("yes", True),
+    ("0", False), ("", False), ("false", False), ("off", False), ("no", False),
+])
+def test_regime_enabled_env_override(monkeypatch, val, expected):
+    monkeypatch.setenv("REGIME_ENABLED", val)
+    assert regime_enabled() is expected
 
 
 # ---------------------------------------------------------------------------

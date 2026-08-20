@@ -30,7 +30,7 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from regime import fit_regime_model, DEFAULT_MODEL_PATH
+from regime import fit_regime_model, DEFAULT_MODEL_PATH, regime_enabled
 from conditional import build_distribution_table, DEFAULT_TABLE_PATH
 
 # ---------------------------------------------------------------------------
@@ -310,15 +310,22 @@ def main() -> None:
         _log("ABORT", f"SP500 price history too short ({len(sp500_close) if sp500_close is not None else 0} days)")
         sys.exit(1)
 
-    _log("STEP", "3/4  Fitting regime model ...")
+    # NOTE: the feature matrix + valid_dates are still built here because the
+    # conditional-distribution table (STEP 4, NOT retired) needs valid_dates.
+    _log("STEP", "3/4  Building regime feature matrix ...")
     feature_matrix, valid_dates = _build_feature_matrix(fred_series, sp500_close)
 
     if len(feature_matrix) < _MIN_FIT_DAYS:
         _log("ABORT", f"Only {len(feature_matrix)} valid days — need ≥{_MIN_FIT_DAYS}")
         sys.exit(1)
 
-    fit_regime_model(feature_matrix, model_path=DEFAULT_MODEL_PATH)
-    _log("REGIME", f"HMM fitted on {len(feature_matrix)} days → {DEFAULT_MODEL_PATH.name}")
+    # REGIME-RETIRED (KB-006): skip the HMM fit unless explicitly re-enabled. The
+    # stale regime_model.pkl is simply left untouched (the gate is off too).
+    if regime_enabled():
+        fit_regime_model(feature_matrix, model_path=DEFAULT_MODEL_PATH)
+        _log("REGIME", f"HMM fitted on {len(feature_matrix)} days → {DEFAULT_MODEL_PATH.name}")
+    else:
+        _log("REGIME", "HMM regime retired (KB-006) — skipping fit (set REGIME_ENABLED=1 to revive)")
 
     _log("STEP", "4/4  Building conditional distribution table ...")
     forward_returns = _build_forward_returns(prices, valid_dates)
