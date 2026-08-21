@@ -234,14 +234,22 @@ def _resp_text(resp) -> str:
 
 
 def one_sample(client, system: str, user_message: str, model: str = KIMI_MODEL,
-               temperature: float = DEFAULT_TEMPERATURE, debug: bool = False) -> dict:
+               temperature: float = DEFAULT_TEMPERATURE, debug: bool = False,
+               errors: Optional[list] = None) -> dict:
     """One directional-call sample → {canon_asset: bias}, via plain JSON.
 
     K2.6 defaults **thinking ON**, which (a) is incompatible with forced tool_choice
     and (b) eats the token budget before answering. So we DISABLE thinking (we don't
     want reasoning for a 6-way classification) and parse JSON. Fallback keeps thinking
     but gives it a big budget so it can finish and still answer. Returns {} if neither
-    parses; `debug` prints what came back.
+    parses; `debug` prints what came back, and any exception is appended to `errors`
+    so a run where EVERY sample fails can say why instead of a wall of EMPTY.
+
+    `temperature` rides in `extra_body` (not a named kwarg): anthropic SDK 1.0.0
+    dropped `temperature` from `messages.create()`, so passing it directly raises
+    TypeError before the request is even sent. extra_body puts it in the JSON body
+    verbatim — same wire format as before — and works on 0.x and 1.x alike. The
+    ensemble NEEDS sampling variation; without it confidence collapses to 100%.
     """
     def _d(*a):
         if debug:
@@ -255,7 +263,8 @@ def one_sample(client, system: str, user_message: str, model: str = KIMI_MODEL,
     ]
     for label, extra, mt in attempts:
         try:
-            resp = client.messages.create(model=model, max_tokens=mt, temperature=temperature,
+            resp = client.messages.create(model=model, max_tokens=mt,
+                                          extra_body={"temperature": temperature},
                                           system=system, messages=msg, **extra)
             _d(label, "stop=", getattr(resp, "stop_reason", None),
                "blocks=", [getattr(b, "type", None) for b in resp.content])
@@ -266,6 +275,8 @@ def one_sample(client, system: str, user_message: str, model: str = KIMI_MODEL,
                 return parsed
             _d(label, "parsed EMPTY")
         except Exception as exc:
+            if errors is not None:
+                errors.append(f"{label}: {type(exc).__name__}: {exc}")
             _d(label, "raised:", type(exc).__name__, str(exc)[:400])
     return {}
 
@@ -273,12 +284,25 @@ def one_sample(client, system: str, user_message: str, model: str = KIMI_MODEL,
 def ensemble(client, user_message: str, n: int = DEFAULT_N,
              temperature: float = DEFAULT_TEMPERATURE, model: str = KIMI_MODEL,
              system: str = ENSEMBLE_SYSTEM, debug: bool = False) -> list[dict]:
-    samples = []
+    samples: list[dict] = []
+    errors: list[str] = []
     for i in range(n):
-        s = one_sample(client, system, user_message, model=model, temperature=temperature, debug=debug)
+        s = one_sample(client, system, user_message, model=model, temperature=temperature,
+                       debug=debug, errors=errors)
         if s:
             samples.append(s)
         print(f"  sample {i+1}/{n}: {s or 'EMPTY'}", file=sys.stderr)
+    if not samples and errors:
+        # Every sample failed. The per-attempt handler swallows exceptions (so one bad
+        # sample can't kill the run), which meant a total failure printed only EMPTY and
+        # gave no reason. Surface the distinct causes once — they're near-identical.
+        seen: list[str] = []
+        for e in errors:
+            if e not in seen:
+                seen.append(e)
+        print("\nEvery sample failed. Distinct errors:", file=sys.stderr)
+        for e in seen[:5]:
+            print(f"  - {e[:300]}", file=sys.stderr)
     return samples
 
 
