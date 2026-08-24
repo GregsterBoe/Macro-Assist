@@ -109,16 +109,39 @@ Macro-Assist/
 ├── data/
 │   ├── tr_positions.csv         # Trade Republic export (optional; gitignored)
 │   └── ticker_cache.json        # ISIN→ticker cache (committed)
-├── results/
+├── results/                     # generated output — lives on the 'output' branch,
+│   │                            #   mounted here as a git worktree (see below)
 │   ├── MM-Month/
 │   │   └── YYYY-MM-DD-Weekday-macro.md  # archived report copies
-│   ├── scores/                  # gitignored — raw JSON score files per report
-│   ├── quant_context_log/       # gitignored — daily JSONL snapshots of quant outputs
+│   ├── scores/                  # raw JSON score files per report
+│   ├── quant_context_log/       # daily JSONL snapshots of quant outputs
 │   └── accuracy_report.md       # human-readable accuracy summary
+├── publish_output.sh            # commit & push results/ to the 'output' branch
 ├── Project_Development.md       # phased implementation roadmap
 ├── TODO.md                      # open decisions + carried findings across sessions
 └── .gitignore
 ```
+
+### Branch layout — code vs generated output
+
+Code lives on **`main`**; all generated output (`results/`) lives on a separate
+orphan branch, **`output`**. This keeps `main`'s history code-only and lets notes
+pull results independently.
+
+`results/` is a **git worktree** pinned to `output`, so scripts still read and
+write `<repo>/results/` exactly as before — `main` gitignores it. First-time
+local setup (after a fresh clone):
+
+```bash
+git fetch origin output
+git worktree add results output
+```
+
+After a local run, publish generated output with `./publish_output.sh "msg"`.
+In CI, `.macro-assist/ci_mount_output.sh` mounts `output` at `results/` before the
+pipeline and `.macro-assist/ci_publish_results.sh` commits & pushes it after —
+code-tracked files (`data/`, `.macro-assist/data/` models) still commit to `main`.
+Notes should pull the **`output`** branch.
 
 **`TODO.md`** is the working-memory file: open design decisions, known-but-
 unscheduled findings, and the reasoning behind each, cited to file/line. Read it

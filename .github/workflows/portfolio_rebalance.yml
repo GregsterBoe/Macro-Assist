@@ -48,6 +48,12 @@ jobs:
       - name: Install dependencies
         run: pip install -r macro-assist/.macro-assist/requirements.txt
 
+      - name: Mount output branch at results/
+        run: |
+          set -e
+          cd macro-assist
+          bash .macro-assist/ci_mount_output.sh
+
       - name: Rebalance paper books (per arm)
         working-directory: macro-assist/.macro-assist
         env:
@@ -68,13 +74,8 @@ jobs:
             python -m portfolio.rebalance --arm "$ARM" $DATE_FLAG $RESET_FLAG
           done
 
-      - name: Commit ledgers & reports
+      - name: Publish ledgers & reports to output branch
         run: |
           set -e
           cd macro-assist
-          git config user.name  "macro-assist[bot]"
-          git config user.email "macro-assist[bot]@users.noreply.github.com"
-          git pull --rebase --autostash origin "$(git rev-parse --abbrev-ref HEAD)"
-          git add results/portfolio/
-          git diff --cached --quiet || git commit -m "portfolio: $(date -u +%Y-%m-%d) weekly rebalance"
-          git push origin HEAD
+          bash .macro-assist/ci_publish_results.sh "portfolio: $(date -u +%Y-%m-%d) weekly rebalance"

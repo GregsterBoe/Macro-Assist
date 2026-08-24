@@ -44,6 +44,12 @@ jobs:
       - name: Install dependencies
         run: pip install -r macro-assist/.macro-assist/requirements.txt
 
+      - name: Mount output branch at results/
+        run: |
+          set -e
+          cd macro-assist
+          bash .macro-assist/ci_mount_output.sh
+
       - name: Generate macro note
         env:
           FRED_API_KEY:      ${{ secrets.FRED_API_KEY }}
@@ -93,13 +99,19 @@ jobs:
           mkdir -p macro-assist/results/${MONTH}
           cp "${VAULT_FILE}" macro-assist/results/${MONTH}/${FILENAME}
 
-      - name: Commit and push report to Macro-Assist
+      - name: Commit data to Macro-Assist (main)
         run: |
           set -e
           cd macro-assist
           git config user.name  "macro-assist[bot]"
           git config user.email "macro-assist[bot]@users.noreply.github.com"
-          git add results/ data/
-          git diff --cached --quiet || git commit -m "macro: $(date -u +%Y-%m-%d) daily intelligence note"
+          git add data/
+          git diff --cached --quiet || git commit -m "macro: $(date -u +%Y-%m-%d) daily data update"
           git pull --rebase --autostash origin $(git rev-parse --abbrev-ref HEAD)
           git push origin HEAD
+
+      - name: Publish report to output branch
+        run: |
+          set -e
+          cd macro-assist
+          bash .macro-assist/ci_publish_results.sh "macro: $(date -u +%Y-%m-%d) daily intelligence note"

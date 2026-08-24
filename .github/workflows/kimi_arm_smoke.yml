@@ -46,6 +46,9 @@ jobs:
       - name: Offline tests
         run: python -m pytest .macro-assist/tests/test_kimi_arm.py -q
 
+      - name: Mount output branch at results/
+        run: bash .macro-assist/ci_mount_output.sh
+
       - name: Live Kimi ensemble smoke
         env:
           MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}

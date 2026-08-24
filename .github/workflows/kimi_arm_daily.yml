@@ -60,6 +60,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r .macro-assist/requirements.txt
 
+      - name: Mount output branch at results/
+        run: bash .macro-assist/ci_mount_output.sh
+
       - name: Emit Kimi ensemble note
         env:
           MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
@@ -71,12 +74,6 @@ jobs:
             ${{ inputs.force && '--force' || '' }}
           echo "::endgroup::"
 
-      - name: Commit Kimi note
+      - name: Publish Kimi note to output branch
         run: |
-          set -e
-          git config user.name  "macro-assist[bot]"
-          git config user.email "macro-assist[bot]@users.noreply.github.com"
-          git pull --rebase --autostash origin "$(git rev-parse --abbrev-ref HEAD)"
-          git add results/*/*-kimi-macro.md || true
-          git diff --cached --quiet || git commit -m "kimi: $(date -u +%Y-%m-%d) ensemble arm note"
-          git push origin HEAD
+          bash .macro-assist/ci_publish_results.sh "kimi: $(date -u +%Y-%m-%d) ensemble arm note"

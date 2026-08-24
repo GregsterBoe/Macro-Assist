@@ -32,6 +32,12 @@ jobs:
       - name: Install dependencies
         run: pip install -r macro-assist/.macro-assist/requirements.txt
 
+      - name: Mount output branch at results/
+        run: |
+          set -e
+          cd macro-assist
+          bash .macro-assist/ci_mount_output.sh
+
       - name: Score predictions
         run: |
           set -e
@@ -42,14 +48,20 @@ jobs:
           set -e
           python macro-assist/.macro-assist/summarize_accuracy.py
 
-      - name: Commit accuracy summary to Macro-Assist
+      - name: Commit model data to Macro-Assist (main)
         run: |
           set -e
           cd macro-assist
           git config user.name  "macro-assist[bot]"
           git config user.email "macro-assist[bot]@users.noreply.github.com"
           git pull --rebase --autostash origin "$(git rev-parse --abbrev-ref HEAD)"
-          git add .macro-assist/data/ results/scores/ results/accuracy_report.md results/accuracy_summary.json
-          git diff --cached --quiet || git commit -m "accuracy: $(date -u +%Y-%m-%d) weekly scoring update"
+          git add .macro-assist/data/
+          git diff --cached --quiet || git commit -m "accuracy: $(date -u +%Y-%m-%d) weekly scoring data update"
           git push origin HEAD
+
+      - name: Publish scores to output branch
+        run: |
+          set -e
+          cd macro-assist
+          bash .macro-assist/ci_publish_results.sh "accuracy: $(date -u +%Y-%m-%d) weekly scoring update"
 
