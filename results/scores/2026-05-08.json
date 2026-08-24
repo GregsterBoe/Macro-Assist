@@ -7,7 +7,7 @@
   "model": "unknown",
   "base_rate_first": "unknown",
   "prune_rules": "unknown",
-  "scored_at": "2026-08-17",
+  "scored_at": "2026-08-24",
   "windows": {
     "t5": {
       "eval_date": "2026-05-15",

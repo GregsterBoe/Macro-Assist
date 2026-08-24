@@ -7,7 +7,7 @@
   "model": "claude-opus-4-8",
   "base_rate_first": "on",
   "prune_rules": "on",
-  "scored_at": "2026-08-17",
+  "scored_at": "2026-08-24",
   "windows": {
     "t5": {
       "eval_date": "2026-07-28",
@@ -127,6 +127,69 @@
           "eval_price": 64055.9531,
           "eval_date": "2026-08-04",
           "pct_change": -3.683,
+          "score": 0.0
+        }
+      },
+      "summary": {
+        "n_scored": 6,
+        "accuracy": 0.5
+      }
+    },
+    "t20": {
+      "eval_date": "2026-08-18",
+      "assets": {
+        "S&P 500": {
+          "bias": "Neutral",
+          "confidence": 60,
+          "entry_price": 7509.2002,
+          "eval_price": 7691.7598,
+          "eval_date": "2026-08-18",
+          "pct_change": 2.431,
+          "score": 0.5
+        },
+        "Gold": {
+          "bias": "Bullish",
+          "confidence": 57,
+          "entry_price": 4071.1001,
+          "eval_price": 4366.0,
+          "eval_date": "2026-08-18",
+          "pct_change": 7.244,
+          "score": 1.0
+        },
+        "WTI Oil": {
+          "bias": "Neutral",
+          "confidence": 58,
+          "entry_price": 84.91,
+          "eval_price": 84.94,
+          "eval_date": "2026-08-18",
+          "pct_change": 0.035,
+          "score": 0.5
+        },
+        "10Y Treasury Yield": {
+          "bias": "Neutral",
+          "confidence": 57,
+          "entry_price": 4.628,
+          "eval_price": 4.706,
+          "eval_date": "2026-08-18",
+          "pct_change": 1.685,
+          "score": 0.5
+        },
+        "DXY": {
+          "bias": "Neutral",
+          "confidence": 56,
+          "entry_price": 101.18,
+          "eval_price": 99.65,
+          "eval_date": "2026-08-18",
+          "pct_change": -1.512,
+          "score": 0.5
+        },
+        "Bitcoin": {
+          "bias": "Bullish",
+          "confidence": 61,
+          "entry_price": 66505.125,
+          "eval_price": 64680.7109,
+          "eval_date": "2026-08-18",
+          "pct_change": -2.743,
           "score": 0.0
         }
       },
