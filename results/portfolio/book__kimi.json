@@ -1,0 +1,89 @@
+{
+  "arm": "kimi",
+  "base_ccy": "USD",
+  "starting_nav": 100000.0,
+  "cash": 99930.0,
+  "instruments": {
+    "S&P 500": {
+      "name": "S&P 500",
+      "ticker": "^GSPC",
+      "asset_class": "equity",
+      "currency": "USD",
+      "cost_bps": 10.0
+    },
+    "Gold": {
+      "name": "Gold",
+      "ticker": "GC=F",
+      "asset_class": "commodity",
+      "currency": "USD",
+      "cost_bps": 10.0
+    },
+    "Bitcoin": {
+      "name": "Bitcoin",
+      "ticker": "BTC-USD",
+      "asset_class": "crypto",
+      "currency": "USD",
+      "cost_bps": 30.0
+    },
+    "10Y (IEF)": {
+      "name": "10Y (IEF)",
+      "ticker": "IEF",
+      "asset_class": "bond",
+      "currency": "USD",
+      "cost_bps": 10.0
+    }
+  },
+  "positions": {
+    "10Y (IEF)": {
+      "shares": -377.0739077254237,
+      "avg_px": 92.81999969482422,
+      "sleeve": "macro"
+    },
+    "S&P 500": {
+      "shares": 4.560634874986559,
+      "avg_px": 7674.3701171875,
+      "sleeve": "macro"
+    }
+  },
+  "nav_history": [
+    {
+      "date": "2026-08-24",
+      "nav": 99930.0,
+      "cash": 99930.0,
+      "gross": 0.7005,
+      "net": 0.0,
+      "note": "regime_gate=1.000 (no live regime \u2014 gate=1.0)"
+    }
+  ],
+  "decision_log": [
+    {
+      "as_of": "2026-08-24",
+      "nav_before": 100000.0,
+      "nav_after": 99930.0,
+      "regime_gate": 1.0,
+      "targets": {
+        "S&P 500": 0.35,
+        "10Y (IEF)": -0.35
+      },
+      "trades": {
+        "10Y (IEF)": {
+          "from_shares": 0.0,
+          "to_shares": -377.073908,
+          "px": 92.81999969482422,
+          "traded_notional": 35000.0,
+          "cost": 35.0,
+          "target_w": -0.35
+        },
+        "S&P 500": {
+          "from_shares": 0.0,
+          "to_shares": 4.560635,
+          "px": 7674.3701171875,
+          "traded_notional": 35000.0,
+          "cost": 35.0,
+          "target_w": 0.35
+        }
+      },
+      "note": "regime_gate=1.000 (no live regime \u2014 gate=1.0)"
+    }
+  ]
+}
