@@ -1,0 +1,89 @@
+{
+  "arm": "exogenous",
+  "base_ccy": "USD",
+  "starting_nav": 100000.0,
+  "cash": 34513.00056177018,
+  "instruments": {
+    "S&P 500": {
+      "name": "S&P 500",
+      "ticker": "^GSPC",
+      "asset_class": "equity",
+      "currency": "USD",
+      "cost_bps": 10.0
+    },
+    "Gold": {
+      "name": "Gold",
+      "ticker": "GC=F",
+      "asset_class": "commodity",
+      "currency": "USD",
+      "cost_bps": 10.0
+    },
+    "Bitcoin": {
+      "name": "Bitcoin",
+      "ticker": "BTC-USD",
+      "asset_class": "crypto",
+      "currency": "USD",
+      "cost_bps": 30.0
+    },
+    "10Y (IEF)": {
+      "name": "10Y (IEF)",
+      "ticker": "IEF",
+      "asset_class": "bond",
+      "currency": "USD",
+      "cost_bps": 10.0
+    }
+  },
+  "positions": {
+    "10Y (IEF)": {
+      "shares": 376.3643095465837,
+      "avg_px": 92.99500274658203,
+      "sleeve": "macro"
+    },
+    "Gold": {
+      "shares": 6.482607212432592,
+      "avg_px": 4692.7998046875,
+      "sleeve": "macro"
+    }
+  },
+  "nav_history": [
+    {
+      "date": "2026-08-24",
+      "nav": 99934.58,
+      "cash": 34513.0,
+      "gross": 0.6546,
+      "net": 0.6546,
+      "note": "gate=1.000 (src=fragility, fragility=Normal 41.6)"
+    }
+  ],
+  "decision_log": [
+    {
+      "as_of": "2026-08-24",
+      "nav_before": 100000.0,
+      "nav_after": 99934.58,
+      "regime_gate": 1.0,
+      "targets": {
+        "Gold": 0.3042157786036945,
+        "10Y (IEF)": 0.35
+      },
+      "trades": {
+        "10Y (IEF)": {
+          "from_shares": 0.0,
+          "to_shares": 376.36431,
+          "px": 92.99500274658203,
+          "traded_notional": 35000.0,
+          "cost": 35.0,
+          "target_w": 0.35
+        },
+        "Gold": {
+          "from_shares": 0.0,
+          "to_shares": 6.482607,
+          "px": 4692.7998046875,
+          "traded_notional": 30421.58,
+          "cost": 30.42,
+          "target_w": 0.3042157786036945
+        }
+      },
+      "note": "gate=1.000 (src=fragility, fragility=Normal 41.6)"
+    }
+  ]
+}

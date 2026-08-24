@@ -1,0 +1,75 @@
+{
+  "arm": "market",
+  "base_ccy": "USD",
+  "starting_nav": 100000.0,
+  "cash": 64965.0,
+  "instruments": {
+    "S&P 500": {
+      "name": "S&P 500",
+      "ticker": "^GSPC",
+      "asset_class": "equity",
+      "currency": "USD",
+      "cost_bps": 10.0
+    },
+    "Gold": {
+      "name": "Gold",
+      "ticker": "GC=F",
+      "asset_class": "commodity",
+      "currency": "USD",
+      "cost_bps": 10.0
+    },
+    "Bitcoin": {
+      "name": "Bitcoin",
+      "ticker": "BTC-USD",
+      "asset_class": "crypto",
+      "currency": "USD",
+      "cost_bps": 30.0
+    },
+    "10Y (IEF)": {
+      "name": "10Y (IEF)",
+      "ticker": "IEF",
+      "asset_class": "bond",
+      "currency": "USD",
+      "cost_bps": 10.0
+    }
+  },
+  "positions": {
+    "S&P 500": {
+      "shares": 4.5696260754287925,
+      "avg_px": 7659.27001953125,
+      "sleeve": "macro"
+    }
+  },
+  "nav_history": [
+    {
+      "date": "2026-08-24",
+      "nav": 99965.0,
+      "cash": 64965.0,
+      "gross": 0.3501,
+      "net": 0.3501,
+      "note": "gate=1.000 (src=fragility, fragility=Normal 41.6)"
+    }
+  ],
+  "decision_log": [
+    {
+      "as_of": "2026-08-24",
+      "nav_before": 100000.0,
+      "nav_after": 99965.0,
+      "regime_gate": 1.0,
+      "targets": {
+        "S&P 500": 0.35
+      },
+      "trades": {
+        "S&P 500": {
+          "from_shares": 0.0,
+          "to_shares": 4.569626,
+          "px": 7659.27001953125,
+          "traded_notional": 35000.0,
+          "cost": 35.0,
+          "target_w": 0.35
+        }
+      },
+      "note": "gate=1.000 (src=fragility, fragility=Normal 41.6)"
+    }
+  ]
+}

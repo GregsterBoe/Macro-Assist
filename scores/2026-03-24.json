@@ -1,0 +1,202 @@
+{
+  "report_date": "2026-03-24",
+  "agent_version": "v0.1",
+  "conviction_floor": "unknown",
+  "profile": "unknown",
+  "arm": "market",
+  "model": "unknown",
+  "base_rate_first": "unknown",
+  "prune_rules": "unknown",
+  "scored_at": "2026-08-24",
+  "windows": {
+    "t5": {
+      "eval_date": "2026-03-31",
+      "assets": {
+        "S&P 500": {
+          "bias": "Bearish",
+          "confidence": 62,
+          "entry_price": 6556.3701,
+          "eval_price": 6528.52,
+          "eval_date": "2026-03-31",
+          "pct_change": -0.425,
+          "score": 0.5
+        },
+        "Gold": {
+          "bias": "Bullish",
+          "confidence": 68,
+          "entry_price": 4399.2998,
+          "eval_price": 4647.6001,
+          "eval_date": "2026-03-31",
+          "pct_change": 5.644,
+          "score": 1.0
+        },
+        "WTI Oil": {
+          "bias": "Bullish",
+          "confidence": 60,
+          "entry_price": 92.35,
+          "eval_price": 101.38,
+          "eval_date": "2026-03-31",
+          "pct_change": 9.778,
+          "score": 1.0
+        },
+        "10Y Treasury Yield": {
+          "bias": "Bullish",
+          "confidence": 65,
+          "entry_price": 4.392,
+          "eval_price": 4.311,
+          "eval_date": "2026-03-31",
+          "pct_change": -1.844,
+          "score": 0.0
+        },
+        "DXY": {
+          "bias": "Bearish",
+          "confidence": 58,
+          "entry_price": 99.43,
+          "eval_price": 99.96,
+          "eval_date": "2026-03-31",
+          "pct_change": 0.533,
+          "score": 0.0
+        },
+        "Bitcoin": {
+          "bias": "Neutral",
+          "confidence": 55,
+          "entry_price": 70517.8594,
+          "eval_price": 68233.3125,
+          "eval_date": "2026-03-31",
+          "pct_change": -3.24,
+          "score": 0.5
+        }
+      },
+      "summary": {
+        "n_scored": 6,
+        "accuracy": 0.5
+      }
+    },
+    "t10": {
+      "eval_date": "2026-04-07",
+      "assets": {
+        "S&P 500": {
+          "bias": "Bearish",
+          "confidence": 62,
+          "entry_price": 6556.3701,
+          "eval_price": 6616.8501,
+          "eval_date": "2026-04-07",
+          "pct_change": 0.922,
+          "score": 0.0
+        },
+        "Gold": {
+          "bias": "Bullish",
+          "confidence": 68,
+          "entry_price": 4399.2998,
+          "eval_price": 4657.1001,
+          "eval_date": "2026-04-07",
+          "pct_change": 5.86,
+          "score": 1.0
+        },
+        "WTI Oil": {
+          "bias": "Bullish",
+          "confidence": 60,
+          "entry_price": 92.35,
+          "eval_price": 112.95,
+          "eval_date": "2026-04-07",
+          "pct_change": 22.306,
+          "score": 1.0
+        },
+        "10Y Treasury Yield": {
+          "bias": "Bullish",
+          "confidence": 65,
+          "entry_price": 4.392,
+          "eval_price": 4.343,
+          "eval_date": "2026-04-07",
+          "pct_change": -1.116,
+          "score": 0.5
+        },
+        "DXY": {
+          "bias": "Bearish",
+          "confidence": 58,
+          "entry_price": 99.43,
+          "eval_price": 99.64,
+          "eval_date": "2026-04-07",
+          "pct_change": 0.211,
+          "score": 0.5
+        },
+        "Bitcoin": {
+          "bias": "Neutral",
+          "confidence": 55,
+          "entry_price": 70517.8594,
+          "eval_price": 71940.7031,
+          "eval_date": "2026-04-07",
+          "pct_change": 2.018,
+          "score": 0.5
+        }
+      },
+      "summary": {
+        "n_scored": 6,
+        "accuracy": 0.583
+      }
+    },
+    "t20": {
+      "eval_date": "2026-04-21",
+      "assets": {
+        "S&P 500": {
+          "bias": "Bearish",
+          "confidence": 62,
+          "entry_price": 6556.3701,
+          "eval_price": 7064.0098,
+          "eval_date": "2026-04-21",
+          "pct_change": 7.743,
+          "score": 0.0
+        },
+        "Gold": {
+          "bias": "Bullish",
+          "confidence": 68,
+          "entry_price": 4399.2998,
+          "eval_price": 4698.3999,
+          "eval_date": "2026-04-21",
+          "pct_change": 6.799,
+          "score": 1.0
+        },
+        "WTI Oil": {
+          "bias": "Bullish",
+          "confidence": 60,
+          "entry_price": 92.35,
+          "eval_price": 92.13,
+          "eval_date": "2026-04-21",
+          "pct_change": -0.238,
+          "score": 0.5
+        },
+        "10Y Treasury Yield": {
+          "bias": "Bullish",
+          "confidence": 65,
+          "entry_price": 4.392,
+          "eval_price": 4.292,
+          "eval_date": "2026-04-21",
+          "pct_change": -2.277,
+          "score": 0.0
+        },
+        "DXY": {
+          "bias": "Bearish",
+          "confidence": 58,
+          "entry_price": 99.43,
+          "eval_price": 98.41,
+          "eval_date": "2026-04-21",
+          "pct_change": -1.026,
+          "score": 1.0
+        },
+        "Bitcoin": {
+          "bias": "Neutral",
+          "confidence": 55,
+          "entry_price": 70517.8594,
+          "eval_price": 76352.7734,
+          "eval_date": "2026-04-21",
+          "pct_change": 8.274,
+          "score": 0.5
+        }
+      },
+      "summary": {
+        "n_scored": 6,
+        "accuracy": 0.5
+      }
+    }
+  }
+}

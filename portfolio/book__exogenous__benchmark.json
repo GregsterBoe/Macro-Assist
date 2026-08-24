@@ -1,0 +1,117 @@
+{
+  "arm": "exogenous-benchmark",
+  "base_ccy": "USD",
+  "starting_nav": 100000.0,
+  "cash": -121.02000479258385,
+  "instruments": {
+    "S&P 500": {
+      "name": "S&P 500",
+      "ticker": "^GSPC",
+      "asset_class": "equity",
+      "currency": "USD",
+      "cost_bps": 10.0
+    },
+    "Gold": {
+      "name": "Gold",
+      "ticker": "GC=F",
+      "asset_class": "commodity",
+      "currency": "USD",
+      "cost_bps": 10.0
+    },
+    "Bitcoin": {
+      "name": "Bitcoin",
+      "ticker": "BTC-USD",
+      "asset_class": "crypto",
+      "currency": "USD",
+      "cost_bps": 30.0
+    },
+    "10Y (IEF)": {
+      "name": "10Y (IEF)",
+      "ticker": "IEF",
+      "asset_class": "bond",
+      "currency": "USD",
+      "cost_bps": 10.0
+    }
+  },
+  "positions": {
+    "10Y (IEF)": {
+      "shares": 587.8693476411286,
+      "avg_px": 92.99500274658203,
+      "sleeve": "macro"
+    },
+    "Bitcoin": {
+      "shares": 0.13333422270943077,
+      "avg_px": 78824.4921875,
+      "sleeve": "macro"
+    },
+    "Gold": {
+      "shares": 2.3897771732801405,
+      "avg_px": 4692.7998046875,
+      "sleeve": "macro"
+    },
+    "S&P 500": {
+      "shares": 3.082089454670158,
+      "avg_px": 7659.2001953125,
+      "sleeve": "macro"
+    }
+  },
+  "nav_history": [
+    {
+      "date": "2026-08-24",
+      "nav": 99878.98,
+      "cash": -121.02,
+      "gross": 1.0012,
+      "net": 1.0012,
+      "note": "benchmark init (equal-vol)"
+    }
+  ],
+  "decision_log": [
+    {
+      "as_of": "2026-08-24",
+      "nav_before": 100000.0,
+      "nav_after": 99878.98,
+      "regime_gate": null,
+      "targets": {
+        "S&P 500": 0.2360634015318027,
+        "Gold": 0.11214745852015688,
+        "Bitcoin": 0.10510002396285911,
+        "10Y (IEF)": 0.5466891159851813
+      },
+      "trades": {
+        "10Y (IEF)": {
+          "from_shares": 0.0,
+          "to_shares": 587.869348,
+          "px": 92.99500274658203,
+          "traded_notional": 54668.91,
+          "cost": 54.67,
+          "target_w": 0.5466891159851813
+        },
+        "Bitcoin": {
+          "from_shares": 0.0,
+          "to_shares": 0.133334,
+          "px": 78824.4921875,
+          "traded_notional": 10510.0,
+          "cost": 31.53,
+          "target_w": 0.10510002396285911
+        },
+        "Gold": {
+          "from_shares": 0.0,
+          "to_shares": 2.389777,
+          "px": 4692.7998046875,
+          "traded_notional": 11214.75,
+          "cost": 11.21,
+          "target_w": 0.11214745852015688
+        },
+        "S&P 500": {
+          "from_shares": 0.0,
+          "to_shares": 3.082089,
+          "px": 7659.2001953125,
+          "traded_notional": 23606.34,
+          "cost": 23.61,
+          "target_w": 0.2360634015318027
+        }
+      },
+      "note": "benchmark init (equal-vol)"
+    }
+  ]
+}
