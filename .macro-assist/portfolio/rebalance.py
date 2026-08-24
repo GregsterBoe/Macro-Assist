@@ -291,6 +291,8 @@ def advance_books(
     har_sigmas: Optional[dict[str, float]] = None,
     cfg: Optional[SizingConfig] = None,
     note_path: Optional[str] = None,
+    gate: Optional[float] = None,
+    gate_info: Optional[dict] = None,
 ) -> dict:
     """Advance the arm book and its benchmark by one weekly step.
 
@@ -298,14 +300,22 @@ def advance_books(
     - The **benchmark** is a static equal-vol buy-and-hold: initialized once (on
       its first advance) and marked forward thereafter (weights drift).
     Returns a decision record (targets, gate, trades, NAVs) for the log/report.
+
+    The risk-off `gate` (fragility, DESIGN §3 step 5) is injected — pure here,
+    fetched by `run()`. `gate_info` carries the reading (label/composite/trend)
+    into the decision log for transparency. `regime` remains as the retired-HMM
+    revival path (used only when no explicit `gate` is passed).
     """
     cfg = cfg or SizingConfig(horizon=HORIZON)
-    result = size_positions(signals, regime, cfg)
+    result = size_positions(signals, regime, cfg, gate=gate)
 
     sleeve_of = {a: "macro" for a in result.weights}
-    gate_note = f"regime_gate={result.gate:.3f}"
-    if regime is None:
-        gate_note += " (no live regime — gate=1.0)"
+    gate_info = gate_info or {}
+    _gate_src = gate_info.get("source", "regime" if regime is not None else "none")
+    gate_note = f"gate={result.gate:.3f} (src={_gate_src}"
+    if gate_info.get("label"):
+        gate_note += f", fragility={gate_info['label']} {gate_info.get('composite')}"
+    gate_note += ")"
     rec = book.rebalance(
         result.weights, prices, asof,
         regime_gate=result.gate, note=gate_note, sleeve_of=sleeve_of,
@@ -325,6 +335,7 @@ def advance_books(
         "arm": arm,
         "note": note_path,
         "gate": result.gate,
+        "gate_info": gate_info,
         "vol_target_effective": result.vol_target_effective,
         "vol_ex_ante": result.vol_ex_ante,
         "vol_shortfall": result.vol_shortfall,
@@ -356,8 +367,15 @@ def format_report(record: dict) -> str:
     lines = [
         f"# Paper Portfolio — {record['arm']} — {record['as_of']}",
         "",
-        f"- Regime gate: **{record['gate']:.3f}** "
-        f"(effective vol target {record['vol_target_effective'] * 100:.1f}%)",
+        f"- Risk-off gate: **{record['gate']:.3f}** "
+        + (
+            f"(fragility {record['gate_info']['label']} "
+            f"{record['gate_info'].get('composite')}, "
+            f"trend {record['gate_info'].get('trend')}) "
+            if record.get("gate_info", {}).get("source") == "fragility"
+            else f"(source: {record.get('gate_info', {}).get('source', 'none')}) "
+        )
+        + f"→ effective vol target {record['vol_target_effective'] * 100:.1f}%",
         f"- Ex-ante book vol: **{record.get('vol_ex_ante', 0.0) * 100:.1f}%**"
         + (
             f"  ·  ⚠️ {record['vol_shortfall'] * 100:.1f}pp under target — "
@@ -502,6 +520,93 @@ def live_regime(asof: date) -> Optional[RegimeState]:
         return None
 
 
+# ---------------------------------------------------------------------------
+# Fragility gate — the live risk-off dial (DESIGN §3 step 5)
+# ---------------------------------------------------------------------------
+# Replaces the retired HMM regime gate (KB-006). The fragility index is the one
+# risk signal in the system validated look-ahead-safe (KB-001/002: Elevated flag
+# 0.53–0.73 precision, 4–8 trading-day lead to the drawdown trough), and it reads
+# only yfinance prices ≤ t, so it is point-in-time-safe by construction (prices
+# aren't revised — no ALFRED-vintage / FRED-key dependency the regime gate had).
+#
+# The gate is a THRESHOLD step on the validated Elevated *label*, NOT a continuous
+# dial: the A.2/A.3 backtest validated the level flag, not a calibrated g-curve.
+# Directionally neutral — it only dials gross exposure toward cash, never flips a
+# call — so it preserves the book's clean "does the signal have edge" test.
+GATE_ELEVATED = 0.5   # Elevated fragility ⇒ halve the effective vol target
+# The universe the fragility index reads (matches fragility.py's expectations).
+_FRAG_TICKERS = {
+    "sp500": "^GSPC", "gold": "GC=F", "treasury_10y": "^TNX", "dxy": "DX-Y.NYB",
+    "bitcoin": "BTC-USD", "vix": "^VIX", "vix3m": "^VIX3M",
+}
+
+
+def fragility_gate(frag: Optional[dict]) -> tuple[float, dict]:
+    """Map a `fragility.fragility_index()` reading → gate g ∈ (0,1] + a log record.
+
+    Pure. `frag=None` (or a reading with no label) ⇒ g=1.0 (ungated) and an empty
+    record, so a degraded fetch never haircuts the book. Only the validated
+    `Elevated` label dials down (`GATE_ELEVATED`); Normal/Resilient stay at 1.0.
+    """
+    if not frag or "label" not in frag:
+        return 1.0, {}
+    label = frag["label"]
+    g = GATE_ELEVATED if label == "Elevated" else 1.0
+    info = {
+        "source": "fragility",
+        "composite": round(float(frag.get("composite", 0.0)), 1),
+        "label": label,
+        "trend": frag.get("trend"),
+    }
+    return g, info
+
+
+def live_fragility_gate(asof: date, lookback_days: int = 400) -> tuple[float, dict]:
+    """Best-effort **point-in-time** fragility gate for `asof` (yfinance only).
+
+    Fetches ~1y of close history ≤ `asof` for the fragility universe, runs
+    `fragility_index`, and maps the label to a gate. Returns (1.0, {}) on any
+    missing piece — no network, an empty pull, or a compute error — so a
+    rebalance never crashes on the gate and an unavailable reading means "ungated"
+    rather than a silent haircut. The 180-day fragility window fits inside 400
+    calendar days of history with margin.
+    """
+    try:
+        import pandas as pd
+        import yfinance as yf
+
+        from fragility import fragility_index
+
+        start = asof - timedelta(days=lookback_days)
+        histories: dict[str, "pd.Series"] = {}
+        for name, ticker in _FRAG_TICKERS.items():
+            try:
+                raw = yf.download(
+                    ticker, start=start.isoformat(),
+                    end=(asof + timedelta(days=1)).isoformat(),
+                    progress=False, auto_adjust=True,
+                )
+                col = raw["Close"].dropna()
+                if hasattr(col, "columns"):
+                    col = col.iloc[:, 0]
+                if not col.empty:
+                    histories[name] = col
+            except Exception:
+                continue
+
+        frag = fragility_index(histories) if histories else None
+        g, info = fragility_gate(frag)
+        if info:
+            print(f"  live_fragility_gate: {info['label']} "
+                  f"(composite {info['composite']}) → gate={g:.3f}")
+        else:
+            print("  live_fragility_gate: no reading — gate defaults to 1.0")
+        return g, info
+    except Exception as exc:  # import/network hiccup — degrade, don't crash
+        print(f"  live_fragility_gate: failed ({exc}) — gate defaults to 1.0")
+        return 1.0, {}
+
+
 def _load_or_init(path: Path, arm: str) -> Book:
     if path.exists():
         return Book.load(path)
@@ -552,12 +657,20 @@ def run(
         return None
 
     signals = build_asset_signals(note_signals, har)
+
+    # Risk-off gate (DESIGN §3 step 5). Fragility is the live gate; the retired
+    # HMM regime is used only when explicitly revived (REGIME_ENABLED=1), in which
+    # case it takes precedence and the fragility gate is not applied.
     regime = live_regime(asof)
+    if regime is not None:
+        gate, gate_info = None, {"source": "regime"}
+    else:
+        gate, gate_info = live_fragility_gate(asof)
 
     record = advance_books(
         asof, arm, signals, prices, book, bench,
         regime=regime, har_sigmas=har, cfg=sizing_config_for(arm),
-        note_path=str(note_path.name),
+        note_path=str(note_path.name), gate=gate, gate_info=gate_info,
     )
 
     book.save(book_path)

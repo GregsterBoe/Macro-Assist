@@ -207,15 +207,26 @@ def size_positions(
     signals: list[AssetSignal],
     regime: Optional[RegimeState] = None,
     cfg: Optional[SizingConfig] = None,
+    gate: Optional[float] = None,
 ) -> SizingResult:
     """Apply the seven-step vol-target rule. Pure; deterministic.
 
     Returns a :class:`SizingResult` whose `weights` feed straight into
     `book.rebalance(...)`. Abstentions (Neutral / no view / missing distribution)
     simply do not appear in `weights` (⇒ the book closes them to cash).
+
+    The risk-off **gate** g ∈ [0,1] dials the whole book toward cash (DESIGN §3
+    step 5). Precedence: an explicit ``gate`` (e.g. the fragility gate wired by
+    ``rebalance.py``) wins; else it is derived from a ``regime`` posterior
+    (``1 − high-vol mass`` — the retired HMM revival path); else 1.0 (ungated).
     """
     cfg = cfg or SizingConfig()
-    gate = 1.0 if regime is None else max(0.0, 1.0 - regime.high_vol_mass())
+    if gate is not None:
+        gate = min(1.0, max(0.0, float(gate)))
+    elif regime is not None:
+        gate = max(0.0, 1.0 - regime.high_vol_mass())
+    else:
+        gate = 1.0
     vol_target_eff = cfg.vol_target_annual * gate
 
     targets: dict[str, AssetTarget] = {}

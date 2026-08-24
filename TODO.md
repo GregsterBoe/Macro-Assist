@@ -63,18 +63,21 @@ from the P&L comparison, documenting why.
 *Lean: (a) for rule uniformity, since HAR σ is available for every instrument
 and the abstention was meant to catch missing risk data, not missing prose.*
 
-### Open decision #3 — the regime gate is dead
-**Where:** `.macro-assist/portfolio/rebalance.py:392` `live_regime`.
-**Problem:** returns `None` unconditionally because the HMM was retired
-(KB-006, commit `0205cbf`). Every book logs `no live regime — gate=1.0`, so
-DESIGN §3 step 5 is a no-op and **the book has no risk-off dial at all** going
-into its first drawdown. The design contract claims a gate it does not have.
-**Options:** (a) repoint the gate at a live signal — `fragility.py` or the VIX
-variance risk premium already in `quant_context`; (b) delete step 5 from
-DESIGN.md and run ungated, honestly; (c) revive a regime model.
-*Lean: (a) with `fragility.py`, then amend DESIGN §3 to name the real input.*
-**Do not** leave it as-is: an ungated book that documents a gate is the worst of
-the three.
+### RESOLVED 2026-08-21 — #3 the regime gate is dead → wired to fragility
+Chosen option (a): the risk-off gate now reads the **fragility index**, not the
+retired HMM. `rebalance.live_fragility_gate(asof)` fetches ~1y yfinance history
+≤ t → `fragility.fragility_index` → a **threshold** gate on the validated
+`Elevated` label (`GATE_ELEVATED=0.5`; Normal/Resilient → 1.0), degrading to 1.0
+on any missing reading. Injected into `size_positions(..., gate=)` (explicit gate
+wins over regime, which stays as the `REGIME_ENABLED=1` revival path). Point-in-
+time-safe by construction (unrevised prices, no FRED/ALFRED dep) and directionally
+neutral. Recorded in the decision log + report (`gate_info`). DESIGN §3 step 5
+amended to name the real input. Live smoke 2026-08-24: composite 24.5 → Normal →
+gate 1.0 (correctly ungated in a calm tape). Tests: `test_sizing` gate-override +
+`test_rebalance` fragility_gate mapping/degradation/advance.
+*Attribution caveat (carry forward):* because fragility can cut gross before
+drawdowns, a future "book beat benchmark" is partly the gate's beta-timing, not
+pure signal alpha — keep that distinction when reading the §9 quarter result.
 
 ### Carried finding #4 — kimi confidence is effectively binary
 **Where:** kimi ensemble agreement → `AssetSignal.confidence`.

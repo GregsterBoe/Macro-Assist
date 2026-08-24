@@ -93,9 +93,23 @@ For each asset `a` in the v1 universe, at rebalance date `t`, horizon `h = 5`
    if the distribution is **None after fallback**, `d_a := 0` (honest abstention —
    we hold no view we can't size).
 4. **Pre-limit weight** `w̃_a = d_a · c_a / σ_a` (inverse-vol, signed, confidence-scaled).
-5. **Regime gate** (gross risk-on/off): scale all `w̃` by
-   `g = 1 − posterior_mass_on_high_vol_states` from `regime.predict_regime`
-   (High-Vol states dial the book toward cash).
+5. **Risk-off gate** (gross risk-on/off): scale all `w̃` by a gate `g ∈ (0,1]`
+   that dials the book toward cash as market fragility rises.
+   **v1 input = the fragility index** (`fragility.fragility_index`, KB-001/002),
+   not the HMM regime posterior. Rationale (amended 2026-08-21): the HMM regime
+   was **retired** (KB-006 — redundant, never earned a walk-forward gate), whereas
+   fragility is the one risk signal validated look-ahead-safe (Elevated flag
+   0.53–0.73 precision, 4–8 trading-day lead) and is point-in-time-safe by
+   construction (reads only unrevised yfinance prices ≤ `t` — no ALFRED-vintage /
+   FRED-key dependency). It is **directionally neutral** (a gross dial, never a
+   bias flip), so it preserves the clean signal-edge test.
+   **Mapping is a threshold step on the validated `Elevated` label, not a
+   continuous dial** (the backtest validated the level flag, not a calibrated
+   curve): `Elevated → g = GATE_ELEVATED` (v1 **0.5**); `Normal`/`Resilient →
+   g = 1.0`. Degrades to `g = 1.0` (ungated) on any missing reading, so an
+   unavailable fetch never silently haircuts the book. `rebalance.live_regime`
+   (the HMM path) is kept but inert unless `REGIME_ENABLED=1`, in which case a
+   revived regime posterior (`1 − high-vol mass`) takes precedence over fragility.
 6. **Portfolio vol target:** rescale `{w̃}` so ex-ante book vol
    `≈ target` (v1 default **10% annualized**), using `σ_a` and a conservative
    correlation assumption (start with `Σ|w_a|σ_a`, refine later).

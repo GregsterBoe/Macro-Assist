@@ -176,6 +176,26 @@ def test_no_regime_means_no_gate():
     assert r.gate == 1.0
 
 
+def test_explicit_gate_scales_the_book():
+    # The fragility gate is injected as an explicit `gate` float (DESIGN §3 step 5).
+    sigs = [AssetSignal("A", "Bullish", 0.7, 0.16, 0.16),
+            AssetSignal("B", "Bearish", 0.4, 0.20, 0.20)]
+    cfg = SizingConfig(max_weight=1.0, gross_cap=10.0)
+    r = size_positions(sigs, None, cfg, gate=0.5)
+    assert r.gate == pytest.approx(0.5)
+    assert _vol_proxy(r, sigs) == pytest.approx(0.10 * 0.5, rel=1e-6)
+
+
+def test_explicit_gate_overrides_regime_and_clamps():
+    sigs = [AssetSignal("A", "Bullish", 0.7, 0.16, 0.16)]
+    cfg = SizingConfig(max_weight=1.0, gross_cap=10.0)
+    # regime would give gate 0.2, but an explicit gate wins; out-of-range clamps.
+    stormy = RegimeState(posterior=[0.1, 0.4, 0.1, 0.4], labels=LABELS)
+    assert size_positions(sigs, stormy, cfg, gate=1.0).gate == 1.0
+    assert size_positions(sigs, None, cfg, gate=1.7).gate == 1.0   # clamp high
+    assert size_positions(sigs, None, cfg, gate=-0.3).gate == 0.0  # clamp low
+
+
 # ---------------------------------------------------------------------------
 # Clamps
 # ---------------------------------------------------------------------------

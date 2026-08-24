@@ -17,6 +17,7 @@ import pytest
 
 from portfolio.book import Book
 from portfolio.rebalance import (
+    GATE_ELEVATED,
     advance_books,
     already_rebalanced,
     build_asset_signals,
@@ -24,6 +25,7 @@ from portfolio.rebalance import (
     equal_vol_weights,
     find_note,
     format_report,
+    fragility_gate,
     note_arm,
     parse_note_signals,
     sizing_config_for,
@@ -268,7 +270,47 @@ def test_format_report_renders_table():
     md = format_report(rec)
     assert "# Paper Portfolio — market — 2026-08-19" in md
     assert "| Gold |" in md
-    assert "Regime gate" in md
+    assert "Risk-off gate" in md
+
+
+# ---------------------------------------------------------------------------
+# Fragility gate (DESIGN §3 step 5 — replaces the retired HMM regime gate)
+# ---------------------------------------------------------------------------
+def test_fragility_gate_elevated_dials_down():
+    g, info = fragility_gate({"composite": 61.2, "label": "Elevated", "trend": "Rising"})
+    assert g == GATE_ELEVATED
+    assert info["source"] == "fragility"
+    assert info["label"] == "Elevated"
+    assert info["composite"] == 61.2
+
+
+@pytest.mark.parametrize("label", ["Normal", "Resilient"])
+def test_fragility_gate_calm_stays_ungated(label):
+    g, info = fragility_gate({"composite": 20.0, "label": label, "trend": "Stable"})
+    assert g == 1.0
+    assert info["label"] == label
+
+
+@pytest.mark.parametrize("frag", [None, {}, {"composite": 50.0}])  # None / empty / no label
+def test_fragility_gate_degrades_to_ungated(frag):
+    g, info = fragility_gate(frag)
+    assert g == 1.0
+    assert info == {}
+
+
+def test_advance_books_applies_fragility_gate():
+    # An Elevated fragility gate must halve the effective vol target and be
+    # recorded in the decision log (transparency), independent of the retired HMM.
+    signals = build_asset_signals(parse_note_signals(NOTE), HAR)
+    book, bench = _fresh_books()
+    g, info = fragility_gate({"composite": 60.0, "label": "Elevated", "trend": "Rising"})
+    rec = advance_books(
+        date(2026, 8, 19), "market", signals, PRICES, book, bench,
+        har_sigmas=HAR, gate=g, gate_info=info,
+    )
+    assert rec["gate"] == GATE_ELEVATED
+    assert rec["gate_info"]["label"] == "Elevated"
+    assert "fragility" in format_report(rec)
 
 
 # ---------------------------------------------------------------------------
