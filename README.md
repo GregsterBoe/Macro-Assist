@@ -116,8 +116,14 @@ Macro-Assist/
 │   ├── quant_context_log/       # gitignored — daily JSONL snapshots of quant outputs
 │   └── accuracy_report.md       # human-readable accuracy summary
 ├── Project_Development.md       # phased implementation roadmap
+├── TODO.md                      # open decisions + carried findings across sessions
 └── .gitignore
 ```
+
+**`TODO.md`** is the working-memory file: open design decisions, known-but-
+unscheduled findings, and the reasoning behind each, cited to file/line. Read it
+before picking up a phase and update it when a run surfaces something that needs
+a human call rather than a fix.
 
 ---
 
