@@ -4,3 +4,7 @@ __pycache__/
 *.pyc
 *.pyo
 .env
+
+# Generated output lives on the 'output' branch, mounted here as a git worktree.
+# Scripts still write to <repo>/results/ unchanged; those commits land on 'output'.
+/results/
