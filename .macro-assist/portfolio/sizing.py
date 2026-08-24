@@ -24,6 +24,12 @@ Implements the seven-step rule from DESIGN.md §3:
   6. Vol target  rescale {w̃} so ex-ante book vol ≈ target (default 10% ann.).
   7. Clamps      |w| ≤ MAX_WEIGHT; gross Σ|w| ≤ GROSS_CAP; remainder → cash.
 
+Steps 6 and 7 are solved *jointly*, not in sequence: a per-name cap applied
+after a one-shot rescale throws away the capped name's unused risk budget,
+leaving the book under target with cap-distorted ratios. See
+`_capped_vol_target`. Where the cap binds on every name the target is
+unreachable by construction and `SizingResult.vol_shortfall` reports it.
+
 Ordering note (deliberate deviation from the *numbering* in DESIGN §3): the
 regime gate (5) is folded into the vol-target rescale (6) as an effective
 target `vol_target · g`. Applying the gate *before* an exact rescale-to-target
@@ -50,7 +56,7 @@ Usage:
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 # ---------------------------------------------------------------------------
@@ -129,6 +135,23 @@ class SizingResult:
     gross: float                           # Σ|w| after clamps
     net: float                             # Σ w after clamps
     vol_target_effective: float            # vol_target · g
+    vol_ex_ante: float = 0.0               # realized ex-ante book vol proxy Σ|w|·σ
+    capped: list[str] = field(default_factory=list)  # names frozen at ±max_weight
+    gross_capped: bool = False             # True when Σ|w| hit GROSS_CAP
+
+    @property
+    def vol_shortfall(self) -> float:
+        """Risk budget the cap prevented the book from using (0.0 when on target).
+
+        Non-zero means a hard clamp bound (`capped` / `gross_capped` say which):
+        the book is running *below* its vol target and the sizing rule's
+        inverse-vol ratios were overridden by the clamp. Surfaced in the report
+        so a structurally under-risked book cannot pass unnoticed (DESIGN §7
+        confirm-on-first-run). It is also non-zero for a fully abstaining book —
+        callers distinguish that case by an empty `capped` and `gross_capped`
+        False.
+        """
+        return max(0.0, self.vol_target_effective - self.vol_ex_ante)
 
 
 # ---------------------------------------------------------------------------
@@ -220,28 +243,34 @@ def size_positions(
             raw_weight=w_raw, target_weight=0.0, abstained=abstain, reason=reason,
         )
 
-    # --- step 5+6: regime gate folded into the vol-target rescale -------------
-    # ex-ante book vol proxy = Σ|w_a|·σ_a (conservative: assumes no diversification).
-    vol_proxy = sum(abs(w) * sig_used[a] for a, w in raw.items())
-    scale = 0.0 if vol_proxy <= 0.0 else vol_target_eff / vol_proxy
-    scaled = {a: w * scale for a, w in raw.items()}
+    # --- steps 5-7: gate + vol target + clamps, solved jointly ---------------
+    # Rescale-then-clamp (the naive order) silently loses risk budget: any name
+    # truncated at MAX_WEIGHT has its slack dropped rather than reallocated, so
+    # the book lands *below* target and the inverse-vol ratios among the
+    # surviving names are distorted by the cap. `_capped_vol_target` runs the
+    # standard capped allocation instead — rescale the un-capped names onto the
+    # remaining risk budget, freeze whatever breaches the cap, repeat.
+    clamped, capped_assets = _capped_vol_target(raw, sig_used, vol_target_eff, cfg)
 
-    # --- step 7: hard clamps --------------------------------------------------
-    clamped = {
-        a: max(-cfg.max_weight, min(cfg.max_weight, w))
-        for a, w in scaled.items()
-    }
     gross = sum(abs(w) for w in clamped.values())
-    if gross > cfg.gross_cap and gross > 0.0:
+    gross_capped = gross > cfg.gross_cap and gross > 0.0
+    if gross_capped:
+        # A separate constraint from MAX_WEIGHT: it shrinks every name
+        # proportionally, so it preserves the inverse-vol ratios rather than
+        # distorting them, and it is tracked separately from `capped`.
         shrink = cfg.gross_cap / gross
         clamped = {a: w * shrink for a, w in clamped.items()}
         gross = cfg.gross_cap
+
+    vol_ex_ante = sum(abs(w) * sig_used[a] for a, w in clamped.items())
 
     # Final weights: drop ~zero entries so the book leaves them in cash.
     weights = {a: w for a, w in clamped.items() if abs(w) > 1e-9}
     net = sum(weights.values())
     for a, w in clamped.items():
         targets[a].target_weight = w
+        if a in capped_assets and not targets[a].abstained:
+            targets[a].reason = "sized (cap)"
 
     return SizingResult(
         weights=weights,
@@ -250,4 +279,54 @@ def size_positions(
         gross=gross,
         net=net,
         vol_target_effective=vol_target_eff,
+        vol_ex_ante=vol_ex_ante,
+        capped=capped_assets,
+        gross_capped=gross_capped,
     )
+
+
+def _capped_vol_target(
+    raw: dict[str, float],
+    sigmas: dict[str, float],
+    vol_target: float,
+    cfg: SizingConfig,
+) -> tuple[dict[str, float], list[str]]:
+    """Scale `raw` onto `vol_target` subject to |w| <= cfg.max_weight.
+
+    Iterative capped allocation: each pass rescales the still-free names onto
+    the risk budget the already-capped names left behind, then freezes any name
+    the rescale pushed through the cap. Terminates in at most len(raw) passes
+    because every non-final pass freezes at least one name.
+
+    Uses the same conservative ex-ante vol proxy as DESIGN §3 step 6 — Σ|w|·σ,
+    no diversification credit. When the cap binds on *every* name the target is
+    genuinely unreachable (e.g. four low-vol instruments at |w| <= 0.35 cannot
+    add up to 10% book vol); that is a real constraint rather than an error, and
+    the caller reports the shortfall via `SizingResult.vol_shortfall`.
+
+    Returns (weights, capped_asset_names).
+    """
+    weights: dict[str, float] = {a: 0.0 for a in raw}
+    capped: dict[str, float] = {}
+    free = {a for a, w in raw.items() if w != 0.0}
+
+    while free:
+        used = sum(abs(w) * sigmas[a] for a, w in capped.items())
+        budget = vol_target - used
+        free_vol = sum(abs(raw[a]) * sigmas[a] for a in free)
+        if budget <= 0.0 or free_vol <= 0.0:
+            # The capped names already consume the whole budget — the remaining
+            # views stay flat rather than pushing the book through its target.
+            break
+        scale = budget / free_vol
+        breaching = {a for a in free if abs(raw[a] * scale) > cfg.max_weight}
+        if not breaching:
+            for a in free:
+                weights[a] = raw[a] * scale
+            break
+        for a in breaching:
+            capped[a] = math.copysign(cfg.max_weight, raw[a])
+            free.discard(a)
+
+    weights.update(capped)
+    return weights, sorted(capped)

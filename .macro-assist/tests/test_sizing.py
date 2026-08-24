@@ -199,3 +199,98 @@ def test_gross_cap_scales_book_down():
     r = size_positions(sigs, _calm_regime(), cfg)
     # 5 * 0.35 = 1.75 > 1.5 -> scaled to exactly the gross cap
     assert r.gross == pytest.approx(1.5)
+
+
+# ---------------------------------------------------------------------------
+# Capped vol targeting — the cap must not silently eat the risk budget
+# ---------------------------------------------------------------------------
+def test_capped_name_hands_its_budget_to_the_rest():
+    """A name frozen at MAX_WEIGHT must not take the book below target.
+
+    Rescale-then-clamp truncated A at 0.35 and dropped the slack, leaving the
+    book at 6.75% against a 10% target. The capped allocation reallocates that
+    unused budget to B, which is still far from its own cap.
+    """
+    sigs = [
+        AssetSignal("A", "Bullish", 1.0, 0.05, 0.05),   # low vol -> wants w = 1.0
+        AssetSignal("B", "Bullish", 1.0, 0.40, 0.40),   # high vol -> wants w = 0.125
+    ]
+    cfg = SizingConfig(vol_target_annual=0.10, max_weight=0.35, gross_cap=10.0)
+    r = size_positions(sigs, _calm_regime(), cfg)
+
+    assert r.capped == ["A"]
+    assert r.weights["A"] == pytest.approx(0.35)
+    # B absorbs the budget A could not use: 0.10 - 0.35*0.05 = 0.0825 of vol
+    assert r.weights["B"] == pytest.approx(0.0825 / 0.40, rel=1e-6)
+    assert r.vol_ex_ante == pytest.approx(0.10, rel=1e-6)
+    assert r.vol_shortfall == pytest.approx(0.0, abs=1e-9)
+
+
+def test_shortfall_is_reported_when_every_name_caps():
+    """The 2026-08-24 kimi book: two capped names cannot reach a 10% target.
+
+    That is a genuine constraint, not an error — but it must be *visible*, or a
+    book silently running at 6.2% vol reads as if it were at 10%.
+    """
+    sigs = [
+        AssetSignal("S&P 500", "Bullish", 1.0, 0.122, 0.122),
+        AssetSignal("10Y (IEF)", "Bullish", 1.0, 0.055, 0.055, invert_sign=True),
+    ]
+    cfg = SizingConfig(vol_target_annual=0.10, max_weight=0.35, gross_cap=1.5)
+    r = size_positions(sigs, _calm_regime(), cfg)
+
+    assert sorted(r.capped) == ["10Y (IEF)", "S&P 500"]
+    assert r.weights["S&P 500"] == pytest.approx(0.35)
+    assert r.weights["10Y (IEF)"] == pytest.approx(-0.35)   # yield-bullish -> short bonds
+    assert r.vol_ex_ante == pytest.approx(0.35 * 0.122 + 0.35 * 0.055, rel=1e-9)
+    assert r.vol_shortfall == pytest.approx(0.10 - r.vol_ex_ante, rel=1e-9)
+    assert r.targets["S&P 500"].reason == "sized (cap)"
+
+
+def test_capped_allocation_never_overshoots_the_target():
+    """Reallocating the freed budget must respect the target, not blow past it."""
+    sigs = [
+        AssetSignal("A", "Bullish", 1.0, 0.02, 0.02),
+        AssetSignal("B", "Bullish", 1.0, 0.03, 0.03),
+        AssetSignal("C", "Bearish", 1.0, 0.60, 0.60),
+    ]
+    cfg = SizingConfig(vol_target_annual=0.10, max_weight=0.35, gross_cap=10.0)
+    r = size_positions(sigs, _calm_regime(), cfg)
+    assert r.vol_ex_ante <= 0.10 + 1e-9
+    assert all(abs(w) <= 0.35 + 1e-9 for w in r.weights.values())
+
+
+def test_gate_still_scales_the_capped_book():
+    """The regime gate must survive the capped loop (it lowers the target)."""
+    sigs = [
+        AssetSignal("A", "Bullish", 1.0, 0.05, 0.05),
+        AssetSignal("B", "Bullish", 1.0, 0.40, 0.40),
+    ]
+    cfg = SizingConfig(vol_target_annual=0.10, max_weight=0.35, gross_cap=10.0)
+    stormy = RegimeState(posterior=[0.1, 0.4, 0.1, 0.4], labels=LABELS)  # gate 0.2
+    r = size_positions(sigs, stormy, cfg)
+    assert r.gate == pytest.approx(0.2)
+    assert r.vol_ex_ante == pytest.approx(0.02, rel=1e-6)   # 10% * 0.2, cap not binding
+    assert r.capped == []
+
+
+def test_gross_cap_is_tracked_separately_from_the_weight_cap():
+    """GROSS_CAP shrinks every name proportionally — it preserves the
+    inverse-vol ratios, so it must not be reported as a MAX_WEIGHT cap."""
+    sigs = [AssetSignal(n, "Bullish", 1.0, 0.05, 0.05) for n in "ABCDE"]
+    cfg = SizingConfig(max_weight=0.35, gross_cap=1.5)
+    r = size_positions(sigs, _calm_regime(), cfg)
+    assert r.gross == pytest.approx(1.5)
+    assert r.gross_capped is True
+    # every name did hit MAX_WEIGHT here, but the two constraints stay distinct
+    assert set(r.capped) == set("ABCDE")
+
+
+def test_no_clamp_means_no_cap_flags():
+    sigs = [AssetSignal("A", "Bullish", 0.7, 0.16, 0.16),
+            AssetSignal("B", "Bearish", 0.4, 0.20, 0.20)]
+    cfg = SizingConfig(vol_target_annual=0.10, max_weight=1.0, gross_cap=10.0)
+    r = size_positions(sigs, _calm_regime(), cfg)
+    assert r.capped == []
+    assert r.gross_capped is False
+    assert r.vol_shortfall == pytest.approx(0.0, abs=1e-9)

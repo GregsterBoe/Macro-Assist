@@ -30,14 +30,19 @@ from portfolio.rebalance import (
     v1_instruments,
 )
 
-# A trimmed but faithful predictions block (real note format, incl. unicode minus).
+# A trimmed predictions block in the layout the daily pipeline **actually
+# emits** — "(P25 -0.8%/P75 +1.2%)", the two percentiles interleaved with their
+# labels and plain ASCII hyphens. The previous fixture used "P25–P75 −0.8%/+1.2%"
+# (en-dash + U+2212), a layout no live note has ever carried; it passed while
+# production silently parsed nothing and flattened the market book. WTI keeps
+# the older paired layout so both stay covered.
 NOTE = """\
 ### 5-Day Predictions
 
 | Asset | Bias | Primary Driver | Confidence | Target Range |
 |-------|------|----------------|------------|--------------
-| S&P 500 | Neutral | 5d conditional median +0.4%, P25–P75 −0.8%/+1.2% — tight. | 58% | -1.0% to +1.3% |
-| Gold | Bullish | 5d conditional median +0.9%, P25–P75 −1.1%/+2.6% — skewed. | 57% | $4,380–$4,520 |
+| S&P 500 | Neutral | 5d conditional median +0.4% (P25 -0.8%/P75 +1.2%) in the current NFCI-low bucket, n=336. | 58% | -1.0% to +1.3% |
+| Gold | Bullish | 5d conditional median +0.9% (P25 -1.1%/P75 +2.6%), n=336 — skewed. | 57% | $4,380–$4,520 |
 | WTI Oil | Neutral | 5d conditional median −0.4%, P25–P75 −2.9%/+3.0% — wide. | 60% | $81.50–$88.00 |
 | 10Y Treasury Yield | Bullish | Directional view: yields drift higher, real yields elevated. | 51% | 4.65%–4.85% |
 | Bitcoin | Neutral | No conditional base rate provided for BTC; no quant edge. | 54% | $60,500–$68,500 |
@@ -65,15 +70,44 @@ def test_parse_returns_empty_without_block():
     assert parse_note_signals("no predictions here") == {}
 
 
+GOLD_SIGMA = (0.026 - (-0.011)) / 1.349 * math.sqrt(252 / 5)
+
+
 def test_conditional_sigma_from_band_and_annualizes():
     # Gold band −1.1%/+2.6% -> IQR 3.7% -> sigma_5d = 0.037/1.349, annualized *sqrt(252/5)
     s = conditional_sigma_annual("... P25–P75 −1.1%/+2.6% ...")
-    expected = (0.026 - (-0.011)) / 1.349 * math.sqrt(252 / 5)
-    assert s == pytest.approx(expected, rel=1e-6)
+    assert s == pytest.approx(GOLD_SIGMA, rel=1e-6)
+
+
+def test_conditional_sigma_parses_the_live_note_layout():
+    """Regression: the exact driver prose from the 2026-08-24 market note.
+
+    The old parser returned None here — it required both percentiles *after*
+    "P75" — so every market-arm asset abstained "no-distribution" and the book
+    booked zero positions on its first live run.
+    """
+    driver = (
+        "5d conditional median +0.9% (P25 -1.1%/P75 +2.6%), n=336 — constructive "
+        "base rate supported by M2 reflation and soft DXY."
+    )
+    assert conditional_sigma_annual(driver) == pytest.approx(GOLD_SIGMA, rel=1e-6)
+
+
+@pytest.mark.parametrize("driver", [
+    "P25 -1.1%/P75 +2.6%",       # interleaved, ASCII hyphen (live layout)
+    "P25 −1.1%/P75 +2.6%",       # interleaved, U+2212 minus
+    "P25-P75 -1.1%/+2.6%",       # paired, ASCII hyphen  (regressed: hyphen was excluded)
+    "P25–P75 −1.1%/+2.6%",       # paired, en-dash + U+2212
+    "P25 to P75: -1.1% / +2.6%",  # paired, prose separator
+])
+def test_conditional_sigma_is_layout_and_dash_agnostic(driver):
+    """The risk input must not depend on which dash the model happened to emit."""
+    assert conditional_sigma_annual(driver) == pytest.approx(GOLD_SIGMA, rel=1e-6)
 
 
 def test_conditional_sigma_none_without_band():
     assert conditional_sigma_annual("Directional view: yields drift higher.") is None
+    assert conditional_sigma_annual("No conditional base rate provided for BTC.") is None
 
 
 # ---------------------------------------------------------------------------
@@ -235,3 +269,63 @@ def test_format_report_renders_table():
     assert "# Paper Portfolio — market — 2026-08-19" in md
     assert "| Gold |" in md
     assert "Regime gate" in md
+
+
+# ---------------------------------------------------------------------------
+# Flat-book alarm (DESIGN §7 confirm-on-first-run, automated)
+# ---------------------------------------------------------------------------
+_FLAT_NOTE = """\
+### 5-Day Predictions
+
+| Asset | Bias | Primary Driver | Confidence | Target Range |
+|-------|------|----------------|------------|--------------
+| S&P 500 | Bullish | Reasoning only, no conditional base rate quoted. | 57% | 7,610-7,790 |
+| Gold | Bullish | Reasoning only, no conditional base rate quoted. | 55% | 4,610-4,800 |
+
+Review date: 2026-08-31
+"""
+
+
+def test_flat_book_is_flagged_and_warned_about():
+    """An all-abstain book is a wiring failure until proven otherwise.
+
+    On 2026-08-24 the market and exogenous books booked nothing and the report
+    said so only in a per-row "no-distribution" note that nobody reads. The
+    record now carries an explicit flag and the report leads with it.
+    """
+    signals = build_asset_signals(parse_note_signals(_FLAT_NOTE), HAR)
+    book, bench = _fresh_books()
+    rec = advance_books(date(2026, 8, 24), "market", signals, PRICES, book, bench, har_sigmas=HAR)
+
+    assert rec["flat_book"] is True
+    assert all(t["abstained"] for t in rec["targets"].values())
+    assert all(t["reason"] == "no-distribution" for t in rec["targets"].values())
+    assert "Book fully flat" in format_report(rec)
+
+
+def test_sized_book_is_not_flagged_flat():
+    signals = build_asset_signals(parse_note_signals(NOTE), HAR)
+    book, bench = _fresh_books()
+    rec = advance_books(date(2026, 8, 24), "market", signals, PRICES, book, bench, har_sigmas=HAR)
+    assert rec["flat_book"] is False
+    assert "Book fully flat" not in format_report(rec)
+
+
+def test_report_renders_inverted_neutral_without_a_signed_zero():
+    """A Neutral 10Y call inverts to -0.0 and used to render as "-0"."""
+    signals = build_asset_signals(parse_note_signals(NOTE), HAR)
+    book, bench = _fresh_books()
+    rec = advance_books(date(2026, 8, 24), "market", signals, PRICES, book, bench, har_sigmas=HAR)
+    rec["targets"]["10Y (IEF)"]["direction"] = -0.0
+    assert "| -0 |" not in format_report(rec)
+
+
+def test_flat_book_does_not_claim_the_cap_bound():
+    """A flat book has a full 'shortfall' but nothing was capped — say so once."""
+    signals = build_asset_signals(parse_note_signals(_FLAT_NOTE), HAR)
+    book, bench = _fresh_books()
+    rec = advance_books(date(2026, 8, 24), "market", signals, PRICES, book, bench, har_sigmas=HAR)
+    report = format_report(rec)
+    assert rec["capped"] == []
+    assert "MAX_WEIGHT binds" not in report
+    assert "Book fully flat" in report

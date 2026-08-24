@@ -153,24 +153,58 @@ def parse_note_signals(text: str) -> dict[str, NoteSignal]:
     return out
 
 
+# Every dash/minus codepoint an LLM may emit, normalized to ASCII "-" before
+# matching. The previous parser normalized U+2212 only, so a plain hyphen in
+# "P25-P75" fell outside its separator class and the band was missed.
+_DASHES = "\u2010\u2011\u2012\u2013\u2014\u2015\u2212"
+_DASH_MAP = {ord(c): "-" for c in _DASHES}
+
+_NUM = r"([+\-]?\d+(?:\.\d+)?)\s*%"
+
+# Two band layouts occur in the wild and both must parse:
+#   interleaved — "(P25 -0.8%/P75 +1.2%)"   ← what the daily pipeline emits
+#   paired      — "P25-P75 -0.8%/+1.2%"     ← the layout DESIGN/older notes used
+# The separator classes span "-", "–", " to ", ": " and friends without being
+# able to swallow the sign or the digits of the number that follows.
+_BAND_INTERLEAVED = re.compile(rf"P\s*25\D{{0,4}}?{_NUM}\s*[/,]?\s*P\s*75\D{{0,4}}?{_NUM}")
+_BAND_PAIRED = re.compile(rf"P\s*25[^0-9%]{{0,4}}?P\s*75\D{{0,4}}?{_NUM}\s*/\s*{_NUM}")
+
+
+def parse_conditional_band(driver: str) -> Optional[tuple[float, float]]:
+    """Extract (p25, p75) as fractions from a driver's conditional band, or None.
+
+    Tolerant of both band layouts and of any unicode dash/minus, because this is
+    LLM prose: the risk input must not depend on which hyphen the model picked.
+    """
+    norm = driver.translate(_DASH_MAP)
+    m = _BAND_INTERLEAVED.search(norm) or _BAND_PAIRED.search(norm)
+    if not m:
+        return None
+    return float(m.group(1)) / 100.0, float(m.group(2)) / 100.0
+
+
 def conditional_sigma_annual(
     driver: str,
     horizon: int = HORIZON,
     trading_days: int = TRADING_DAYS,
 ) -> Optional[float]:
-    """Parse the 'P25-P75 x%/y%' band from driver prose → annualized 1σ (fraction).
+    """Parse the conditional P25/P75 band from driver prose → annualized 1σ.
 
     Uses the IQR estimator (p75−p25)/1.349, then annualizes by √(trading_days/h).
-    Returns None if no band is present (⇒ the sizer abstains).
+    Returns None when the row carries no band (⇒ the sizer abstains, DESIGN §3
+    step 3).
+
+    NOTE (see TODO.md, open decision #1): this reads the band out of the *note
+    prose* rather than calling `conditional.lookup_distribution`. That keeps it
+    point-in-time-faithful — it is exactly the distribution the note author saw —
+    but it makes the book's risk input hostage to prompt wording, which is how
+    the 2026-08-24 flat-book incident happened. Reading the table directly needs
+    a point-in-time bucket and is a design decision, not a bug fix.
     """
-    norm = driver.replace("−", "-")  # unicode minus → ASCII
-    m = re.search(
-        r"P25[^0-9+\-]{0,4}P75\s*([+\-]?\d+(?:\.\d+)?)\s*%\s*/\s*([+\-]?\d+(?:\.\d+)?)\s*%",
-        norm,
-    )
-    if not m:
+    band = parse_conditional_band(driver)
+    if band is None:
         return None
-    p25, p75 = float(m.group(1)) / 100.0, float(m.group(2)) / 100.0
+    p25, p75 = band
     sigma_h = (p75 - p25) / IQR_TO_SIGMA
     if sigma_h <= 0:
         return None
@@ -292,6 +326,14 @@ def advance_books(
         "note": note_path,
         "gate": result.gate,
         "vol_target_effective": result.vol_target_effective,
+        "vol_ex_ante": result.vol_ex_ante,
+        "vol_shortfall": result.vol_shortfall,
+        "capped": result.capped,
+        "gross_capped": result.gross_capped,
+        # A book with no positions at all is nearly always a wiring failure
+        # (a missed conditional band, a note that didn't parse), not a market
+        # view. Flagged here so DESIGN §7's first-run eyeball is automatic.
+        "flat_book": not result.weights and bool(signals),
         "targets": {
             a: {
                 "direction": t.direction,
@@ -316,6 +358,20 @@ def format_report(record: dict) -> str:
         "",
         f"- Regime gate: **{record['gate']:.3f}** "
         f"(effective vol target {record['vol_target_effective'] * 100:.1f}%)",
+        f"- Ex-ante book vol: **{record.get('vol_ex_ante', 0.0) * 100:.1f}%**"
+        + (
+            f"  ·  ⚠️ {record['vol_shortfall'] * 100:.1f}pp under target — "
+            + (
+                f"MAX_WEIGHT binds on {', '.join(record['capped'])}"
+                if record.get("capped")
+                else "GROSS_CAP binds"
+            )
+            # Only meaningful when the cap is what held the book back; a fully
+            # flat book is a different failure and gets its own warning below.
+            if record.get("vol_shortfall", 0.0) > 5e-4
+            and (record.get("capped") or record.get("gross_capped"))
+            else ""
+        ),
         f"- Book NAV: **{record['book_nav']:,.2f}**  ·  Benchmark NAV: "
         f"**{record['bench_nav']:,.2f}**",
         "",
@@ -323,10 +379,23 @@ def format_report(record: dict) -> str:
         "|---|---:|---:|---:|---:|---|",
     ]
     for a, t in record["targets"].items():
+        # `+.0f` renders an inverted Neutral as "-0"; force the sign off a zero.
+        d = t["direction"] or 0.0
         lines.append(
-            f"| {a} | {t['direction']:+.0f} | {t['confidence']:.0%} | "
+            f"| {a} | {d:+.0f} | {t['confidence']:.0%} | "
+            f"{t['sigma']:.1%} | {t['weight']:+.2%} | {t['reason']} |"
+            if d else
+            f"| {a} | 0 | {t['confidence']:.0%} | "
             f"{t['sigma']:.1%} | {t['weight']:+.2%} | {t['reason']} |"
         )
+    if record.get("flat_book"):
+        lines += [
+            "",
+            "> ⚠️ **Book fully flat** — every instrument abstained. Check the "
+            "abstention reasons above: an all-`no-distribution` book means the "
+            "conditional band did not parse out of the note, not that the "
+            "pipeline held no view.",
+        ]
     return "\n".join(lines) + "\n"
 
 
