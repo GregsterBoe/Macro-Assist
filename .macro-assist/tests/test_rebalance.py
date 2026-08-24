@@ -153,11 +153,13 @@ def test_advance_books_sizes_only_actionable_names():
     signals = build_asset_signals(note_signals, HAR)
     book, bench = _fresh_books()
     rec = advance_books(date(2026, 8, 19), "market", signals, PRICES, book, bench, har_sigmas=HAR)
-    # Only Gold is both directional (Bullish) AND has a conditional band -> sized.
-    # S&P/WTI/BTC are Neutral or band-less; 10Y is band-less -> all abstain.
+    # Uniform HAR rule (TODO #2): both directional names size, band or not.
+    # Gold (Bullish, has band) and 10Y (Bullish yield, band-less -> HAR σ, inverted
+    # to a short bond proxy) both trade; S&P/BTC are Neutral -> abstain.
     assert "Gold" in book.positions and book.positions["Gold"].shares > 0
     assert rec["targets"]["Gold"]["abstained"] is False
-    assert rec["targets"]["10Y (IEF)"]["reason"] == "no-distribution"
+    assert rec["targets"]["10Y (IEF)"]["abstained"] is False
+    assert rec["targets"]["10Y (IEF)"]["weight"] < 0   # Bullish yield -> short bonds
     assert rec["targets"]["S&P 500"]["reason"] == "neutral/no-view"
 
 
@@ -244,13 +246,15 @@ def test_kimi_arm_sizes_without_conditional_bands():
     assert rec["targets"]["10Y (IEF)"]["weight"] < 0
 
 
-def test_market_arm_still_abstains_without_band():
-    # Regression: the default config must NOT size band-less calls.
+def test_market_arm_sizes_without_band_uniform_rule():
+    # TODO #2: every arm runs the same rule now. A band-less directional note sizes
+    # off HAR σ for the market arm exactly as it does for kimi — no more per-arm
+    # abstention that left market/exogenous structurally flat.
     signals = build_asset_signals(parse_note_signals(KIMI_NOTE), HAR)
     book, bench = _fresh_books()
     advance_books(date(2026, 8, 19), "market", signals, PRICES, book, bench,
                   har_sigmas=HAR, cfg=sizing_config_for("market"))
-    assert not book.positions  # all abstain: no conditional band under default cfg
+    assert book.positions  # directional calls size off HAR even with no band
 
 
 def test_already_rebalanced_guards_the_date():
@@ -321,19 +325,20 @@ _FLAT_NOTE = """\
 
 | Asset | Bias | Primary Driver | Confidence | Target Range |
 |-------|------|----------------|------------|--------------
-| S&P 500 | Bullish | Reasoning only, no conditional base rate quoted. | 57% | 7,610-7,790 |
-| Gold | Bullish | Reasoning only, no conditional base rate quoted. | 55% | 4,610-4,800 |
+| S&P 500 | Neutral | No directional conviction this week. | 50% | 7,610-7,790 |
+| Gold | Neutral | No directional conviction this week. | 50% | 4,610-4,800 |
 
 Review date: 2026-08-31
 """
 
 
 def test_flat_book_is_flagged_and_warned_about():
-    """An all-abstain book is a wiring failure until proven otherwise.
+    """A fully-flat book still gets the DESIGN §7 eyeball flag.
 
-    On 2026-08-24 the market and exogenous books booked nothing and the report
-    said so only in a per-row "no-distribution" note that nobody reads. The
-    record now carries an explicit flag and the report leads with it.
+    Under the uniform HAR rule (TODO #2) a band-less *directional* call sizes off
+    HAR, so the only way a book holds nothing is an **all-Neutral** table — a
+    genuine no-view week, not a parse failure. It is unusual enough to still flag,
+    and the warning text says so (no longer blaming a missing conditional band).
     """
     signals = build_asset_signals(parse_note_signals(_FLAT_NOTE), HAR)
     book, bench = _fresh_books()
@@ -341,7 +346,7 @@ def test_flat_book_is_flagged_and_warned_about():
 
     assert rec["flat_book"] is True
     assert all(t["abstained"] for t in rec["targets"].values())
-    assert all(t["reason"] == "no-distribution" for t in rec["targets"].values())
+    assert all(t["reason"] == "neutral/no-view" for t in rec["targets"].values())
     assert "Book fully flat" in format_report(rec)
 
 

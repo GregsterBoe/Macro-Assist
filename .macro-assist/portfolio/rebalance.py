@@ -25,9 +25,10 @@ Extraction choices (v1, documented so v2 is an edit not a surprise):
   * **conditional σ** is parsed from the driver prose's "P25-P75 x%/y%" band
     (IQR→σ, annualized) — this is exactly the distribution the note author saw,
     so it is point-in-time-faithful without reloading the table. A row with no
-    band (e.g. a purely reasoning-driven 10Y call) yields σ=None ⇒ the sizer
-    abstains (DESIGN §3 step 3). Reloading the full conditional table for such
-    rows is a later refinement.
+    band (e.g. a purely reasoning-driven 10Y call, or any exogenous note) yields
+    σ=None, which **enriches** rather than gates: the uniform rule
+    (`require_distribution=False`, TODO #2) falls back to HAR σ, so a missing band
+    no longer flatlines the book — it only forgoes the conditional cross-check.
   * **HAR-RV σ** is recomputed from a yfinance price history ending at `t`
     (the loosened-profile notes don't carry a structured vol block to parse).
   * **regime gate** is best-effort: if the live HMM isn't wired/available the
@@ -62,15 +63,25 @@ IQR_TO_SIGMA = 1.349  # p75 − p25 = 1.349σ for a normal
 
 
 def sizing_config_for(arm: str) -> SizingConfig:
-    """Per-arm sizing config. The **kimi** arm is the ensemble-confidence
-    experiment: its notes carry ensemble-agreement (not conditional base rates),
-    so it sizes off direction + HAR vol + agreement-as-confidence with
-    `require_distribution=False` — otherwise every kimi call would abstain and the
-    arm would never trade. Market / exogenous keep the conservative default
-    (abstain without a measurable distribution)."""
-    if arm == "kimi":
-        return SizingConfig(horizon=HORIZON, require_distribution=False)
-    return SizingConfig(horizon=HORIZON)
+    """Per-arm sizing config — **the same rule for every arm** (TODO #2 / DESIGN §6).
+
+    All arms size off direction + HAR-RV σ, with the conditional band *enriching* σ
+    when it parses (the `risk_blend="max"` cross-check) rather than gating whether
+    the book trades at all: `require_distribution=False` uniformly. HAR σ is a
+    measured, point-in-time risk input available for every instrument from prices
+    alone, so abstention is reserved for "no directional view" (Neutral), not "this
+    note's prose carried no P25/P75 band".
+
+    This replaces the old split (kimi False, market/exogenous True). The split made
+    the exogenous book — whose monetary-stance notes never carry a band —
+    structurally flat forever, so DESIGN §6's "whose predictions make money" could
+    never be measured. It also made the market book hostage to prompt wording (the
+    2026-08-24 flat-book incident). A uniform HAR-based rule removes both: the
+    conditional band, when present, still sharpens σ; when absent, HAR carries it.
+
+    The `arm` param is retained so a future, deliberate per-arm divergence is a
+    one-line edit rather than a signature change."""
+    return SizingConfig(horizon=HORIZON, require_distribution=False)
 
 
 @dataclass(frozen=True)
@@ -306,7 +317,7 @@ def advance_books(
     into the decision log for transparency. `regime` remains as the retired-HMM
     revival path (used only when no explicit `gate` is passed).
     """
-    cfg = cfg or SizingConfig(horizon=HORIZON)
+    cfg = cfg or sizing_config_for(arm)
     result = size_positions(signals, regime, cfg, gate=gate)
 
     sleeve_of = {a: "macro" for a in result.weights}
@@ -341,9 +352,11 @@ def advance_books(
         "vol_shortfall": result.vol_shortfall,
         "capped": result.capped,
         "gross_capped": result.gross_capped,
-        # A book with no positions at all is nearly always a wiring failure
-        # (a missed conditional band, a note that didn't parse), not a market
-        # view. Flagged here so DESIGN §7's first-run eyeball is automatic.
+        # A book with no positions at all now means *every* call was Neutral —
+        # under the uniform HAR rule (TODO #2) a band-less directional call still
+        # sizes off HAR, so a flat book is a genuine no-directional-view week, not
+        # a parse failure. Still worth the DESIGN §7 eyeball (an all-Neutral table
+        # is unusual), so it stays flagged.
         "flat_book": not result.weights and bool(signals),
         "targets": {
             a: {
@@ -390,8 +403,19 @@ def format_report(record: dict) -> str:
             and (record.get("capped") or record.get("gross_capped"))
             else ""
         ),
+        # NAV comparison (TODO #6). While the book holds no risk, any gap to the
+        # benchmark is the benchmark paying its entry/holding costs against a book
+        # sitting in cash — an entry-cost artifact, not alpha. Label it as such so
+        # a flat-week +Xbp is never read as outperformance; the excess-return read
+        # only means something once the book has taken exposure (DESIGN §5).
         f"- Book NAV: **{record['book_nav']:,.2f}**  ·  Benchmark NAV: "
-        f"**{record['bench_nav']:,.2f}**",
+        f"**{record['bench_nav']:,.2f}**"
+        + (
+            "  ·  _(book flat — the gap is the benchmark's entry cost, not alpha;"
+            " excess return is meaningful only from first exposure)_"
+            if not any(t["weight"] for t in record["targets"].values())
+            else ""
+        ),
         "",
         "| Instrument | Dir | Conf | σ (ann) | Weight | Note |",
         "|---|---:|---:|---:|---:|---|",
@@ -409,10 +433,11 @@ def format_report(record: dict) -> str:
     if record.get("flat_book"):
         lines += [
             "",
-            "> ⚠️ **Book fully flat** — every instrument abstained. Check the "
-            "abstention reasons above: an all-`no-distribution` book means the "
-            "conditional band did not parse out of the note, not that the "
-            "pipeline held no view.",
+            "> ⚠️ **Book fully flat** — every instrument is Neutral (no directional "
+            "view). Under the uniform HAR rule a band-less directional call would "
+            "still size, so this is a genuine no-view week rather than a parse "
+            "failure — but an all-Neutral table is unusual, so confirm the note "
+            "actually holds no conviction (DESIGN §7).",
         ]
     return "\n".join(lines) + "\n"
 

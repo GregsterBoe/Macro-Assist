@@ -10,7 +10,7 @@ Conventions:
 - Cite the file/line and the source (design doc, run, KB entry) so the next
   context can pick it up without re-deriving the analysis.
 
-Last reviewed: 2026-08-24 (first live portfolio rebalance).
+Last reviewed: 2026-08-24 (TODO sweep — #1/#2/#6 resolved, #4 documented, #5 sharpened).
 
 ---
 
@@ -31,37 +31,43 @@ all of this.
   now solves DESIGN §3 steps 6–7 jointly via `_capped_vol_target`, and reports
   `vol_ex_ante` / `vol_shortfall` / `capped` so a binding cap is visible.
 
-### Open decision #1 — read the conditional table instead of note prose
-**Where:** `.macro-assist/portfolio/rebalance.py` — `conditional_sigma_annual`.
-**Problem:** the book's risk input is regex-scraped from LLM prose. DESIGN §3
-step 3 actually specifies `conditional.lookup_distribution(bucket, a, 5, table)`,
-and `.macro-assist/data/conditional_distributions.json` is built and fresh. Prose
-scraping is why the market book flatlined on its first live run: a wording change
-silently zeroes the book. The parser is now tolerant, but the dependency remains.
-**Why not just done:** reading the table needs a *point-in-time bucket* at
-rebalance date `t` (`conditional.assign_bucket` on an ALFRED-vintage snapshot →
-network + FRED key), which is the same class of dependency as `live_regime`, and
-DESIGN §7 forbids look-ahead. Choosing table-vs-prose is a point-in-time fidelity
-decision, not a bug fix.
-**Options:** (a) table lookup with a PIT snapshot, prose as fallback;
-(b) have the pipeline emit a structured band field in the note frontmatter, so
-the book reads data rather than prose; (c) keep prose, accept the coupling.
-*Lean: (b) — cheapest, keeps point-in-time fidelity by construction.*
+### RESOLVED 2026-08-24 — #1 the prose-band dependency is no longer load-bearing
+**Subsumed by #2.** The acute failure #1 named was "a wording change silently
+zeroes the book." Under the uniform HAR rule (#2, `require_distribution=False`)
+that can no longer happen: HAR σ is the always-available risk input, so a
+missing/mis-worded conditional band only forgoes the conditional *cross-check* —
+it never flatlines the book. The prose parser stays (hardened for both layouts +
+all dashes) as the σ-enrichment path.
+**What's left is fidelity, not fragility.** Reading the code-computed table
+instead of LLM prose (option b — emit a machine-readable per-asset 5d band into
+the note at generation) is the correct eventual decoupling, but the committed
+note does **not** carry the conditional distribution table (only the LLM's prose
+reproduction), so option (b) means re-plumbing note generation
+(`llm_analysis._build_analysis_markdown` + threading the computed bands through).
+Deliberately **deferred**: re-plumbing note emission mid-forward-test is a large,
+reactive change for a now-cosmetic gain. Revisit if/when a note-format revision is
+already on the table.
 
-### Open decision #2 — the three arms do not run the same sizing rule
-**Where:** `.macro-assist/portfolio/rebalance.py:64` `sizing_config_for`.
-**Problem:** `kimi` gets `require_distribution=False`; market and exogenous keep
-`True`. The exogenous notes carry no conditional band at all (their drivers are
-monetary-stance prose), so **the exogenous book is structurally guaranteed to
-stay flat forever** under the current gate — confirmed again on 2026-08-24.
-This voids DESIGN §6: "whose predictions make money" cannot be measured when
-only one arm is permitted to hold anything.
-**Options:** (a) a σ source that exists for all three arms (HAR-only, i.e.
-`require_distribution=False` everywhere) — uniform rule, weaker abstention;
-(b) make the exogenous emitter carry a band; (c) accept it and drop exogenous
-from the P&L comparison, documenting why.
-*Lean: (a) for rule uniformity, since HAR σ is available for every instrument
-and the abstention was meant to catch missing risk data, not missing prose.*
+### RESOLVED 2026-08-24 — #2 all arms now run the same sizing rule
+Chosen option (a): `sizing_config_for` returns `require_distribution=False` for
+**every** arm, so all three size off direction + HAR-RV σ, with the conditional
+band *enriching* σ (the `risk_blend="max"` cross-check) when present rather than
+gating whether the book trades. HAR σ is a measured, PIT risk input available for
+every instrument from prices alone; abstention is now reserved for **Neutral**
+(no directional view). This unblocks the exogenous book (structurally flat before)
+so DESIGN §6's cross-arm P&L read is finally like-for-like, and it removes the
+market book's hostage-to-prose failure mode (see resolved #1).
+`advance_books` default cfg now derives from `sizing_config_for(arm)` so the
+library default matches the production rule. The `flat_book` flag was re-tuned:
+a flat book now means an **all-Neutral** table (genuine no-view week), not a parse
+failure, and the report warning says so. DESIGN §3 step 3 + §6 amended. Tests:
+`test_market_arm_sizes_without_band_uniform_rule`, updated
+`test_advance_books_sizes_only_actionable_names` (10Y sizes off HAR), all-Neutral
+`_FLAT_NOTE`.
+*Trade-off (carry forward):* weaker abstention — a band-less directional call now
+always takes HAR-sized risk. The guard it replaced was meant to catch missing
+*risk data*, and HAR σ is that data, so this is the intended loosening; the
+`require_distribution` knob survives for a deliberate per-arm revival.
 
 ### RESOLVED 2026-08-21 — #3 the regime gate is dead → wired to fragility
 Chosen option (a): the risk-off gate now reads the **fragility index**, not the
@@ -79,19 +85,22 @@ gate 1.0 (correctly ungated in a calm tape). Tests: `test_sizing` gate-override 
 drawdowns, a future "book beat benchmark" is partly the gate's beta-timing, not
 pure signal alpha — keep that distinction when reading the §9 quarter result.
 
-### Carried finding #4 — kimi confidence is effectively binary
+### Carried finding #4 — kimi confidence clusters high (no code change — deliberate)
 **Where:** kimi ensemble agreement → `AssetSignal.confidence`.
-**Problem:** 12-sample agreement lands on 100% / 92% / 50%; the 50s are Neutral
-and abstain, so everything that actually trades carries c ≈ 1.0. DESIGN §3.2
-says sizing is where "confidence is made consequential" and where KB-007's
-clamped-confidence problem gets attacked — with c pinned at 1.0 that channel
-contributes nothing, and (combined with the cap) sizing degenerates to
-"max weight or nothing".
-**Needs:** either a finer agreement statistic (vote margin, per-sample
-probability rather than modal agreement), or accepting that the kimi arm is a
-direction-only signal and saying so in DESIGN.
+**Assessed 2026-08-24 — leave as-is, document.** The confidence is **already the
+continuous vote share** (`aggregate`: `conf = round(dir_share*100)`, un-clamped),
+not a binary or bucketed statistic. It lands on 100/92 today because the 12
+samples *genuinely agree* — a property of a one-sided tape, not a degenerate
+estimator. A "finer statistic" (vote margin, per-sample probability) would not
+change that near-unanimous agreement should read as high confidence; building one
+now would be fitting to the current tape (exactly the "too reactive" move to
+avoid). When the tape contests, agreement — and therefore confidence — will spread
+on its own.
+**The real lever is the cap, not the confidence.** The "max weight or nothing"
+degeneracy the finding describes is #5 (the raw-weight cap binding), not the
+confidence channel. Fix it there.
 **Watch:** `vol_shortfall` in the weekly reports — if the cap binds every week,
-this is confirmed.
+#5 is confirmed and the confidence channel is moot until it's addressed.
 
 ### Carried finding #5 — MAX_WEIGHT binds structurally on a low-vol universe
 **Where:** `SizingConfig.max_weight = 0.35`, `vol_target_annual = 0.10`.
@@ -105,17 +114,27 @@ lower `vol_target_annual`, or cap **risk contribution** (`|w|·σ`) instead of r
 weight — the last preserves the inverse-vol ratios the cap currently overrides.
 *Lean: cap risk contribution; it is the version of the constraint that matches
 what the rule is trying to express.* Needs a DESIGN §3 step 7 amendment.
+**Now the live question (2026-08-24).** #2 made all arms hold risk, so the cap
+now binds in practice, not just in theory — and it is the mechanism behind #4's
+"max weight or nothing". **Deliberately not changed in this batch:** the
+risk-contribution cap changes the *measured quantity* (ex-ante book vol), so
+doing it at the same time as #2 would make the forward-test P&L unattributable.
+Discipline is one deliberate sizing change at a time. **Next step:** watch
+`vol_shortfall` / `capped` in the weekly reports for a few rebalances; if the cap
+binds every week (expected on the low-vol S&P/IEF pair), implement the
+risk-contribution cap as a single, isolated §3-step-7 change and note the
+before/after in the ledger.
 
-### Carried finding #6 — day-1 NAV comparisons read as alpha
-**Where:** `format_report`, the `Book NAV vs Benchmark NAV` line.
-**Problem:** on 2026-08-24 the flat market book showed 100,000.00 vs a benchmark
-at 99,877.96 — a +12bp "outperformance" that is entirely the benchmark paying
-its entry costs against a book holding nothing. Harmless now, misleading in a
-quarterly read.
-**Fix when convenient:** suppress or label the comparison until the book has
-held a position for a full period, and report excess return only from first
-exposure. DESIGN §5 wants information ratio vs buy-and-hold — that series should
-start when the book actually takes risk.
+### RESOLVED 2026-08-24 — #6 day-1 NAV comparison is now labelled
+`format_report`'s NAV line now checks whether the book holds any risk this period
+(`any(t["weight"] …)`); while it holds nothing it appends an explicit caveat —
+_"book flat — the gap is the benchmark's entry cost, not alpha; excess return is
+meaningful only from first exposure"_ — so a flat-week +Xbp can't be misread as
+outperformance. A minimal, honest label rather than a new series.
+*Deferred (still open, lower priority):* a proper excess-return / information-ratio
+series that *starts* at first exposure (DESIGN §5). The label prevents the
+misread; the clean IR-from-first-exposure series is the real §5 deliverable and
+belongs with the §9 quarter read, not a mid-flight reporting tweak.
 
 ---
 
@@ -140,7 +159,10 @@ bear-share into the first risk-off. Revisit at the DESIGN §9 quarter mark.
 
 - The DESIGN §9 go/no-go clock is **forward-only** and already running. Every
   week a book sits flat for a wiring reason is a burned week of sample that
-  cannot be recovered — open decisions #1 and #2 are on that clock.
+  cannot be recovered — the flat-book wiring causes (#1, #2) are now closed, so
+  from here a flat book is a real all-Neutral week, not a burned one. The live
+  clock item is now #5 (the cap): don't let a structurally cap-throttled book
+  masquerade as a low-conviction one — read `vol_shortfall` each week.
 - Test-fixture discipline: `test_rebalance.py`'s band fixture asserted a note
   layout the pipeline has never emitted, so the suite stayed green while
   production parsed nothing. When a fixture stands in for pipeline output,

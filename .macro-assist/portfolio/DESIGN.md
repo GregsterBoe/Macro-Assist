@@ -87,11 +87,21 @@ For each asset `a` in the v1 universe, at rebalance date `t`, horizon `h = 5`
    (for the `kimi` arm, from ensemble agreement — size *is* confidence made
    consequential; directly attacks the clamped-confidence problem, KB-007).
 3. **Risk (dispersion)** `σ_a` from the **HAR-RV 5-day vol forecast**
-   (`vol_forecast.py`) — the purpose-built per-asset risk input.
-   Cross-check against the conditional-distribution spread
-   `(p90−p10)/2.56` from `conditional.lookup_distribution(bucket, a, 5, table)`;
-   if the distribution is **None after fallback**, `d_a := 0` (honest abstention —
-   we hold no view we can't size).
+   (`vol_forecast.py`) — the purpose-built per-asset risk input, and the
+   **always-available** one (it needs only a price history, no note prose).
+   When a conditional band is present it **enriches** `σ_a` via the risk-blend
+   cross-check (`(p90−p10)/2.56`, `risk_blend="max"` by default); when it is
+   absent, HAR carries `σ_a` alone.
+   **Uniform rule across arms** (TODO #2, `require_distribution=False`): a missing
+   conditional band no longer forces `d_a := 0`. Abstention is reserved for **no
+   directional view** (Neutral). The earlier "abstain without a distribution"
+   rule made the exogenous arm — whose monetary-stance notes never carry a band —
+   structurally flat forever (voiding §6's cross-arm P&L read) and made the market
+   book hostage to prompt wording (the 2026-08-24 flat-book incident). The
+   trade-off is a weaker abstention filter; the guard it replaced was meant to
+   catch *missing risk data*, and HAR σ is exactly that data. `SizingConfig`
+   keeps the `require_distribution` knob so a stricter per-arm rule is a one-line
+   revival.
 4. **Pre-limit weight** `w̃_a = d_a · c_a / σ_a` (inverse-vol, signed, confidence-scaled).
 5. **Risk-off gate** (gross risk-on/off): scale all `w̃` by a gate `g ∈ (0,1]`
    that dials the book toward cash as market fragility rises.
@@ -171,6 +181,13 @@ Predictions already carry `arm ∈ {market, exogenous, kimi}`. Instantiate **one
 book per arm** + the benchmarks. P&L then becomes a new axis of the existing
 `calibration_by_arm` A/B: *whose predictions make money*, not just who is
 best-calibrated. Same pattern as Phase 19's arm-keyed scoring — near-free.
+
+For this comparison to mean anything, **every arm must run the same sizing rule**
+(§3 step 3, `require_distribution=False` uniformly). The earlier per-arm split
+let only the market/kimi arms hold risk while the exogenous book stayed flat by
+construction, so "whose predictions make money" was unanswerable. With the uniform
+HAR rule all three arms can take exposure off the same machinery, and the P&L axis
+is finally a like-for-like read (TODO #2).
 
 ---
 
