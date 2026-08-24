@@ -16,6 +16,11 @@ on:
         description: "Rebalance date (YYYY-MM-DD); blank = today (UTC)"
         required: false
         default: ""
+      reset:
+        description: "Rewrite this week: discard the current week's entry and re-book from a clean slate. Refused if a book already has a prior week (only rewrites the first/only week)."
+        type: boolean
+        required: false
+        default: false
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -53,10 +58,14 @@ jobs:
           DATE_ARG="${{ github.event.inputs.date }}"
           DATE_FLAG=""
           if [ -n "$DATE_ARG" ]; then DATE_FLAG="--date $DATE_ARG"; fi
-          # Each arm skips gracefully if it has no note for the date.
+          RESET_FLAG=""
+          if [ "${{ github.event.inputs.reset }}" = "true" ]; then RESET_FLAG="--reset"; fi
+          # Each arm skips gracefully if it has no note for the date. --reset
+          # (manual dispatch only) re-books this week from a clean slate; it
+          # refuses per-arm if that book already carries a prior week.
           for ARM in market exogenous kimi; do
             echo "=== rebalancing arm: $ARM ==="
-            python -m portfolio.rebalance --arm "$ARM" $DATE_FLAG
+            python -m portfolio.rebalance --arm "$ARM" $DATE_FLAG $RESET_FLAG
           done
 
       - name: Commit ledgers & reports

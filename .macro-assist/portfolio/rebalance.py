@@ -632,13 +632,16 @@ def live_fragility_gate(asof: date, lookback_days: int = 400) -> tuple[float, di
         return 1.0, {}
 
 
-def _load_or_init(path: Path, arm: str) -> Book:
-    if path.exists():
-        return Book.load(path)
+def _new_book(arm: str) -> Book:
+    """A fresh, instrument-registered book (starting NAV, no history)."""
     book = Book(arm=arm)
     for inst in v1_instruments():
         book.register(inst)
     return book
+
+
+def _load_or_init(path: Path, arm: str) -> Book:
+    return Book.load(path) if path.exists() else _new_book(arm)
 
 
 def already_rebalanced(book: Book, asof: date) -> bool:
@@ -648,15 +651,30 @@ def already_rebalanced(book: Book, asof: date) -> bool:
     return any(r.get("as_of") == asof.isoformat() for r in book.decision_log)
 
 
+def booked_weeks(book: Book) -> set[str]:
+    """The distinct as-of dates the book has already booked — the reset guard's
+    view of a book's history."""
+    return {r.get("as_of") for r in book.decision_log if r.get("as_of")}
+
+
 def run(
     asof: date,
     arm: str = "market",
     portfolio_dir: Path = PORTFOLIO_DIR,
     force: bool = False,
+    reset: bool = False,
 ) -> Optional[dict]:
     """Live weekly rebalance for one arm: read the note, fetch prices, size,
     advance the book + benchmark, and persist ledger + report. Idempotent per
-    (date, arm) unless `force=True`."""
+    (date, arm) unless `force=True`.
+
+    `reset=True` ("rewrite this week"): discard the current week's entry and
+    re-book both the arm book and its benchmark from a clean slate. Only valid
+    while `asof` is the *only* week the book has booked — a single-week rewind of
+    a multi-week book would need pre-trade state the ledger doesn't store, so if
+    any prior week exists the reset is refused rather than silently destroying a
+    track record. Implies `force` for the (now empty) idempotency guard.
+    """
     note_path = find_note(asof, arm)
     if note_path is None:
         print(f"No macro note found for {asof} / arm={arm}; skipping.")
@@ -670,6 +688,20 @@ def run(
     bench_path = portfolio_dir / f"book__{arm}__benchmark.json"
     book = _load_or_init(book_path, arm)
     bench = _load_or_init(bench_path, f"{arm}-benchmark")
+
+    if reset:
+        prior = booked_weeks(book) - {asof.isoformat()}
+        if prior:
+            print(f"Refusing --reset on {arm}: book has prior week(s) "
+                  f"{sorted(prior)}; reset would discard them. A single-week "
+                  f"rewind of a multi-week book is not supported — reset is only "
+                  f"for rewriting the first/only week.")
+            return None
+        # Clean slate: re-book this week from a fresh book + benchmark, so the
+        # persisted JSON is a single day-1 entry rather than a doubled ledger.
+        book = _new_book(arm)
+        bench = _new_book(f"{arm}-benchmark")
+        force = True
 
     # Idempotency: skip a date the book has already booked (before any network).
     if already_rebalanced(book, asof) and not force:
@@ -717,8 +749,12 @@ def main(argv: Optional[list[str]] = None) -> None:
     p.add_argument("--arm", default="market", choices=["market", "exogenous", "kimi"])
     p.add_argument("--force", action="store_true",
                    help="Redo a date already booked (overrides the idempotency guard).")
+    p.add_argument("--reset", action="store_true",
+                   help="Rewrite this week: discard the current week's entry and "
+                        "re-book from a clean slate. Refused if the book already "
+                        "has a prior week (only rewrites the first/only week).")
     args = p.parse_args(argv)
-    run(args.date, args.arm, force=args.force)
+    run(args.date, args.arm, force=args.force, reset=args.reset)
 
 
 if __name__ == "__main__":

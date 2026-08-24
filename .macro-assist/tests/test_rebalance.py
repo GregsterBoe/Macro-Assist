@@ -20,6 +20,7 @@ from portfolio.rebalance import (
     GATE_ELEVATED,
     advance_books,
     already_rebalanced,
+    booked_weeks,
     build_asset_signals,
     conditional_sigma_annual,
     equal_vol_weights,
@@ -265,6 +266,67 @@ def test_already_rebalanced_guards_the_date():
     # After booking that date, the guard reports it as done (⇒ run() would skip).
     assert already_rebalanced(book, date(2026, 8, 19)) is True
     assert already_rebalanced(book, date(2026, 8, 26)) is False
+
+
+# ---------------------------------------------------------------------------
+# --reset ("rewrite this week"): clean-slate re-book, guarded against history
+# ---------------------------------------------------------------------------
+def test_booked_weeks_collects_distinct_asofs():
+    signals = build_asset_signals(parse_note_signals(NOTE), HAR)
+    book, bench = _fresh_books()
+    assert booked_weeks(book) == set()
+    advance_books(date(2026, 8, 19), "market", signals, PRICES, book, bench, har_sigmas=HAR)
+    advance_books(date(2026, 8, 26), "market", signals, PRICES, book, bench, har_sigmas=HAR)
+    assert booked_weeks(book) == {"2026-08-19", "2026-08-26"}
+
+
+def _patch_live_layer(monkeypatch, tmp_path):
+    """Point run()'s network wrappers at deterministic in-memory stand-ins."""
+    from portfolio import rebalance as R
+
+    note = tmp_path / "2026-08-19-Wednesday-macro.md"
+    note.write_text(NOTE)
+    monkeypatch.setattr(R, "find_note", lambda asof, arm, *a, **k: note)
+    monkeypatch.setattr(R, "fetch_prices_and_har", lambda asof, **k: (PRICES, HAR))
+    monkeypatch.setattr(R, "live_regime", lambda asof: None)
+    monkeypatch.setattr(R, "live_fragility_gate", lambda asof, **k: (1.0, {}))
+
+
+def test_reset_rewrites_the_only_week_as_a_single_entry(monkeypatch, tmp_path):
+    from portfolio import rebalance as R
+
+    _patch_live_layer(monkeypatch, tmp_path)
+    asof = date(2026, 8, 19)
+    # First run books the week; a plain re-run is idempotent (no double-stamp).
+    R.run(asof, "market", portfolio_dir=tmp_path)
+    assert R.run(asof, "market", portfolio_dir=tmp_path) is None
+    book = Book.load(tmp_path / "book__market.json")
+    assert booked_weeks(book) == {asof.isoformat()}
+    n_before = len(book.decision_log)
+    # --reset re-books from scratch: still exactly one entry, not a doubled ledger.
+    R.run(asof, "market", portfolio_dir=tmp_path, reset=True)
+    book = Book.load(tmp_path / "book__market.json")
+    assert booked_weeks(book) == {asof.isoformat()}
+    assert len(book.decision_log) == n_before == 1
+    assert len(book.nav_history) == 1
+
+
+def test_reset_refuses_to_discard_a_prior_week(monkeypatch, tmp_path):
+    from portfolio import rebalance as R
+
+    _patch_live_layer(monkeypatch, tmp_path)
+    book_path = tmp_path / "book__market.json"
+    # Seed a book that already carries an *earlier* week's entry.
+    signals = build_asset_signals(parse_note_signals(NOTE), HAR)
+    book, bench = _fresh_books()
+    advance_books(date(2026, 8, 12), "market", signals, PRICES, book, bench, har_sigmas=HAR)
+    book.save(book_path)
+    bench.save(tmp_path / "book__market__benchmark.json")
+
+    # Resetting *this* week must not nuke the prior week — it refuses and no-ops.
+    assert R.run(date(2026, 8, 19), "market", portfolio_dir=tmp_path, reset=True) is None
+    reloaded = Book.load(book_path)
+    assert booked_weeks(reloaded) == {"2026-08-12"}  # untouched
 
 
 def test_format_report_renders_table():
