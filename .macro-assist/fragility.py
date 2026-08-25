@@ -30,6 +30,7 @@ Public functions
 ----------------
 realized_variance_trend(close)          -> dict   primary
 correlation_tightening(histories)       -> dict   primary
+absorption_ratio(histories)             -> dict   primary (WP-16.A.6, shadow)
 vix_term_backwardation(vix, vix3m)      -> dict   primary
 level_acceleration(series)              -> dict   secondary (HY / NFCI)
 lag1_autocorrelation(close)             -> dict   experimental
@@ -59,6 +60,9 @@ DEFAULT_WEIGHTS: dict[str, float] = {
     "acceleration":   0.15,   # reserved for A.4 (HY spread / NFCI); else inert
     "correlation":    0.05,   # token — near-chance, kept for degradation only
     "autocorr":       0.0,    # dropped — no skill in equities (WP-16.A.2/3)
+    "absorption":     0.0,    # WP-16.A.6 SHADOW — computed + logged, zero impact
+                              # on the live composite until the backtest earns it
+                              # weight (see fragility_backtest WEIGHT_SCHEMES).
 }
 
 # Assets excluded from the cross-asset correlation / variance aggregate
@@ -208,6 +212,93 @@ def vix_term_backwardation(
 
 
 # ---------------------------------------------------------------------------
+# Primary component (WP-16.A.6) — the peer-reviewed upgrade to correlation
+# ---------------------------------------------------------------------------
+
+def absorption_ratio(
+    histories: dict,
+    cov_window: int = 60,
+    n_eig_frac: float = 0.2,
+    short_window: int = 15,
+    min_baseline: int = 40,
+) -> Optional[dict]:
+    """Score the standardized SHIFT in the Absorption Ratio (Kritzman, Li, Page &
+    Rigobon 2011, "Principal Components as a Measure of Systemic Risk").
+
+    The Absorption Ratio (AR) is the fraction of cross-asset return variation
+    captured by the top few eigenvectors of the return co-movement structure — a
+    proxy for how TIGHTLY COUPLED markets are. A high/rising AR means
+    diversification is breaking down and a shock in one place propagates broadly;
+    the paper found most major US drawdowns were PRECEDED by AR spikes. This is
+    the peer-reviewed formalization of the near-dead `correlation_tightening`
+    component (KB-002 dropped that to a token weight).
+
+    Adaptation: Macro-Assist tracks a HETEROGENEOUS asset set (equities, gold,
+    oil, FX, crypto) with wildly different vols, so we take eigenvalues of the
+    CORRELATION matrix (standardized returns), not the raw covariance Kritzman
+    used on a homogeneous equity universe — otherwise one high-vol asset (oil,
+    BTC) would dominate the eigenstructure and the AR would just track it.
+
+    The score is the paper's early-warning signal, the standardized shift
+        shift_z = (AR_short - AR_long) / std(AR_long)
+    NOT the raw level: AR stays elevated for a while AFTER a crash, so only the
+    transition (a +1 sigma or greater shift) is a forward signal. Returns None if
+    fewer than three assets or insufficient history for a baseline.
+    """
+    cols: dict = {}
+    for name, close in histories.items():
+        if name in _VOL_KEYS or close is None:
+            continue
+        rets = _to_log_returns(close)
+        if len(rets) >= cov_window + min_baseline:
+            cols[name] = rets
+    if len(cols) < 3:                      # AR needs a cross-section to decompose
+        return None
+    frame = pd.DataFrame(cols).dropna()
+    if len(frame) < cov_window + min_baseline:
+        return None
+
+    n_assets = frame.shape[1]
+    n_eig = max(1, int(round(n_eig_frac * n_assets)))
+    R = frame.to_numpy()
+    T = len(R)
+
+    def _ar_at(end: int) -> Optional[float]:
+        block = R[end - cov_window:end]
+        if np.any(block.std(axis=0) <= 0):          # a flat column breaks corr
+            return None
+        c = np.corrcoef(block, rowvar=False)
+        if not np.all(np.isfinite(c)):
+            return None
+        eig = np.linalg.eigvalsh(c)                 # ascending; trace == n_assets
+        total = float(eig.sum())
+        if total <= 0:
+            return None
+        return float(eig[-n_eig:].sum() / total)    # top-n_eig variance fraction
+
+    ar_series = [v for end in range(cov_window, T + 1)
+                 if (v := _ar_at(end)) is not None]
+    if len(ar_series) < min_baseline:
+        return None
+
+    ar = np.asarray(ar_series, dtype=float)
+    ar_long = float(ar.mean())
+    ar_sigma = float(ar.std())
+    ar_short = float(ar[-min(short_window, len(ar)):].mean())
+    shift_z = 0.0 if ar_sigma <= 1e-9 else (ar_short - ar_long) / ar_sigma
+
+    return {
+        "score":    _squash(shift_z, k=1.0),
+        "ar":       float(ar[-1]),
+        "ar_short": ar_short,
+        "ar_long":  ar_long,
+        "shift_z":  shift_z,
+        "n_eig":    n_eig,
+        "n_assets": n_assets,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Secondary component
 # ---------------------------------------------------------------------------
 
@@ -319,6 +410,10 @@ def fragility_index(
     corr = correlation_tightening(histories)
     if corr is not None:
         components["correlation"] = corr
+
+    absorp = absorption_ratio(histories)
+    if absorp is not None:
+        components["absorption"] = absorp
 
     vix_term = vix_term_backwardation(histories.get("vix"), histories.get("vix3m"))
     if vix_term is not None:

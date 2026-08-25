@@ -593,3 +593,318 @@ improving partly reflects fewer decisive calls overall, not necessarily sharper
 ones. **Decision still gated on the decisive-only Brier A/B at n≥30** (KB-007 bar:
 BSS>0, ECE<0.05); this metric is the early tell, not the verdict. Rendered in
 `accuracy_report.md` → "Commitment" section; JSON key `commitment_by_arm`.
+
+---
+
+## KB-012 — Absorption ratio has no skill on the current asset set (needs a homogeneous cross-section) (WP-16.A.6)
+
+**Date:** 2026-08-25 · **Branch:** `main` · **Harness:**
+`.macro-assist/fragility_backtest.py` (walk-forward, de-overlapped; still **zero
+LLM/API cost**, yfinance only). Reproduce: `python fragility_backtest.py` (prints
+the `absorption` component AUC) and `run_weight_ablation(..., schemes=absorp_*)`.
+
+**What we tested.** The first upgrade idea for the fragility monitor (KB-001/002):
+replace the near-dead `correlation_tightening` component with the **Absorption
+Ratio** (Kritzman, Li, Page & Rigobon 2011) — the fraction of cross-asset return
+variation captured by the top eigenvectors of the return co-movement structure, a
+peer-reviewed leading indicator of drawdowns. Implemented as `absorption_ratio()`
+in `fragility.py`, scored on the paper's standardized shift `(AR_short − AR_long)/
+σ(AR)`, using the **correlation** matrix (standardized returns) rather than raw
+covariance so one high-vol asset (oil/BTC) can't dominate the heterogeneous set.
+Wired in as a **shadow component (DEFAULT weight 0)** — computed + logged, zero
+impact on the live composite until it earns weight.
+
+**Headline — no skill on this data feed.** Standalone component AUC (2008–2026):
+
+| scoring | 5-day AUC (ov / nov) | 10-day AUC (ov / nov) |
+|---|---|---|
+| ΔAR shift_z | 0.502 / 0.515 | 0.531 / 0.503 |
+| raw AR level | 0.526 / 0.522 | 0.544 / 0.468 |
+| AR_short level | 0.542 / 0.532 | 0.551 / 0.482 |
+
+All three scorings land at 0.47–0.55 — indistinguishable from chance, and from the
+dead `correlation` component (0.51–0.55) it was meant to replace. The composite
+ablation agrees: giving absorption weight yields a noise-level +0.004 AUC bump but
+makes the **honest episode metrics uniformly worse** (recall 0.293→0.276→0.224→
+0.207 and alarm precision 0.688→0.611→0.444→0.350 as its weight rises). **Not
+adopted.**
+
+**The nuance that matters (why, not just that).** This is *not* a refutation of the
+absorption ratio — it is untestable on the current inputs. AR needs a **broad,
+homogeneous cross-section** (Kritzman used dozens of US industry/sector portfolios)
+where the top eigenvector is a clean "market factor" whose rise signals systemic
+coupling. Macro-Assist fetches only ~5 **heterogeneous** assets (equities, gold,
+oil, DXY, BTC); a 5–6-asset heterogeneous correlation matrix has no stable factor
+structure, so its eigen-fraction is noise. The proper AR test requires **adding a
+sector-ETF / industry cross-section** to the data layer — a bigger change, deferred.
+
+**Side confirmations (free).** (a) The KB-002 baseline reproduced **exactly**
+(composite nov-AUC 0.720/0.691, episode recall 0.30/0.29), confirming the raised
+`_LOOKBACK` (180→300, to give AR a baseline) does not disturb any pre-existing
+component. (b) `vix_term` re-confirmed as the single strongest component (AUC 0.75
+@5d) — still capped for being semi-circular.
+
+**What it changes.**
+- `fragility.py` gains `absorption_ratio()` + an `absorption` key in
+  `DEFAULT_WEIGHTS` **at 0.0 (shadow)** — logged for the record, no composite
+  impact. Backtest gains the `absorption` AUC column + `absorp_*` WEIGHT_SCHEMES.
+- **Next fragility experiments** should target the *existing* heterogeneous data:
+  **④ Turbulence / Mahalanobis** (built for a small heterogeneous set) and **②
+  the credit/funding channel** (orthogonal; the reserved `acceleration` slot is
+  still empty — the likeliest lever on the ~0.30 recall ceiling). Revisit AR only
+  if/when a sector cross-section is added to the fetch. **→ Resolved by KB-013:
+  the cross-section WAS added; AR does have skill on it.**
+
+---
+
+## KB-013 — Absorption ratio DOES have skill on a homogeneous cross-section (KB-012 reversed) (IMP-1.3)
+
+**Date:** 2026-08-25 · **Branch:** `main` · **Harness:**
+`.macro-assist/input_testing.py` (`run_absorption_gate`; **zero LLM/API cost** —
+free Fama-French data + the reused `fragility_backtest` scorers). Reproduce:
+`python input_testing.py`. First result of the **Project Improvement** track (see
+`Project_Improvement.md`, IMP-1).
+
+**What we tested.** KB-012 found the absorption ratio (AR) had no skill (AUC ≈
+0.50) and diagnosed the cause as the input, not the concept: AR needs a *broad,
+homogeneous cross-section*, but the live monitor sees only ~5 heterogeneous assets.
+IMP-1 added exactly that missing ingredient — **Fama-French 30-industry daily
+portfolios** (1970-2026 here; the file runs to 1926), a dedicated fragility
+data source decoupled from the traded assets — plus a generic **input-testing
+gate** (walk any candidate signal forward look-ahead-safe → de-overlapped AUC +
+episode recall/precision vs FF-market drawdowns). We re-ran AR on this panel over
+a covariance-window grid.
+
+**Headline — the reversal.** AR has genuine, if modest, skill on the homogeneous
+cross-section (non-overlapping AUC, 48-81 independent crises):
+
+| AR cov-window | 5d nov-AUC | 10d nov-AUC | episode recall | alarm precision |
+|---|---|---|---|---|
+| 60  | 0.644 | 0.641 | 0.21 / 0.22 | 0.29 / 0.54 |
+| 120 | 0.633 | **0.675** | 0.21 / 0.19 | 0.28 / 0.48 |
+| 252 | 0.619 | 0.567 | 0.19 / 0.16 | 0.32 / 0.41 |
+
+vs **≈0.50** on the 5 heterogeneous assets (KB-012). **The diagnosis was right: the
+cross-section was the problem.** Shorter covariance windows (60-120) beat 252 — the
+transition is tracked better by a nearer-term co-movement estimate.
+
+**The nuance that's easy to forget.** Skill ≠ adoption. AR-on-industries is **still
+weaker than the current baseline**: `var_led_vix35` posts nov-AUC 0.72/0.69 and
+episode recall ~0.30 (KB-002), while AR alone manages ~0.64-0.68 AUC and only
+~0.20 recall. So AR does **not** replace the composite. The open question is
+**orthogonality**: AR is computed on an entirely different data source (equity
+industry panel) than the variance/vix components (index + VIX), so a weak-but-
+uncorrelated signal could still lift the *ensemble*. That ensemble test is the next
+gate, not settled here.
+
+**Caveats.** (a) Run at `stride=5` (every 5th trading day) to keep the eigen-heavy
+walk tractable — fine for an AUC estimate, but re-run dense before any adoption
+decision. (b) FF-market drawdowns (not SP500) are the label here, for a common deep
+history with the industries; slightly different target than KB-002's ^GSPC. (c) The
+ov/nov AUC ordering flips in places (e.g. cov=120 10d: ov 0.562, nov 0.675) — small-
+sample noise; treat the episode metrics as the sturdier read.
+
+**What it changes.**
+- Establishes `input_testing.py` as the reusable IMP-# gate (fetch FF cross-section
+  → `walk_forward_signal` → `evaluate_signal`).
+- AR stays at **shadow weight 0** in `fragility.py` pending the orthogonality/
+  ensemble test on a common period. If it fails that, it stays shadow-logged as a
+  diagnostic; if it passes, it graduates to a real weight.
+- **Next (IMP-1.4/1.5):** run **turbulence / Mahalanobis** through the same gate on
+  this panel, and test whether AR (and/or turbulence) is *additive* to the live
+  composite over a common window.
+
+---
+
+## KB-014 — Financial turbulence is a recall instrument, complementary to absorption's precision (IMP-1.4)
+
+**Date:** 2026-08-25 · **Branch:** `main` · **Harness:**
+`.macro-assist/input_testing.py` (`run_turbulence_gate`; **zero LLM/API cost** —
+same free FF panel + reused scorers). Reproduce: `python input_testing.py
+turbulence`. Second Project-Improvement result (`Project_Improvement.md`, IMP-1.4).
+
+**What we tested.** Financial turbulence (Kritzman & Li 2010) — the Mahalanobis
+distance of the latest industry-return vector from the trailing cross-sectional
+mean, in the metric of the trailing (diagonal-shrunk, `shrink=0.2`) covariance,
+smoothed over the last 5 days — run through the **same gate** as the absorption
+ratio on the FF 30-industry panel (1970-2026), cov-windows 120/252. Where AR reads
+the *eigenstructure* of co-movement, turbulence reads the *surprise* of the newest
+observation against it — designed to be a different lens on the same panel.
+
+**Headline — a different operating point, not a better one.** Turbulence's AUC is
+comparable-to-slightly-weaker than AR's, but its precision/recall trade sits at the
+**opposite end**:
+
+| cov | horizon | nov-AUC | episode recall | alarm precision | n_alarms |
+|---|---|---|---|---|---|
+| 120 | 5d | 0.606 | **0.458** | 0.187 | 107 |
+| 120 | 10d | 0.479 | 0.293 | 0.224 | 107 |
+| 252 | 5d | 0.580 | **0.438** | 0.196 | 102 |
+| 252 | 10d | 0.620 | 0.358 | 0.265 | 102 |
+
+Contrast AR (KB-013): recall ~0.20, precision up to 0.54, ~25 alarms. **Turbulence
+catches roughly twice as many crises (recall 0.44 vs 0.20) but fires ~4x as often
+(≈105 vs ≈25 alarms), so its precision collapses to ~0.19.** Its 5d recall (0.44-0.46)
+even beats the `var_led_vix35` baseline's ~0.30 — but only by trading away precision.
+
+**The nuance that's easy to forget.** This is **not** a GO on its own. The nov-AUC
+straddles the 0.60 gate line and is noisy (cov=120 10d dips to 0.479), and top-decile
+precision under 0.20 is worse than baseline — as a standalone flag it would cry wolf.
+The value is **behavioral complementarity**: AR = high-precision / low-recall (an eigen
+read), turbulence = high-recall / low-precision (a surprise read), on the *same* panel.
+That is precisely the shape that can help an **ensemble** — an any-channel-fires (OR)
+or weighted blend could lift the composite's ~0.30 episode-recall ceiling without AR's
+precision loss. That additivity test (IMP-1.5) is the actual decision gate.
+
+**Caveats.** (a) One config only (`shrink=0.2`, `smooth=5`, `stride=5`, top-decile
+flag); no sweep of shrink/smooth — precision especially may move with the flag
+threshold, so read the *shape* (recall-heavy), not the exact numbers. (b) cov=60 was
+not run — a 30×30 inverse from 60 obs is ill-conditioned even shrunk. (c) Same FF-market
+(not ^GSPC) label and de-overlap caveats as KB-013.
+
+**What it changes.**
+- Adds `turbulence_signal` + `run_turbulence_gate` to the IMP harness.
+- Sets up IMP-1.5 as a **two-candidate** ensemble test (AR *and* turbulence vs the live
+  composite over a common window), with a clear prior: they occupy opposite precision/
+  recall corners, so an OR-of-channels blend is the natural thing to try.
+- Neither AR nor turbulence is wired live yet; both remain diagnostic until IMP-1.5.
+
+---
+
+## KB-015 — The cross-section is ORTHOGONAL: an OR-of-channels ensemble doubles crisis recall at equal precision (IMP-1.5)
+
+**Date:** 2026-08-25 · **Branch:** `main` · **Harness:**
+`.macro-assist/input_testing.py` (`run_ensemble_gate`; **zero LLM/API cost**).
+Reproduce: `python input_testing.py ensemble`. Third and decisive Project-Improvement
+result (`Project_Improvement.md`, IMP-1.5) — the adoption gate for KB-013/KB-014.
+
+**What we tested.** The open question from KB-013/KB-014 was **orthogonality**: AR and
+turbulence each have skill on the industry panel, but do they add anything a
+variance-led monitor doesn't already have? Test, all on ONE common window
+(1971-2026, 2773 readings) and ONE label (FF-market ≥5% drawdowns):
+- **B** = variance-trend on the FF market Close — a proxy for the live composite's
+  *leading* (0.45) component, the honest non-circular baseline;
+- **AR** (cov 120) and **TURB** (cov 252) on the industry panel;
+- rank-blended ensembles (B+AR, B+TURB, B+AR+TURB) and an **OR-of-channels** flag
+  (fire if ANY of B/AR/TURB is in its own top decile).
+
+**Headline — orthogonality confirmed, and the recall ceiling breaks.** Episode recall
+vs precision (the metric that actually matters for a risk gauge):
+
+| signal | 5d recall | 5d prec | 10d recall | 10d prec | 5d/10d nov-AUC |
+|---|---|---|---|---|---|
+| B (variance-trend) baseline | 0.271 | 0.20 | 0.222 | 0.30 | 0.491 / 0.549 |
+| B + AR + TURB (rank blend) | 0.271 | 0.26 | 0.259 | 0.38 | **0.586 / 0.610** |
+| **OR-of-channels** | **0.646** | **0.219** | **0.494** | **0.324** | — (flag) |
+
+Two distinct wins:
+1. **The continuous blend adds AUC + precision.** B+AR+TURB lifts nov-AUC by +0.06-0.10
+   over B and raises precision (0.20→0.26 at 5d, 0.30→0.38 at 10d) with recall held —
+   AR and turbulence carry rank information the variance baseline does not.
+2. **OR-of-channels breaks the recall ceiling at NO precision cost.** It catches
+   **31/48** 5d crises (recall 0.65) vs the baseline's 13/48 (0.27) — *more than double* —
+   while precision actually **rises** (0.20→0.219). Same at 10d (0.22→0.49 recall,
+   0.30→0.324 prec). If the three channels were redundant, OR would just pile on alarms
+   and crater precision; instead precision holds, which is the **signature of orthogonal
+   channels catching DIFFERENT crises**. This is the ~0.30 episode-recall ceiling
+   (KB-002) finally lifting — via cross-sectional breadth, not a better single signal.
+
+**The nuance that's easy to forget.** The baseline B here is *deliberately conservative* —
+variance-trend on the FF market ALONE, without the live composite's VIX-term arm (0.35,
+no FF analogue). So part of OR's gain over B is B being weaker than the full
+`var_led_vix35`. **This is strong evidence for the ensemble concept, not yet proof it beats
+the full live composite.** But the orthogonality argument is structural and likely to
+survive: the composite's variance and VIX arms are BOTH single-market stress reads (mutually
+correlated), whereas AR/turbulence are cross-sectional — a different information source. The
+required confirmation is re-running OR-of-channels against the REAL composite on the traded
+assets, not against B.
+
+**Caveats.** (a) Conservative baseline (above) — the headline is orthogonality/additivity,
+not "beats production." (b) Full-sample `.rank(pct=True)` + full-sample top-decile cut, as in
+KB-013/014 (consistent, fair comparison), but a live flag needs PIT-rolling thresholds — will
+shift absolute numbers. (c) stride=5, single (cov_ar=120, cov_turb=252, shrink=0.2, smooth=5)
+config; FF-market (not ^GSPC) label. (d) n≈2 true macro crises dominate the episode counts;
+regime-holdout CV (IMP-4) is still owed before any live weight.
+
+**What it changes.**
+- **GO on the ensemble hypothesis.** The industry cross-section adds orthogonal skill; an
+  **any-channel-fires (OR) recall mode** is the mechanism that lifts recall without precision
+  loss. This is direct empirical support for backlog **IMP-4** (OR-of-channels recall mode)
+  and elevates it from "idea" to "validated direction."
+- **Concrete next step (IMP-1.6 / promotion):** shadow-wire AR + turbulence computed on a
+  homogeneous panel (FF for backtest; sector ETFs for a daily live feed) into the pipeline at
+  weight 0, then validate OR-of-channels against the REAL `var_led_vix35` on the traded assets
+  with PIT-rolling thresholds. Only then consider a live recall-mode flag.
+- AR and turbulence remain **diagnostic (shadow)** in `fragility.py`; IMP-1 has established the
+  cross-section is worth wiring, pending the real-composite confirmation. **→ Confirmed by KB-016.**
+
+---
+
+## KB-016 — Confirmed against the REAL composite: the cross-section doubles crisis recall, but it's a precision TRADE, not a free lunch (IMP-1.6)
+
+**Date:** 2026-08-25 · **Branch:** `main` · **Harness:**
+`.macro-assist/input_testing.py` (`run_real_composite_gate`; traded assets via
+yfinance + FF panel cached; **zero LLM/API cost**). Reproduce: `python
+input_testing.py real`. The adoption gate for KB-015 — replaces the proxy baseline
+with the real production signal.
+
+**What we tested.** KB-015 showed the industry cross-section adds skill to a
+*variance-trend-only proxy*, but flagged that the honest test is against the **full
+live composite** (which also has the VIX-term arm the proxy lacked). So here the
+baseline is the actual `var_led_vix35`, walked forward look-ahead-safe on the real
+traded assets (SP500/VIX/VIX3M/gold/oil/DXY), scored against the real **^GSPC** ≥5%
+drawdown label — the exact production setup (KB-002). Common window: 904 readings,
+2008-07..2026-06 (composite ∩ industry channels, stride 5). Baseline reproduces
+KB-002 (nov-AUC 0.744/0.664, recall ~0.33, precision 0.43-0.57).
+
+**Headline — additivity CONFIRMED, but the shape changes vs KB-015.** OR-of-channels
+(fire if composite OR AR OR turbulence hits its top decile) still roughly **doubles**
+crisis recall against the full composite:
+
+| horizon | composite recall / prec | OR-channels recall / prec | Δ |
+|---|---|---|---|
+| 5d  | 0.333 (6/18) / 0.429 | **0.722 (13/18)** / 0.323 | recall ×2.2, prec −0.11 |
+| 10d | 0.321 (9/28) / 0.571 | **0.643 (18/28)** / 0.387 | recall ×2.0, prec −0.18 |
+
+The cross-section catches crises the traded-asset composite misses — orthogonality
+holds against the *real* signal, not just the proxy. **BUT** precision now **drops**
+(unlike KB-015, where it held against the weak baseline): the real composite's VIX arm
+already gives it strong top-decile precision, so OR-ing in the weaker-precision channels
+trades ~0.11-0.18 precision for the doubled recall. Against the full composite it is a
+**precision/recall trade, not a free lunch.**
+
+**The nuance that's easy to forget.** (1) **The equal-weight continuous blend is the
+WRONG adoption form.** Blending (composite+AR+TURB, rank-mean) *lifts* threshold-free
+nov-AUC (0.744→0.787 at 5d, 0.664→0.689 at 10d) — the channels do carry orthogonal rank
+info — but it *degrades* the validated top-decile flag (recall 0.333→0.278, precision
+0.429→0.312), because averaging dilutes the composite's already-strong best alarms. So
+the AUC gain and the flag-quality loss point in opposite directions; a naive blend
+throws away the composite's edge. (2) **The trade is acceptable *for this product
+specifically*:** fragility is a tail-risk / range-widening gauge that is NEVER a
+directional call, so a false alarm is cheap (it over-widens a range) while a missed
+crisis is expensive — an operating point of recall 0.72 / precision 0.32 (still ~8×
+the 4% base rate) is a *good* trade here, though it would be a bad one for a directional
+signal.
+
+**Caveats.** (a) Small crisis count — 18 (5d) / 28 (10d) episodes over ~7 real macro
+events (GFC, 2011, 2015-16, 2018, COVID, 2022, …); episode metrics are small integers,
+indicative not precise. Regime-holdout CV (IMP-4) still owed. (b) Full-sample rank
+thresholds (look-ahead in the *threshold*) — a live flag needs PIT-rolling cuts, which
+will move absolute numbers. (c) Window capped at FF cache end (2026-06-30); stride 5;
+single (cov_ar=120, cov_turb=252, shrink=0.2, smooth=5) config. (d) Industry channels
+run on FF (backtest only); a live feed needs a daily sector/industry panel (sector ETFs).
+
+**What it changes.**
+- **IMP-1 CLOSES positive.** The cross-section adds genuine orthogonal skill to the real
+  composite; the ~0.30 recall ceiling is breakable. Concept proven end-to-end
+  (KB-012 negative → KB-013/014 skill → KB-015 orthogonal → KB-016 confirmed live-baseline).
+- **Adoption form is decided:** an explicit **OR-of-channels recall MODE** (a distinct
+  high-recall flag), NOT a weight in the composite and NOT an equal blend. This is exactly
+  backlog **IMP-4** — KB-016 hands it a validated mechanism and a live operating point.
+- **Deliberately NOT auto-wired.** Because it's a precision trade (not a free lunch) and
+  needs (i) a live daily industry panel and (ii) PIT-rolling thresholds and (iii) regime-
+  holdout CV, promotion is IMP-4 work, not a silent live change. AR & turbulence stay
+  shadow/diagnostic until then.
+- A small *weighted* addition (composite-dominant + channels at low weight) is an open
+  alternative to test in the WEIGHT_SCHEMES ablation — it might capture the blend's AUC
+  gain without the top-decile dilution. Untested; noted for IMP-4.

@@ -14,6 +14,7 @@ from synthetic import synthetic_garch
 from fragility import (
     realized_variance_trend,
     correlation_tightening,
+    absorption_ratio,
     vix_term_backwardation,
     level_acceleration,
     lag1_autocorrelation,
@@ -99,6 +100,59 @@ def test_correlation_low_when_assets_independent():
 def test_correlation_needs_two_assets():
     histories = {"only": _returns_to_close(np.random.default_rng(0).normal(0, 0.01, 200))}
     assert correlation_tightening(histories) is None
+
+
+# ---------------------------------------------------------------------------
+# absorption_ratio
+# ---------------------------------------------------------------------------
+
+def _coupled_histories(n: int, rho_common: float, seed: int) -> dict:
+    """Five assets, each a blend of a common factor and idiosyncratic noise.
+    `rho_common` in [0,1] scales how much of each asset is the shared factor —
+    higher => a more unified (tightly-coupled, high-absorption) market.
+    """
+    rng = np.random.default_rng(seed)
+    common = rng.normal(0, 0.01, n)
+    histories = {}
+    for i in range(5):
+        idio = rng.normal(0, 0.01, n)
+        rets = rho_common * common + (1 - rho_common) * idio
+        histories[f"a{i}"] = _returns_to_close(rets)
+    return histories
+
+
+def test_absorption_needs_three_assets():
+    histories = {
+        "a": _returns_to_close(np.random.default_rng(0).normal(0, 0.01, 200)),
+        "b": _returns_to_close(np.random.default_rng(1).normal(0, 0.01, 200)),
+    }
+    assert absorption_ratio(histories) is None
+
+
+def test_absorption_shift_rises_when_coupling_tightens():
+    # First half loosely coupled, second half tightly coupled: AR_short should
+    # sit above the baseline, so the standardized shift is positive.
+    n = 260
+    rng = np.random.default_rng(5)
+    common = rng.normal(0, 0.01, n)
+    histories = {}
+    for i in range(5):
+        idio = rng.normal(0, 0.01, n)
+        rho = np.concatenate([np.full(n // 2, 0.1), np.full(n - n // 2, 0.9)])
+        rets = rho * common + (1 - rho) * idio
+        histories[f"a{i}"] = _returns_to_close(rets)
+    result = absorption_ratio(histories)
+    assert result is not None
+    assert result["shift_z"] > 0
+    assert result["score"] > 50
+    assert 0.0 <= result["ar"] <= 1.0
+
+
+def test_absorption_score_in_range():
+    result = absorption_ratio(_coupled_histories(220, rho_common=0.5, seed=3))
+    assert result is not None
+    assert 0.0 <= result["score"] <= 100.0
+    assert result["n_eig"] >= 1
 
 
 # ---------------------------------------------------------------------------

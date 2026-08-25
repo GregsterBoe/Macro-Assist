@@ -45,10 +45,13 @@ import pandas as pd
 
 from fragility import fragility_index, _VOL_KEYS
 
-# Trailing window passed to fragility_index each step. The index's longest
-# look-back is correlation's 2*window (=120) plus a small buffer, so 180 is
-# ample and keeps every step O(1) instead of O(history).
-_LOOKBACK = 180
+# Trailing window passed to fragility_index each step. Was 180 (correlation's
+# 2*window=120 + buffer). Raised to 300 for WP-16.A.6: the absorption_ratio
+# component needs a longer trailing baseline (cov_window 60 + a ~200-day AR
+# baseline) to standardize its shift. This does NOT change any pre-existing
+# component's reading — each slices its own fixed recent tail — so the KB-002
+# baseline reproduces identically; it only gives absorption room to mature.
+_LOOKBACK = 300
 
 # Minimum trailing history before we start emitting a reading.
 _MIN_HISTORY = 130
@@ -136,6 +139,7 @@ def walk_forward_fragility(
             "trend":          res["trend"],
             "variance_trend": comps.get("variance_trend", {}).get("score", np.nan),
             "correlation":    comps.get("correlation", {}).get("score", np.nan),
+            "absorption":     comps.get("absorption", {}).get("score", np.nan),
             "vix_term":       comps.get("vix_term", {}).get("score", np.nan),
             "autocorr":       comps.get("autocorr", {}).get("score", np.nan),
         })
@@ -365,6 +369,7 @@ def evaluate(
         "composite":      auc(df["composite"], y),
         "variance_trend": auc(df["variance_trend"], y),
         "correlation":    auc(df["correlation"], y),
+        "absorption":     auc(df["absorption"], y),
         "vix_term":       auc(df["vix_term"], y),
         "autocorr":       auc(df["autocorr"], y),
     }
@@ -381,7 +386,7 @@ def evaluate(
     if horizon is not None:
         sub_aucs = {k: subsample_auc(df[k], y, horizon)
                     for k in ("composite", "variance_trend", "correlation",
-                              "vix_term", "autocorr")}
+                              "absorption", "vix_term", "autocorr")}
         report["auc_nonoverlap"] = {
             k: (round(v, 3) if v is not None else None) for k, v in sub_aucs.items()
         }
@@ -463,7 +468,7 @@ def run_backtest(
         print("  AUC (0.50 = no skill)        [overlap]  [non-overlap, honest n]:")
         nov = report.get("auc_nonoverlap", {})
         for name, val in report["auc"].items():
-            tag = "  <-- key signal" if name in ("variance_trend", "correlation") else ""
+            tag = "  <-- key signal" if name in ("variance_trend", "correlation", "absorption") else ""
             ov = "n/a" if val is None else f"{val:.3f}"
             nv = nov.get(name)
             nvs = "n/a" if nv is None else f"{nv:.3f}"
@@ -524,6 +529,22 @@ WEIGHT_SCHEMES: dict[str, dict] = {
     # Two-signal core only (the two that earned their AUC), vix capped at parity.
     "core_two": {"variance_trend": 0.50, "correlation": 0.0, "vix_term": 0.50,
                  "acceleration": 0.0, "autocorr": 0.0},
+    # --- WP-16.A.6: absorption-ratio candidates (PCA upgrade to correlation) ---
+    # Give absorption the weight the dead `correlation` never earned, in place of
+    # both it and the (backtest-inert) acceleration slot.
+    "absorp_for_corr": {"variance_trend": 0.45, "vix_term": 0.35, "absorption": 0.20,
+                        "correlation": 0.0, "acceleration": 0.0, "autocorr": 0.0},
+    # Absorption at parity with vix, variance still leads.
+    "absorp_balanced": {"variance_trend": 0.40, "vix_term": 0.30, "absorption": 0.30,
+                        "correlation": 0.0, "acceleration": 0.0, "autocorr": 0.0},
+    # Conservative add-on: the chosen var_led_vix35 plus a light absorption weight
+    # carved out of acceleration; keeps the token correlation for degradation.
+    "absorp_light":    {"variance_trend": 0.45, "vix_term": 0.35, "absorption": 0.10,
+                        "correlation": 0.05, "acceleration": 0.0, "autocorr": 0.0},
+    # Absorption replaces variance as the lead (stress test — is co-movement or
+    # variance the stronger cross-asset signal?).
+    "absorp_led":      {"variance_trend": 0.30, "vix_term": 0.30, "absorption": 0.40,
+                        "correlation": 0.0, "acceleration": 0.0, "autocorr": 0.0},
 }
 
 
