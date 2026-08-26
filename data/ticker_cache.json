@@ -2,5 +2,9 @@
   "IE000W8WMSL2": {
     "ticker": "WQTM.PA",
     "currency": "EUR"
+  },
+  "IE00BFXR6159": {
+    "ticker": "ENCO.L",
+    "currency": "GBP"
   }
 }
