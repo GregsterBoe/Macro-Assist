@@ -6,14 +6,25 @@ name: Weekly Paper-Portfolio Rebalance
 # *reads* notes, never alters them. Soft-kill = disable/delete this workflow.
 
 on:
-  schedule:
-    # Mondays at 07:45 UTC — after the daily note (06:30) and the weekly
-    # scoring job (07:15), so the week's predictions are committed first.
-    - cron: "45 7 * * 1"
+  # Scheduled as stage 6 of .github/workflows/pipeline.yml (Mondays only), which
+  # guarantees the week's predictions are scored and committed first.
+  workflow_call:
+    inputs:
+      date:
+        description: "Rebalance date (YYYY-MM-DD); blank = today (UTC)"
+        type: string
+        required: false
+        default: ""
+      reset:
+        description: "Rewrite this week from a clean slate."
+        type: boolean
+        required: false
+        default: false
   workflow_dispatch:
     inputs:
       date:
         description: "Rebalance date (YYYY-MM-DD); blank = today (UTC)"
+        type: string
         required: false
         default: ""
       reset:
@@ -61,11 +72,11 @@ jobs:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: |
           set -e
-          DATE_ARG="${{ github.event.inputs.date }}"
+          DATE_ARG="${{ inputs.date }}"
           DATE_FLAG=""
           if [ -n "$DATE_ARG" ]; then DATE_FLAG="--date $DATE_ARG"; fi
           RESET_FLAG=""
-          if [ "${{ github.event.inputs.reset }}" = "true" ]; then RESET_FLAG="--reset"; fi
+          if [ "${{ inputs.reset }}" = "true" ]; then RESET_FLAG="--reset"; fi
           # Each arm skips gracefully if it has no note for the date. --reset
           # (manual dispatch only) re-books this week from a clean slate; it
           # refuses per-arm if that book already carries a prior week.

@@ -12,7 +12,7 @@ The project spans two GitHub repositories:
 - **External-Brain** — personal Obsidian vault; receives the daily note and accuracy report via git push
 
 ```
-GitHub Actions (06:30 UTC Mon–Fri)
+Macro Pipeline · stage 2 (Mon–Fri, one scheduled run)
   │
   ├── fetch FRED macro indicators (16 series, 5yr history each)
   ├── fetch market prices + technicals (yfinance, 90d history)
@@ -38,10 +38,10 @@ GitHub Actions (06:30 UTC Mon–Fri)
   ├── push note → External-Brain/Economy/YYYY/MM-Month/
   └── push note → Macro-Assist/results/MM-Month/
 
-GitHub Actions (06:00 UTC Mon–Fri)        ← runs 30 min before daily note
+Macro Pipeline · stage 1 (Mon–Fri, before the daily note)
   └── data fetch check (--fetch-only, no LLM call)
 
-GitHub Actions (07:15 UTC Mondays)
+Macro Pipeline · stage 5 (Mondays)
   │
   ├── score past predictions (T+5, T+10, T+20)
   ├── aggregate accuracy stats → accuracy_summary.json
@@ -102,10 +102,14 @@ Macro-Assist/
 │       └── test_synthetic.py
 ├── .github/
 │   └── workflows/
-│       ├── macro_daily.yml           # Mon–Fri 06:30 UTC — main pipeline
-│       ├── macro_data_check.yml      # Mon–Fri 06:00 UTC — data fetch pre-check
-│       ├── macro_weekly_scoring.yml  # Monday 07:15 UTC — prediction scoring
-│       └── macro_weekly_refit.yml    # Sunday 22:00 UTC — model refit
+│       ├── pipeline.yml              # Mon–Fri 06:23 UTC (+10:47 catch-up) — THE schedule
+│       ├── macro_data_check.yml      # stage 1 — data fetch pre-check
+│       ├── macro_daily.yml           # stage 2 — main pipeline
+│       ├── exo_weekly_emit.yml       # stage 3 — exogenous arm (Mondays)
+│       ├── kimi_arm_daily.yml        # stage 4 — kimi ensemble arm
+│       ├── macro_weekly_scoring.yml  # stage 5 — prediction scoring (Mondays)
+│       ├── portfolio_rebalance.yml   # stage 6 — paper rebalance (Mondays)
+│       └── macro_weekly_refit.yml    # Sunday 22:00 UTC — model refit (independent)
 ├── data/
 │   ├── tr_positions.csv         # Trade Republic export (optional; gitignored)
 │   └── ticker_cache.json        # ISIN→ticker cache (committed)
@@ -426,22 +430,50 @@ python .macro-assist/parse_positions.py data/tr_positions.csv
 
 ## GitHub Actions Workflows
 
-### macro_data_check.yml — Mon–Fri 06:00 UTC
+### pipeline.yml — Mon–Fri 06:23 UTC (catch-up 10:47 UTC)
 
-Runs 30 minutes before the daily note as an early warning. Calls `collect_and_analyze.py --fetch-only` — no LLM, no file writes. Checks all data sources and exits non-zero if any critical source fails.
+The single scheduled entry point. Every stage below is a **job** in this one run,
+ordered by `needs:` rather than by cron offsets.
+
+Stages 1–6 used to be six separate workflows fired by six separate crons spaced
+15–30 min apart. GitHub's scheduler routinely fires 45–220 min late (measured
+peak: 372 min on 2026-06-15) and drops runs entirely under load (2026-08-27:
+nothing ran at all), so the gaps never reliably held the order. On 2026-08-03
+scoring started 34 s after the kimi arm and both ran against the same commit —
+that day's kimi note went unscored with every check green.
+
+**Recovering a failed stage:** use *Re-run failed jobs* on the run. Only the
+failed stage and the stages downstream of it re-run; completed stages are
+skipped. You never need to re-run the whole pipeline to fix one stage.
+
+**Catch-up run:** the 10:47 cron re-enters the same pipeline. Stages no-op when
+their output for the date already exists, so on a normal day it writes nothing
+and costs about a minute per stage; on a day GitHub dropped the morning
+schedule, it fills the gap unattended.
+
+**Monday stages** (3, 5, 6) are selected by the `plan` job from the UTC weekday,
+overridable via the `weekly` dispatch input.
+
+Each stage also keeps its own `workflow_dispatch` with its full input set, so any
+one of them can still be run standalone from the Actions tab.
+
+### macro_data_check.yml — stage 1
+
+Runs before the daily note as an early warning. Calls `collect_and_analyze.py --fetch-only` — no LLM, no file writes. Checks all data sources and exits non-zero if any critical source fails.
 
 Does not require `ANTHROPIC_API_KEY` or `VAULT_PAT`.
 
-### macro_daily.yml — Mon–Fri 06:30 UTC
+### macro_daily.yml — stage 2
 
 1. Checkout Macro-Assist (write token) + External-Brain vault
 2. Install Python dependencies
 3. Run `collect_and_analyze.py` (fetch → analyze → write note to vault)
 4. Copy note to `results/` in Macro-Assist and commit back
 
-### macro_weekly_scoring.yml — Monday 07:15 UTC
+### macro_weekly_scoring.yml — stage 5 (Mondays)
 
-Runs 45 minutes after the daily workflow to ensure Monday's note is written first.
+Ordered after the daily note and both arm stages by `needs:`, so the week's
+predictions are always committed before they are scored.
 
 1. Checkout Macro-Assist + vault
 2. Run `score_predictions.py`
@@ -451,11 +483,16 @@ Runs 45 minutes after the daily workflow to ensure Monday's note is written firs
 
 ### macro_weekly_refit.yml — Sunday 22:00 UTC
 
+Keeps its own schedule: it has no upstream dependency and runs the night before
+Monday's pipeline, which picks up the fresh models.
+
 1. Checkout Macro-Assist
 2. Run `refit_models.py` (5yr FRED + market data fetch, HMM refit, distribution rebuild)
 3. Commit `data/regime_model.pkl` + `data/conditional_distributions.json`
 
 All workflows support `workflow_dispatch` for manual testing from the GitHub Actions UI. Scheduled runs always execute on the default branch (main).
+
+Stages 1–6 are reusable workflows (`workflow_call`) and no longer carry their own `schedule:` — `pipeline.yml` is the only cron in the chain, so there is exactly one thing to check when a morning looks quiet.
 
 ---
 

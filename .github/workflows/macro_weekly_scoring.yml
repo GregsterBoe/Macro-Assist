@@ -1,9 +1,8 @@
 name: Weekly Prediction Scoring
 
 on:
-  schedule:
-    # Mondays at 07:15 UTC — runs after the daily note (06:30) is done
-    - cron: "15 7 * * 1"
+  # Scheduled as stage 5 of .github/workflows/pipeline.yml (Mondays only).
+  workflow_call:
   workflow_dispatch:   # manual trigger for testing
 
 env:

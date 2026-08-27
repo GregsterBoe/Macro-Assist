@@ -1,9 +1,9 @@
 name: Data Fetch Check
 
 on:
-  schedule:
-    # Run Mon–Fri at 06:00 UTC — 30 min before the daily note, catches broken sources early
-    - cron: "0 6 * * 1-5"
+  # Scheduled as stage 1 of .github/workflows/pipeline.yml. Still dispatchable
+  # on its own for an ad-hoc check that the upstream sources are alive.
+  workflow_call:
   workflow_dispatch:
 
 env:

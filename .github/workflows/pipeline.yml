@@ -1,0 +1,169 @@
+name: Macro Pipeline
+
+# Single entry point for the daily (and, on Mondays, weekly) pipeline.
+#
+# WHY THIS EXISTS
+# The stages used to be six independent workflows chained by wall-clock cron
+# offsets (06:00 → 06:30 → 06:45 → 07:05 → 07:15 → 07:45). Each one drew its own
+# scheduling delay from GitHub, and those delays are far larger than the gaps:
+# measured 42–224 min through July/August 2026, peaking at 372 min on 2026-06-15.
+# The ordering only ever held by luck. On 2026-08-03 it didn't — Weekly Scoring
+# started 34s after the Kimi arm and both ran against the same commit, so that
+# day's kimi note went unscored with every check green. On 2026-08-27 GitHub
+# dropped the day's schedules entirely and nothing ran at all.
+#
+# Ordering is now a `needs:` graph, so it cannot drift. The delay itself is
+# GitHub's and can't be fixed from here — the catch-up cron below absorbs it.
+#
+# RE-RUNNING A FAILED STAGE
+# Each stage is a job, and the job is GitHub's unit of re-run: "Re-run failed
+# jobs" on the run page re-runs only the failed stage plus the stages downstream
+# of it. Stages that already succeeded are skipped, not repeated. There is no
+# need to re-run the whole pipeline to recover one bad stage.
+#
+# Every stage remains individually dispatchable from the Actions tab with its
+# own full input set — converting them to reusable workflows did not take that
+# away.
+
+on:
+  schedule:
+    # Primary. Odd minute on purpose: :00/:15/:30/:45 are the most contended
+    # slots on GitHub's scheduler and draw the worst delays.
+    - cron: "23 6 * * 1-5"
+    # Catch-up. GitHub drops scheduled events under load rather than queueing
+    # them, so a missed morning otherwise means a silent gap in the series.
+    # Stages no-op when their output for the date already exists (force=false),
+    # so on a normal day this run costs ~1 min per stage and writes nothing.
+    - cron: "47 10 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      asof:
+        description: "Date for the arm/portfolio stages (YYYY-MM-DD; blank = today)"
+        type: string
+        default: ""
+      force:
+        description: "Overwrite existing notes for that date (all stages)"
+        type: boolean
+        default: false
+      kimi_n:
+        description: "Kimi ensemble samples"
+        type: string
+        default: "12"
+      pf_reset:
+        description: "Portfolio: rewrite this week from a clean slate"
+        type: boolean
+        default: false
+      weekly:
+        description: "Run the Monday-only stages (exo / scoring / rebalance)"
+        type: choice
+        options: [auto, "yes", "no"]
+        default: auto
+
+permissions:
+  contents: write
+
+# Keep the catch-up run from overlapping the primary. Queue rather than cancel:
+# a stage that is mid-push to the output branch must not be killed.
+concurrency:
+  group: macro-pipeline
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    outputs:
+      weekly: ${{ steps.decide.outputs.weekly }}
+    steps:
+      - name: Decide which stages run
+        id: decide
+        run: |
+          set -euo pipefail
+          # `inputs` is empty on a schedule trigger, so this falls through to auto.
+          case "${{ inputs.weekly }}" in
+            yes) WEEKLY=true  ; REASON="forced on via dispatch" ;;
+            no)  WEEKLY=false ; REASON="forced off via dispatch" ;;
+            *)   if [ "$(date -u +%u)" = "1" ]; then
+                   WEEKLY=true ; REASON="auto: today is Monday (UTC)"
+                 else
+                   WEEKLY=false; REASON="auto: today is $(date -u +%A) (UTC)"
+                 fi ;;
+          esac
+          echo "weekly=$WEEKLY" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Pipeline plan"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| date (UTC) | \`$(date -u +%Y-%m-%d\ %H:%M)\` |"
+            echo "| trigger | \`${{ github.event_name }}\` |"
+            echo "| weekly stages | \`$WEEKLY\` — $REASON |"
+            echo ""
+            echo "Daily: data_check → daily → kimi"
+            if [ "$WEEKLY" = "true" ]; then
+              echo "Weekly: + exo (before kimi), scoring, rebalance"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  data_check:
+    name: 1 · data check
+    needs: plan
+    uses: ./.github/workflows/macro_data_check.yml
+    secrets: inherit
+
+  daily:
+    name: 2 · daily note
+    needs: data_check
+    uses: ./.github/workflows/macro_daily.yml
+    with:
+      force: ${{ inputs.force || false }}
+    secrets: inherit
+
+  exo:
+    name: 3 · exogenous arm
+    needs: [plan, daily]
+    if: ${{ needs.plan.outputs.weekly == 'true' }}
+    uses: ./.github/workflows/exo_weekly_emit.yml
+    with:
+      asof: ${{ inputs.asof || '' }}
+      force: ${{ inputs.force || false }}
+    secrets: inherit
+
+  kimi:
+    name: 4 · kimi arm
+    needs: [daily, exo]
+    # `exo` is skipped Tue–Fri, and a skipped dependency would otherwise skip
+    # this job too. Gate on daily's result explicitly and tolerate exo's skip.
+    if: >-
+      ${{ !cancelled()
+          && needs.daily.result == 'success'
+          && (needs.exo.result == 'success' || needs.exo.result == 'skipped') }}
+    uses: ./.github/workflows/kimi_arm_daily.yml
+    with:
+      asof: ${{ inputs.asof || '' }}
+      n: ${{ inputs.kimi_n || '12' }}
+      force: ${{ inputs.force || false }}
+    secrets: inherit
+
+  scoring:
+    name: 5 · weekly scoring
+    needs: [plan, kimi]
+    if: >-
+      ${{ !cancelled()
+          && needs.plan.outputs.weekly == 'true'
+          && needs.kimi.result == 'success' }}
+    uses: ./.github/workflows/macro_weekly_scoring.yml
+    secrets: inherit
+
+  rebalance:
+    name: 6 · portfolio rebalance
+    needs: [plan, scoring]
+    if: >-
+      ${{ !cancelled()
+          && needs.plan.outputs.weekly == 'true'
+          && needs.scoring.result == 'success' }}
+    uses: ./.github/workflows/portfolio_rebalance.yml
+    with:
+      date: ${{ inputs.asof || '' }}
+      reset: ${{ inputs.pf_reset || false }}
+    secrets: inherit
