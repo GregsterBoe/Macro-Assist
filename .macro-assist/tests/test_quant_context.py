@@ -25,6 +25,10 @@ from quant_context import (
     _compute_fragility,
     _fragility_mode,
     _FRAGILITY_MODE_ENV,
+    _build_or_mode_block,
+    _compute_or_mode,
+    _fragility_or_mode,
+    _FRAGILITY_OR_MODE_ENV,
 )
 from synthetic import synthetic_garch
 from conditional import build_distribution_table, assign_bucket
@@ -422,3 +426,85 @@ class TestBuildFragilityBlock:
 
     def test_empty_on_no_result(self):
         assert _build_fragility_block(_result=None, histories=None, allow_fetch=False, mode="show") == ""
+
+
+# ---------------------------------------------------------------------------
+# OR-of-channels recall mode (Phase 16 / IMP-4.3 — shadow wiring)
+# ---------------------------------------------------------------------------
+
+def _or_reading(flag: bool, fired=None) -> dict:
+    """A synthetic OR-mode reading (no network), mirroring fragility_or output."""
+    fired = fired or ([] if not flag else ["AR", "TURB"])
+    return {
+        "asof": pd.Timestamp("2026-08-27"),
+        "flag": flag,
+        "fired_channels": fired,
+        "q": 0.90,
+        "channels": {
+            "comp": {"value": 42.0, "pit_threshold": 78.0, "fired": "comp" in fired,
+                     "percentile": 0.44, "n_prior": 900},
+            "AR":   {"value": 70.0, "pit_threshold": 60.0, "fired": "AR" in fired,
+                     "percentile": 0.95, "n_prior": 800},
+            "TURB": {"value": 12.0, "pit_threshold": 9.0, "fired": "TURB" in fired,
+                     "percentile": 0.97, "n_prior": 800},
+        },
+    }
+
+
+class TestFragilityOrMode:
+
+    def test_default_mode_is_off(self, monkeypatch):
+        monkeypatch.delenv(_FRAGILITY_OR_MODE_ENV, raising=False)
+        assert _fragility_or_mode() == "off"
+
+    def test_invalid_mode_falls_back_to_off(self, monkeypatch):
+        monkeypatch.setenv(_FRAGILITY_OR_MODE_ENV, "bogus")
+        assert _fragility_or_mode() == "off"
+
+    def test_explicit_modes_resolve(self, monkeypatch):
+        for m in ("off", "log", "show", "active"):
+            monkeypatch.setenv(_FRAGILITY_OR_MODE_ENV, m.upper())  # case-insensitive
+            assert _fragility_or_mode() == m
+
+    def test_off_computes_nothing_no_network(self, monkeypatch):
+        # 'off' must short-circuit before any import/fetch and return None.
+        monkeypatch.delenv(_FRAGILITY_OR_MODE_ENV, raising=False)
+        import quant_context as _qc
+        _qc._OR_MODE_CACHE.clear()
+        assert _compute_or_mode() is None
+
+
+class TestBuildOrModeBlock:
+
+    def test_off_renders_nothing(self):
+        assert _build_or_mode_block(_reading=_or_reading(True), mode="off") == ""
+
+    def test_log_renders_nothing(self):
+        # Like FRAGILITY_MODE=log: computed/logged elsewhere, never shown.
+        assert _build_or_mode_block(_reading=_or_reading(True), mode="log") == ""
+
+    def test_show_renders_flag_and_channels(self):
+        block = _build_or_mode_block(_reading=_or_reading(True), mode="show")
+        assert "**Fragility OR-mode" in block
+        assert "FIRING" in block
+        assert "absorption" in block and "turbulence" in block
+        assert "directive inactive" in block
+        assert "Action" not in block
+
+    def test_show_marks_quiet_when_not_firing(self):
+        block = _build_or_mode_block(_reading=_or_reading(False), mode="show")
+        assert "quiet" in block
+        assert "directive inactive" not in block  # only shown when firing
+
+    def test_active_emits_directive_when_firing(self):
+        block = _build_or_mode_block(_reading=_or_reading(True), mode="active")
+        assert "**Action:**" in block
+        assert "Widen your Target Ranges" in block
+        assert "Do NOT change the Bias" in block
+
+    def test_active_no_directive_when_quiet(self):
+        block = _build_or_mode_block(_reading=_or_reading(False), mode="active")
+        assert "Action" not in block
+
+    def test_empty_on_no_reading(self):
+        assert _build_or_mode_block(_reading=None, mode="show") == ""

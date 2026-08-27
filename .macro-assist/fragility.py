@@ -299,6 +299,78 @@ def absorption_ratio(
 
 
 # ---------------------------------------------------------------------------
+# Primary component (WP-16.A.6 / IMP-1) — turbulence, the complement to AR
+# ---------------------------------------------------------------------------
+
+def turbulence_signal(
+    sliced: dict,
+    cov_window: int = 252,
+    shrink: float = 0.2,
+    smooth: int = 5,
+    min_baseline: int = 252,
+) -> Optional[float]:
+    """Financial-turbulence score (Kritzman & Li 2010, "Skulls, Financial
+    Turbulence, and Risk Management"): the Mahalanobis distance of the most
+    recent return vector from the trailing cross-sectional mean, measured in the
+    metric of the trailing covariance,
+        d_t = (r_t - mu)' Sigma^-1 (r_t - mu).
+    A large d_t means today's return pattern is statistically unusual GIVEN the
+    recent volatilities AND correlations — the co-movement structure is under
+    stress. Unlike the absorption ratio (which reads the eigenstructure), this
+    reads the *surprise* of the latest observation against it; the two are
+    complementary, which IMP-1.5/1.6 confirmed (KB-015/016) and IMP-4.2 carried
+    onto the live sector-ETF panel (KB-020). It graduated here from the
+    input_testing harness once validated.
+
+    Estimation notes for a homogeneous panel (~9-30 names):
+      * covariance is Ledoit-style shrunk toward its diagonal (`shrink`) so the
+        inverse is stable even from a ~year window;
+      * the score averages the last `smooth` daily distances (single-day
+        turbulence is very spiky), all against the SAME window mu/Sigma;
+      * everything uses only observations up to the anchor date (PIT-safe).
+    Returns None if the panel is too short/narrow to condition on. This returns a
+    RAW distance (higher = more turbulent); it is rank/threshold-scored downstream,
+    not squashed to 0-100 like the composite components.
+    """
+    rets = {}
+    for name, prices in sliced.items():
+        if name in _VOL_KEYS or prices is None:
+            continue
+        p = pd.Series(prices).astype(float)
+        p = p.where(p > 0)
+        r = np.log(p / p.shift(1)).dropna()
+        if len(r):
+            rets[name] = r
+    if len(rets) < 3:
+        return None
+    R = pd.DataFrame(rets).dropna()
+    if R.shape[0] < min_baseline or R.shape[1] < 3:
+        return None
+
+    win = R.tail(cov_window)
+    n_obs, n_assets = win.shape
+    if n_obs < max(60, n_assets + 5):          # need the inverse to be sane
+        return None
+
+    mu = win.mean().to_numpy()
+    X = win.to_numpy() - mu
+    cov = np.cov(X, rowvar=False)
+    diag = np.diag(np.diag(cov))               # shrink toward pure-variance target
+    cov_s = (1.0 - shrink) * cov + shrink * diag
+    try:
+        inv = np.linalg.inv(cov_s)
+    except np.linalg.LinAlgError:
+        inv = np.linalg.pinv(cov_s)
+
+    k = min(smooth, len(X))
+    dists = [float(row @ inv @ row) for row in X[-k:]]
+    dists = [d for d in dists if np.isfinite(d) and d >= 0]
+    if not dists:
+        return None
+    return float(np.mean(dists))               # rank-scored downstream; raw is fine
+
+
+# ---------------------------------------------------------------------------
 # Secondary component
 # ---------------------------------------------------------------------------
 

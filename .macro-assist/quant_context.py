@@ -62,6 +62,29 @@ from fragility import fragility_index
 _FRAGILITY_MODE_ENV = "FRAGILITY_MODE"
 _VALID_FRAGILITY_MODES = ("log", "show", "active")
 
+# ---------------------------------------------------------------------------
+# OR-of-channels recall MODE (Phase 16 / IMP-4.3) — a DISTINCT high-recall flag,
+# separate from the composite Elevated label. Fires when ANY of {composite,
+# absorption ratio, turbulence} is at/above its own point-in-time top-decile
+# (see fragility_or.py). Validated operating point: KB-016 → KB-017 → KB-020 (the
+# OR ~doubles crisis recall at a modest precision cost — a tail-risk gauge trade,
+# never a directional call). Adopted as a MODE, NOT a composite weight (KB-016: a
+# blend degrades the validated flag).
+#
+# Its own ladder, controlled by FRAGILITY_OR_MODE (default "off"):
+#   off    — NOT computed (zero extra compute/network). The safe default.
+#   log    — computed daily and written to the JSONL log ONLY; not shown. Use this
+#            to accumulate the live shadow record (mirrors FRAGILITY_MODE=log).
+#   show   — the reading is rendered into the context (informational).
+#   active — + when the OR flag fires: widen Target Ranges and add a tail-risk
+#            bullet. NEVER flips the Bias direction (same guardrail as fragility).
+#
+# Separate from FRAGILITY_MODE because the OR flag is a heavier computation (it
+# walks the composite + live sector-ETF channels forward to fit PIT thresholds),
+# so it must be opt-in per run rather than always-on like the composite reading.
+_FRAGILITY_OR_MODE_ENV = "FRAGILITY_OR_MODE"
+_VALID_OR_MODES = ("off", "log", "show", "active")
+
 # Validated on a 180-day trailing window; the daily pipeline's `histories` is
 # only ~90 calendar days, so fetch a proper window when what we're handed is
 # too short. Below this many anchor rows we fetch our own history.
@@ -130,6 +153,41 @@ def _compute_fragility(histories: Optional[dict], allow_fetch: bool = True) -> O
         return fragility_index(frag_hist)
     except Exception:
         return None
+
+
+def _fragility_or_mode() -> str:
+    """Resolve the OR-mode ladder level from the environment (default 'off')."""
+    mode = os.getenv(_FRAGILITY_OR_MODE_ENV, "").strip().lower()
+    if mode in _VALID_OR_MODES:
+        return mode
+    return "off"
+
+
+# Process-lifetime memo so the JSONL-log path and the prompt path don't each
+# trigger a full OR-mode walk-forward within one daily run (it is expensive).
+_OR_MODE_CACHE: dict = {}
+
+
+def _compute_or_mode() -> Optional[dict]:
+    """Compute the live OR-of-channels recall-mode reading, or None when the mode
+    is 'off' or anything fails. Cached for the process. Never raises.
+
+    Heavy (walks the composite + live sector-ETF channels to fit PIT thresholds),
+    so it only runs when FRAGILITY_OR_MODE is set to log/show/active.
+    """
+    mode = _fragility_or_mode()
+    if mode == "off":
+        return None
+    if "reading" in _OR_MODE_CACHE:
+        return _OR_MODE_CACHE["reading"]
+    reading = None
+    try:
+        from fragility_or import or_mode_reading
+        reading = or_mode_reading(refresh=True)
+    except Exception:
+        reading = None
+    _OR_MODE_CACHE["reading"] = reading
+    return reading
 
 # Asset mapping: histories key → display name for the Volatility block
 _VOL_ASSETS: list[tuple[str, str]] = [
@@ -243,6 +301,32 @@ def collect_quant_raw(
     except Exception:
         pass
 
+    # --- OR-of-channels recall mode (Phase 16 / IMP-4.3, shadow) ---
+    # Only computed when FRAGILITY_OR_MODE != off (heavy). Logged whenever
+    # computed, so log/show/active all accumulate the live record.
+    try:
+        or_reading = _compute_or_mode()
+        if or_reading:
+            raw["fragility_or"] = {
+                "asof":  or_reading["asof"].date().isoformat()
+                         if hasattr(or_reading["asof"], "date") else str(or_reading["asof"]),
+                "flag":  bool(or_reading["flag"]),
+                "fired_channels": list(or_reading["fired_channels"]),
+                "q":     or_reading["q"],
+                "channels": {
+                    k: {
+                        "value":     (round(c["value"], 4) if c["value"] is not None else None),
+                        "threshold": (round(c["pit_threshold"], 4) if c["pit_threshold"] is not None else None),
+                        "fired":     bool(c["fired"]),
+                        "percentile": (round(c["percentile"], 3) if c["percentile"] is not None else None),
+                    }
+                    for k, c in or_reading["channels"].items()
+                },
+                "mode":  _fragility_or_mode(),
+            }
+    except Exception:
+        pass
+
     return raw
 
 
@@ -288,6 +372,10 @@ def build_quant_context(
     frag_block = _build_fragility_block(histories)
     if frag_block:
         sections.append(frag_block)
+
+    or_block = _build_or_mode_block()
+    if or_block:
+        sections.append(or_block)
 
     if not sections:
         return ""
@@ -463,6 +551,65 @@ def _build_fragility_block(
     return "\n".join(lines)
 
 
+def _build_or_mode_block(
+    _reading: Optional[dict] = None,
+    mode: Optional[str] = None,
+) -> str:
+    """Build the OR-of-channels recall-mode subsection (Phase 16 / IMP-4.3).
+
+    Returns "" in 'off'/'log' modes (never shown; log accumulates the record
+    elsewhere). In 'show'/'active' it renders the distinct high-recall flag and
+    which channels fired; in 'active' a firing flag also carries the behavioural
+    directive (widen ranges, tail-risk bullet — never a directional flip).
+    `_reading`/`mode` let tests inject a reading and force the mode.
+    """
+    mode = mode or _fragility_or_mode()
+    if mode in ("off", "log"):
+        return ""
+
+    reading = _reading if _reading is not None else _compute_or_mode()
+    if not reading:
+        return ""
+
+    flag = reading["flag"]
+    fired = reading.get("fired_channels", [])
+    _names = {"comp": "composite", "AR": "absorption", "TURB": "turbulence"}
+    state = "FIRING" if flag else "quiet"
+
+    lines = [
+        "**Fragility OR-mode (experimental — Phase 16 / IMP-4.3; high-recall tail flag, not directional):**",
+        f"- OR-of-channels (composite | absorption | turbulence, each vs its own top decile): {state}",
+    ]
+    # Per-channel percentile detail, so the reader sees WHERE the stress is.
+    detail = []
+    for k in ("comp", "AR", "TURB"):
+        c = reading["channels"].get(k, {})
+        pct = c.get("percentile")
+        if pct is None:
+            continue
+        mark = "▲" if c.get("fired") else " "
+        detail.append(f"{_names[k]} {100 * pct:.0f}%{mark}")
+    if detail:
+        lines.append(f"- Channels (own-history percentile): {', '.join(detail)}")
+
+    if flag:
+        fired_str = ", ".join(_names.get(k, k) for k in fired) or "a channel"
+        if mode == "active":
+            lines.append(
+                f"- → **Action:** the high-recall fragility flag is firing ({fired_str}). "
+                "Widen your Target Ranges and add an explicit tail-risk bullet to Key Risks. "
+                "Do NOT change the Bias direction on this basis — this is a recall-tilted "
+                "risk gauge (higher false-alarm rate than the composite Elevated flag)."
+            )
+        else:  # show
+            lines.append(
+                "- → _(monitoring — directive inactive; "
+                f"set {_FRAGILITY_OR_MODE_ENV}=active to enable range-widening.)_"
+            )
+
+    return "\n".join(lines)
+
+
 def build_nonlive_signals_block(
     snapshot: dict,
     histories: Optional[dict] = None,
@@ -484,6 +631,14 @@ def build_nonlive_signals_block(
     frag = _build_fragility_block(histories, mode="show")
     if frag:
         parts.append(frag)
+
+    # OR-mode: only surface it when it is being computed at all (mode != off),
+    # forcing 'show' so the log-mode reading renders here for inspection. Guarded
+    # so the default 'off' costs nothing (no walk-forward).
+    if _fragility_or_mode() != "off":
+        or_block = _build_or_mode_block(mode="show")
+        if or_block:
+            parts.append(or_block)
 
     # REGIME-RETIRED (KB-006): the HMM block is off by default and does not run.
     # Set REGIME_ENABLED=1 to surface it here for inspection / a revival.

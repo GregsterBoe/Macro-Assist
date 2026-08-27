@@ -158,13 +158,51 @@ backtest feed, (ii) PIT-rolling top-decile thresholds, (iii) regime-holdout CV g
 
 Parked directions from the fragility review, pending IMP-1:
 
-- **IMP-2 — Credit / funding channel** — wire HY OAS + NFCI (pursue the Excess Bond
-  Premium) into the reserved `acceleration` slot; the orthogonal, non-price channel
-  most likely to lift the ~0.30 episode-recall ceiling.
-- **IMP-3 — Downside asymmetry** — replace symmetric realized variance with downside
-  realized semivariance + signed jump variation in the variance-trend component.
-- **IMP-4 — Regime-holdout CV + OR-of-channels recall mode** — honest out-of-sample
-  evaluation (GFC-train / COVID-test) given n≈2 crises, plus an any-channel-fires
-  gate as a precision-for-recall knob. **Now validated in principle by [KB-015]**: the
-  OR-of-channels across the (orthogonal) cross-sectional measures doubled crisis recall
-  at equal precision. IMP-1.6 hands the shadow-wired channels off to this work package.
+- **IMP-2 — Credit / funding channel** ❌ **CLOSED negative → [KB-019]** (confirmed
+  on two sources). Tested HY/credit stress as a 4th OR channel. Credit has genuine
+  **standalone** skill (5d nov-AUC ~0.61-0.68) but is **REDUNDANT in the OR set**: at
+  the live PIT operating point it adds **zero** recall and only costs precision — deep
+  spreads co-move with equity vol/absorption in the tail, so it re-flags crises the
+  trio already catches. Confirmed on both a Yahoo **HYG/IEF** proxy and the canonical
+  Moody's **BAA10Y** spread (same +0 PIT recall, same +1 LOCO crises 2015-08/2010-05).
+  Data note: ICE HY OAS (`BAMLH0A0HYM2`) is license-truncated to ~2023+ on free FRED —
+  BAA10Y (daily, 1986+, unrevised) is the deep substitute, pulled via the FRED JSON API
+  (`FRED_API_KEY`). No `fragility.py` change; `run_credit_gate` stays in the harness.
+  Not parameter-swept ([KB-017]/[KB-018] discipline). **All "add-a-channel" bids
+  (IMP-2/IMP-3) now exhausted → the lever is IMP-4.2/4.3 (operating point of the trio).**
+- **IMP-3 — Downside asymmetry** ❌ **CLOSED negative → [KB-018].** Swapped downside
+  semi-deviation and signed (down−up) asymmetry into the variance-trend pipeline (`sym`
+  mode reproduces the live channel to the digit). Neither beats symmetric: a marginal
+  +1-crisis FF recall bump paid for by lower AUC, and outright *worse* on the production
+  ^GSPC (5d recall 0.318→0.227). Signed asymmetry decisively worse everywhere. Reason: a
+  rising-variance regime is already downside-dominated, so symmetric std is the same trend
+  measured on twice the data (lower variance). Variance-trend stays symmetric; no
+  `fragility.py` change. Harness: `run_semivariance_gate`.
+- **IMP-4 — Regime-holdout CV + OR-of-channels recall mode** ✅ **COMPLETE** ([KB-017]/[KB-020]/[KB-021]).
+  - [x] **IMP-4.1 — CV spine** (`run_holdout_cv`) → **[KB-017]**: re-scored the
+    OR-of-channels flag under PIT expanding-window thresholds and leave-one-crisis-out
+    holdout. The KB-016 recall doubling **survives honest evaluation** — leakage from
+    full-sample thresholds was *negligible* (in-sample-on-eval-window ≈ PIT), and OR
+    recall still ~doubles composite-alone under LOCO. Both [KB-016] caveats (regime-holdout
+    CV; PIT thresholds) are now closed. **This harness is now the adoption gate for any new
+    channel** (IMP-2/3 must clear PIT+LOCO before entering the OR set).
+  - [x] **IMP-4.2 — live daily sector/industry ETF panel** → **[KB-020] (GO).** Built
+    `fetch_sector_etfs` (nine SPDR sectors, daily-fresh via yfinance, cached) and a
+    feed-parity gate `run_etf_panel_gate`: on one shared window/anchor the ETF panel
+    **reproduces the FF-fed OR operating point** — identical 5d PIT recall (0.647) at
+    *higher* precision (0.318 vs 0.241), standalone channels match/beat FF, LOCO within ±1
+    crisis (catching slightly different marginal events — ETF uniquely gets the 2022 onset).
+    Coarseness (9 vs 30 names) didn't bite. Closes [KB-017] caveat (b). No `fragility.py`
+    change. `python input_testing.py etf`.
+  - [x] **IMP-4.3 — build the OR recall MODE** → **[KB-021] (DONE).** The OR flag (composite |
+    absorption | turbulence, each vs its own PIT top decile) is now a distinct, live-computable
+    flag — `fragility_or.py` (engine) + a `FRAGILITY_OR_MODE` ladder in `quant_context.py`
+    (off/log/show/active, default **off**, mirroring FRAGILITY_MODE's shadow pattern). Adopted
+    as a MODE, NOT a composite weight ([KB-016]). Fed off the live ETF panel ([KB-020]). The
+    live code path reproduces the operating point (self-check 5d OR recall 0.588 vs composite
+    0.118 — ~5×); the harness gate still reproduces [KB-020] byte-for-byte after two library
+    graduations (`turbulence_signal` → `fragility.py`, `fetch_sector_etfs` → `fragility_backtest.py`).
+    Today's live reading: **quiet** (no channel in its top decile). Output-neutral until the mode
+    is escalated. `python fragility_or.py`.
+  - Validated by [KB-015]/[KB-016]/[KB-017]/[KB-020]/[KB-021]. Receives IMP-1's channels (AR cov=120,
+    turbulence cov=252 on a homogeneous panel). **IMP-4 CLOSED.**

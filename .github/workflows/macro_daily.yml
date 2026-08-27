@@ -64,6 +64,11 @@ jobs:
           # WP-16 experiment arm — set the repo variable MACRO_PROFILE to "loosened"
           # to switch the daily run for a period (alternate-in-time A/B). Default control.
           MACRO_PROFILE:     ${{ vars.MACRO_PROFILE || 'control' }}
+          # IMP-4.3 OR recall-mode shadow record (KB-021). Default 'log': computed
+          # daily and written to results/quant_context_log/ with ZERO note impact,
+          # accumulating the live record. Escalate to 'show'/'active' — or 'off' to
+          # stop — via the repo variable FRAGILITY_OR_MODE (no code edit needed).
+          FRAGILITY_OR_MODE: ${{ vars.FRAGILITY_OR_MODE || 'log' }}
         run: python macro-assist/.macro-assist/collect_and_analyze.py ${{ inputs.force && '--force' || '' }}
 
       - name: Print LLM payload preview

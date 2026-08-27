@@ -908,3 +908,376 @@ run on FF (backtest only); a live feed needs a daily sector/industry panel (sect
 - A small *weighted* addition (composite-dominant + channels at low weight) is an open
   alternative to test in the WEIGHT_SCHEMES ablation — it might capture the blend's AUC
   gain without the top-decile dilution. Untested; noted for IMP-4.
+
+→ **Both owed caveats [(a) regime-holdout CV, (b) PIT thresholds] resolved by KB-017.**
+
+---
+
+## KB-017 — The OR-of-channels recall doubling SURVIVES honest CV: leakage was negligible, live-safe thresholds hold it (IMP-4)
+
+**Date:** 2026-08-25 · **Branch:** `main` · **Harness:**
+`.macro-assist/input_testing.py` (`run_holdout_cv`; same channels as
+`run_real_composite_gate`, **zero LLM/API cost**). Reproduce: `python
+input_testing.py holdout`. Closes the two caveats [KB-016] left open.
+
+**What we tested.** KB-016 confirmed the OR-of-channels flag (fire if the real
+`var_led_vix35` composite OR industry-panel absorption OR turbulence hits its top
+decile) roughly *doubles* crisis recall — but with two honest-evaluation debts: the
+decile cut was ranked over the **whole window** (the thresholds had already seen the
+test crises), and it had never been checked out-of-sample across regimes. This
+re-scores the identical channels under three protocols on the same 904-reading window
+(2008-07..2026-06): **[1] in-sample** (KB-016 protocol, reference), **[2] in-sample
+restricted to the post-warmup window** (isolates window-shrink from leakage), **[3]
+PIT expanding-window thresholds** — each day's decile cut fit only on that channel's
+own past, 252-day warm-up, 652 evaluable readings (the realistic LIVE protocol), and
+**[4] leave-one-crisis-out** — each drawdown episode is a fold, thresholds fit on every
+day *outside* it (the generalization headline).
+
+**Headline — the doubling is REAL, not a thresholding artifact.**
+
+| protocol | composite recall (5d/10d) | OR-channels recall (5d/10d) | OR precision (5d) |
+|---|---|---|---|
+| [1] in-sample (KB-016) | 0.333 / 0.321 | 0.722 / 0.643 | 0.323 |
+| [3] PIT (live-safe) | 0.25 / 0.333 | **0.833 / 0.867** | 0.320 |
+| [4] leave-one-crisis-out | 0.333 / 0.321 | **0.611 / 0.643** | (see nuance) |
+
+[1] reproduces KB-016 to the digit (regression check on the refactor). The decisive
+comparison is **[2] vs [3]: they are nearly identical** (OR 5d 0.75 vs 0.833; 10d 0.867
+vs 0.867) — so replacing full-sample thresholds with strictly PIT-safe ones **barely
+moves the result**. The look-ahead in the threshold that KB-016 flagged was **negligible**;
+the doubling was never an artifact of it. Under the strictest test (LOCO, thresholds
+that never saw the held-out crisis) OR recall still ~doubles composite-alone. Precision
+holds at ~0.32 (5d) across protocols — the same operating point, not a new cost.
+
+**The nuance that's easy to forget.** (1) **PIT recall > in-sample recall here**
+(0.833 vs 0.722 at 5d) — not because live is magically better, but because the warm-up
+drops the 2008 window down to 12/15 episodes and the survivors are the ones the
+expanding cut calls easily; read PIT and in-sample as *the same story on a smaller,
+cleaner denominator*, not as a live improvement. (2) **LOCO 5d (0.611) sits below PIT
+(0.833)** because LOCO scores all 18 crises including the early GFC ones on a
+leave-one-out cut; it is the *conservative floor*, and the floor is still ~2× composite.
+(3) **LOCO precision is deliberately not computed** — leave-one-out test windows are too
+short for an honest precision denominator; precision is read from PIT (~0.32), where the
+non-crisis days exist to divide by. (4) The whole exercise **validated the yardstick, not
+just the signal**: `run_holdout_cv` is now the honest gate, so a NEW channel's "recall
+went up again" only counts if it survives PIT+LOCO — otherwise it is the mechanical
+artifact of OR-ing another signal onto ~7 crises.
+
+**Caveats.** (a) Small crisis count persists — 12–28 episodes; the point estimates are
+indicative, but the *robustness across four protocols* is the real evidence, not any
+single number. (b) FF industry channels are still the backtest feed; a live flag needs a
+daily sector/industry panel (the ONE remaining plumbing item — thresholds are now shown
+PIT-safe). (c) Single (cov_ar=120, cov_turb=252, shrink=0.2, smooth=5, q=0.90, warmup=252)
+config; window capped at FF cache end (2026-06). (d) LOCO fits on all *other* crises
+(leave-one-out, not leave-one-regime-block-out); with n≈7 macro events that is the honest
+maximum, but it is not a train-early/test-late split.
+
+**What it changes.**
+- **Resolves KB-016 caveats (a) and (b).** Regime-holdout CV done; PIT-safe thresholds
+  done; the doubling survives both. The OR-of-channels recall mode is validated end-to-end
+  on honest evaluation, not just the in-sample gate.
+- **Operating point for the IMP-4 build is set:** OR recall MODE at the PIT point
+  (recall ~0.83 / precision ~0.32 at 5d, ~0.87 / ~0.36 at 10d) — a distinct high-recall
+  flag, NOT a composite weight (confirmed by KB-016's blend-degradation).
+- **`run_holdout_cv` is now the adoption GATE for new channels.** Before IMP-2
+  (credit/funding) or IMP-3 (downside semivariance) may enter the OR set, each must lift
+  PIT/LOCO recall without collapsing precision through this harness — the guard against
+  overfitting the OR knob on ~7 crises.
+- **Remaining IMP-4 plumbing narrows to one item:** a live daily sector/industry ETF panel
+  (thresholds are no longer a blocker). No live wiring yet — still IMP-4 work, not a silent
+  change.
+
+---
+
+## KB-018 — Downside asymmetry does NOT sharpen the variance-trend channel (IMP-3, negative)
+
+**Date:** 2026-08-25 · **Branch:** `main` · **Harness:**
+`.macro-assist/input_testing.py` (`run_semivariance_gate`; **zero LLM/API cost**).
+Reproduce: `python input_testing.py semivariance`. A negative — logged so the next
+session does not re-run it (KB-012 discipline).
+
+**What we tested.** The live leading component `realized_variance_trend` (B, 0.45 of
+the composite) trends **symmetric** realized vol, which also rises in melt-ups. IMP-3's
+hypothesis: a **downside-only** estimator is a sharper stress lead. Two candidates,
+each swapped into the *identical* slope/normalize/squash pipeline (the `sym` mode
+reproduces the live channel to the digit — the regression check): **downside
+semi-deviation** `sqrt(mean(min(r,0)²))`, and **signed asymmetry** `down_var − up_var`
+normalised by total realized variance. Walked forward look-ahead-safe on the FF market
+(deep history, 49/82 crises at 5d/10d) and confirmed on the production **^GSPC** (2008+,
+22/30 crises), scored with the de-overlapped gate metrics.
+
+**Headline — NO-GO. Neither variant beats symmetric.**
+
+| series / metric | B symmetric | downside semidev | signed asymmetry |
+|---|---|---|---|
+| FF 5d nov-AUC | **0.753** | 0.725 | 0.615 |
+| FF 5d recall / prec | 0.265 / 0.197 | 0.286 / 0.203 | 0.224 / 0.129 |
+| ^GSPC 5d recall / prec | **0.318 / 0.35** | 0.227 / 0.208 | 0.136 / 0.10 |
+| ^GSPC 10d recall / prec | **0.333 / 0.50** | 0.333 / 0.417 | 0.233 / 0.233 |
+
+Downside semi-deviation's only gain is +1 FF crisis at 5d (0.265→0.286), paid for by a
+lower AUC (0.753→0.725) and worse 10d precision — and on the **production ^GSPC it is
+outright worse** (5d recall 0.318→0.227, precision 0.35→0.208). Signed asymmetry is
+decisively worse on every metric on both series (more alarms, lower precision, lower AUC).
+
+**The nuance that's easy to forget.** *Why* downside decomposition doesn't help: a
+rising-variance regime is already downside-dominated, so symmetric std and downside
+semi-deviation carry nearly the **same** trend information — but the symmetric estimator
+uses **all** observations, making it a lower-variance estimator of that same trend, while
+restricting to negative returns throws away half the sample for no signal gain. The signed
+difference is a noisy-minus-noisy quantity dominated by estimation error. **The variance-
+trend channel already captures the downside information**; there is no orthogonal downside
+signal left to extract by decomposition.
+
+**Caveats.** (a) Single default config (vol_window=20, trend_window=60, k=2.5); a
+vol_window sweep was deliberately NOT run — the effect is *worse on the production asset*
+and AUC-negative on FF, so a parameter search to rescue a marginal FF-only recall bump
+would be fishing on ~7 macro events, exactly the overfitting trap [KB-017] guards against.
+(b) Small crisis counts; episode metrics indicative. (c) This tested downside asymmetry as
+a *variance estimator* swap; it does NOT rule out a genuinely orthogonal non-price downside
+channel (that is IMP-2, credit/funding — untouched here).
+
+**What it changes.**
+- **IMP-3 CLOSES negative.** The variance-trend channel stays symmetric; no change to
+  `fragility.py`. The candidate code stays in the harness, unwired.
+- **Redirects the recall-ceiling effort to IMP-2** (credit/funding: HY OAS + NFCI) — a
+  genuinely orthogonal, non-price channel — as the remaining live lever on the ~0.30
+  episode-recall ceiling, to be run through the [KB-017] `run_holdout_cv` gate before it
+  may enter the OR set.
+
+---
+
+## KB-019 — A credit channel has standalone skill but is REDUNDANT in the OR set: it adds no live recall at held precision (IMP-2, NO-GO — confirmed on canonical BAA10Y)
+
+**Date:** 2026-08-26 · **Branch:** `main` · **Harness:**
+`.macro-assist/input_testing.py` (`run_credit_gate`; **zero LLM/API cost**).
+Reproduce: `python input_testing.py credit fred` (canonical Moody's **BAA10Y**, needs
+`FRED_API_KEY`) or `python input_testing.py credit proxy` (Yahoo HYG/IEF, no key).
+**Confirmed:** the proxy and the canonical credit spread give the SAME verdict — the
+same +0 PIT-recall, the same precision cost, and the same two marginal LOCO crises
+(see the confirmation note). Not preliminary.
+
+**What we tested.** IMP-2's premise: the live composite is entirely equity-market
+(SP500 variance-trend + VIX term), so a **credit/funding** stress channel — spreads
+leading equity stress through a *different* market — is the orthogonal, non-price
+lever most likely to lift the ~0.30 recall ceiling, and the natural fill for the
+reserved `acceleration` slot. Canonical inputs are FRED **HY OAS** (`BAMLH0A0HYM2`)
+and **NFCI**; FRED's Akamai WAF silently drops requests from this network, so the
+run used the Yahoo-reachable **HYG-vs-IEF** proxy: a synthetic HY spread
+`−log(HYG/IEF)` (rises when HY underperforms duration-matched Treasuries), plus its
+20-day widening **velocity** (the leading form). Two questions, both look-ahead-safe:
+(1) **standalone** skill vs ^GSPC drawdowns; (2) **OR-set admission** — added as a
+4th OR channel beside composite/AR/TURB, does it lift recall under the [KB-017]
+holdout (in-sample → PIT → LOCO) WITHOUT collapsing precision?
+
+**Headline — real standalone skill, but REDUNDANT as an OR channel.**
+
+*Standalone (^GSPC 2008+, full daily):* credit **LEVEL** clears the AUC bar —
+5d nov-AUC **0.676**, 10d **0.607** — at baseline-tier recall/precision (~0.28).
+Velocity is noisier (5d nov-AUC 0.566, below bar). So credit stress genuinely leads
+drawdowns; it is *not* a no-skill negative like [KB-012].
+
+*OR-set admission (the decisive bar), CREDIT = velocity, on the shared composite grid:*
+
+| protocol | OR 3-ch (comp/AR/TURB) | OR 4-ch (+CREDIT) |
+|---|---|---|
+| **PIT 5d** (live operating point) | recall **0.833** / prec **0.320** | recall **0.833** / prec 0.296 |
+| **PIT 10d** | recall **0.867** / prec **0.360** | recall **0.867** / prec 0.333 |
+| LOCO 5d (recall only) | 0.611 (11/18) | 0.667 (12/18) |
+| LOCO 10d (recall only) | 0.643 (18/28) | 0.679 (19/28) |
+
+At the **PIT live operating point credit adds ZERO recall and only costs precision**
+(0.320→0.296 at 5d, 0.360→0.333 at 10d): its top-decile days coincide with crises the
+trio already flags. Under LOCO it adds exactly **+1 crisis** at each horizon (2015-08
+China-devaluation; 2010-05 flash-crash) — but LOCO is recall-only, and that +1 does not
+survive the PIT precision cost. (Regression check: the 3-channel PIT reproduces [KB-017]'s
+0.833/0.32 to the digit, confirming the window is aligned.)
+
+**The nuance that's easy to forget.** *Why* an orthogonal-looking input adds nothing at
+the margin: in a **5%+ equity drawdown, credit spreads and equity vol/absorption co-move
+tightly** — deep spread widening *is* deep equity stress — so a credit OR channel mostly
+**re-flags crises the trio already catches**. Standalone AUC (0.68) measures ranking skill
+across *all* days; the OR flag only benefits from days in credit's **top decile that the
+other channels miss**, and those are nearly empty. This is the OR-set version of the
+[KB-018] lesson: a second estimator of the same latent stress adds no *new* recall, only
+alarms. Orthogonality in normal times ≠ orthogonality in the tail.
+
+**Confirmation on a canonical credit spread (the owed rerun, done).** The numbers above are
+the initial **HYG/IEF proxy** run. The canonical rerun was blocked by a data-availability
+surprise worth recording: **ICE license-truncated its BofA OAS series on free FRED to
+~2023-08 onward** — `BAMLH0A0HYM2` (HY) and `BAMLC0A0CM` (IG) return only ~3yr now
+(the FRED API's own `observation_start` reports 2023-08-28; `count`≈795), so the classic
+1996+ HY OAS is **no longer freely available** and cannot back a 2008+ backtest. The
+deep-history substitute is **`BAA10Y`** — Moody's Baa corporate yield minus 10Y Treasury,
+daily, unrevised, 1986+ (Moody's series are not ICE-licensed). Re-running the gate on
+BAA10Y (`source='fred'`) reproduces the proxy verdict essentially to the digit: standalone
+5d nov-AUC 0.611 (velocity) / 0.674 (level) — real skill; OR-set **PIT 0.833→0.833 at 5d,
+0.867→0.867 at 10d** (recall unchanged, precision 0.286→0.267 / 0.321→0.30); **LOCO +1
+crisis each, the SAME two events** (2015-08, 2010-05). Two independent credit spreads (an
+equity-correlated HY ETF and an unrevised IG bond spread) agreeing on the same marginal
+crises confirms the redundancy is a **tail property, not a data-source artifact**.
+
+**Caveats.** (a) **Confirmed across two sources** (HYG/IEF proxy + Moody's BAA10Y). BAA10Y
+is investment-grade, so slightly *less* crisis-sensitive than true HY OAS — but the proxy is
+HY-flavored and agrees, bracketing the answer. The ICE HY OAS deep history being paywalled
+is the only reason it wasn't the primary; it would very likely land in the same place.
+(b) **No parameter sweep** (vel_window=20, q=0.90 fixed) — deliberately,
+per the [KB-017]/[KB-018] discipline: fishing vel_window on ~18 crises to manufacture a +2
+would be the exact overfitting trap the CV gate exists to prevent. (c) Velocity was used as
+the OR channel (the leading, less-collinear form); LEVEL is *more* collinear with the
+composite in crises, so it would add even less orthogonal recall. (d) Small crisis counts;
+episode metrics indicative.
+
+**What it changes.**
+- **IMP-2 CLOSES negative — confirmed on two sources.** Credit does NOT clear the OR-set
+  admission bar: no live recall gain at held precision. No wiring into `fragility.py`;
+  candidate code (`run_credit_gate`) stays in the harness.
+- **The ~0.30 → ~0.83 recall ceiling stays where [KB-017] left it.** The OR set remains the
+  IMP-1 trio (composite | AR | TURB); credit does not extend it. All three "add-a-channel"
+  bids (IMP-2 credit, IMP-3 downside) are now exhausted.
+- **The recall-ceiling search shifts from "add a channel" to "improve the operating point of
+  the existing trio"** — IMP-4.2 (live daily sector/industry ETF panel) + IMP-4.3 (build the
+  OR recall MODE flag at the validated PIT point).
+- **Reusable data-acquisition note:** ICE BofA OAS on free FRED is truncated to ~2023+; use
+  **BAA10Y** (deep, unrevised) for a credit spread. FRED's `fredgraph.csv` graph host is
+  WAF-blocked to scripts AND clips browser CSVs to ~3yr; the **FRED JSON API**
+  (`api.stlouisfed.org`, free key in `FRED_API_KEY`) is unblocked and honors full history —
+  it is the reliable path (`fetch_fred_series`).
+
+---
+
+## KB-020 — The live daily sector-ETF panel reproduces the FF backtest feed: the OR channels survive the feed swap (IMP-4.2)
+
+**Date:** 2026-08-27 · **Branch:** `main` · **Harness:**
+`.macro-assist/input_testing.py` (`fetch_sector_etfs` + `run_etf_panel_gate`;
+**zero LLM/API cost**, yfinance-only, cached). Reproduce: `python input_testing.py etf`.
+Clears [KB-017] caveat (b) — the "one remaining plumbing item".
+
+**What we tested.** The OR-of-channels recall mode ([KB-016]/[KB-017]) was validated with
+absorption (AR) and turbulence (TURB) computed on the **Fama-French 30-industry** panel.
+That panel is Ken French library data — updated monthly with a multi-week lag, so it can
+seed a backtest but **cannot drive a daily live flag**. The daily-fresh substitute is the
+**SPDR Select-Sector ETF panel** (the original nine sectors XLB/XLE/XLF/XLI/XLK/XLP/XLU/
+XLV/XLY, all trading from Dec-1998, fetched via the same yfinance path as the traded
+assets). Before wiring a live flag on it (IMP-4.3), the one question that matters: does the
+**coarser** live feed (9 sectors vs 30 industries) reproduce the FF-fed operating point?
+Both feeds were scored **on one shared window and one shared anchor grid** (comp ∩ FF ∩ ETF
+channels; 855 readings, 2009-07..2026-06), so the ONLY variable is the feed, not the dates.
+
+**Headline — the feed swap is a wash-to-slight-improvement; parity holds.**
+
+| protocol (5d) | composite | OR (FF feed) | OR (ETF feed) |
+|---|---|---|---|
+| PIT recall / precision | 0.176 / 0.214 | 0.647 / 0.241 | **0.647 / 0.318** |
+| LOCO recall (18 folds) | 0.167 | 0.389 (7/18) | 0.333 (6/18) |
+
+At the **live PIT operating point (5d)** the ETF feed gives **identical recall** (0.647,
+11/17) at **higher precision** (0.318 vs 0.241) on **fewer alarms** (22 vs 29) — strictly
+better. At 10d the ETF feed catches one fewer crisis (0.65 vs 0.70) but again at much higher
+precision (0.455 vs 0.345). **Standalone**, both ETF channels match or beat their FF twin
+(5d nov-AUC: ETF-AR 0.597 vs FF-AR 0.572; ETF-TURB 0.713 vs FF-TURB 0.715; ETF recall ≥ FF
+on both). The recall doubling vs composite-alone survives the swap intact.
+
+**The nuance that's easy to forget.** (1) **These absolute numbers are LOWER than [KB-017]'s
+headline** (FF OR PIT 5d = 0.647 here, not 0.833) — *not* a regression: the ETF intersection
+trims the shared window to 2009-07+, a different (smaller) crisis composition than KB-017's
+comp∩FF window. The parity claim rests on FF-vs-ETF **on identical dates**, where the feed is
+the only moving part; the cross-window number is not comparable and is not the point. (2)
+**LOCO nets FF +1 crisis, but it's a wash, not a loss** — the feeds catch slightly *different*
+marginal events: FF uniquely catches 2018-10 and 2020-06 (a minor post-COVID-rebound wobble);
+ETF uniquely catches **2022** (the bear-market onset FF misses). Arguably complementary rather
+than one dominating. (3) **Coarseness didn't hurt where it was feared.** 9 names give ~2
+Kritzman eigenvectors vs ~6 on 30 industries, yet AR skill held — because the sector panel is
+*cleaner* (exchange-traded, survivorship-free, no reconstruction lag) even if lower-dimensional.
+
+**Caveats.** (a) Small crisis count (17-18 folds on the shared window); point estimates
+indicative, the FF/ETF *parity* is the evidence, not any single number. (b) The 2008 GFC core
+sits mostly before the shared warm-up window, as in [KB-017] — neither feed is credited/blamed
+for it here. (c) Single config (cov_ar=120, cov_turb=252, shrink=0.2, smooth=5, q=0.90,
+warmup=252, stride=5); not swept (KB-017/018 discipline). (d) The nine-sector panel is fixed
+membership by design; XLRE (2015) and XLC (2018) are later splits *of* these nine and were left
+out of the validated core to keep membership stable across the backtest — they can be added to
+the live feed without re-tiling the market.
+
+**What it changes.**
+- **[KB-017] caveat (b) is CLOSED.** A live, daily, free, homogeneous cross-section now exists
+  and is validated to reproduce the FF-fed OR operating point (≥ its precision, = its 5d recall).
+- **IMP-4.2 is a GO — the feed is unblocked.** `fetch_sector_etfs` is the live panel; IMP-4.3
+  (build the OR recall MODE flag in `fragility.py` at the PIT operating point) can now proceed
+  on real live inputs, not a backtest-only feed.
+- **No `fragility.py` change yet.** This validates the feed and its parity; wiring the flag is
+  IMP-4.3, a distinct step. `fetch_sector_etfs` / `run_etf_panel_gate` live in the harness.
+- **Reusable note:** to compare two cross-section feeds honestly, compute both channels on ONE
+  shared anchor grid (independently-strided grids off different trading calendars almost never
+  coincide → an empty intersection) and hold the label window fixed.
+
+---
+
+## KB-021 — The OR recall mode is wired live as a shadow flag (IMP-4.3): the live code path reproduces the KB-020 operating point
+
+**Date:** 2026-08-27 · **Branch:** `main` · **Code:** `.macro-assist/fragility_or.py`
+(live OR-mode engine), `.macro-assist/quant_context.py` (`FRAGILITY_OR_MODE` ladder),
+`.macro-assist/fragility.py` (`turbulence_signal` graduated in), `fragility_backtest.py`
+(`fetch_sector_etfs` graduated in). **Zero LLM/API cost**, yfinance-only. Reproduce:
+`python fragility_or.py` (today's reading + a live-path PIT self-check). Closes IMP-4.
+
+**What we built.** The OR-of-channels recall flag ([KB-016]/[KB-017]) fed off the live
+sector-ETF panel ([KB-020]) is now a **distinct, live-computable flag**, kept separate from
+the composite Elevated label. It fires when ANY of {composite `var_led_vix35`, absorption
+ratio, turbulence} is at/above **its own point-in-time top-decile** — each channel's
+threshold is the 90th percentile of all of *its* readings strictly before today (expanding
+window, min 252 prior readings), i.e. `input_testing._pit_decile_or_flags` evaluated at the
+last day. This is adopted as an explicit **MODE, not a composite weight** — [KB-016] showed a
+blended weight lifts AUC but *degrades* the validated top-decile flag, so the channels stay
+separate and are OR-ed at the flag level.
+
+**Headline — the live path reproduces the validated operating point.** `fragility_or`'s own
+PIT self-check (composite ∩ ETF, the honest live window — no FF, since FF can't exist live;
+914 readings 2008-07..2026-08-27, 662 evaluable after warm-up):
+
+| protocol (5d) | composite | OR mode |
+|---|---|---|
+| PIT recall / precision | 0.118 (2/17) / 0.154 | **0.588 (10/17) / 0.273** |
+| PIT recall / precision (10d) | 0.238 (5/21) / 0.385 | 0.524 (11/21) / 0.364 |
+
+The **~5× recall over composite-alone at 5d** (and ~2× at 10d) at held precision is the
+[KB-016]/[KB-017]/[KB-020] signature, reproduced end-to-end by the live engine. It reads a
+touch below KB-020's 0.647 because this window is `comp ∩ ETF` only (KB-020's parity window
+was the narrower `comp ∩ FF ∩ ETF`, 855 readings), so one marginal crisis lands differently
+— within the ±1 KB-020 already documented, **not** a regression. The harness gate still
+reproduces KB-020 **byte-for-byte** after the two graduations (OR-ETF PIT 5d 0.647/0.318,
+LOCO same "differs" crises), confirming the moves are behaviour-preserving.
+
+**Today's live reading (2026-08-27): quiet.** composite 44th pct, absorption 49th, turbulence
+76th — no channel in its top decile. Sensible for the benign late-August tape; the flag has
+not yet fired live (same posture as the composite monitor, which has never gone Elevated live).
+
+**How it's wired — a shadow ladder, output-neutral by default.** `FRAGILITY_OR_MODE`
+(default **`off`**) mirrors the existing `FRAGILITY_MODE` shadow pattern but adds an `off`
+floor: `off` = not computed (zero extra compute/network); `log` = computed daily + written to
+the JSONL log only, never shown (accumulates the live record); `show` = rendered into the
+context; `active` = + a behavioural directive when the flag fires (widen Target Ranges, add a
+tail-risk bullet — **never** a Bias flip). Separate ladder from the composite because the OR
+flag is a **heavy** computation (it walks the composite + live ETF channels forward each run
+to fit PIT thresholds), so it is opt-in per run, not always-on.
+
+**Caveats.** (a) The live-path number (0.588) is on a slightly different window than the
+KB-020 gate (0.647); the *reproduction* is the evidence, not the second-decimal match.
+(b) Same fixed config as KB-020 (cov_ar=120, cov_turb=252, shrink=0.2, smooth=5, q=0.90,
+warmup=252, stride=5); **not swept** (KB-017/018 discipline — ~17 crises can't support tuning
+the OR knob). (c) The composite walk (2008→today) is the run-cost driver; the default `off`
+imposes none, and no incremental-cache optimisation was built yet (documented, not premature).
+(d) The flag has never fired live — its live behaviour is forward-observation only, like the
+composite monitor.
+
+**What it changes.**
+- **IMP-4.3 is DONE; IMP-4 is closed.** The OR recall mode exists as a live flag at the
+  validated operating point, fed off the live panel, adopted as a mode (not a weight).
+- **Escalation path (unchanged discipline):** flip `FRAGILITY_OR_MODE=off → log` (a repo var,
+  like `MACRO_PROFILE` / `FRAGILITY_MODE`) to start the live shadow record; escalate
+  `log → show → active` only after the log looks sane AND (per the fragility-monitor rule) the
+  loosened-profile A/B has resolved, so a new output lever doesn't confound it.
+- **Library graduations:** `turbulence_signal` now lives in `fragility.py` (peer of
+  `absorption_ratio`), `fetch_sector_etfs` in `fragility_backtest.py` (peer of
+  `fetch_histories`); the harness imports both from there. The stated design — validated
+  inputs graduate out of the `input_testing` harness into the library — is now realised.

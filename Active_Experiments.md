@@ -13,11 +13,17 @@ detailed doc disagree, the detailed doc wins — fix the row.
 
 **Status legend:** 🟢 running / on-track · 🟡 in progress, needs work · ⏳ forward-accumulating (waiting on live data) · ⏸ holding / queued · ✅ done · ❌ dropped
 
-_Last updated: 2026-08-25._
+_Last updated: 2026-08-27._
 
 ---
 
 ## Active
+
+### IMP-4 — OR-of-channels recall mode + regime-holdout CV ✅
+- **Tests:** does IMP-1's OR-of-channels recall doubling survive *honest* out-of-sample evaluation, and can it become a live high-recall fragility flag?
+- **Latest:** **COMPLETE — IMP-4.3 wired the OR recall MODE live → [KB-021].** `fragility_or.py` computes the flag (composite | absorption | turbulence, each vs its own PIT top decile) off the live ETF panel; a `FRAGILITY_OR_MODE` ladder (off/log/show/active, default **off**) wires it into `quant_context.py` — a MODE, not a weight ([KB-016]). Live path reproduces the operating point (5d OR recall 0.588 vs composite 0.118); today's live reading is **quiet**. Arc: [KB-017] CV spine → [KB-020] live feed parity → [KB-021] live shadow flag. `turbulence_signal` / `fetch_sector_etfs` graduated into the library layer.
+- **Next:** forward-observe. Escalate `FRAGILITY_OR_MODE=off → log` (repo var) to start the live shadow record; `log → show → active` only after it looks sane **and** the loosened A/B resolves (a new output lever would confound it).
+- **Where:** `.macro-assist/fragility_or.py` · `FRAGILITY_OR_MODE` in `quant_context.py` · harness `input_testing.py` (`run_holdout_cv`, `run_etf_panel_gate`) · branch `main`.
 
 ### IMP-1 — Fragility cross-section (absorption + turbulence) ✅
 - **Tests:** does a broad *homogeneous* cross-section (Fama-French industries) unlock cross-sectional co-movement measures the ~5 heterogeneous live assets can't support?
@@ -54,9 +60,8 @@ _Last updated: 2026-08-25._
 
 - **WP-18.4 — Input ablation** ⏸ — the real LLM-cost decision gate; gated on sample. Queue (from [KB-009]/[KB-010], union of redundancy + citation screens): drop `vix3m`, collapse sector block, nasdaq-vs-sp500, real_yield-vs-10y, drop-`baa_spread`, drop raw net-liq components. Start cheapest (drop-baa_spread + net-liq).
 - **WP-17.5 — Vol / conditional layers** ⏸ — fix the HY-OAS-truncation in the conditional table; safe parallel numeric work, confounds no live A/B.
-- **IMP-4 — Regime-holdout CV + OR-of-channels recall mode** 🟡 next up — **validated by [KB-015]/[KB-016]** and now IMP-1's designated successor. Receives the AR (cov 120) + turbulence (cov 252) channels and the confirmed operating point (recall ~0.72 / prec ~0.32 at 5d). Build the OR recall MODE as a distinct high-recall flag; remaining plumbing: live sector-ETF panel, PIT-rolling thresholds, regime-holdout CV (n≈7 crises).
-- **IMP-2/3** ⏸ — improvement backlog (credit/funding channel; downside semivariance).
-
 ## Recently closed
 
+- **IMP-2 — Credit / funding channel** ❌ dropped ([KB-019]): credit stress has genuine *standalone* skill (5d nov-AUC ~0.61-0.68) but is **redundant in the OR set** — at the live PIT operating point it adds **zero** recall and only costs precision, because deep spreads co-move with equity vol/absorption in the tail and re-flag crises the trio already catches. **Confirmed on two sources** (Yahoo HYG/IEF proxy + canonical Moody's **BAA10Y**; same +0 PIT recall, same +1 LOCO crises). Data note: ICE HY OAS is license-truncated to ~2023+ on free FRED → BAA10Y is the deep substitute via the FRED JSON API. No `fragility.py` change; the ~0.83 OR-set recall stays where [KB-017] left it.
+- **IMP-3 — Downside asymmetry** ❌ dropped ([KB-018]): downside semi-deviation / signed asymmetry do NOT sharpen the variance-trend channel — worse on the production ^GSPC (5d recall 0.318→0.227), AUC-negative on FF. The channel already captures the downside info (symmetric std = same trend on twice the data). No `fragility.py` change.
 - **Phase 17 — HMM regime layer** ❌ dropped ([KB-006]): a 4-feature rule beat it (drawdown AUC 0.697 vs 0.553) and it was redundant with fragility. Full arc in `active-goals-plan` memory.

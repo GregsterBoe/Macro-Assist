@@ -38,6 +38,8 @@ run_backtest(...)                            -> dict   (fetches yfinance, prints
 """
 from __future__ import annotations
 
+import os
+import re
 from typing import Optional
 
 import numpy as np
@@ -426,6 +428,84 @@ def fetch_histories(period: str = "max", start: str | None = "2008-01-01") -> di
         except Exception as e:   # noqa: BLE001 — CLI convenience only
             print(f"  warn: {tk} failed: {e}")
     return histories
+
+
+# ---------------------------------------------------------------------------
+# IMP-4.2 — the LIVE daily homogeneous cross-section (graduated from the
+# input_testing harness once KB-020 validated feed parity). The FF industry
+# panel (Ken French library) is monthly-updated with a multi-week lag, so it can
+# seed a backtest but cannot drive a daily flag. SPDR Select-Sector ETFs are the
+# free, daily-fresh substitute (yfinance, same path as the traded assets). We fix
+# the panel to the ORIGINAL NINE sectors, which all trade from Dec-1998 and
+# therefore span the whole 2008+ backtest window with no ragged start; XLRE
+# (2015, split off XLF) and XLC (2018, split off XLK/XLY) are later refinements OF
+# these nine, so the nine still tile the whole market throughout — kept out of the
+# validated core to keep the panel membership stable across the backtest.
+_SECTOR_ETFS: dict[str, str] = {
+    "materials":     "XLB",
+    "energy":        "XLE",
+    "financials":    "XLF",
+    "industrials":   "XLI",
+    "technology":    "XLK",
+    "staples":       "XLP",
+    "utilities":     "XLU",
+    "healthcare":    "XLV",
+    "discretionary": "XLY",
+}
+
+_ETF_CACHE = os.path.join(
+    os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache")),
+    "macro-assist", "etf",
+)
+
+
+def fetch_sector_etfs(
+    start: str = "2007-01-01",
+    tickers: Optional[dict] = None,
+    cache_dir: str = _ETF_CACHE,
+    refresh: bool = False,
+) -> pd.DataFrame:
+    """IMP-4.2 — the LIVE daily sector-ETF panel (SPDR Select Sectors via yfinance).
+
+    Returns a Close-price DataFrame (columns = sector names, index = trading days),
+    the daily-fresh drop-in for the Fama-French backtest feed behind the AR/TURB
+    fragility channels. Cached to CSV so backtests are offline/reproducible; pass
+    refresh=True to re-pull (a live daily caller wants fresh data, not the cache).
+
+    The nine `_SECTOR_ETFS` all trade from Dec-1998, so a `start` at/after then
+    yields a rectangular panel with no ragged membership — the clean cross-section
+    the absorption-ratio / turbulence estimators want.
+    """
+    tickers = tickers or _SECTOR_ETFS
+    os.makedirs(cache_dir, exist_ok=True)
+    key = "_".join(sorted(tickers.values())) + f"_{start}"
+    cache_path = os.path.join(cache_dir, re.sub(r"[^\w.-]", "_", key) + ".csv")
+    if os.path.exists(cache_path) and not refresh:
+        df = pd.read_csv(cache_path, index_col=0, parse_dates=True)
+        return df.loc[df.index >= pd.Timestamp(start)]
+
+    import yfinance as yf
+
+    cols: dict[str, pd.Series] = {}
+    for name, tk in tickers.items():
+        try:
+            hist = yf.Ticker(tk).history(start=start)
+            if hist.empty:
+                print(f"  warn: {tk} returned no rows")
+                continue
+            close = hist["Close"]
+            try:
+                close.index = close.index.tz_localize(None)
+            except (TypeError, AttributeError):
+                pass
+            cols[name] = close.astype(float)
+        except Exception as e:   # noqa: BLE001 — fetch convenience
+            print(f"  warn: {tk} failed: {e}")
+    if not cols:
+        raise RuntimeError("fetch_sector_etfs: no ETF series could be fetched")
+    df = pd.DataFrame(cols).sort_index()
+    df.rename_axis("DATE").to_csv(cache_path)
+    return df.loc[df.index >= pd.Timestamp(start)]
 
 
 def run_backtest(
