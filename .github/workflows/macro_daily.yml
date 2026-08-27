@@ -1,9 +1,13 @@
 name: Daily Macro Intelligence
 
 on:
-  schedule:
-    # Runs Mon–Fri at 06:30 UTC (adjust to taste)
-    - cron: "30 6 * * 1-5"
+  # Scheduled as stage 2 of .github/workflows/pipeline.yml.
+  workflow_call:
+    inputs:
+      force:
+        description: "Overwrite today's note if it already exists"
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       force:

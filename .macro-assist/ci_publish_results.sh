@@ -31,6 +31,27 @@ if git -C "$RES" diff --cached --quiet; then
 fi
 
 git -C "$RES" commit -m "$MSG"
-git -C "$RES" pull --rebase --autostash origin output   # rebase-safe if another job advanced output
-git -C "$RES" push origin output
-echo "Published output to origin/output."
+
+# Rebase onto whatever is on 'output' and push. The rebase alone is not enough:
+# another job can land a commit between our fetch and our push, and the push is
+# then rejected. Retry the whole fetch/rebase/push cycle rather than failing the
+# stage over a lost race.
+ATTEMPTS=5
+for attempt in $(seq 1 "$ATTEMPTS"); do
+  # Both halves are guarded: under `set -e` an unguarded failure here would
+  # abort the script instead of retrying, which would turn a transient network
+  # blip into a failed pipeline stage.
+  if git -C "$RES" pull --rebase --autostash origin output \
+     && git -C "$RES" push origin output; then
+    echo "Published output to origin/output."
+    exit 0
+  fi
+  git -C "$RES" rebase --abort 2>/dev/null || true   # leave no half-finished rebase behind
+  if [ "$attempt" -lt "$ATTEMPTS" ]; then
+    echo "publish to 'output' failed (attempt ${attempt}/${ATTEMPTS}) — retrying." >&2
+    sleep $(( attempt * 3 ))
+  fi
+done
+
+echo "error: could not publish to origin/output after 5 attempts." >&2
+exit 1

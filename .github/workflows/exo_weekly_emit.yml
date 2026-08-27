@@ -17,8 +17,17 @@ name: Exogenous Weekly Emission (Phase 19)
 # honest limit of a monthly-cadence signal (each week is still a fresh forward call).
 
 on:
-  schedule:
-    - cron: "45 6 * * 1"   # Mondays 06:45 UTC, before Weekly Scoring (07:15)
+  # Scheduled as stage 3 of .github/workflows/pipeline.yml (Mondays only).
+  workflow_call:
+    inputs:
+      asof:
+        description: "Prediction date (YYYY-MM-DD; blank = today)"
+        type: string
+        default: ""
+      force:
+        description: "Overwrite an existing note for that date"
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       asof:

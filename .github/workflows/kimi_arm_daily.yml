@@ -15,12 +15,28 @@ name: Kimi Arm Daily (experimental model A/B)
 # │ with the exogenous arm) — leave them.                                          │
 # └────────────────────────────────────────────────────────────────────────────────┘
 #
-# Needs the MOONSHOT_API_KEY repo secret. Skips gracefully if the day's payload
-# preview isn't present yet (nothing committed).
+# Needs the MOONSHOT_API_KEY repo secret. Exits non-zero if the day's payload
+# preview is missing (kimi_arm.py returns None → main() returns 1); a note that
+# already exists for the date is a clean no-op unless `force` is set, which is
+# what makes the pipeline's catch-up run safe to re-fire.
 
 on:
-  schedule:
-    - cron: "5 7 * * 1-5"   # Mon–Fri 07:05 UTC, after the 06:30 market run commits the preview
+  # Scheduled as stage 4 of .github/workflows/pipeline.yml, which guarantees the
+  # market run has published the day's payload preview before this starts.
+  workflow_call:
+    inputs:
+      asof:
+        description: "Date (YYYY-MM-DD; blank = today) — needs a committed payload preview"
+        type: string
+        default: ""
+      n:
+        description: "Ensemble samples"
+        type: string
+        default: "12"
+      force:
+        description: "Overwrite an existing note for that date"
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       asof:
