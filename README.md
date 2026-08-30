@@ -451,8 +451,18 @@ their output for the date already exists, so on a normal day it writes nothing
 and costs about a minute per stage; on a day GitHub dropped the morning
 schedule, it fills the gap unattended.
 
-**Monday stages** (3, 5, 6) are selected by the `plan` job from the UTC weekday,
-overridable via the `weekly` dispatch input.
+**The run's date** is resolved once by the `plan` job and passed to every stage
+as `asof`; no stage derives its own. This matters because the delay above keeps
+growing — on 2026-08-28 the two slots landed 12h25m and 10h28m late, both in the
+evening. When a stage read the clock itself, a run that crossed UTC midnight
+wrote the *next* day's note and left the intended day permanently empty, and the
+Monday-only stages vanished, all with a green run. `plan` treats a start before
+06:00 UTC as the previous day's slot (the earliest cron is 06:23, so it cannot be
+its own day's), and the `asof` dispatch input overrides the whole decision.
+
+**Monday stages** (3, 5, 6) are selected by the `plan` job from the weekday of
+that resolved `asof` — not from the wall clock — and are overridable via the
+`weekly` dispatch input.
 
 Each stage also keeps its own `workflow_dispatch` with its full input set, so any
 one of them can still be run standalone from the Actions tab.

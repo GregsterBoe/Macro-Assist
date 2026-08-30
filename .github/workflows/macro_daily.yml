@@ -4,12 +4,20 @@ on:
   # Scheduled as stage 2 of .github/workflows/pipeline.yml.
   workflow_call:
     inputs:
+      asof:
+        description: "Date this run is for (YYYY-MM-DD; blank = today UTC)"
+        type: string
+        default: ""
       force:
         description: "Overwrite today's note if it already exists"
         type: boolean
         default: false
   workflow_dispatch:
     inputs:
+      asof:
+        description: "Date this run is for (YYYY-MM-DD; blank = today UTC)"
+        type: string
+        default: ""
       force:
         description: "Overwrite today's note if it already exists"
         type: boolean
@@ -69,14 +77,18 @@ jobs:
           # accumulating the live record. Escalate to 'show'/'active' — or 'off' to
           # stop — via the repo variable FRAGILITY_OR_MODE (no code edit needed).
           FRAGILITY_OR_MODE: ${{ vars.FRAGILITY_OR_MODE || 'log' }}
-        run: python macro-assist/.macro-assist/collect_and_analyze.py ${{ inputs.force && '--force' || '' }}
+        run: |
+          python macro-assist/.macro-assist/collect_and_analyze.py \
+            ${{ inputs.asof && format('--asof {0}', inputs.asof) || '' }} \
+            ${{ inputs.force && '--force' || '' }}
 
       - name: Print LLM payload preview
         if: always()
         run: |
-          PREVIEW="macro-assist/results/llm_payload_preview/$(date -u +%Y-%m-%d).md"
+          ASOF="${{ inputs.asof }}"; ASOF="${ASOF:-$(date -u +%Y-%m-%d)}"
+          PREVIEW="macro-assist/results/llm_payload_preview/${ASOF}.md"
           if [ -f "$PREVIEW" ]; then
-            echo "::group::LLM payload preview ($(date -u +%Y-%m-%d))"
+            echo "::group::LLM payload preview (${ASOF})"
             cat "$PREVIEW"
             echo "::endgroup::"
           else
