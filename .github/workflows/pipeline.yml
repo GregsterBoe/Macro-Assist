@@ -15,6 +15,14 @@ name: Macro Pipeline
 # Ordering is now a `needs:` graph, so it cannot drift. The delay itself is
 # GitHub's and can't be fixed from here — the catch-up cron below absorbs it.
 #
+# THE RUN'S DATE
+# The delay got far worse: 2026-08-28's two slots were delivered 12h25m and
+# 10h28m late, both in the evening. Since stages used to read the clock
+# themselves, a run crossing UTC midnight would have written the next day's note
+# and skipped the Monday-only stages — silently, all green. `plan` now resolves
+# the date once and every stage takes it as `asof`. Nothing downstream may call
+# `date` or `date.today()` for the run's own date.
+#
 # RE-RUNNING A FAILED STAGE
 # Each stage is a job, and the job is GitHub's unit of re-run: "Re-run failed
 # jobs" on the run page re-runs only the failed stage plus the stages downstream
@@ -38,7 +46,7 @@ on:
   workflow_dispatch:
     inputs:
       asof:
-        description: "Date for the arm/portfolio stages (YYYY-MM-DD; blank = today)"
+        description: "Date the whole run is for (YYYY-MM-DD; blank = auto, see `plan`)"
         type: string
         default: ""
       force:
@@ -74,28 +82,55 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       weekly: ${{ steps.decide.outputs.weekly }}
+      asof: ${{ steps.decide.outputs.asof }}
     steps:
-      - name: Decide which stages run
+      - name: Decide the date and which stages run
         id: decide
         run: |
           set -euo pipefail
+
+          # THE DATE IS RESOLVED ONCE, HERE, AND PASSED TO EVERY STAGE.
+          # Stages must never re-read the clock: GitHub delivers scheduled runs
+          # late (12h25m on 2026-08-28, against a 372 min prior worst case), and a
+          # run that crosses UTC midnight would otherwise have each stage compute a
+          # different day than the one the run is for — writing tomorrow's note and
+          # leaving the intended day permanently empty, with every check green.
+          #
+          # The earliest cron is 06:23 UTC, so a run landing before 06:00 cannot be
+          # its own day's slot: it is the previous day's, delivered late. Dispatch
+          # with `asof` to override.
+          ASOF="${{ inputs.asof }}"
+          if [ -z "$ASOF" ]; then
+            if [ "$(date -u +%H)" -lt 06 ]; then
+              ASOF="$(date -u -d 'yesterday' +%Y-%m-%d)"
+              ASOF_WHY="auto: ran at $(date -u +%H:%M) UTC, before the 06:23 cron — previous day's slot"
+            else
+              ASOF="$(date -u +%Y-%m-%d)"
+              ASOF_WHY="auto: today (UTC)"
+            fi
+          else
+            ASOF_WHY="pinned via dispatch"
+          fi
+
           # `inputs` is empty on a schedule trigger, so this falls through to auto.
           case "${{ inputs.weekly }}" in
             yes) WEEKLY=true  ; REASON="forced on via dispatch" ;;
             no)  WEEKLY=false ; REASON="forced off via dispatch" ;;
-            *)   if [ "$(date -u +%u)" = "1" ]; then
-                   WEEKLY=true ; REASON="auto: today is Monday (UTC)"
+            *)   if [ "$(date -u -d "$ASOF" +%u)" = "1" ]; then
+                   WEEKLY=true ; REASON="auto: $ASOF is a Monday"
                  else
-                   WEEKLY=false; REASON="auto: today is $(date -u +%A) (UTC)"
+                   WEEKLY=false; REASON="auto: $ASOF is a $(date -u -d "$ASOF" +%A)"
                  fi ;;
           esac
           echo "weekly=$WEEKLY" >> "$GITHUB_OUTPUT"
+          echo "asof=$ASOF"     >> "$GITHUB_OUTPUT"
           {
             echo "### Pipeline plan"
             echo ""
             echo "| | |"
             echo "|---|---|"
-            echo "| date (UTC) | \`$(date -u +%Y-%m-%d\ %H:%M)\` |"
+            echo "| as-of date | \`$ASOF\` — $ASOF_WHY |"
+            echo "| started (UTC) | \`$(date -u +%Y-%m-%d\ %H:%M)\` |"
             echo "| trigger | \`${{ github.event_name }}\` |"
             echo "| weekly stages | \`$WEEKLY\` — $REASON |"
             echo ""
@@ -113,9 +148,10 @@ jobs:
 
   daily:
     name: 2 · daily note
-    needs: data_check
+    needs: [plan, data_check]
     uses: ./.github/workflows/macro_daily.yml
     with:
+      asof: ${{ needs.plan.outputs.asof }}
       force: ${{ inputs.force || false }}
     secrets: inherit
 
@@ -125,13 +161,13 @@ jobs:
     if: ${{ needs.plan.outputs.weekly == 'true' }}
     uses: ./.github/workflows/exo_weekly_emit.yml
     with:
-      asof: ${{ inputs.asof || '' }}
+      asof: ${{ needs.plan.outputs.asof }}
       force: ${{ inputs.force || false }}
     secrets: inherit
 
   kimi:
     name: 4 · kimi arm
-    needs: [daily, exo]
+    needs: [plan, daily, exo]
     # `exo` is skipped Tue–Fri, and a skipped dependency would otherwise skip
     # this job too. Gate on daily's result explicitly and tolerate exo's skip.
     if: >-
@@ -140,7 +176,7 @@ jobs:
           && (needs.exo.result == 'success' || needs.exo.result == 'skipped') }}
     uses: ./.github/workflows/kimi_arm_daily.yml
     with:
-      asof: ${{ inputs.asof || '' }}
+      asof: ${{ needs.plan.outputs.asof }}
       n: ${{ inputs.kimi_n || '12' }}
       force: ${{ inputs.force || false }}
     secrets: inherit
@@ -164,6 +200,6 @@ jobs:
           && needs.scoring.result == 'success' }}
     uses: ./.github/workflows/portfolio_rebalance.yml
     with:
-      date: ${{ inputs.asof || '' }}
+      date: ${{ needs.plan.outputs.asof }}
       reset: ${{ inputs.pf_reset || false }}
     secrets: inherit

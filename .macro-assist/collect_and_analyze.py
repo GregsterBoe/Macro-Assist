@@ -10,7 +10,7 @@ Expects env vars: FRED_API_KEY, ANTHROPIC_API_KEY
 import os
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from fredapi import Fred
@@ -363,11 +363,34 @@ def _run_fetch_check() -> int:
     return 0
 
 
+def _resolve_asof(raw: str | None) -> datetime:
+    """The date this run is *for*, as an aware UTC datetime.
+
+    GitHub's scheduler can deliver a scheduled run many hours late — 12h25m
+    measured on 2026-08-28 — so the wall clock when the runner starts is not a
+    safe proxy for the day the run belongs to. A run delayed past midnight would
+    otherwise write the next day's note and silently leave the intended day empty.
+
+    The pipeline's `plan` stage resolves the date once and passes the same value
+    to every stage via --asof. Unset (a bare local run) falls back to the clock.
+    The time-of-day is deliberately left as the real one so log timestamps stay
+    honest; only the calendar date is pinned.
+    """
+    now = datetime.now(timezone.utc)
+    if not raw:
+        return now
+    day = date.fromisoformat(raw)
+    return now.replace(year=day.year, month=day.month, day=day.day)
+
+
 def main():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--force", action="store_true",
                         help="overwrite today's note if it already exists")
+    parser.add_argument("--asof", default=None, metavar="YYYY-MM-DD",
+                        help="date this run is for (default: today, UTC); pinned by the "
+                             "pipeline so a delayed run still writes the right day")
     parser.add_argument("--fetch-only", action="store_true",
                         help="run data fetch checks only — no LLM call, no note written")
     args = parser.parse_args()
@@ -375,7 +398,7 @@ def main():
     if args.fetch_only:
         sys.exit(_run_fetch_check())
 
-    today = datetime.now(timezone.utc)
+    today = _resolve_asof(args.asof)
     _t0   = time.monotonic()
     _log("PIPELINE", "INFO", f"Macro-Assist starting — {today.strftime('%Y-%m-%d %H:%M')} UTC")
     _check_fomc_dates_expiry(today)
