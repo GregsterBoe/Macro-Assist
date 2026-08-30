@@ -1038,8 +1038,12 @@ def _analyze_structured(
                             "type": "tool_result",
                             "tool_use_id": _retry_tool_block.id,
                             "content": (
-                                f"Validation error: {e}\n\n"
-                                "Shorten overlong text fields and resubmit via submit_analysis."
+                                f"Your submission failed schema validation:\n{e}\n\n"
+                                "Resubmit the COMPLETE analysis via submit_analysis. Fix EVERY "
+                                "error above: include all required fields (macro_regime and all "
+                                "four *_note fields are mandatory), use the correct type for each "
+                                "(key_risks and predictions are LISTS, not prose), and keep each "
+                                "text field within its length limit."
                             ),
                             "is_error": True,
                         }
