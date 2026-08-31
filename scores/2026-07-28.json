@@ -7,7 +7,7 @@
   "model": "claude-opus-4-8",
   "base_rate_first": "on",
   "prune_rules": "on",
-  "scored_at": "2026-08-24",
+  "scored_at": "2026-08-31",
   "windows": {
     "t5": {
       "eval_date": "2026-08-04",
@@ -127,6 +127,69 @@
           "eval_price": 63551.875,
           "eval_date": "2026-08-11",
           "pct_change": -0.5,
+          "score": 0.5
+        }
+      },
+      "summary": {
+        "n_scored": 6,
+        "accuracy": 0.583
+      }
+    },
+    "t20": {
+      "eval_date": "2026-08-25",
+      "assets": {
+        "S&P 500": {
+          "bias": "Neutral",
+          "confidence": 58,
+          "entry_price": 7428.7798,
+          "eval_price": 7677.2798,
+          "eval_date": "2026-08-25",
+          "pct_change": 3.345,
+          "score": 0.5
+        },
+        "Gold": {
+          "bias": "Bullish",
+          "confidence": 55,
+          "entry_price": 4036.3,
+          "eval_price": 4638.1001,
+          "eval_date": "2026-08-25",
+          "pct_change": 14.91,
+          "score": 1.0
+        },
+        "WTI Oil": {
+          "bias": "Neutral",
+          "confidence": 62,
+          "entry_price": 79.26,
+          "eval_price": 82.36,
+          "eval_date": "2026-08-25",
+          "pct_change": 3.911,
+          "score": 0.5
+        },
+        "10Y Treasury Yield": {
+          "bias": "Neutral",
+          "confidence": 55,
+          "entry_price": 4.604,
+          "eval_price": 4.639,
+          "eval_date": "2026-08-25",
+          "pct_change": 0.76,
+          "score": 0.5
+        },
+        "DXY": {
+          "bias": "Neutral",
+          "confidence": 54,
+          "entry_price": 101.38,
+          "eval_price": 98.92,
+          "eval_date": "2026-08-25",
+          "pct_change": -2.427,
+          "score": 0.5
+        },
+        "Bitcoin": {
+          "bias": "Neutral",
+          "confidence": 56,
+          "entry_price": 63871.3633,
+          "eval_price": 78564.9766,
+          "eval_date": "2026-08-25",
+          "pct_change": 23.005,
           "score": 0.5
         }
       },
