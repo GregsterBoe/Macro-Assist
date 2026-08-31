@@ -1,6 +1,6 @@
 # Macro-Assist
 
-Automated daily macro intelligence pipeline. Every weekday morning a GitHub Actions workflow fetches live economic and market data, runs a multi-agent Claude pipeline for structured analysis, and delivers a formatted Markdown note to an Obsidian vault. A separate weekly workflow scores the accuracy of past predictions and feeds that track record back into future reports as a self-calibration loop. A second weekly workflow refits the quantitative models on fresh data.
+Automated daily macro intelligence pipeline. Every weekday morning a GitHub Actions workflow — started by an external cron service calling the GitHub API, not by GitHub's own scheduler ([why](#external-cron-trigger)) — fetches live economic and market data, runs a multi-agent Claude pipeline for structured analysis, and delivers a formatted Markdown note to an Obsidian vault. A separate weekly workflow scores the accuracy of past predictions and feeds that track record back into future reports as a self-calibration loop. A second weekly workflow refits the quantitative models on fresh data.
 
 ---
 
@@ -12,7 +12,7 @@ The project spans two GitHub repositories:
 - **External-Brain** — personal Obsidian vault; receives the daily note and accuracy report via git push
 
 ```
-Macro Pipeline · stage 2 (Mon–Fri, one scheduled run)
+Macro Pipeline · stage 2 (Mon–Fri, one run per external cron call)
   │
   ├── fetch FRED macro indicators (16 series, 5yr history each)
   ├── fetch market prices + technicals (yfinance, 90d history)
@@ -102,14 +102,14 @@ Macro-Assist/
 │       └── test_synthetic.py
 ├── .github/
 │   └── workflows/
-│       ├── pipeline.yml              # Mon–Fri 06:23 UTC (+10:47 catch-up) — THE schedule
+│       ├── pipeline.yml              # THE entry point — external cron Mon–Fri (+catch-up, +backstop)
 │       ├── macro_data_check.yml      # stage 1 — data fetch pre-check
 │       ├── macro_daily.yml           # stage 2 — main pipeline
 │       ├── exo_weekly_emit.yml       # stage 3 — exogenous arm (Mondays)
 │       ├── kimi_arm_daily.yml        # stage 4 — kimi ensemble arm
 │       ├── macro_weekly_scoring.yml  # stage 5 — prediction scoring (Mondays)
 │       ├── portfolio_rebalance.yml   # stage 6 — paper rebalance (Mondays)
-│       └── macro_weekly_refit.yml    # Sunday 22:00 UTC — model refit (independent)
+│       └── macro_weekly_refit.yml    # Sunday 22:00 UTC — model refit (independent call)
 ├── data/
 │   ├── tr_positions.csv         # Trade Republic export (optional; gitignored)
 │   └── ticker_cache.json        # ISIN→ticker cache (committed)
@@ -120,6 +120,7 @@ Macro-Assist/
 │   ├── scores/                  # raw JSON score files per report
 │   ├── quant_context_log/       # daily JSONL snapshots of quant outputs
 │   └── accuracy_report.md       # human-readable accuracy summary
+├── trigger_pipeline.sh          # start a workflow from outside GitHub (the cron call)
 ├── publish_output.sh            # commit & push results/ to the 'output' branch
 ├── Project_Development.md       # phased implementation roadmap
 ├── TODO.md                      # open decisions + carried findings across sessions
@@ -430,10 +431,12 @@ python .macro-assist/parse_positions.py data/tr_positions.csv
 
 ## GitHub Actions Workflows
 
-### pipeline.yml — Mon–Fri 06:23 UTC (catch-up 10:47 UTC)
+### pipeline.yml — the entry point (Mon–Fri 06:23 UTC, catch-up 10:47 UTC)
 
-The single scheduled entry point. Every stage below is a **job** in this one run,
-ordered by `needs:` rather than by cron offsets.
+The single entry point, started by an
+[external cron service](#external-cron-trigger). Its only `schedule:` is a late
+backstop for the day the cron service itself fails. Every stage below is a **job** in this one run, ordered by `needs:` rather
+than by cron offsets.
 
 Stages 1–6 used to be six separate workflows fired by six separate crons spaced
 15–30 min apart. GitHub's scheduler routinely fires 45–220 min late (measured
@@ -446,19 +449,21 @@ that day's kimi note went unscored with every check green.
 failed stage and the stages downstream of it re-run; completed stages are
 skipped. You never need to re-run the whole pipeline to fix one stage.
 
-**Catch-up run:** the 10:47 cron re-enters the same pipeline. Stages no-op when
+**Catch-up run:** the 10:47 call re-enters the same pipeline. Stages no-op when
 their output for the date already exists, so on a normal day it writes nothing
-and costs about a minute per stage; on a day GitHub dropped the morning
-schedule, it fills the gap unattended.
+and costs about a minute per stage; on a day the morning call never landed — the
+cron service was down, the token had expired, GitHub returned a 5xx — it fills
+the gap unattended.
 
 **The run's date** is resolved once by the `plan` job and passed to every stage
 as `asof`; no stage derives its own. This matters because the delay above keeps
 growing — on 2026-08-28 the two slots landed 12h25m and 10h28m late, both in the
 evening. When a stage read the clock itself, a run that crossed UTC midnight
 wrote the *next* day's note and left the intended day permanently empty, and the
-Monday-only stages vanished, all with a green run. `plan` treats a start before
-06:00 UTC as the previous day's slot (the earliest cron is 06:23, so it cannot be
-its own day's), and the `asof` dispatch input overrides the whole decision.
+Monday-only stages vanished, all with a green run. An external caller is prompt where GitHub's scheduler was not, but a retry after
+an outage still lands late, so the guard stays: `plan` treats a start before
+06:00 UTC as the previous day's slot (the earliest call is 06:23, so it cannot be
+its own day's), and the `asof` input overrides the whole decision.
 
 **Monday stages** (3, 5, 6) are selected by the `plan` job from the weekday of
 that resolved `asof` — not from the wall clock — and are overridable via the
@@ -493,16 +498,143 @@ predictions are always committed before they are scored.
 
 ### macro_weekly_refit.yml — Sunday 22:00 UTC
 
-Keeps its own schedule: it has no upstream dependency and runs the night before
-Monday's pipeline, which picks up the fresh models.
+Its own cron call rather than a pipeline stage: it has no upstream dependency and
+runs the night before Monday's pipeline, which picks up the fresh models. A
+missed refit is not silent-but-fatal the way a missed daily note is — the models
+just stay a week old and the next Sunday call refreshes them — so it has no
+catch-up call.
 
 1. Checkout Macro-Assist
 2. Run `refit_models.py` (5yr FRED + market data fetch, HMM refit, distribution rebuild)
 3. Commit `data/regime_model.pkl` + `data/conditional_distributions.json`
 
-All workflows support `workflow_dispatch` for manual testing from the GitHub Actions UI. Scheduled runs always execute on the default branch (main).
+All workflows support `workflow_dispatch` for manual testing from the GitHub Actions UI. Cron calls dispatch `ref: main`, and the backstop schedule (like every GitHub schedule) runs on the default branch, so everything executes against `main`.
 
-Stages 1–6 are reusable workflows (`workflow_call`) and no longer carry their own `schedule:` — `pipeline.yml` is the only cron in the chain, so there is exactly one thing to check when a morning looks quiet.
+Stages 1–6 are reusable workflows (`workflow_call`) and carry no trigger of their own — `pipeline.yml` is the only scheduled entry point in the chain, so there is exactly one thing to check when a morning looks quiet.
+
+Almost every run now arrives as a `workflow_dispatch`, which would otherwise make the Actions list an undifferentiated column of identical names. Each entry point sets a `run-name` from its `source` input, so the list reads `Macro Pipeline · cron-primary`, `· cron-catchup`, `· manual`, or `· schedule-backstop` at a glance.
+
+---
+
+## External cron trigger
+
+GitHub's `schedule:` no longer starts the pipeline. An external cron service
+does, by calling the workflow-dispatch API. `pipeline.yml` keeps one late
+`schedule:` purely as a [backstop](#the-backstop); `macro_weekly_refit.yml` has
+none.
+
+**Why.** The scheduler was measured, not guessed: runs delivered 42–224 min late
+through July/August 2026, peaking at 372 min on 2026-06-15; 12h25m and 10h28m
+late on 2026-08-28; and on 2026-08-27 the day's schedules were dropped entirely
+and nothing ran at all. Late delivery is what forced the `asof` plumbing (a run
+crossing UTC midnight used to write the *next* day's note), and a dropped run is
+worse than a failed one — there is no red check, just a silent gap in the series.
+An external call is delivered when it is made, and when it fails it fails in the
+caller's log where it can be alerted on.
+
+### The schedule
+
+All times UTC — set the cron service's timezone to UTC so the slots don't move
+twice a year.
+
+| Slot | Cron (UTC) | Call |
+|---|---|---|
+| Daily pipeline | `23 6 * * 1-5` | `pipeline.yml`, `source=cron-primary` |
+| Catch-up | `47 10 * * 1-5` | `pipeline.yml`, `source=cron-catchup` |
+| Weekly refit | `0 22 * * 0` | `macro_weekly_refit.yml`, `source=cron-refit` |
+
+The catch-up is not a duplicate run: stages no-op when their output for the date
+already exists, so it costs about a minute per stage and writes nothing unless
+the morning call is missing. The odd minutes carry over from the old crons and no
+longer matter — GitHub's contended `:00`/`:15`/`:30`/`:45` slots only affected its
+own scheduler — but there is no reason to move them.
+
+### The backstop
+
+Moving off GitHub's scheduler moves the single point of failure rather than
+removing it: if the cron service is down, its host is off, or the token has
+expired, nothing calls the workflow at all. GitHub's scheduler is unreliable,
+not dead — a late slot it *usually* delivers is worth having behind a caller
+that might never fire.
+
+So `pipeline.yml` keeps exactly one `schedule:`, at **14:37 UTC, Mon–Fri**. It is
+not the trigger and is not meant to be on time: both external calls have long
+since landed by then, so on a normal day it finds the date's output already
+written and every stage no-ops — about a minute per stage, nothing committed. It
+only does real work on a day nothing else called.
+
+It sends no inputs (a schedule trigger can't), so `plan` labels it
+`schedule-backstop` in the run name and the summary. If GitHub delivers *it* late
+too, the date guard still holds: past midnight it resolves to the previous day —
+correct, that is the day the run is for — and in the morning it resolves to the
+new day, which the primary call has usually already written, so it no-ops. Either
+way it cannot write the wrong day's note.
+
+`macro_weekly_refit.yml` gets no backstop: a missed refit leaves the models a
+week old and the next Sunday call refreshes them.
+
+### The token
+
+A **fine-grained PAT**, scoped to this repository only, with **Actions: read and
+write** (plus the automatic Metadata: read). Nothing else — the token itself
+cannot read the repo's secrets or push commits.
+
+This token lives in the cron service, not in GitHub secrets: it is the credential
+for getting *into* GitHub, so it cannot be stored behind the thing it opens.
+Fine-grained PATs expire — note the expiry date somewhere you will see it, since
+the symptom of an expired token is a `401` in the cron service's log and an
+otherwise silent morning here.
+
+### Setting it up
+
+**On a host with a shell** (a VPS, a NAS, a Raspberry Pi) — `trigger_pipeline.sh`
+in the repo root is the caller; it retries transport failures, GitHub 5xx and
+rate limits with backoff, and explains the auth errors it will not retry:
+
+```cron
+# crontab -e, with MACRO_ASSIST_TOKEN exported for cron (e.g. in the crontab itself)
+23 6  * * 1-5  /path/to/Macro-Assist/trigger_pipeline.sh --source cron-primary
+47 10 * * 1-5  /path/to/Macro-Assist/trigger_pipeline.sh --source cron-catchup
+0  22 * * 0    /path/to/Macro-Assist/trigger_pipeline.sh --workflow macro_weekly_refit.yml --source cron-refit
+```
+
+**On an HTTP-only service** (cron-job.org, EasyCron, Zapier, a Cloudflare Worker)
+— configure one job per row of the table above:
+
+```
+POST https://api.github.com/repos/GregsterBoe/Macro-Assist/actions/workflows/pipeline.yml/dispatches
+
+Authorization: Bearer <token>
+Accept: application/vnd.github+json
+X-GitHub-Api-Version: 2022-11-28
+Content-Type: application/json
+
+{"ref": "main", "inputs": {"source": "cron-primary"}}
+```
+
+Swap `pipeline.yml` for `macro_weekly_refit.yml` in the URL for the refit slot.
+Send input values as **strings** (`"force": "true"`, not `true`) — GitHub coerces
+them to the type the workflow declares. Any input the workflow exposes can be
+passed the same way: `asof`, `force`, `kimi_n`, `pf_reset`, `weekly`.
+
+### Checking it works
+
+```bash
+./trigger_pipeline.sh --dry-run --source cron-primary   # prints the request, sends nothing
+MACRO_ASSIST_TOKEN=github_pat_... ./trigger_pipeline.sh --source manual-test
+```
+
+A `204 No Content` means GitHub accepted the request — not that the run
+succeeded. The run then appears in the Actions tab named for its `source`, and
+the `plan` job's summary repeats the source and the resolved `asof`.
+
+| Symptom | Cause |
+|---|---|
+| `401` | Token invalid or expired — issue a new fine-grained PAT. |
+| `403` | Token lacks *Actions: read and write* on this repo. |
+| `404` | No such workflow with a `workflow_dispatch` trigger on `ref`, or the token cannot see the repo. The trigger must exist on the **default branch** — a workflow that only has it on a feature branch is not dispatchable. |
+| `422` | Unknown input name or bad value. |
+| No run at all, no error | The call was never made. This is the cron service's log to check, not GitHub's — turn on its failure notifications. The 14:37 backstop should have covered the day; if it didn't, GitHub dropped that slot too. |
 
 ---
 
@@ -519,6 +651,8 @@ Stages 1–6 are reusable workflows (`workflow_call`) and no longer carry their 
 `GITHUB_TOKEN` is provided automatically by GitHub Actions. The workflows require `permissions: contents: write`, enabled in the workflow files and under repo Settings → Actions → General → Workflow permissions → Read and write.
 
 COT positioning data is fetched directly from `cftc.gov` — no API key required.
+
+The external cron token is deliberately **not** in this table: it lives in the cron service, not in GitHub secrets (see [External cron trigger](#external-cron-trigger)).
 
 ---
 
@@ -539,6 +673,7 @@ Pipeline versions are centralized in `.macro-assist/versions.py`. To bump the ve
 |------|------|-------|
 | Update FOMC meeting dates | Every January | `FOMC_DATES` list in `collect_and_analyze.py` |
 | Review sector ETF top holdings | Every quarter | `SECTOR_HOLDINGS` dict in `collect_and_analyze.py` |
+| Renew the external cron PAT | Before it expires | GitHub → Settings → Developer settings → Fine-grained tokens, then update the cron service |
 
 FOMC dates source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
 

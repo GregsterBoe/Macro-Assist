@@ -2,26 +2,58 @@ name: Macro Pipeline
 
 # Single entry point for the daily (and, on Mondays, weekly) pipeline.
 #
-# WHY THIS EXISTS
-# The stages used to be six independent workflows chained by wall-clock cron
-# offsets (06:00 → 06:30 → 06:45 → 07:05 → 07:15 → 07:45). Each one drew its own
-# scheduling delay from GitHub, and those delays are far larger than the gaps:
-# measured 42–224 min through July/August 2026, peaking at 372 min on 2026-06-15.
-# The ordering only ever held by luck. On 2026-08-03 it didn't — Weekly Scoring
-# started 34s after the Kimi arm and both ran against the same commit, so that
-# day's kimi note went unscored with every check green. On 2026-08-27 GitHub
-# dropped the day's schedules entirely and nothing ran at all.
+# WHAT TRIGGERS THIS
+# An external cron service, over the API. There is no `schedule:` block below,
+# on purpose. The reference caller is `trigger_pipeline.sh` in the repo root;
+# the schedule table, the token and the raw request are in README → "External
+# cron trigger". The call is:
 #
-# Ordering is now a `needs:` graph, so it cannot drift. The delay itself is
-# GitHub's and can't be fixed from here — the catch-up cron below absorbs it.
+#   POST /repos/<owner>/<repo>/actions/workflows/pipeline.yml/dispatches
+#   {"ref": "main", "inputs": {"source": "cron-primary"}}
+#
+# GitHub's own `schedule:` was the trigger until 2026-08-31 and was dropped for
+# being unreliable in a way nothing in this file could compensate for: runs
+# delivered 42–224 min late through July/August 2026 (peak 372 min on
+# 2026-06-15), then 12h25m and 10h28m on 2026-08-28, and on 2026-08-27 the day's
+# schedules were dropped entirely and nothing ran at all. An external call is
+# delivered when it is made, and a failed call is visible in the caller's own log
+# instead of being silently absent here.
+#
+# Every guard below still assumes a call can arrive late or twice: the trigger
+# changed, the invariants did not.
+#
+# THE BACKSTOP
+# One `schedule:` survives, at 14:37 UTC — hours after both external calls, and
+# deliberately not the trigger. Moving off GitHub's scheduler moved the single
+# point of failure rather than removing it: if the cron service is down, its
+# host is off, or the token has expired, nothing calls this workflow at all.
+# GitHub's scheduler is unreliable, not dead, so a late slot it *usually*
+# delivers is worth having behind a caller that might never fire. On a normal
+# day the day's output already exists and every stage no-ops.
+#
+# WHY ONE RUN, NOT SIX
+# The stages used to be six independent workflows chained by wall-clock cron
+# offsets (06:00 → 06:30 → 06:45 → 07:05 → 07:15 → 07:45). Each one drew its
+# own scheduling delay, and those delays were far larger than the gaps, so the
+# ordering only ever held by luck. On 2026-08-03 it didn't — Weekly Scoring
+# started 34s after the Kimi arm and both ran against the same commit, so that
+# day's kimi note went unscored with every check green. Ordering is now a
+# `needs:` graph, so it cannot drift.
 #
 # THE RUN'S DATE
-# The delay got far worse: 2026-08-28's two slots were delivered 12h25m and
-# 10h28m late, both in the evening. Since stages used to read the clock
-# themselves, a run crossing UTC midnight would have written the next day's note
-# and skipped the Monday-only stages — silently, all green. `plan` now resolves
-# the date once and every stage takes it as `asof`. Nothing downstream may call
-# `date` or `date.today()` for the run's own date.
+# Stages used to read the clock themselves, so a run crossing UTC midnight would
+# have written the next day's note and skipped the Monday-only stages — silently,
+# all green. That is a live risk for any late call, not just a GitHub-scheduler
+# one. `plan` resolves the date once and every stage takes it as `asof`. Nothing
+# downstream may call `date` or `date.today()` for the run's own date.
+#
+# THE CATCH-UP CALL
+# The external service calls this workflow a second time each weekday (see the
+# README table). Stages no-op when their output for the date already exists
+# (force=false), so on a normal day the catch-up costs ~1 min per stage and
+# writes nothing; on a day the primary call never landed — service outage,
+# expired token, GitHub 5xx — it fills the gap unattended. Two calls a day is
+# also why `concurrency` below queues rather than cancels.
 #
 # RE-RUNNING A FAILED STAGE
 # Each stage is a job, and the job is GitHub's unit of re-run: "Re-run failed
@@ -33,16 +65,25 @@ name: Macro Pipeline
 # own full input set — converting them to reusable workflows did not take that
 # away.
 
+# Every run is now a dispatch, so the run list would otherwise be an
+# undifferentiated column of "Macro Pipeline". Name it by who asked and for when.
+run-name: "Macro Pipeline · ${{ inputs.source || 'schedule-backstop' }}${{ inputs.asof && format(' · {0}', inputs.asof) || '' }}"
+
 on:
+  # BACKSTOP, NOT THE TRIGGER. Late on purpose: both external calls (06:23 and
+  # 10:47 UTC) have long since landed by 14:37, so on any normal day this run
+  # finds the day's output already written and every stage no-ops. It exists for
+  # the day the cron service itself fails. Odd minute for the same reason the old
+  # crons had one: :00/:15/:30/:45 are GitHub's most contended slots.
+  #
+  # A schedule trigger sends no inputs, so `source` is empty here and `plan`
+  # labels the run `schedule-backstop`. If GitHub delivers this one hours late
+  # too, the date guard in `plan` handles it: past midnight it resolves to the
+  # previous day (correct — this run is that day's), and in the morning it
+  # resolves to the new day, which the primary call has usually already written,
+  # so it no-ops. Either way it cannot write the wrong day's note.
   schedule:
-    # Primary. Odd minute on purpose: :00/:15/:30/:45 are the most contended
-    # slots on GitHub's scheduler and draw the worst delays.
-    - cron: "23 6 * * 1-5"
-    # Catch-up. GitHub drops scheduled events under load rather than queueing
-    # them, so a missed morning otherwise means a silent gap in the series.
-    # Stages no-op when their output for the date already exists (force=false),
-    # so on a normal day this run costs ~1 min per stage and writes nothing.
-    - cron: "47 10 * * 1-5"
+    - cron: "37 14 * * 1-5"
   workflow_dispatch:
     inputs:
       asof:
@@ -66,6 +107,10 @@ on:
         type: choice
         options: [auto, "yes", "no"]
         default: auto
+      source:
+        description: "Who asked for this run (labels the run; no effect on what runs)"
+        type: string
+        default: "manual"
 
 permissions:
   contents: write
@@ -89,21 +134,28 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Empty under the `schedule:` backstop, which sends no inputs.
+          SOURCE="${{ inputs.source }}"
+          SOURCE="${SOURCE:-schedule-backstop}"
+
           # THE DATE IS RESOLVED ONCE, HERE, AND PASSED TO EVERY STAGE.
-          # Stages must never re-read the clock: GitHub delivers scheduled runs
-          # late (12h25m on 2026-08-28, against a 372 min prior worst case), and a
-          # run that crosses UTC midnight would otherwise have each stage compute a
-          # different day than the one the run is for — writing tomorrow's note and
-          # leaving the intended day permanently empty, with every check green.
+          # Stages must never re-read the clock. A run that crosses UTC midnight
+          # would otherwise have each stage compute a different day than the one
+          # the run is for — writing tomorrow's note and leaving the intended day
+          # permanently empty, with every check green. The external caller is
+          # prompt where GitHub's scheduler was not (12h25m late on 2026-08-28),
+          # but a retry after an outage still lands late, so the guard stays.
           #
-          # The earliest cron is 06:23 UTC, so a run landing before 06:00 cannot be
-          # its own day's slot: it is the previous day's, delivered late. Dispatch
-          # with `asof` to override.
+          # The earliest call of the day is 06:23 UTC (README → External cron
+          # trigger), so a run landing before 06:00 cannot be its own day's slot:
+          # it is the previous day's, delivered late. Pass `asof` to override —
+          # the external caller can pin it explicitly if its service can compute
+          # a date.
           ASOF="${{ inputs.asof }}"
           if [ -z "$ASOF" ]; then
             if [ "$(date -u +%H)" -lt 06 ]; then
               ASOF="$(date -u -d 'yesterday' +%Y-%m-%d)"
-              ASOF_WHY="auto: ran at $(date -u +%H:%M) UTC, before the 06:23 cron — previous day's slot"
+              ASOF_WHY="auto: ran at $(date -u +%H:%M) UTC, before the 06:23 call — previous day's slot"
             else
               ASOF="$(date -u +%Y-%m-%d)"
               ASOF_WHY="auto: today (UTC)"
@@ -112,7 +164,8 @@ jobs:
             ASOF_WHY="pinned via dispatch"
           fi
 
-          # `inputs` is empty on a schedule trigger, so this falls through to auto.
+          # The cron caller sends no `weekly` (and the `schedule:` backstop sends
+          # no inputs at all), so this falls through to the weekday check below.
           case "${{ inputs.weekly }}" in
             yes) WEEKLY=true  ; REASON="forced on via dispatch" ;;
             no)  WEEKLY=false ; REASON="forced off via dispatch" ;;
@@ -131,7 +184,7 @@ jobs:
             echo "|---|---|"
             echo "| as-of date | \`$ASOF\` — $ASOF_WHY |"
             echo "| started (UTC) | \`$(date -u +%Y-%m-%d\ %H:%M)\` |"
-            echo "| trigger | \`${{ github.event_name }}\` |"
+            echo "| trigger | \`${{ github.event_name }}\` (source: \`$SOURCE\`) |"
             echo "| weekly stages | \`$WEEKLY\` — $REASON |"
             echo ""
             echo "Daily: data_check → daily → kimi"
