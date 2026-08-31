@@ -102,7 +102,7 @@ Macro-Assist/
 │       └── test_synthetic.py
 ├── .github/
 │   └── workflows/
-│       ├── pipeline.yml              # THE entry point — external cron, Mon–Fri (+catch-up)
+│       ├── pipeline.yml              # THE entry point — external cron Mon–Fri (+catch-up, +backstop)
 │       ├── macro_data_check.yml      # stage 1 — data fetch pre-check
 │       ├── macro_daily.yml           # stage 2 — main pipeline
 │       ├── exo_weekly_emit.yml       # stage 3 — exogenous arm (Mondays)
@@ -434,8 +434,8 @@ python .macro-assist/parse_positions.py data/tr_positions.csv
 ### pipeline.yml — the entry point (Mon–Fri 06:23 UTC, catch-up 10:47 UTC)
 
 The single entry point, started by an
-[external cron service](#external-cron-trigger) — it has no `schedule:` of its
-own. Every stage below is a **job** in this one run, ordered by `needs:` rather
+[external cron service](#external-cron-trigger). Its only `schedule:` is a late
+backstop for the day the cron service itself fails. Every stage below is a **job** in this one run, ordered by `needs:` rather
 than by cron offsets.
 
 Stages 1–6 used to be six separate workflows fired by six separate crons spaced
@@ -508,20 +508,20 @@ catch-up call.
 2. Run `refit_models.py` (5yr FRED + market data fetch, HMM refit, distribution rebuild)
 3. Commit `data/regime_model.pkl` + `data/conditional_distributions.json`
 
-All workflows support `workflow_dispatch` for manual testing from the GitHub Actions UI. Cron calls dispatch `ref: main`, so they always execute on the default branch.
+All workflows support `workflow_dispatch` for manual testing from the GitHub Actions UI. Cron calls dispatch `ref: main`, and the backstop schedule (like every GitHub schedule) runs on the default branch, so everything executes against `main`.
 
 Stages 1–6 are reusable workflows (`workflow_call`) and carry no trigger of their own — `pipeline.yml` is the only scheduled entry point in the chain, so there is exactly one thing to check when a morning looks quiet.
 
-Every run now arrives as a `workflow_dispatch`, which would otherwise make the Actions list an undifferentiated column of identical names. Each entry point sets a `run-name` from its `source` input, so the list reads `Macro Pipeline · cron-primary`, `· cron-catchup`, or `· manual` at a glance.
+Almost every run now arrives as a `workflow_dispatch`, which would otherwise make the Actions list an undifferentiated column of identical names. Each entry point sets a `run-name` from its `source` input, so the list reads `Macro Pipeline · cron-primary`, `· cron-catchup`, `· manual`, or `· schedule-backstop` at a glance.
 
 ---
 
 ## External cron trigger
 
-GitHub's `schedule:` no longer starts anything in this repo. An external cron
-service does, by calling the workflow-dispatch API. `pipeline.yml` and
-`macro_weekly_refit.yml` keep only `workflow_dispatch`; nothing here fires on its
-own.
+GitHub's `schedule:` no longer starts the pipeline. An external cron service
+does, by calling the workflow-dispatch API. `pipeline.yml` keeps one late
+`schedule:` purely as a [backstop](#the-backstop); `macro_weekly_refit.yml` has
+none.
 
 **Why.** The scheduler was measured, not guessed: runs delivered 42–224 min late
 through July/August 2026, peaking at 372 min on 2026-06-15; 12h25m and 10h28m
@@ -548,6 +548,30 @@ already exists, so it costs about a minute per stage and writes nothing unless
 the morning call is missing. The odd minutes carry over from the old crons and no
 longer matter — GitHub's contended `:00`/`:15`/`:30`/`:45` slots only affected its
 own scheduler — but there is no reason to move them.
+
+### The backstop
+
+Moving off GitHub's scheduler moves the single point of failure rather than
+removing it: if the cron service is down, its host is off, or the token has
+expired, nothing calls the workflow at all. GitHub's scheduler is unreliable,
+not dead — a late slot it *usually* delivers is worth having behind a caller
+that might never fire.
+
+So `pipeline.yml` keeps exactly one `schedule:`, at **14:37 UTC, Mon–Fri**. It is
+not the trigger and is not meant to be on time: both external calls have long
+since landed by then, so on a normal day it finds the date's output already
+written and every stage no-ops — about a minute per stage, nothing committed. It
+only does real work on a day nothing else called.
+
+It sends no inputs (a schedule trigger can't), so `plan` labels it
+`schedule-backstop` in the run name and the summary. If GitHub delivers *it* late
+too, the date guard still holds: past midnight it resolves to the previous day —
+correct, that is the day the run is for — and in the morning it resolves to the
+new day, which the primary call has usually already written, so it no-ops. Either
+way it cannot write the wrong day's note.
+
+`macro_weekly_refit.yml` gets no backstop: a missed refit leaves the models a
+week old and the next Sunday call refreshes them.
 
 ### The token
 
@@ -610,7 +634,7 @@ the `plan` job's summary repeats the source and the resolved `asof`.
 | `403` | Token lacks *Actions: read and write* on this repo. |
 | `404` | No such workflow with a `workflow_dispatch` trigger on `ref`, or the token cannot see the repo. The trigger must exist on the **default branch** — a workflow that only has it on a feature branch is not dispatchable. |
 | `422` | Unknown input name or bad value. |
-| No run at all, no error | The call was never made. This is the cron service's log to check, not GitHub's — turn on its failure notifications. |
+| No run at all, no error | The call was never made. This is the cron service's log to check, not GitHub's — turn on its failure notifications. The 14:37 backstop should have covered the day; if it didn't, GitHub dropped that slot too. |
 
 ---
 

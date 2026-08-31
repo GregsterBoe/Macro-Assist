@@ -2,10 +2,10 @@
 #
 # trigger_pipeline.sh — start a workflow from outside GitHub.
 #
-# The pipeline is no longer driven by GitHub's `schedule:` (see the header of
-# .github/workflows/pipeline.yml for why). An external cron service calls the
-# workflow-dispatch API instead; this script is that call, and the reference for
-# services that only speak raw HTTP:
+# The pipeline is no longer driven by GitHub's `schedule:` — only backstopped by
+# one late slot (see the header of .github/workflows/pipeline.yml for why). An
+# external cron service calls the workflow-dispatch API instead; this script is
+# that call, and the reference for services that only speak raw HTTP:
 #
 #   POST https://api.github.com/repos/<owner>/<repo>/actions/workflows/<file>/dispatches
 #   Authorization: Bearer <token>
@@ -41,7 +41,9 @@ SOURCE="cron"
 DRY_RUN=0
 INPUTS=()
 
-usage() { sed -n '2,36p' "$0" | sed 's/^# \{0,1\}//'; }
+# Print the header comment block above as the help text (stops at the first
+# non-comment line, so it cannot drift out of sync as that block grows).
+usage() { awk 'NR>1 { if (!/^#/) exit; sub(/^# ?/, ""); print }' "$0"; }
 
 while [ $# -gt 0 ]; do
   case "$1" in
