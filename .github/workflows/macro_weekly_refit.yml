@@ -1,10 +1,26 @@
 name: Weekly Model Refit
 
+# TRIGGERED FROM OUTSIDE GITHUB, like `pipeline.yml`: Sundays at 22:00 UTC, so
+# Monday's pipeline picks up fresh models. It has no upstream dependency, which
+# is why it is its own call and not a stage of the pipeline. There is no
+# `schedule:` here on purpose — see README → "External cron trigger" for the
+# schedule table and the request; `trigger_pipeline.sh` is the reference caller:
+#
+#   ./trigger_pipeline.sh --workflow macro_weekly_refit.yml --source cron-refit
+#
+# A missed refit is not silent-but-fatal the way a missed daily note is: the
+# models simply stay a week old and the next Sunday call refreshes them. There
+# is deliberately no catch-up call for it.
+
+run-name: "Weekly Model Refit · ${{ inputs.source }}"
+
 on:
-  schedule:
-    # Sundays at 22:00 UTC — Monday's daily run picks up fresh models
-    - cron: "0 22 * * 0"
-  workflow_dispatch:   # manual trigger for testing / first run
+  workflow_dispatch:
+    inputs:
+      source:
+        description: "Who asked for this run (labels the run; no effect on what runs)"
+        type: string
+        default: "manual"
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
