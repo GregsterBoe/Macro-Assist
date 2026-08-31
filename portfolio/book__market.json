@@ -2,7 +2,7 @@
   "arm": "market",
   "base_ccy": "USD",
   "starting_nav": 100000.0,
-  "cash": 64965.0,
+  "cash": 44645.61323850628,
   "instruments": {
     "S&P 500": {
       "name": "S&P 500",
@@ -35,8 +35,13 @@
   },
   "positions": {
     "S&P 500": {
-      "shares": 4.5696260754287925,
-      "avg_px": 7659.27001953125,
+      "shares": 4.54782067196728,
+      "avg_px": 7711.759765625,
+      "sleeve": "macro"
+    },
+    "Gold": {
+      "shares": 4.559855124612127,
+      "avg_px": 4488.5,
       "sleeve": "macro"
     }
   },
@@ -48,6 +53,14 @@
       "gross": 0.3501,
       "net": 0.3501,
       "note": "gate=1.000 (src=fragility, fragility=Normal 41.6)"
+    },
+    {
+      "date": "2026-08-31",
+      "nav": 100184.22,
+      "cash": 44645.61,
+      "gross": 0.5544,
+      "net": 0.5544,
+      "note": "gate=1.000 (src=fragility, fragility=Normal 43.7)"
     }
   ],
   "decision_log": [
@@ -70,6 +83,35 @@
         }
       },
       "note": "gate=1.000 (src=fragility, fragility=Normal 41.6)"
+    },
+    {
+      "as_of": "2026-08-31",
+      "nav_before": 100204.86,
+      "nav_after": 100184.22,
+      "regime_gate": 1.0,
+      "targets": {
+        "S&P 500": 0.35,
+        "Gold": 0.20425067237912534
+      },
+      "trades": {
+        "Gold": {
+          "from_shares": 0.0,
+          "to_shares": 4.559855,
+          "px": 4488.5,
+          "traded_notional": 20466.91,
+          "cost": 20.47,
+          "target_w": 0.20425067237912534
+        },
+        "S&P 500": {
+          "from_shares": 4.569626,
+          "to_shares": 4.547821,
+          "px": 7711.759765625,
+          "traded_notional": 168.16,
+          "cost": 0.17,
+          "target_w": 0.35
+        }
+      },
+      "note": "gate=1.000 (src=fragility, fragility=Normal 43.7)"
     }
   ]
 }

@@ -63,6 +63,14 @@
       "gross": 1.0012,
       "net": 1.0012,
       "note": "benchmark init (equal-vol)"
+    },
+    {
+      "date": "2026-08-31",
+      "nav": 99366.41,
+      "cash": -121.05,
+      "gross": 1.0012,
+      "net": 1.0012,
+      "note": "benchmark mark"
     }
   ],
   "decision_log": [

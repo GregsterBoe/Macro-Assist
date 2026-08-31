@@ -2,7 +2,7 @@
   "arm": "exogenous",
   "base_ccy": "USD",
   "starting_nav": 100000.0,
-  "cash": 34513.00056177018,
+  "cash": 163718.15383126194,
   "instruments": {
     "S&P 500": {
       "name": "S&P 500",
@@ -35,13 +35,13 @@
   },
   "positions": {
     "10Y (IEF)": {
-      "shares": 376.3643095465837,
-      "avg_px": 92.99500274658203,
+      "shares": -371.53185234354004,
+      "avg_px": 92.8499984741211,
       "sleeve": "macro"
     },
     "Gold": {
-      "shares": 6.482607212432592,
-      "avg_px": 4692.7998046875,
+      "shares": -6.857927427716639,
+      "avg_px": 4489.5,
       "sleeve": "macro"
     }
   },
@@ -53,6 +53,14 @@
       "gross": 0.6546,
       "net": 0.6546,
       "note": "gate=1.000 (src=fragility, fragility=Normal 41.6)"
+    },
+    {
+      "date": "2026-08-31",
+      "nav": 98432.76,
+      "cash": 163718.15,
+      "gross": 0.6632,
+      "net": -0.6632,
+      "note": "gate=1.000 (src=fragility, fragility=Normal 43.7)"
     }
   ],
   "decision_log": [
@@ -84,6 +92,35 @@
         }
       },
       "note": "gate=1.000 (src=fragility, fragility=Normal 41.6)"
+    },
+    {
+      "as_of": "2026-08-31",
+      "nav_before": 98562.09,
+      "nav_after": 98432.76,
+      "regime_gate": 1.0,
+      "targets": {
+        "Gold": -0.31237836787995354,
+        "10Y (IEF)": -0.35
+      },
+      "trades": {
+        "10Y (IEF)": {
+          "from_shares": 376.36431,
+          "to_shares": -371.531852,
+          "px": 92.8499984741211,
+          "traded_notional": 69442.16,
+          "cost": 69.44,
+          "target_w": -0.35
+        },
+        "Gold": {
+          "from_shares": 6.482607,
+          "to_shares": -6.857927,
+          "px": 4489.5,
+          "traded_notional": 59892.33,
+          "cost": 59.89,
+          "target_w": -0.31237836787995354
+        }
+      },
+      "note": "gate=1.000 (src=fragility, fragility=Normal 43.7)"
     }
   ]
 }

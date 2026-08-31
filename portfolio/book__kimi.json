@@ -2,7 +2,7 @@
   "arm": "kimi",
   "base_ccy": "USD",
   "starting_nav": 100000.0,
-  "cash": 99930.0,
+  "cash": 135267.61149171754,
   "instruments": {
     "S&P 500": {
       "name": "S&P 500",
@@ -35,13 +35,13 @@
   },
   "positions": {
     "10Y (IEF)": {
-      "shares": -376.3643095465837,
-      "avg_px": 92.99500274658203,
+      "shares": -377.7980840855053,
+      "avg_px": 92.8499984741211,
       "sleeve": "macro"
     },
     "S&P 500": {
-      "shares": 4.5696260754287925,
-      "avg_px": 7659.27001953125,
+      "shares": 0.0,
+      "avg_px": 0.0,
       "sleeve": "macro"
     }
   },
@@ -53,6 +53,14 @@
       "gross": 0.7005,
       "net": 0.0,
       "note": "gate=1.000 (src=fragility, fragility=Normal 41.6)"
+    },
+    {
+      "date": "2026-08-31",
+      "nav": 100189.06,
+      "cash": 135267.61,
+      "gross": 0.3501,
+      "net": -0.3501,
+      "note": "gate=1.000 (src=fragility, fragility=Normal 43.7)"
     }
   ],
   "decision_log": [
@@ -84,6 +92,34 @@
         }
       },
       "note": "gate=1.000 (src=fragility, fragility=Normal 41.6)"
+    },
+    {
+      "as_of": "2026-08-31",
+      "nav_before": 100224.43,
+      "nav_after": 100189.06,
+      "regime_gate": 1.0,
+      "targets": {
+        "10Y (IEF)": -0.35
+      },
+      "trades": {
+        "10Y (IEF)": {
+          "from_shares": -376.36431,
+          "to_shares": -377.798084,
+          "px": 92.8499984741211,
+          "traded_notional": 133.13,
+          "cost": 0.13,
+          "target_w": -0.35
+        },
+        "S&P 500": {
+          "from_shares": 4.569626,
+          "to_shares": 0.0,
+          "px": 7711.759765625,
+          "traded_notional": 35239.86,
+          "cost": 35.24,
+          "target_w": 0.0
+        }
+      },
+      "note": "gate=1.000 (src=fragility, fragility=Normal 43.7)"
     }
   ]
 }
