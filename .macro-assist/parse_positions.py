@@ -103,23 +103,25 @@ def _parse_csv(path: str) -> list[dict]:
 
 def _aggregate_positions(rows: list[dict]) -> dict[str, dict]:
     """
-    Aggregate TRADING rows into net positions per asset.
+    Aggregate TRADING rows into net positions per asset using MOVING-AVERAGE cost.
+
+    Trades are replayed in chronological order (the CSV is not guaranteed sorted).
+    A BUY adds shares and cost; a SELL removes shares at the running average cost so
+    already-sold lots leave the cost basis. This matches Trade Republic's own
+    average-cost display. A prior version summed cost over *all* buys ever, which
+    blended sold-lot prices into the current holding and misstated cost basis / P&L
+    for any position that was sold and later rebought.
 
     Returns dict keyed by symbol (ISIN or 'BTC'):
         {
             "net_shares": float,          # positive = long
-            "total_cost_eur": float,      # sum of |amount| for BUY rows (EUR invested)
-            "total_shares_bought": float, # for avg-cost computation
+            "cost_basis_eur": float,      # moving-avg cost of the CURRENT holding
+            "total_shares_bought": float, # lifetime shares bought (reference only)
+            "total_invested_eur": float,  # lifetime EUR spent on buys (reference only)
             "name": str,
         }
     """
-    positions: dict[str, dict] = defaultdict(lambda: {
-        "net_shares": 0.0,
-        "total_cost_eur": 0.0,
-        "total_shares_bought": 0.0,
-        "name": "",
-    })
-
+    trades: dict[str, list[tuple]] = defaultdict(list)
     for row in rows:
         if row.get("category") != "TRADING":
             continue
@@ -137,15 +139,51 @@ def _aggregate_positions(rows: list[dict]) -> dict[str, dict]:
         except (ValueError, KeyError):
             continue
 
-        pos = positions[symbol]
-        pos["name"] = row.get("name", symbol).strip()
-        pos["net_shares"] += shares  # already signed (+buy, -sell)
+        trades[symbol].append((
+            row.get("datetime", ""),
+            tx_type,
+            shares,
+            amount,
+            row.get("name", symbol).strip(),
+        ))
 
-        if tx_type == "BUY":
-            pos["total_cost_eur"] += abs(amount)
-            pos["total_shares_bought"] += abs(shares)
+    positions: dict[str, dict] = {}
+    for symbol, events in trades.items():
+        events.sort(key=lambda e: e[0])  # chronological — required for moving average
+        net = 0.0
+        cost = 0.0            # cost basis of shares currently held
+        total_bought = 0.0
+        total_invested = 0.0
+        name = symbol
 
-    return dict(positions)
+        for _dt, tx_type, shares, amount, row_name in events:
+            if row_name:
+                name = row_name
+            if tx_type == "BUY":
+                net += shares
+                cost += abs(amount)
+                total_bought += abs(shares)
+                total_invested += abs(amount)
+            else:  # SELL — remove shares at the running average cost
+                avg = cost / net if net > 1e-12 else 0.0
+                net -= abs(shares)
+                cost -= avg * abs(shares)
+                # A full exit (or rounding/short overshoot) zeroes the basis so a
+                # later rebuy starts clean. This portfolio is long-only; a genuine
+                # net short is not modelled and would be flattened here.
+                if net <= 1e-9:
+                    net = 0.0
+                    cost = 0.0
+
+        positions[symbol] = {
+            "net_shares": net,
+            "cost_basis_eur": cost,
+            "total_shares_bought": total_bought,
+            "total_invested_eur": total_invested,
+            "name": name,
+        }
+
+    return positions
 
 
 def _open_positions(aggregated: dict[str, dict], min_shares: float = 1e-6) -> dict[str, dict]:
@@ -427,13 +465,11 @@ def get_portfolio_summary(csv_path: str | None = None) -> dict | None:
 
     for symbol, pos in open_pos.items():
         net_shares = pos["net_shares"]
-        total_bought = pos["total_shares_bought"]
 
-        # Avg cost: total EUR spent on buys / total shares bought
-        avg_cost = pos["total_cost_eur"] / total_bought if total_bought > 0 else None
-
-        # Cost basis for current holding: avg_cost * net_shares (FIFO approximation)
-        cost_basis = avg_cost * net_shares if avg_cost else pos["total_cost_eur"]
+        # Moving-average cost of the current holding (sold lots already removed
+        # in _aggregate_positions). avg_cost is the per-share cost of that holding.
+        cost_basis = pos["cost_basis_eur"]
+        avg_cost = cost_basis / net_shares if net_shares else None
 
         current_price = prices.get(symbol)
         if current_price is not None:
