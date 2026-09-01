@@ -617,23 +617,90 @@ Send input values as **strings** (`"force": "true"`, not `true`) — GitHub coer
 them to the type the workflow declares. Any input the workflow exposes can be
 passed the same way: `asof`, `force`, `kimi_n`, `pf_reset`, `weekly`.
 
-### Checking it works
+### Testing it
+
+Four levels, cheapest first. Nothing below needs the pipeline to actually
+generate a note.
+
+**1 — the request, no token, no network.**
 
 ```bash
-./trigger_pipeline.sh --dry-run --source cron-primary   # prints the request, sends nothing
+./trigger_pipeline.sh --dry-run --source cron-primary
+```
+
+Prints the exact `POST` and body. This is also what you paste into an HTTP-only
+cron service.
+
+**2 — the token and the workflow, no run.**
+
+```bash
+MACRO_ASSIST_TOKEN=github_pat_... ./trigger_pipeline.sh --check
+```
+
+It reads the workflow (proving the token reaches the repo, the workflow is
+registered and its state is `active`) and then sends a dispatch carrying one
+deliberately invalid input name. GitHub authorizes the request before it
+validates the body, so a `422` proves the token is allowed to dispatch while no
+run is created. Run this after every token renewal — nothing else in the setup
+expires.
+
+A `404` on the first step is the common one before this branch merges: the
+`workflow_dispatch` trigger has to be on the **default branch** before the API
+will accept a call for it.
+
+**3 — a real run, on a day that is already done.**
+
+The daily stage skips when the note for the date already exists and `force` is
+false, and the kimi arm no-ops the same way, so re-calling the pipeline for a
+date you have already generated is a full end-to-end test that writes nothing
+and spends no LLM budget: `data_check` does a live fetch (no model calls), the
+other stages start and skip, at roughly a minute each.
+
+```bash
 MACRO_ASSIST_TOKEN=github_pat_... ./trigger_pipeline.sh --source manual-test
 ```
 
-A `204 No Content` means GitHub accepted the request — not that the run
-succeeded. The run then appears in the Actions tab named for its `source`, and
-the `plan` job's summary repeats the source and the resolved `asof`.
+Do **not** add `force=true` to a test — that is the flag that makes it overwrite
+and re-spend.
+
+In the run, check that:
+
+- the Actions list shows `Macro Pipeline · manual-test`;
+- the `plan` job summary names the right as-of date, the source, and
+  `weekly stages: false` (or `true` on a Monday);
+- the daily stage logs `note already exists for <date> — skipping`.
+
+**4 — the backstop's code path, without waiting for 14:37.**
+
+A `schedule:` event sends no inputs at all, which is the one way a backstop run
+differs from a cron call. Reproduce it with an explicitly empty `source`:
+
+```bash
+./trigger_pipeline.sh --source '' --input asof=2026-08-31
+```
+
+The run should come out named `Macro Pipeline · schedule-backstop · 2026-08-31`,
+with the same label in the `plan` summary, and every stage should no-op on a date
+that is already written. Pinning an old `asof` also exercises the date plumbing
+end to end — the note name, the results copy and the commit messages all come
+from that date rather than from the clock.
+
+The schedule itself can only be tested by waiting for it (GitHub fires schedules
+late, so give it an hour past 14:37 before concluding anything), or by
+temporarily moving the cron to a few minutes ahead on `main`.
+
+**Tomorrow morning**, the first cron-driven day: a run named
+`Macro Pipeline · cron-primary` should appear shortly after 06:23 UTC, and a
+second, `· cron-catchup`, after 10:47 that no-ops. If neither appears, check the
+cron service's own log first — that is where the failure now lives.
 
 | Symptom | Cause |
 |---|---|
 | `401` | Token invalid or expired — issue a new fine-grained PAT. |
 | `403` | Token lacks *Actions: read and write* on this repo. |
 | `404` | No such workflow with a `workflow_dispatch` trigger on `ref`, or the token cannot see the repo. The trigger must exist on the **default branch** — a workflow that only has it on a feature branch is not dispatchable. |
-| `422` | Unknown input name or bad value. |
+| `422` | Unknown input name or bad value. (Expected from `--check`, which sends one on purpose.) |
+| `204`, but no run in the Actions tab | The workflow is disabled — `--check` reports its state. |
 | No run at all, no error | The call was never made. This is the cron service's log to check, not GitHub's — turn on its failure notifications. The 14:37 backstop should have covered the day; if it didn't, GitHub dropped that slot too. |
 
 ---

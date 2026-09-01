@@ -98,20 +98,27 @@ jobs:
       - name: Commit and push note to vault
         run: |
           set -e
+          ASOF="${{ inputs.asof }}"; ASOF="${ASOF:-$(date -u +%Y-%m-%d)}"
           cd vault
           git config user.name  "macro-assist[bot]"
           git config user.email "macro-assist[bot]@users.noreply.github.com"
           git pull --rebase --autostash origin HEAD
           git add Economy/
-          git diff --cached --quiet || git commit -m "macro: $(date -u +%Y-%m-%d) daily intelligence note"
+          git diff --cached --quiet || git commit -m "macro: $ASOF daily intelligence note"
           git push origin HEAD
 
       - name: Copy report to Macro-Assist results
         run: |
           set -e
-          MONTH=$(date -u +%m-%B)
-          FILENAME=$(date -u +%Y-%m-%d-%A)-macro.md
-          YEAR=$(date -u +%Y)
+          # THE RUN'S DATE, NOT THE CLOCK. collect_and_analyze.py names the note
+          # from `asof`, so deriving these from `date -u` was only ever right when
+          # the run happened to land on its own day: a run for another date — a
+          # backstop delivered past UTC midnight, or an `asof` pinned by hand —
+          # looked for a file nobody wrote and failed the stage on the guard below.
+          ASOF="${{ inputs.asof }}"; ASOF="${ASOF:-$(date -u +%Y-%m-%d)}"
+          MONTH=$(date -u -d "$ASOF" +%m-%B)
+          FILENAME=$(date -u -d "$ASOF" +%Y-%m-%d-%A)-macro.md
+          YEAR=$(date -u -d "$ASOF" +%Y)
           VAULT_FILE="vault/Economy/${YEAR}/${MONTH}/${FILENAME}"
           if [ ! -f "${VAULT_FILE}" ]; then
             echo "ERROR: expected report not found at ${VAULT_FILE}" >&2
@@ -123,16 +130,18 @@ jobs:
       - name: Commit data to Macro-Assist (main)
         run: |
           set -e
+          ASOF="${{ inputs.asof }}"; ASOF="${ASOF:-$(date -u +%Y-%m-%d)}"
           cd macro-assist
           git config user.name  "macro-assist[bot]"
           git config user.email "macro-assist[bot]@users.noreply.github.com"
           git add data/
-          git diff --cached --quiet || git commit -m "macro: $(date -u +%Y-%m-%d) daily data update"
+          git diff --cached --quiet || git commit -m "macro: $ASOF daily data update"
           git pull --rebase --autostash origin $(git rev-parse --abbrev-ref HEAD)
           git push origin HEAD
 
       - name: Publish report to output branch
         run: |
           set -e
+          ASOF="${{ inputs.asof }}"; ASOF="${ASOF:-$(date -u +%Y-%m-%d)}"
           cd macro-assist
-          bash .macro-assist/ci_publish_results.sh "macro: $(date -u +%Y-%m-%d) daily intelligence note"
+          bash .macro-assist/ci_publish_results.sh "macro: $ASOF daily intelligence note"
