@@ -610,6 +610,142 @@ def _build_or_mode_block(
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Surfacing the shadow reading (WP-16.A.5 — monitoring)
+#
+# The fragility monitor runs at FRAGILITY_MODE=log in production, so it never
+# reaches the model and renders nothing in the prompt. That made the live
+# record invisible unless you opened the JSONL. These two helpers surface the
+# SAME logged reading where a human actually looks:
+#   - fragility_log_lines()      → one-liners for the daily run's stdout log
+#   - build_fragility_snapshot() → a markdown block for the note's Data Snapshot
+# Both read the dict produced by collect_quant_raw(), so they add no compute and
+# cannot disagree with what was logged. build_note() appends the Data Snapshot
+# AFTER the LLM call, so showing the reading there keeps the shadow discipline
+# intact: still zero influence on the analysis.
+# ---------------------------------------------------------------------------
+
+_OR_CHANNEL_NAMES = {"comp": "composite", "AR": "absorption", "TURB": "turbulence"}
+
+
+def _raw_driver_strs(frag: dict, limit: Optional[int] = None) -> list[str]:
+    """Weighted component drivers, strongest weight first, from a raw log dict."""
+    comps   = frag.get("components") or {}
+    weights = frag.get("weights") or {}
+    drivers = sorted(
+        ((n, s) for n, s in comps.items() if weights.get(n, 0.0) > 0.0),
+        key=lambda kv: weights.get(kv[0], 0.0), reverse=True,
+    )
+    if limit is not None:
+        drivers = drivers[:limit]
+    return [f"{n} {s:.0f} (w{weights.get(n, 0.0):.2f})" for n, s in drivers]
+
+
+def _or_channel_strs(or_raw: dict) -> list[str]:
+    """Per-channel own-history percentiles, '▲' marking the ones that fired."""
+    out: list[str] = []
+    channels = or_raw.get("channels") or {}
+    for key in ("comp", "AR", "TURB"):
+        chan = channels.get(key) or {}
+        pct  = chan.get("percentile")
+        if pct is None:
+            continue
+        mark = "▲" if chan.get("fired") else ""
+        out.append(f"{_OR_CHANNEL_NAMES[key]} {100 * pct:.0f}%{mark}")
+    return out
+
+
+def _or_state_str(or_raw: dict) -> str:
+    """'FIRING (absorption, turbulence)' / 'quiet'."""
+    if not or_raw.get("flag"):
+        return "quiet"
+    fired = ", ".join(_OR_CHANNEL_NAMES.get(k, k) for k in or_raw.get("fired_channels") or [])
+    return f"FIRING ({fired})" if fired else "FIRING"
+
+
+def fragility_log_lines(raw: Optional[dict]) -> list[tuple[str, str, str]]:
+    """Render the fragility readings in `raw` as (section, level, message) tuples
+    for the pipeline logger. Returns [] when the run produced no reading.
+
+    Level is WARN when the composite is Elevated or the OR flag is firing, so an
+    at-risk day stands out in the Action log; OK otherwise. Never raises.
+    """
+    lines: list[tuple[str, str, str]] = []
+    raw = raw or {}
+
+    frag = raw.get("fragility")
+    if frag:
+        composite = frag.get("composite")
+        label     = frag.get("label", "?")
+        trend     = frag.get("trend", "?")
+        comp_str  = f"{composite:.0f}/100" if isinstance(composite, (int, float)) else "n/a"
+        msg = f"composite {comp_str} [{label}], trend {trend}"
+        drivers = _raw_driver_strs(frag, limit=3)
+        if drivers:
+            msg += f" — top drivers: {', '.join(drivers)}"
+        msg += f" (mode={frag.get('mode', '?')})"
+        lines.append(("FRAGILITY", "WARN" if label == "Elevated" else "OK", msg))
+
+    or_raw = raw.get("fragility_or")
+    if or_raw:
+        msg = f"OR-of-channels {_or_state_str(or_raw)}"
+        detail = _or_channel_strs(or_raw)
+        if detail:
+            msg += f" — {', '.join(detail)}"
+        msg += f" (mode={or_raw.get('mode', '?')})"
+        lines.append(("FRAG-OR", "WARN" if or_raw.get("flag") else "OK", msg))
+
+    return lines
+
+
+def build_fragility_snapshot(raw: Optional[dict]) -> str:
+    """Build the '### Fragility Monitor' block for the note's Data Snapshot.
+
+    Reads the same dict that goes to the JSONL log, so it costs nothing extra and
+    matches the logged record exactly. Returns '' when the run produced no
+    fragility reading (the OR flag alone is not enough — it is an optional
+    add-on to the composite reading). Never raises.
+    """
+    raw  = raw or {}
+    frag = raw.get("fragility")
+    if not frag:
+        return ""
+
+    composite = frag.get("composite")
+    comp_str  = f"{composite:.0f}/100" if isinstance(composite, (int, float)) else "n/a"
+    label     = frag.get("label", "?")
+    trend     = frag.get("trend", "?")
+
+    rows = [
+        f"| Composite | {comp_str} — **{label}** |",
+        f"| Trend | {trend} |",
+    ]
+    drivers = _raw_driver_strs(frag)
+    if drivers:
+        rows.append(f"| Drivers | {', '.join(drivers)} |")
+
+    or_raw = raw.get("fragility_or")
+    if or_raw:
+        rows.append(f"| OR-flag (high-recall) | {_or_state_str(or_raw)} |")
+        detail = _or_channel_strs(or_raw)
+        if detail:
+            rows.append(f"| OR channels (own-history pct) | {', '.join(detail)} |")
+
+    modes = f"`{frag.get('mode', '?')}`"
+    if or_raw:
+        modes += f" · OR `{or_raw.get('mode', '?')}`"
+
+    return (
+        "### Fragility Monitor\n\n"
+        "| Reading | Value |\n"
+        "|---------|-------|\n"
+        + "\n".join(rows)
+        + "\n\n_Experimental risk gauge (Phase 16) — a tail-risk/resilience "
+          "measure, never a directional call. Computed after the analysis and "
+          f"appended here; shadow mode {modes}, so the model did not see it._\n"
+    )
+
+
 def build_nonlive_signals_block(
     snapshot: dict,
     histories: Optional[dict] = None,
