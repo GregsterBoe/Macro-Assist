@@ -29,6 +29,8 @@ from quant_context import (
     _compute_or_mode,
     _fragility_or_mode,
     _FRAGILITY_OR_MODE_ENV,
+    fragility_log_lines,
+    build_fragility_snapshot,
 )
 from synthetic import synthetic_garch
 from conditional import build_distribution_table, assign_bucket
@@ -508,3 +510,125 @@ class TestBuildOrModeBlock:
 
     def test_empty_on_no_reading(self):
         assert _build_or_mode_block(_reading=None, mode="show") == ""
+
+
+# ---------------------------------------------------------------------------
+# Surfacing the shadow reading (WP-16.A.5) — run log + note Data Snapshot
+# ---------------------------------------------------------------------------
+
+# Shape of raw["fragility"] as collect_quant_raw() writes it: component scores
+# are plain floats here (not the nested dicts fragility_index returns).
+_RAW_ELEVATED = {
+    "fragility": {
+        "composite": 71.6, "label": "Elevated", "trend": "Rising",
+        "components": {"variance_trend": 80.0, "vix_term": 65.0,
+                       "acceleration": 40.0, "correlation": 55.0, "autocorr": 90.0},
+        "weights": {"variance_trend": 0.45, "vix_term": 0.35,
+                    "acceleration": 0.15, "correlation": 0.05, "autocorr": 0.0},
+        "mode": "log",
+    },
+}
+_RAW_NORMAL = {
+    "fragility": {
+        "composite": 30.2, "label": "Normal", "trend": "Stable",
+        "components": {"variance_trend": 30.0},
+        "weights": {"variance_trend": 1.0},
+        "mode": "log",
+    },
+}
+
+
+def _raw_or(flag: bool) -> dict:
+    """raw['fragility_or'] as collect_quant_raw() writes it."""
+    fired = ["AR", "TURB"] if flag else []
+    return {
+        "asof": "2026-08-27", "flag": flag, "fired_channels": fired, "q": 0.90,
+        "channels": {
+            "comp": {"value": 42.0, "threshold": 78.0, "fired": False, "percentile": 0.44},
+            "AR":   {"value": 70.0, "threshold": 60.0, "fired": flag, "percentile": 0.95},
+            "TURB": {"value": 12.0, "threshold": 9.0,  "fired": flag, "percentile": 0.97},
+        },
+        "mode": "log",
+    }
+
+
+class TestFragilityLogLines:
+
+    def test_empty_when_no_reading(self):
+        assert fragility_log_lines(None) == []
+        assert fragility_log_lines({}) == []
+        assert fragility_log_lines({"vol_forecasts": {"SP500": {}}}) == []
+
+    def test_normal_reading_logs_ok(self):
+        (section, level, msg), = fragility_log_lines(_RAW_NORMAL)
+        assert section == "FRAGILITY"
+        assert level == "OK"
+        assert "30/100" in msg and "[Normal]" in msg and "trend Stable" in msg
+        assert "mode=log" in msg
+
+    def test_elevated_reading_logs_warn_with_top_drivers(self):
+        (section, level, msg), = fragility_log_lines(_RAW_ELEVATED)
+        assert section == "FRAGILITY"
+        assert level == "WARN"
+        assert "72/100" in msg and "[Elevated]" in msg
+        # Top 3 by weight, heaviest first; zero-weight components never shown.
+        assert "variance_trend 80 (w0.45)" in msg
+        assert msg.index("variance_trend") < msg.index("vix_term") < msg.index("acceleration")
+        assert "correlation" not in msg   # 4th by weight — outside the top 3
+        assert "autocorr" not in msg      # w0.0 — dropped entirely
+
+    def test_or_flag_firing_logs_second_warn_line(self):
+        raw = {**_RAW_NORMAL, "fragility_or": _raw_or(True)}
+        lines = fragility_log_lines(raw)
+        assert [s for s, _, _ in lines] == ["FRAGILITY", "FRAG-OR"]
+        _, level, msg = lines[1]
+        assert level == "WARN"
+        assert "FIRING (absorption, turbulence)" in msg
+        assert "absorption 95%\u25b2" in msg and "composite 44%" in msg
+
+    def test_or_flag_quiet_logs_ok(self):
+        raw = {**_RAW_NORMAL, "fragility_or": _raw_or(False)}
+        _, (_, level, msg) = fragility_log_lines(raw)
+        assert level == "OK"
+        assert "quiet" in msg
+        assert "\u25b2" not in msg
+
+    def test_survives_a_partial_reading(self):
+        (_, level, msg), = fragility_log_lines({"fragility": {"mode": "log"}})
+        assert level == "OK"
+        assert "n/a" in msg
+
+
+class TestBuildFragilitySnapshot:
+
+    def test_empty_without_a_composite_reading(self):
+        assert build_fragility_snapshot(None) == ""
+        assert build_fragility_snapshot({}) == ""
+        # The OR flag alone is an add-on, not a standalone section.
+        assert build_fragility_snapshot({"fragility_or": _raw_or(True)}) == ""
+
+    def test_renders_composite_trend_and_all_weighted_drivers(self):
+        block = build_fragility_snapshot(_RAW_ELEVATED)
+        assert block.startswith("### Fragility Monitor")
+        assert "| Composite | 72/100 — **Elevated** |" in block
+        assert "| Trend | Rising |" in block
+        # Unlike the log line, the note carries every weighted driver.
+        for name in ("variance_trend", "vix_term", "acceleration", "correlation"):
+            assert name in block
+        assert "autocorr" not in block  # w0.0
+        assert "shadow mode `log`" in block
+        assert "not a directional call" in block or "never a directional call" in block
+
+    def test_or_rows_only_when_or_mode_ran(self):
+        assert "OR-flag" not in build_fragility_snapshot(_RAW_NORMAL)
+        block = build_fragility_snapshot({**_RAW_NORMAL, "fragility_or": _raw_or(True)})
+        assert "| OR-flag (high-recall) | FIRING (absorption, turbulence) |" in block
+        assert "OR channels (own-history pct)" in block
+        assert "OR `log`" in block
+
+    def test_is_a_wellformed_markdown_table(self):
+        lines = build_fragility_snapshot(_RAW_NORMAL).splitlines()
+        header = lines.index("| Reading | Value |")
+        assert lines[header + 1] == "|---------|-------|"
+        assert all(ln.startswith("|") and ln.endswith("|")
+                   for ln in lines[header + 2: header + 5])

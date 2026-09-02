@@ -244,7 +244,19 @@ Return distributions bucketed by a 3-dimension macro snapshot: NFCI tier × yiel
 | Gold | T+5, T+20 |
 | WTI Oil | T+5, T+20 |
 
-**Monitoring** — raw quant outputs (vol, regime, conditional) are logged to `results/quant_context_log/YYYY-MM-DD.jsonl` on each pipeline run for drift detection.
+**Fragility Monitor** — `fragility.py` (+ `fragility_or.py`)
+
+A 0–100 composite tail-risk gauge (variance trend, VIX term structure, level acceleration, cross-asset correlation), labelled Resilient / Normal / Elevated with a Rising / Stable / Falling trend. A **risk gauge, never a directional signal**. It runs in shadow via the `FRAGILITY_MODE` ladder (`log` → `show` → `active`, default `log`); at `log` the reading never enters the prompt. The optional `FRAGILITY_OR_MODE` ladder (default `off`) adds the higher-recall OR-of-channels flag (composite | absorption | turbulence, each vs. its own point-in-time top decile).
+
+Where the reading shows up at the default `log` mode — computed once, surfaced three ways, so a shadow run is no longer invisible:
+
+| Surface | What appears |
+|---------|--------------|
+| `results/quant_context_log/YYYY-MM-DD.jsonl` | the full raw reading (the accumulating shadow record) |
+| Daily run log (`macro_daily.yml`) | `[FRAGILITY]` / `[FRAG-OR]` one-liners — composite, label, trend, top drivers; `WARN` when Elevated or the OR flag fires |
+| The note's **Data Snapshot** | a `### Fragility Monitor` table, appended by `build_note()` *after* the LLM call — visible to you, still not to the model |
+
+**Monitoring** — raw quant outputs (vol, regime, conditional, fragility) are logged to `results/quant_context_log/YYYY-MM-DD.jsonl` on each pipeline run for drift detection.
 
 ### Sector ETFs
 
