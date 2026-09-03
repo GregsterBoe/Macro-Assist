@@ -352,12 +352,20 @@ def block_bootstrap_ci(obs: list[dict], a: str, b: str,
             "width": round(hi - lo, 4), "n_boot": len(gaps)}
 
 
-def _compare(obs: list[dict], a: str, b: str) -> dict | None:
-    """Permutation test plus bootstrap interval for one bucket comparison."""
-    test = block_permutation(obs, a, b)
+def _compare(obs: list[dict], a: str, b: str,
+             n_perm: int = N_PERM, n_boot: int = N_BOOT) -> dict | None:
+    """Permutation test plus bootstrap interval for one bucket comparison.
+
+    The draw counts are parameters because cost is `draws x observations`: the
+    daily accuracy report runs on a few thousand calls, but a multi-year
+    simulated arm (WP-21.A's numeric baseline) can carry twenty times that and
+    the defaults turn a research sweep into a coffee break. Lowering them widens
+    the p-value's resolution floor; it does not change the estimate.
+    """
+    test = block_permutation(obs, a, b, n_perm=n_perm)
     if test is None:
         return None
-    ci = block_bootstrap_ci(obs, a, b)
+    ci = block_bootstrap_ci(obs, a, b, n_boot=n_boot)
     if ci:
         test = {**test, "ci_lo": ci["lo"], "ci_hi": ci["hi"], "ci_width": ci["width"]}
     return test
@@ -453,7 +461,8 @@ def _by_asset(obs: list[dict]) -> dict:
     return out
 
 
-def _section(sub: list[dict]) -> dict | None:
+def _section(sub: list[dict], n_perm: int = N_PERM,
+             n_boot: int = N_BOOT) -> dict | None:
     """Buckets, ordering and the two comparisons that matter, for one subset."""
     if not sub:
         return None
@@ -463,12 +472,13 @@ def _section(sub: list[dict]) -> dict | None:
         "n_dates":            len({o["date"] for o in sub}),
         "buckets":            buckets,
         "ordering":           _monotonic(buckets),
-        "bullish_vs_neutral": _compare(sub, "Bullish", "Neutral"),
-        "bearish_vs_bullish": _compare(sub, "Bearish", "Bullish"),
+        "bullish_vs_neutral": _compare(sub, "Bullish", "Neutral", n_perm, n_boot),
+        "bearish_vs_bullish": _compare(sub, "Bearish", "Bullish", n_perm, n_boot),
     }
 
 
-def bias_separation(scores: list[dict], arm: str | None = PRIMARY_ARM) -> dict | None:
+def bias_separation(scores: list[dict], arm: str | None = PRIMARY_ARM,
+                    n_perm: int = N_PERM, n_boot: int = N_BOOT) -> dict | None:
     """Full separation analysis: per-window and pooled across all windows.
 
     Each section carries the per-bias return buckets plus the two comparisons
@@ -490,18 +500,18 @@ def bias_separation(scores: list[dict], arm: str | None = PRIMARY_ARM) -> dict |
     # profiles) is expressed on the same z scale and the numbers are comparable.
     windows = {}
     for window in WINDOWS:
-        sec = _section([o for o in obs if o["window"] == window])
+        sec = _section([o for o in obs if o["window"] == window], n_perm, n_boot)
         if sec:
             windows[window] = sec
 
     profiles = {}
     for prof in sorted({o["profile"] for o in obs}):
-        sec = _section([o for o in obs if o["profile"] == prof])
+        sec = _section([o for o in obs if o["profile"] == prof], n_perm, n_boot)
         if sec:
             profiles[prof] = sec
 
     return {
-        "overall":  _section(obs),
+        "overall":  _section(obs, n_perm, n_boot),
         "windows":  windows,
         "profiles": profiles,
         "by_asset": _by_asset(obs),
@@ -513,9 +523,11 @@ def bias_separation(scores: list[dict], arm: str | None = PRIMARY_ARM) -> dict |
         },
         "profile_overlap": date_overlap(scoped, "profile"),
         "params":   {
+            # The values actually used, not the module defaults — a lowered draw
+            # count must be visible in the output it produced.
             "block_days":   BLOCK_DAYS,
-            "n_perm":       N_PERM,
-            "n_boot":       N_BOOT,
+            "n_perm":       n_perm,
+            "n_boot":       n_boot,
             "min_bucket_n": MIN_BUCKET_N,
         },
     }

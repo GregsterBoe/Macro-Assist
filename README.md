@@ -68,6 +68,7 @@ Macro-Assist/
 │   ├── score_predictions.py     # weekly prediction scorer
 │   ├── summarize_accuracy.py    # accuracy aggregator + per-version tracking
 │   ├── bias_separation.py       # discrimination test: do the bias buckets separate returns?
+│   ├── numeric_baseline.py      # WP-21.A learnability test: ridge/GBM walk-forward vs the LLM's metrics
 │   ├── tag_versions.py          # retroactively backfill agent_version to older reports
 │   ├── versions.py              # single source of truth for pipeline version constants
 │   ├── youtube_data.py          # YouTube transcript fetcher
@@ -99,6 +100,7 @@ Macro-Assist/
 │       ├── test_vol_forecast.py
 │       ├── test_conditional.py
 │       ├── test_backtest.py
+│       ├── test_numeric_baseline.py
 │       ├── test_point_in_time.py
 │       └── test_synthetic.py
 ├── .github/
@@ -110,7 +112,8 @@ Macro-Assist/
 │       ├── kimi_arm_daily.yml        # stage 4 — kimi ensemble arm
 │       ├── macro_weekly_scoring.yml  # stage 5 — prediction scoring (Mondays)
 │       ├── portfolio_rebalance.yml   # stage 6 — paper rebalance (Mondays)
-│       └── macro_weekly_refit.yml    # Sunday 22:00 UTC — model refit (independent call)
+│       ├── macro_weekly_refit.yml    # Sunday 22:00 UTC — model refit (independent call)
+│       └── numeric_baseline.yml      # WP-21.A learnability test — manual only, zero LLM spend
 ├── data/
 │   ├── tr_positions.csv         # Trade Republic export (optional; gitignored)
 │   └── ticker_cache.json        # ISIN→ticker cache (committed)
@@ -119,6 +122,7 @@ Macro-Assist/
 │   ├── MM-Month/
 │   │   └── YYYY-MM-DD-Weekday-macro.md  # archived report copies
 │   ├── scores/                  # raw JSON score files per report
+│   ├── numeric_baseline/        # WP-21.A learnability test output (isolated from scores/)
 │   ├── quant_context_log/       # daily JSONL snapshots of quant outputs
 │   └── accuracy_report.md       # human-readable accuracy summary
 ├── trigger_pipeline.sh          # start a workflow from outside GitHub (the cron call)
@@ -419,6 +423,34 @@ python .macro-assist/bias_separation.py
 ```
 
 Current reading is documented in **KB-022** (ordering is `inverted`, widening with horizon).
+
+### numeric_baseline.py — the learnability test (WP-21.A)
+
+Every accuracy reading in this repo measures **the LLM**. This module measures **the task**: it fits two deliberately small, regularised numeric models walk-forward on the inputs the pipeline already collects, and asks whether *anything* can predict 5/10/20-day direction on these assets.
+
+- **`ridge`** — standardised L2 logistic regression (the scaler lives inside the pipeline, so it is fitted on the training fold only).
+- **`gbm`** — a depth-2, 150-tree gradient booster. Depth 2 allows pairwise interactions and nothing deeper; ~150 independent 20-day windows across ~3 factors ([KB-009]) will not support more.
+- **Comparators** — `neutral`, `random_walk` (the `backtest.py` rule) and `always_bullish`, scored on **exactly the model dates**.
+
+Two guarantees carry the whole result, and both are enforced by tests rather than by convention:
+
+1. **The panel cannot see the future.** ALFRED vintages would cost ~40k HTTP calls for a decade of daily walk-forward, so the module takes the other route: only inputs that are *never revised* are eligible — yfinance prices, and FRED's market-observed daily series (`DGS10`, `DGS2`, `BAA10Y`, `T10YIE`, `DFII10`, `VIXCLS`). Today's vintage is therefore the historical vintage. Revised or lagged-release macro (CPI, payrolls, M2, WALCL, NFCI, claims) is excluded by construction, and every series is shifted one business day so a print is only readable the day after it lands.
+2. **The fit cannot see the future.** Walk-forward embargoes `horizon + 1` trading days: a prediction on `t` may train only on rows whose forward window closed strictly before `t`.
+
+Scoring goes through the **production readers** — `score_predictions.score_call`, `summarize_accuracy._brier_and_reliability`, `bias_separation.bias_separation` — so a numeric arm and the LLM arm are held to one yardstick. Each model and comparator is emitted as its own `arm`, which makes the comparison a `calibration_by_arm` table for free.
+
+Output lands in `results/numeric_baseline/` — `numeric_baseline.md` (the report), `numeric_baseline.json` (every metric and diagnostic), and, behind `--emit-scores`, the raw simulated calls as `scores.json.gz`. Deliberately **not** `results/scores/`, which would contaminate the live accuracy corpus. The `numeric_baseline.yml` workflow runs it manually in CI, where `FRED_API_KEY` lives.
+
+```bash
+# full run — needs FRED_API_KEY + network; caches the panel for offline re-runs
+python .macro-assist/numeric_baseline.py --start 2005-01-01 --save-panel panel.csv
+
+# offline re-analysis; --windows / --no-importance / --no-separation trade
+# completeness for speed while iterating (never for a reported result)
+python .macro-assist/numeric_baseline.py --panel panel.csv --windows t5
+```
+
+`verdict()` applies a bar fixed before the numbers: `edge` requires n ≥ 30 decisive calls, decisive hit-rate > 0.52, and either BSS > 0 or an `aligned` separation ordering — the same standard as [KB-007] / [KB-022]. Below n it reports `underpowered`, not `no edge`.
 
 ### Window-Aware Calibration
 

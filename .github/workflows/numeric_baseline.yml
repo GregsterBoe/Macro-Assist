@@ -1,0 +1,110 @@
+name: Numeric Directional Baseline (WP-21.A)
+
+# The learnability test. Fits ridge + a small GBM walk-forward on the pipeline's
+# own numeric inputs and scores them, on the LLM's own metrics, against neutral /
+# random-walk / always-bullish. Zero LLM spend and no live A/B is touched — the
+# simulated score files are written to results/numeric_baseline/, never to
+# results/scores/.
+#
+# MANUAL ONLY. This is a research measurement, not a recurring job: the run takes
+# tens of minutes and its output is read once into a Knowledge Base entry. Trigger:
+# Actions tab -> this workflow -> Run.
+#
+# It lives in CI because it needs FRED_API_KEY plus reachable yfinance/FRED hosts,
+# which a sandboxed dev session generally does not have.
+
+on:
+  workflow_dispatch:
+    inputs:
+      start:
+        description: "Panel start date (YYYY-MM-DD). Feature lookbacks + min-train eat the first ~4 years."
+        type: string
+        default: "2005-01-01"
+      windows:
+        description: "Scoring windows to run (comma-separated subset of t5,t10,t20; blank = all)"
+        type: string
+        default: ""
+      min_train:
+        description: "Minimum training days before the first prediction"
+        type: string
+        default: "756"
+      refit_every:
+        description: "Refit cadence in prediction steps"
+        type: string
+        default: "21"
+      publish:
+        description: "Commit the report to the output branch"
+        type: boolean
+        default: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: .macro-assist/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r .macro-assist/requirements.txt
+
+      - name: Run the offline unit suite first
+        # A leak in the panel or the embargo invalidates the whole measurement,
+        # and both are covered by tests — so they gate the run rather than being
+        # discovered in the report.
+        run: python -m pytest .macro-assist/tests/test_numeric_baseline.py -q
+
+      - name: Mount output branch at results/
+        if: ${{ inputs.publish }}
+        run: bash .macro-assist/ci_mount_output.sh
+
+      - name: Fit and score
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: |
+          set -e
+          echo "::group::numeric_baseline"
+          python .macro-assist/numeric_baseline.py \
+            --start "${{ inputs.start }}" \
+            --min-train "${{ inputs.min_train }}" \
+            --refit-every "${{ inputs.refit_every }}" \
+            --save-panel "${RUNNER_TEMP}/numeric_panel.csv" \
+            --emit-scores \
+            ${{ inputs.windows && format('--windows {0}', inputs.windows) || '' }}
+          echo "::endgroup::"
+
+      - name: Upload the panel and raw calls as artifacts
+        # The panel and scores.json.gz are large and only needed for re-analysis,
+        # so they ride as a 30-day artifact. Only the report and the diagnostics
+        # JSON go to the output branch below.
+        uses: actions/upload-artifact@v4
+        with:
+          name: numeric-baseline
+          path: |
+            ${{ runner.temp }}/numeric_panel.csv
+            results/numeric_baseline/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Drop the raw calls before publishing
+        if: ${{ inputs.publish }}
+        run: rm -f results/numeric_baseline/scores.json.gz
+
+      - name: Publish report to output branch
+        if: ${{ inputs.publish }}
+        run: |
+          bash .macro-assist/ci_publish_results.sh \
+            "numeric baseline: $(date -u +%Y-%m-%d) WP-21.A run"
