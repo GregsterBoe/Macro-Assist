@@ -1377,3 +1377,116 @@ strengthens the WP-16.B.1 case — the loosened (abstain-capable) arm should pus
 Bullish calls back toward the Neutral bucket, and this metric will show whether
 the calls it *stops* making were the value-destroying ones. Re-check the
 per-asset table before reading anything as a contrarian signal.
+
+---
+
+## KB-023 — The loosened arm's "repaired" separation is NOT established: arm and period are perfectly confounded (KB-022 follow-up)
+
+**Date:** 2026-09-03 · **Branch:** `claude/directional-product-validation-0l70pa` ·
+**Harness:** `bias_separation.py` primitives (`observations`, `_standardize`,
+`_gap`, `block_permutation`) re-run over the same 128 score files as KB-022, but
+with **per-file** `profile`/`arm` attribution and a block bootstrap added.
+
+**The claim under test.** After KB-022 found the bias label inverted
+(Bull−Neut = −0.239 pooled), the loosened arm (conviction floor OFF) looked like
+the fix: bull-rate 19.7% vs 29.1%, **Bull−Neut = −0.008, p=0.93** — the inversion
+apparently gone. Those numbers reproduce exactly. The question is whether they
+are evidence about the *arm*.
+
+**Headline — they are not. Three independent reasons, any one of which is
+sufficient.**
+
+**[1] There is no contemporaneous control at all — not a thin one.**
+
+| Arm | dates | span |
+|---|---|---|
+| market / baseline (floor on) | 69 | 2026-03-13 → **2026-06-26** |
+| market / loosened (floor off) | 40 | **2026-06-29** → 2026-08-21 |
+
+The two arms share **zero** report-dates. `MACRO_PROFILE` was switched in one
+block, so "loosened vs baseline" and "July–August vs March–June" are the *same
+partition of the data*. No statistical treatment can separate them.
+(An earlier read put the contemporaneous control at "16 dates, gap −0.216."
+That was an artifact of the date-key collision in [3] — those 16 dates are
+`kimi`/`exogenous` files, not baseline market-arm ones. The true overlap is 0.)
+
+**[2] The assets that generated the inversion reversed sign between the two
+periods.** Mean realized `pct_change`, model-independent:
+
+| Asset | T+20 baseline | T+20 loosened | Δ |
+|---|---|---|---|
+| WTI Oil | −5.92% | **+6.24%** | +12.17 |
+| Bitcoin | −1.58% | **+7.38%** | +8.97 |
+| Gold | −3.32% | **+6.72%** | +10.04 |
+| S&P 500 | +3.51% | +2.29% | −1.22 |
+| DXY | +0.30% | −1.21% | −1.51 |
+
+KB-022 named WTI and Bitcoin as the assets carrying the pooled Bull−Neut gap
+(excluding them collapsed it to −0.086, p=0.19). Those are precisely the three
+series that flipped from strongly negative to strongly positive across the arm
+boundary. A permanently-bullish label looks *terrible* in the first period and
+*fine* in the second for reasons that have nothing to do with the prompt.
+
+**[3] The loosened gap is uninformative, not null.** Block bootstrap (21-day
+blocks, 4000 draws) on the loosened arm:
+
+| Arm | Bull−Neut | 95% CI |
+|---|---|---|
+| loosened | +0.014 | **[−0.250, +0.424]** |
+| baseline | −0.220 | [−0.559, +0.068] |
+
+The loosened interval **contains the baseline point estimate**. p=0.93 means the
+40-date, 2-block, 118-Bullish-call sample cannot detect an effect the size of the
+one KB-022 found — not that the effect is absent. And with the flipped assets
+removed, the loosened arm is **still inverted**: Bull−Neut = **−0.184**
+(nBull=54) vs baseline **−0.280** (nBull=90). Once the period effect is stripped
+out, most of the apparent repair goes with it.
+
+**Secondary finding (data hygiene, affects every future analysis).** The three
+prediction arms write score files that **share a `report_date`**: `2026-08-03.json`,
+`2026-08-03__kimi.json` and `2026-08-03__exogenous.json` all carry
+`report_date: 2026-08-03`. Any join or dict keyed on `report_date` silently
+overwrites one arm's metadata with another's — which is exactly how the phantom
+"16-date contemporaneous control" above was produced. Attribution must key on
+the **file**, not the date.
+
+Consequence for KB-022: its n=2012 pool is **market 1838 / kimi 150 / exogenous
+24** — three different systems in one bucket. The conclusion survives the split
+(market-only: Bull−Neut = **−0.266**, p=0.0005, Bear−Bull = +0.485, p=0.0005 —
+slightly *stronger* than pooled), but the provenance should be stated, and
+`bias_separation.py` should grow an arm filter before it is cited again.
+
+**The nuance that's easy to forget.** (a) This is **not** a finding that
+loosening fails — it is a finding that the experiment as run cannot answer the
+question either way. The commitment result [KB-011] rests on the same
+block-switched data and inherits the same defect (its own caveat (c) already
+said so). (b) The baseline arm's own halves are stable (Bull−Neut −0.291 then
+−0.280), so there is no evidence of a pre-existing drift that the loosened
+window merely continued — the discontinuity is at the period boundary, not
+inside the baseline. (c) 21-day blocks over 40 dates give the loosened arm **2**
+blocks; the permutation test is near-degenerate there and the p-value should not
+be read as a measurement. (d) None of this touches KB-022's robust half
+(Bear−Bull ordering), which was never claimed to be repaired.
+
+**Why it matters / how to apply.**
+1. **Do not promote `loosened` to default on current evidence.** Both metrics
+   cited for it (KB-011 commitment, KB-022 separation) are confounded with the
+   market period in the same way. This reverses the earlier "it's the one change
+   with evidence behind it" read.
+2. **Day-alternating arm assignment is now a prerequisite, not a refinement.**
+   Any block-switched A/B on this pipeline is unreadable by construction; with
+   ~5 independent 21-day blocks in the entire scored history, block switching
+   spends the whole sample on one comparison and still confounds it.
+3. **Arm-filter `bias_separation.py` and `summarize_accuracy.py`** before either
+   is cited for an arm claim.
+4. **Strategic:** three metrics still say the directional product does not work
+   (accuracy <50%, BSS<0 [KB-007], inverted separation [KB-022]), and the one
+   result that looked like a repair does not survive scrutiny. The open question
+   is no longer "which prompt lever fixes it" but "**is this task learnable from
+   this payload at all**" — which is a numeric question with a cheap answer
+   (Phase 21), not another prompt A/B.
+
+**Reproduce:** materialize `results/scores/` from the `output` branch
+(`git archive origin/output scores | tar -x -C results`), then attribute
+profile/arm per file and re-run the `bias_separation` primitives; the block
+bootstrap is ~30 lines around `_gap`.
