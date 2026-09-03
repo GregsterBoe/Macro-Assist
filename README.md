@@ -67,6 +67,7 @@ Macro-Assist/
 │   ├── parse_positions.py       # Trade Republic portfolio parser
 │   ├── score_predictions.py     # weekly prediction scorer
 │   ├── summarize_accuracy.py    # accuracy aggregator + per-version tracking
+│   ├── bias_separation.py       # discrimination test: do the bias buckets separate returns?
 │   ├── tag_versions.py          # retroactively backfill agent_version to older reports
 │   ├── versions.py              # single source of truth for pipeline version constants
 │   ├── youtube_data.py          # YouTube transcript fetcher
@@ -400,6 +401,24 @@ Tracks the **5 most recently deployed pipeline versions** in `results/accuracy_r
 Outputs:
 - `.macro-assist/data/accuracy_summary.json` — tracked in git, read by daily pipeline
 - `results/accuracy_report.md` — human-readable, copied to vault
+
+### bias_separation.py
+
+Answers the question the accuracy score structurally cannot in a trending market: **conditional on what the model said, what did the market actually do?**
+
+Accuracy conflates skill with drift — Neutral is pinned to 0.5 and a Bullish call scores 1.0 whenever the market rises, so a permanently-bullish model looks skilled while carrying no information. This module tests **discrimination** instead: it compares the realized forward return distribution across the Bullish / Neutral / Bearish buckets at each of T+5 / T+10 / T+20. If the buckets don't separate, the label is noise; if they do, the *ordering* says whether to read the label forward or backward.
+
+- Returns are standardized within (window, asset) before pooling, so the result isn't an artefact of which assets got called Bullish (Bitcoin moves ~10% a fortnight, DXY ~0.5%).
+- Significance uses a **block permutation test** (21-day blocks). Daily reports with a T+20 horizon share almost their entire evaluation window, so permuting individual labels would treat thousands of dependent observations as independent. The block count is reported next to every p-value — with a few months of data there are only a handful of independent blocks, so p is indicative and the effect's consistency across assets and horizons is the signal to trust.
+- The verdict is one of `aligned` (Bullish > Neutral > Bearish — the label reads forward), `inverted` (the reverse — informative but backwards), or `mixed` / no separation.
+
+Renders as the **Bias Separation** section of `results/accuracy_report.md`, adds a `bias_separation` key to `accuracy_summary.json`, and runs standalone:
+
+```bash
+python .macro-assist/bias_separation.py
+```
+
+Current reading is documented in **KB-022** (ordering is `inverted`, widening with horizon).
 
 ### Window-Aware Calibration
 

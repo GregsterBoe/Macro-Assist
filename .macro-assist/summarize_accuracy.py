@@ -17,6 +17,7 @@ from collections import defaultdict
 from datetime import date
 from pathlib import Path
 
+from bias_separation import bias_separation, separation_md_lines
 from versions import MIN_FEEDBACK_VERSION, PIPELINE_VERSION
 
 # ---------------------------------------------------------------------------
@@ -406,6 +407,7 @@ def write_json(
     calib_by_profile: dict | None = None,
     calib_by_arm: dict | None = None,
     commitment: dict | None = None,
+    separation: dict | None = None,
 ) -> None:
     output = {
         "generated_at":        date.today().isoformat(),
@@ -421,6 +423,7 @@ def write_json(
         "calibration_by_conviction_floor": calib_by_floor,
         "calibration_by_arm":  calib_by_arm,
         "commitment_by_arm":   commitment,
+        "bias_separation":     separation,
         "_note": (
             "accuracy is on a 0-1 scale where 0.5 = random (coin-flip). "
             "directional_acc excludes flat moves and Neutral calls - "
@@ -431,7 +434,11 @@ def write_json(
             "calibration (WP-16.B.2) scores stated confidence as a probability forecast: "
             "brier (lower=better, 0=perfect), brier_skill_score (>0 beats the base-rate forecast), "
             "ece (expected calibration error), and reliability bins (gap>0 underconfident, <0 overconfident); "
-            "decisive directional calls only. calibration_feedback restricts to MIN_FEEDBACK_VERSION+."
+            "decisive directional calls only. calibration_feedback restricts to MIN_FEEDBACK_VERSION+. "
+            "bias_separation asks whether realized forward returns differ by stated bias - "
+            "the regime-robust discrimination test the accuracy score cannot answer while "
+            "the market trends; z is in per-(window, asset) standard deviations and p comes "
+            "from a block permutation test that respects overlapping evaluation windows."
         ),
     }
     payload = json.dumps(output, indent=2)
@@ -623,6 +630,7 @@ def write_markdown(
     calib_by_profile: dict | None = None,
     calib_by_arm: dict | None = None,
     commitment: dict | None = None,
+    separation: dict | None = None,
 ) -> None:
     today = date.today().isoformat()
     lines = [
@@ -732,6 +740,9 @@ def write_markdown(
         lines += _calibration_md_lines(calib, calib_by_floor, calib_by_profile, calib_by_arm)
         lines += _commitment_md_lines(commitment or {})
 
+    # Bias separation - does the stated call predict the realized move?
+    lines += separation_md_lines(separation)
+
     # Calibration note
     lines += [
         "---",
@@ -755,7 +766,8 @@ def write_markdown(
 # Terminal output
 # ---------------------------------------------------------------------------
 
-def print_summary(stats: dict, n_reports: int, calib: dict | None = None) -> None:
+def print_summary(stats: dict, n_reports: int, calib: dict | None = None,
+                  separation: dict | None = None) -> None:
     print(f"\n{'='*60}")
     print(f"Prediction Accuracy Summary  |  Reports scored: {n_reports}")
     print(f"{'='*60}")
@@ -767,6 +779,22 @@ def print_summary(stats: dict, n_reports: int, calib: dict | None = None) -> Non
             f"\nCalibration (decisive calls, n={ov['n']}):  "
             f"Brier {ov['brier']:.3f}  BSS {bss}  ECE {ov['ece']:.3f}  "
             f"→ {_calibration_verdict(ov)}"
+        )
+
+    if separation and separation.get("overall"):
+        ov = separation["overall"]
+        b  = ov["buckets"]
+        bn = ov.get("bullish_vs_neutral")
+        gap_str = (
+            f"Bull−Neut {bn['gap']:+.3f} sd (p={bn['p_value']:.3f})"
+            if bn else "Bull−Neut n/a"
+        )
+        print(
+            f"\nBias separation (n={ov['n']}, forward return in sd):  "
+            f"Bull {b['Bullish']['mean_z']:+.3f}  "
+            f"Neut {b['Neutral']['mean_z']:+.3f}  "
+            f"Bear {b['Bearish']['mean_z']:+.3f}  |  {gap_str}  "
+            f"→ ordering: {ov['ordering']}"
         )
 
     for window in WINDOWS:
@@ -840,12 +868,14 @@ def main() -> None:
     calib_by_profile = calibration_by_profile(scores)
     calib_by_arm     = calibration_by_arm(scores)
     commitment       = commitment_by_arm(scores)
+    separation       = bias_separation(scores)
 
-    print_summary(stats, len(scores), calib)
+    print_summary(stats, len(scores), calib, separation)
     write_json(stats, len(scores), feedback_stats, n_feedback, version_stats,
-               calib, calib_feedback, calib_by_floor, calib_by_profile, calib_by_arm, commitment)
+               calib, calib_feedback, calib_by_floor, calib_by_profile, calib_by_arm,
+               commitment, separation)
     write_markdown(stats, len(scores), n_feedback, version_stats, calib,
-                   calib_by_floor, calib_by_profile, calib_by_arm, commitment)
+                   calib_by_floor, calib_by_profile, calib_by_arm, commitment, separation)
 
 
 if __name__ == "__main__":
