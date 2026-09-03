@@ -17,7 +17,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from bias_separation import (
     BIASES,
     MIN_BUCKET_N,
+    PRIMARY_ARM,
     WINDOWS,
+    arm_composition,
+    arm_of,
+    block_bootstrap_ci,
+    date_overlap,
+    filter_arm,
     _blocks,
     _buckets,
     _monotonic,
@@ -304,3 +310,138 @@ class TestSeparationMarkdown:
         md = separation_md_lines(sep)
         table = [l for l in md if l.startswith("| T+") or l.startswith("| **all**")]
         assert len(table) == len(WINDOWS) + 1
+
+
+
+# ---------------------------------------------------------------------------
+# Arm scoping (KB-023) — the three prediction arms write score files that share
+# a report_date, so anything keyed on the date mixes them up.
+# ---------------------------------------------------------------------------
+
+def _armed(report: dict, arm: str | None = None, profile: str | None = None) -> dict:
+    out = dict(report)
+    if arm is not None:
+        out["arm"] = arm
+    if profile is not None:
+        out["profile"] = profile
+    return out
+
+
+class TestArmScoping:
+
+    def test_missing_arm_resolves_to_the_primary_arm(self):
+        # Score files predating the arm machinery are production-pipeline files;
+        # bucketing them as "unknown" would drop the whole early history.
+        assert arm_of({"report_date": "2026-03-02"}) == PRIMARY_ARM
+        assert arm_of({"arm": "kimi"}) == "kimi"
+
+    def test_filter_arm_selects_one_system(self):
+        scores = [
+            _armed(_report("2026-03-02", "t5", {"Gold": ("Bullish", 1.0)}), arm="market"),
+            _armed(_report("2026-03-02", "t5", {"Gold": ("Bearish", -1.0)}), arm="kimi"),
+        ]
+        assert len(filter_arm(scores, "market")) == 1
+        assert len(filter_arm(scores, "kimi")) == 1
+        assert len(filter_arm(scores, None)) == 2
+
+    def test_same_date_arms_are_kept_apart(self):
+        # The exact collision from KB-023: sibling arms share a report_date.
+        scores = [
+            _armed(_report("2026-03-02", "t5", {"Gold": ("Bullish", 1.0)}), arm="market"),
+            _armed(_report("2026-03-02", "t5", {"Gold": ("Bearish", -1.0)}), arm="kimi"),
+        ]
+        obs = observations(scores)
+        assert {o["arm"] for o in obs} == {"market", "kimi"}
+        assert [o["bias"] for o in obs if o["arm"] == "market"] == ["Bullish"]
+        assert [o["bias"] for o in obs if o["arm"] == "kimi"] == ["Bearish"]
+
+    def test_analysis_is_scoped_and_records_provenance(self):
+        planted = TestBiasSeparation()._planted()
+        market = [_armed(r, arm="market") for r in planted]
+        noise = [_armed(_report(r["report_date"], "t5", {"Gold": ("Bullish", -9.0)}),
+                        arm="kimi") for r in planted]
+        sep = bias_separation(market + noise, arm="market")
+        prov = sep["provenance"]
+        assert prov["arm"] == "market"
+        assert prov["n_reports_used"] == len(market)
+        assert prov["n_reports_total"] == len(market) + len(noise)
+        assert set(arm_composition(market + noise)) == {"market", "kimi"}
+        # The kimi rows must not reach the market arm's buckets.
+        assert sep["overall"]["n"] == bias_separation(market, arm="market")["overall"]["n"]
+
+    def test_provenance_table_names_every_arm(self):
+        planted = TestBiasSeparation()._planted()
+        scores = ([_armed(r, arm="market") for r in planted]
+                  + [_armed(r, arm="kimi") for r in planted])
+        md = "\n".join(separation_md_lines(bias_separation(scores, arm="market")))
+        assert "`market`" in md and "`kimi`" in md
+
+
+class TestConfoundGuardrail:
+
+    def _split_block(self):
+        """Baseline first, loosened after — no shared dates, as actually run."""
+        planted = TestBiasSeparation()._planted()
+        half = len(planted) // 2
+        return ([_armed(r, arm="market", profile="baseline") for r in planted[:half]]
+                + [_armed(r, arm="market", profile="loosened") for r in planted[half:]])
+
+    def test_zero_overlap_is_detected(self):
+        pairs = date_overlap(self._split_block(), "profile")
+        assert pairs, "expected a profile pair"
+        assert all(v["confounded"] for v in pairs.values())
+        assert all(v["n_shared"] == 0 for v in pairs.values())
+
+    def test_interleaved_profiles_are_not_flagged(self):
+        # Day-alternating assignment (WP-21.B) is what makes the A/B readable.
+        planted = TestBiasSeparation()._planted()
+        scores = [_armed(r, arm="market",
+                         profile="loosened" if i % 2 else "baseline")
+                  for i, r in enumerate(planted)]
+        overlapping = [_armed(r, arm="market", profile="loosened") for r in planted]
+        pairs = date_overlap(scores + overlapping, "profile")
+        assert any(not v["confounded"] for v in pairs.values())
+
+    def test_report_warns_when_profiles_never_overlap(self):
+        md = "\n".join(separation_md_lines(bias_separation(self._split_block())))
+        assert "share zero report-dates" in md
+        assert "⛔" in md
+
+
+class TestBootstrapInterval:
+
+    def test_interval_brackets_the_point_estimate(self):
+        sep = bias_separation(TestBiasSeparation()._planted())
+        bn = sep["overall"]["bullish_vs_neutral"]
+        assert bn["ci_lo"] <= bn["gap"] <= bn["ci_hi"]
+
+    def test_too_few_blocks_yields_no_interval(self):
+        obs = _standardize(observations(TestBiasSeparation()._planted()))
+        single = [o for o in obs if o["date"] <= sorted({x["date"] for x in obs})[5]]
+        assert block_bootstrap_ci(single, "Bullish", "Neutral") is None
+
+    def test_wide_interval_reads_as_underpowered_not_null(self):
+        # A high p-value on a short sample must not be rendered as "no separation":
+        # that is the misread KB-023 corrected.
+        from bias_separation import _verdict, INCONCLUSIVE_CI_WIDTH
+        sec = {
+            "ordering": None,
+            "bullish_vs_neutral": {
+                "gap": -0.008, "p_value": 0.93,
+                "ci_lo": -0.250, "ci_hi": 0.424,
+            },
+        }
+        assert sec["bullish_vs_neutral"]["ci_hi"] - sec["bullish_vs_neutral"]["ci_lo"] > INCONCLUSIVE_CI_WIDTH
+        v = _verdict(sec)
+        assert "underpowered" in v
+        assert "no separation" not in v
+
+    def test_tight_interval_still_reads_as_no_separation(self):
+        from bias_separation import _verdict
+        sec = {
+            "ordering": None,
+            "bullish_vs_neutral": {
+                "gap": 0.004, "p_value": 0.88, "ci_lo": -0.05, "ci_hi": 0.06,
+            },
+        }
+        assert "no separation" in _verdict(sec)

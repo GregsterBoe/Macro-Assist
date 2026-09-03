@@ -387,6 +387,12 @@ reports / 441 decisive directional calls. The first run of the new Brier /
 reliability metric — establishes the calibration baseline the whole
 loosening/weighting programme (Goal 1 + Phase 18) is judged against.
 
+*Arm scope (added 2026-09-03): unaffected by the [KB-023] pooling defect. This
+entry predates the `exogenous` (2026-07-27) and `kimi` (2026-08-03) arms, so its
+441 calls are pure production-arm. Later re-runs of the same metric were pooled
+until the arm filter shipped — at 128 files the pooled decisive n was 731 against
+the market arm's 666 (BSS −0.112 pooled vs **−0.123** market-only).*
+
 **What we measured.** Read each call's stated confidence (0–100) as P(call is
 correct) and scored it against the binary outcome of *decisive* calls (Bullish/
 Bearish on a non-flat move; Neutral/flat excluded). Brier (lower=better),
@@ -593,6 +599,31 @@ improving partly reflects fewer decisive calls overall, not necessarily sharper
 ones. **Decision still gated on the decisive-only Brier A/B at n≥30** (KB-007 bar:
 BSS>0, ECE<0.05); this metric is the early tell, not the verdict. Rendered in
 `accuracy_report.md` → "Commitment" section; JSON key `commitment_by_arm`.
+
+---
+
+**⚠️ SUPERSEDED 2026-09-03 — caveat (c) is far more serious than it reads.**
+[KB-023] established that the two profiles share **zero** report-dates
+(baseline 2026-03-13→06-26, loosened 06-29→08-21): `MACRO_PROFILE` was switched
+in one block, so "baseline vs loosened" *is* "March–June vs July–August". The
+assets that drove the result reversed sign across that boundary (T+20 WTI
+−5.92% → +6.24%, Bitcoin −1.58% → +7.38%, Gold −3.32% → +6.72%). **"The thesis
+holds directionally" is therefore not supported** — the comparison cannot
+attribute anything to the conviction floor. Do not promote `loosened` to default
+on this entry; wait for the day-alternating A/B (WP-21.B).
+
+Two scoping notes, to be precise about what is and is not contaminated here:
+
+* **This entry's own numbers are arm-clean.** It was written 2026-07-14, before
+  the `exogenous` (from 07-27) and `kimi` (from 08-03) arms existed, so its
+  baseline is pure market arm. The block confound is its only defect.
+* **Later re-runs of the same metric were not.** Once the sibling arms began
+  scoring, `commitment_by_arm` swept them into 'baseline' — by 2026-09-03 that
+  was 1413 resolved calls instead of the market arm's 1239, and it *flattered*
+  the baseline (wrong-decisive 0.276 vs the true 0.291; net edge −0.109 vs
+  −0.128). `commitment_by_arm` is now scoped to the production arm, and the
+  rendered verdict refuses to credit the loosened arm while the confound flag is
+  set.
 
 ---
 
@@ -1380,6 +1411,38 @@ per-asset table before reading anything as a contrarian signal.
 
 ---
 
+**⚠️ CORRECTED 2026-09-03 — the n=2012 pool mixed three prediction systems.**
+[KB-023] found that the `market`, `kimi` and `exogenous` arms write score files
+sharing a `report_date`, so the table above pools **market 1838 / kimi 150 /
+exogenous 24** resolved calls. `bias_separation.py` now defaults to the `market`
+arm. **The finding survives — every sign and the inverted ordering hold** — but
+these are the figures to quote:
+
+| Window | n | Bullish z | Neutral z | Bearish z | Bull−Neut | 95% CI | p | Bear−Bull | p |
+|---|---|---|---|---|---|---|---|---|---|
+| All pooled | 1838 | **−0.207** | +0.025 | **+0.216** | −0.233 | [−0.53, +0.11] | 0.001 | **+0.424** | 0.001 |
+| T+5 | 652 | −0.157 | +0.058 | +0.043 | −0.215 | [−0.46, +0.04] | 0.028 | +0.201 | **0.130** |
+| T+10 | 623 | −0.191 | +0.018 | +0.219 | −0.209 | [−0.57, +0.17] | 0.057 | +0.410 | 0.003 |
+| T+20 | 563 | −0.281 | −0.006 | +0.390 | −0.276 | [−0.60, +0.13] | 0.024 | **+0.671** | 0.001 |
+
+Three things change in the reading, all in the direction of *less* certainty:
+
+1. **"Bear−Bull is significant at every horizon" no longer holds at T+5** —
+   p goes 0.048 → **0.130** once the other arms are removed. The monotone
+   widening with horizon (0.20 → 0.41 → 0.67) is intact and remains the most
+   robust feature in the data, but the short horizon is not carrying it.
+2. **The bias shares shift slightly**: market-arm only is Neutral 55.6% /
+   Bullish 26.0% / Bearish 18.4% (pooled: 54.4 / 27.4 / 18.1).
+3. **Every gap now carries a bootstrap interval, and they are wide.** The pooled
+   Bull−Neut interval [−0.53, +0.11] *includes zero*. The permutation p-value of
+   0.001 and an interval spanning zero are not contradictory — they answer
+   different questions (is the pairing non-random? vs how big is the effect?) —
+   but the honest summary is: **the ordering is established, the magnitude is
+   not.** Caveat (c) below already said the p-values are indicative; the interval
+   is the quantitative version of that warning and should be quoted with the gap.
+
+---
+
 ## KB-023 — The loosened arm's "repaired" separation is NOT established: arm and period are perfectly confounded (KB-022 follow-up)
 
 **Date:** 2026-09-03 · **Branch:** `claude/directional-product-validation-0l70pa` ·
@@ -1452,9 +1515,9 @@ the **file**, not the date.
 
 Consequence for KB-022: its n=2012 pool is **market 1838 / kimi 150 / exogenous
 24** — three different systems in one bucket. The conclusion survives the split
-(market-only: Bull−Neut = **−0.266**, p=0.0005, Bear−Bull = +0.485, p=0.0005 —
-slightly *stronger* than pooled), but the provenance should be stated, and
-`bias_separation.py` should grow an arm filter before it is cited again.
+(market-only: Bull−Neut = **−0.233**, p=0.001, Bear−Bull = **+0.424**, p=0.0005),
+but the provenance has to be stated, and `bias_separation.py` needed an arm
+filter before it was cited again — now shipped, see "What was fixed" below.
 
 **The nuance that's easy to forget.** (a) This is **not** a finding that
 loosening fails — it is a finding that the experiment as run cannot answer the
@@ -1486,7 +1549,54 @@ be read as a measurement. (d) None of this touches KB-022's robust half
    this payload at all**" — which is a numeric question with a cheap answer
    (Phase 21), not another prompt A/B.
 
+**What was fixed (2026-09-03, same branch).** The findings above are now
+enforced by the tooling rather than left as a warning in a document:
+
+* **Arm scoping.** `bias_separation.py` and `summarize_accuracy.py` default to
+  the production `market` arm (`--arm all` pools deliberately). `arm_of()` is the
+  single resolver, and it maps the scorer's literal `"unknown"` sentinel to the
+  primary arm so the pre-arm-machinery history is not silently dropped. Every
+  report and JSON now carries an `arm` field plus an `arm_composition` table
+  naming what was scored and what was excluded.
+* **The date collision cannot recur.** `observations()` reads `arm`/`profile` off
+  each report as it flattens it; nothing keys on `report_date`. A regression test
+  builds the exact collision (two arms, one date) and asserts they stay apart.
+* **A confound guardrail.** `date_overlap()` / `profile_confound()` compute
+  report-date overlap between profiles, and both the accuracy report and the
+  separation section print a ⛔ block when a pair shares zero dates. The
+  commitment verdict refuses to say "the thesis holds" while that flag is set.
+* **Intervals, not just p-values.** Every gap now carries a 95% block-bootstrap
+  interval, and `_verdict()` reports **"inconclusive — underpowered"** rather
+  than "no separation" when a high p-value comes with an interval wide enough to
+  contain the effects already measured. This was a live misread: the loosened
+  arm's `gap −0.008, p=0.93` rendered as *"the label carries no information"*.
+* **A silently empty A/B.** `calibration_by()` dropped the untagged bucket, and
+  the entire pre-WP-16.B control population is untagged — so the profile A/B had
+  been rendering with a single row and no comparison at all. `profile_of()`
+  resolves untagged to `baseline`, and the A/B now actually appears.
+
+Re-running the fixed tooling over the same 128 files moves the headline numbers,
+because the pooled figures were flattered by the other arms:
+
+| Metric | pooled (as published) | `market` arm (correct) |
+|---|---|---|
+| Calibration n (decisive) | 731 | **666** |
+| BSS | −0.112 | **−0.123** |
+| ECE | 0.176 | 0.172 |
+| Commitment baseline n | 1413 | **1239** |
+| Commitment baseline wrong-decisive | 0.276 | **0.291** |
+| Commitment baseline net edge | −0.109 | **−0.128** |
+
+Note the direction: de-pooling makes the *baseline* look worse, so the loosened
+arm's apparent improvement gets **larger**, not smaller. That is the opposite of
+a convenient correction, and it is why the confound guardrail matters more than
+the arm filter — the number that grew is the one that is not attributable.
+
 **Reproduce:** materialize `results/scores/` from the `output` branch
-(`git archive origin/output scores | tar -x -C results`), then attribute
-profile/arm per file and re-run the `bias_separation` primitives; the block
-bootstrap is ~30 lines around `_gap`.
+(`git archive origin/output scores | tar -x -C results`), then
+`python .macro-assist/summarize_accuracy.py` (add `--arm all` to see the old
+pooled view). Standardization is done within the scoped pool, so z is relative to
+the arm under analysis; an earlier hand-run of this check standardized across all
+arms first and reported Bull−Neut −0.266 / Bear−Bull +0.485. The shipped,
+reproducible figures are **−0.233 / +0.424** — same sign, same conclusion, and
+these are the ones to quote.

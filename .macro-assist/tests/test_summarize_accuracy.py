@@ -26,6 +26,7 @@ from summarize_accuracy import (
     calibration_by_profile,
     commitment_stats,
     commitment_by_arm,
+    profile_confound,
     CALIB_BIN_EDGES,
     WINDOWS,
 )
@@ -152,11 +153,24 @@ class TestCalibrationAggregation:
 
 class TestCalibrationBySplit:
 
-    def test_empty_when_no_tagged_reports(self):
-        # Pre-experiment reports have no conviction_floor/profile field → no arms.
+    def test_untagged_floor_yields_no_arms(self):
+        # An untagged conviction_floor really is unknown — nothing to split on.
         rs = [_report("v1.0", "t5", {"A": ("Bullish", 70, 1.0)})]
         assert calibration_by_floor(rs) == {}
-        assert calibration_by_profile(rs) == {}
+
+    def test_untagged_profile_counts_as_the_baseline_arm(self):
+        # Untagged profile = pre-WP-16.B control population, not a gap. Dropping it
+        # left the profile A/B with a single row and silently nothing to compare
+        # against — the defect behind the unreadable loosened A/B [KB-023].
+        rs = [_report("v1.0", "t5", {"A": ("Bullish", 70, 1.0)})]
+        assert set(calibration_by_profile(rs)) == {"baseline"}
+
+    def test_profile_ab_has_both_arms_when_loosened_is_tagged(self):
+        reports = [
+            _report("v1.0", "t5", {"A": ("Bullish", 70, 1.0)}),
+            _report("v1.0", "t5", {"B": ("Bearish", 70, 0.0)}, profile="loosened"),
+        ]
+        assert set(calibration_by_profile(reports)) == {"baseline", "loosened"}
 
     def test_floor_splits_on_and_off_arms(self):
         reports = [
@@ -290,3 +304,84 @@ class TestCalibrationMarkdown:
         reports = [_report("v1.0", "t5", {"A": ("Neutral", 50, 0.5)})]
         lines = _calibration_md_lines(calibration(reports))
         assert any("No decisive directional calls" in ln for ln in lines)
+
+
+# ---------------------------------------------------------------------------
+# Arm scoping and the profile confound (KB-023)
+# ---------------------------------------------------------------------------
+
+class TestArmScopingInAccuracy:
+
+    def _mixed(self):
+        market = _report("v1.0", "t5", {"A": ("Bullish", 70, 1.0)}, profile="loosened")
+        market["arm"] = "market"
+        kimi = _report("v1.0", "t5", {"A": ("Bearish", 90, 0.0)})
+        kimi["arm"] = "kimi"
+        return [market, kimi]
+
+    def test_profile_split_excludes_other_arms(self):
+        by_profile = calibration_by_profile(self._mixed())
+        # The kimi report must not land in the baseline bucket just by not being
+        # tagged 'loosened' — that is how three systems became one comparator.
+        assert set(by_profile) == {"loosened"}
+
+    def test_commitment_excludes_other_arms(self):
+        by_arm = commitment_by_arm(self._mixed())
+        assert "baseline" not in by_arm
+        assert by_arm["loosened"]["n_resolved"] == 1
+
+
+class TestProfileConfound:
+
+    def test_zero_overlap_between_profiles_is_reported(self):
+        reports = []
+        for i, d in enumerate(["2026-03-02", "2026-03-03"]):
+            r = _report("v1.0", "t5", {"A": ("Bullish", 70, 1.0)})
+            r["report_date"], r["arm"] = d, "market"
+            reports.append(r)
+        for d in ["2026-05-04", "2026-05-05"]:
+            r = _report("v1.0", "t5", {"A": ("Bullish", 70, 0.0)}, profile="loosened")
+            r["report_date"], r["arm"] = d, "market"
+            reports.append(r)
+        pairs = profile_confound(reports)
+        assert pairs
+        assert all(v["confounded"] for v in pairs.values())
+
+    def test_shared_dates_are_not_flagged(self):
+        reports = []
+        for d in ["2026-03-02", "2026-03-03"]:
+            for prof in (None, "loosened"):
+                r = _report("v1.0", "t5", {"A": ("Bullish", 70, 1.0)}, profile=prof)
+                r["report_date"], r["arm"] = d, "market"
+                reports.append(r)
+        pairs = profile_confound(reports)
+        assert pairs
+        assert not any(v["confounded"] for v in pairs.values())
+
+    def test_commitment_verdict_refuses_to_credit_a_confounded_arm(self):
+        by_arm = {
+            "baseline": {"n_resolved": 100, "commitment_rate": 0.56, "bullish_rate": 0.3,
+                         "bearish_rate": 0.26, "bearish_share_of_directional": 0.46,
+                         "wrong_decisive_rate": 0.29, "right_decisive_rate": 0.17,
+                         "net_decisive_edge": -0.125, "hit_rate_when_decisive": 0.36,
+                         "n_decisive": 46, "n_directional": 56, "n_bullish": 30,
+                         "n_bearish": 26},
+            "loosened": {"n_resolved": 30, "commitment_rate": 0.20, "bullish_rate": 0.19,
+                         "bearish_rate": 0.01, "bearish_share_of_directional": 0.05,
+                         "wrong_decisive_rate": 0.07, "right_decisive_rate": 0.0,
+                         "net_decisive_edge": -0.067, "hit_rate_when_decisive": 0.0,
+                         "n_decisive": 2, "n_directional": 6, "n_bullish": 6,
+                         "n_bearish": 0},
+        }
+        confounded = {"baseline|loosened": {
+            "n_shared": 0, "confounded": True,
+            "span_a": ["2026-03-13", "2026-06-26"],
+            "span_b": ["2026-06-29", "2026-08-21"],
+        }}
+        clean = "\n".join(_commitment_md_lines(by_arm, None))
+        assert "the thesis holds so far" in clean
+
+        warned = "\n".join(_commitment_md_lines(by_arm, confounded))
+        assert "the thesis holds so far" not in warned
+        assert "not attributable to the arm" in warned
+        assert "share zero report-dates" in warned

@@ -814,12 +814,41 @@ supplies ALFRED-vintage snapshots back to 1997.
 21-day blocks in the entire scored history, switching `MACRO_PROFILE` in blocks
 spends the whole sample and still confounds arm with market period.
 
-- Assign the arm **per report-date** (deterministic alternation, or a seeded
-  draw logged with the run) instead of switching a repo variable in blocks.
-- **Arm-filter the readers first:** `bias_separation.py` and
-  `summarize_accuracy.py` currently pool `market`/`kimi`/`exogenous`, and score
-  files from the three arms share a `report_date` — any date-keyed join
-  mis-attributes them [KB-023 secondary]. Key on the file.
+**WP-21.B.1 — Arm-filter the readers. ✅ Done** (2026-09-03 →
+`.macro-assist/bias_separation.py`, `.macro-assist/summarize_accuracy.py`;
++19 tests, 549 green). Both readers default to the production `market` arm
+(`--arm all` pools deliberately) and emit an `arm_composition` table naming what
+was excluded; `calibration_by_profile`, `calibration_by_floor` and
+`commitment_by_arm` are scoped the same way, while `calibration_by_arm` keeps
+seeing every arm because it *is* the cross-arm comparison. Four defects fixed
+beyond the one that prompted the work:
+
+  1. **The date collision.** `observations()` now reads `arm`/`profile` off each
+     report as it flattens it; nothing keys on `report_date`. A regression test
+     builds the exact two-arms-one-date case.
+  2. **A silently empty A/B.** `calibration_by()` dropped the untagged bucket and
+     the entire pre-WP-16.B control population is untagged — so the profile A/B
+     had been rendering as a single row with nothing to compare. `profile_of()`
+     resolves untagged to `baseline`.
+  3. **A confound guardrail.** `date_overlap()` / `profile_confound()` report
+     shared report-dates between profiles; the accuracy report and the
+     separation section print a ⛔ block when a pair shares none, and the
+     commitment verdict will not say "the thesis holds" while that flag is set.
+  4. **Intervals, not just p-values.** Every gap carries a 95% block-bootstrap
+     interval, and the verdict says **"inconclusive — underpowered"** instead of
+     "no separation" when a high p comes with an interval wide enough to contain
+     the effects already measured — the exact misread [KB-023] corrected.
+
+  De-pooling moved the headline: decisive n 731 → 666, BSS −0.112 → **−0.123**,
+  and the commitment baseline's net edge −0.109 → **−0.128**. The baseline was
+  being flattered, so the loosened arm's apparent gain got *larger* — which is
+  why the guardrail matters more than the filter.
+
+**WP-21.B.2 — Day-alternating assignment. ⏳ Next.** Assign the profile **per
+report-date** (deterministic alternation, or a seeded draw logged with the run)
+instead of switching a repo variable in blocks. The guardrail above will confirm
+it worked: the ⛔ block disappears once the two profiles share dates.
+
 - **Explicitly parked:** promoting `loosened` to default. The evidence cited for
   it ([KB-011] commitment, [KB-022] separation) is confounded in the same way;
   it waits for a clean read here.
@@ -855,9 +884,8 @@ the separation bar in [KB-022] (Bull−Neut > 0, ordering `aligned`).
 ### Phase 21 — execution order
 
 1. **WP-21.A** — numeric baseline (~1 week, zero LLM cost, parallel-safe).
-2. **WP-21.B** — day-alternating assignment + arm-filtered readers (small,
-   independent of A; start it alongside since it only gets more valuable the
-   earlier it begins accumulating).
+2. **WP-21.B** — arm-filtered readers (✅ done) then day-alternating assignment
+   (independent of A; the earlier it starts accumulating, the sooner it reads).
 3. **WP-21.C** — base rates into the prompt (gated on A showing edge).
 4. **WP-21.D** — read the criterion when B reaches n; decide.
 

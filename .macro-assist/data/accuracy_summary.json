@@ -1,107 +1,144 @@
 {
-  "generated_at": "2026-08-31",
-  "n_reports_total": 128,
+  "generated_at": "2026-09-03",
+  "arm": "market",
+  "arm_composition": {
+    "market": {
+      "n_reports": 109,
+      "n_calls": 1838,
+      "first_date": "2026-03-13",
+      "last_date": "2026-08-21"
+    },
+    "exogenous": {
+      "n_reports": 4,
+      "n_calls": 24,
+      "first_date": "2026-07-27",
+      "last_date": "2026-08-17"
+    },
+    "kimi": {
+      "n_reports": 15,
+      "n_calls": 150,
+      "first_date": "2026-08-03",
+      "last_date": "2026-08-21"
+    }
+  },
+  "profile_confound": {
+    "baseline|loosened": {
+      "n_shared": 0,
+      "n_a": 69,
+      "n_b": 40,
+      "confounded": true,
+      "span_a": [
+        "2026-03-13",
+        "2026-06-26"
+      ],
+      "span_b": [
+        "2026-06-29",
+        "2026-08-21"
+      ]
+    }
+  },
+  "n_reports_total": 109,
   "windows": {
     "t5": {
-      "n_reports": 128,
-      "overall_accuracy": 0.489,
-      "overall_dir_acc": 0.467,
+      "n_reports": 109,
+      "overall_accuracy": 0.485,
+      "overall_dir_acc": 0.455,
       "by_asset": {
         "S&P 500": {
-          "n": 123,
-          "accuracy": 0.492,
-          "directional_acc": 0.478,
-          "directional_n": 46,
-          "avg_confidence": 57.1
+          "n": 108,
+          "accuracy": 0.5,
+          "directional_acc": 0.5,
+          "directional_n": 40,
+          "avg_confidence": 55.1
         },
         "Gold": {
-          "n": 128,
-          "accuracy": 0.551,
-          "directional_acc": 0.582,
-          "directional_n": 79,
-          "avg_confidence": 59.4
+          "n": 109,
+          "accuracy": 0.514,
+          "directional_acc": 0.524,
+          "directional_n": 63,
+          "avg_confidence": 57.5
         },
         "WTI Oil": {
-          "n": 124,
-          "accuracy": 0.456,
-          "directional_acc": 0.28,
-          "directional_n": 25,
-          "avg_confidence": 55.2
+          "n": 109,
+          "accuracy": 0.459,
+          "directional_acc": 0.304,
+          "directional_n": 23,
+          "avg_confidence": 55.1
         },
         "10Y Treasury Yield": {
-          "n": 128,
-          "accuracy": 0.477,
-          "directional_acc": 0.35,
-          "directional_n": 20,
-          "avg_confidence": 58.6
+          "n": 109,
+          "accuracy": 0.482,
+          "directional_acc": 0.389,
+          "directional_n": 18,
+          "avg_confidence": 55.4
         },
         "DXY": {
-          "n": 128,
-          "accuracy": 0.496,
-          "directional_acc": 0.481,
-          "directional_n": 27,
-          "avg_confidence": 54.4
+          "n": 109,
+          "accuracy": 0.495,
+          "directional_acc": 0.478,
+          "directional_n": 23,
+          "avg_confidence": 54.7
         },
         "Bitcoin": {
-          "n": 123,
+          "n": 108,
           "accuracy": 0.463,
-          "directional_acc": 0.408,
-          "directional_n": 49,
-          "avg_confidence": 54.2
+          "directional_acc": 0.413,
+          "directional_n": 46,
+          "avg_confidence": 54.1
         }
       }
     },
     "t10": {
-      "n_reports": 117,
-      "overall_accuracy": 0.471,
-      "overall_dir_acc": 0.421,
+      "n_reports": 104,
+      "overall_accuracy": 0.465,
+      "overall_dir_acc": 0.404,
       "by_asset": {
         "S&P 500": {
-          "n": 114,
-          "accuracy": 0.421,
-          "directional_acc": 0.312,
-          "directional_n": 48,
-          "avg_confidence": 56.5
+          "n": 104,
+          "accuracy": 0.438,
+          "directional_acc": 0.341,
+          "directional_n": 41,
+          "avg_confidence": 54.9
         },
         "Gold": {
-          "n": 117,
-          "accuracy": 0.521,
-          "directional_acc": 0.532,
-          "directional_n": 79,
-          "avg_confidence": 59.6
+          "n": 104,
+          "accuracy": 0.49,
+          "directional_acc": 0.485,
+          "directional_n": 66,
+          "avg_confidence": 57.5
         },
         "WTI Oil": {
-          "n": 114,
-          "accuracy": 0.439,
-          "directional_acc": 0.231,
-          "directional_n": 26,
-          "avg_confidence": 55.3
+          "n": 104,
+          "accuracy": 0.442,
+          "directional_acc": 0.25,
+          "directional_n": 24,
+          "avg_confidence": 54.9
         },
         "10Y Treasury Yield": {
-          "n": 117,
-          "accuracy": 0.496,
-          "directional_acc": 0.471,
-          "directional_n": 17,
-          "avg_confidence": 57.7
+          "n": 104,
+          "accuracy": 0.486,
+          "directional_acc": 0.4,
+          "directional_n": 15,
+          "avg_confidence": 55.4
         },
         "DXY": {
-          "n": 117,
+          "n": 104,
           "accuracy": 0.466,
-          "directional_acc": 0.375,
-          "directional_n": 32,
-          "avg_confidence": 54.6
+          "directional_acc": 0.379,
+          "directional_n": 29,
+          "avg_confidence": 54.7
         },
         "Bitcoin": {
-          "n": 113,
-          "accuracy": 0.482,
-          "directional_acc": 0.46,
-          "directional_n": 50,
+          "n": 103,
+          "accuracy": 0.471,
+          "directional_acc": 0.438,
+          "directional_n": 48,
           "avg_confidence": 54.1
         }
       }
     },
     "t20": {
-      "n_reports": 95,
+      "n_reports": 94,
       "overall_accuracy": 0.434,
       "overall_dir_acc": 0.339,
       "by_asset": {
@@ -113,11 +150,11 @@
           "avg_confidence": 55.1
         },
         "Gold": {
-          "n": 95,
-          "accuracy": 0.4,
-          "directional_acc": 0.344,
-          "directional_n": 61,
-          "avg_confidence": 57.5
+          "n": 94,
+          "accuracy": 0.404,
+          "directional_acc": 0.35,
+          "directional_n": 60,
+          "avg_confidence": 57.7
         },
         "WTI Oil": {
           "n": 94,
@@ -127,18 +164,18 @@
           "avg_confidence": 54.7
         },
         "10Y Treasury Yield": {
-          "n": 95,
-          "accuracy": 0.542,
-          "directional_acc": 0.654,
-          "directional_n": 26,
-          "avg_confidence": 55.2
+          "n": 94,
+          "accuracy": 0.537,
+          "directional_acc": 0.64,
+          "directional_n": 25,
+          "avg_confidence": 55.3
         },
         "DXY": {
-          "n": 95,
-          "accuracy": 0.442,
-          "directional_acc": 0.359,
-          "directional_n": 39,
-          "avg_confidence": 54.4
+          "n": 94,
+          "accuracy": 0.447,
+          "directional_acc": 0.368,
+          "directional_n": 38,
+          "avg_confidence": 54.6
         },
         "Bitcoin": {
           "n": 93,
@@ -915,7 +952,7 @@
       }
     },
     "v1.5": {
-      "n_reports_in_pipeline": 46,
+      "n_reports_in_pipeline": 49,
       "n_reports_scored": 40,
       "windows": {
         "t5": {
@@ -1071,70 +1108,42 @@
   "calibration": {
     "windows": {
       "t5": {
-        "n": 246,
-        "brier": 0.267,
-        "base_rate": 0.467,
-        "brier_skill_score": -0.073,
-        "ece": 0.1278,
+        "n": 213,
+        "brier": 0.2633,
+        "base_rate": 0.455,
+        "brier_skill_score": -0.062,
+        "ece": 0.1148,
         "bins": [
           {
-            "range": "0-50",
-            "n": 5,
-            "mean_conf": 0.41,
-            "hit_rate": 0.2,
-            "gap": -0.21
-          },
-          {
             "range": "50-60",
-            "n": 136,
+            "n": 133,
             "mean_conf": 0.538,
-            "hit_rate": 0.471,
-            "gap": -0.068
+            "hit_rate": 0.466,
+            "gap": -0.072
           },
           {
             "range": "60-70",
-            "n": 83,
-            "mean_conf": 0.624,
-            "hit_rate": 0.446,
-            "gap": -0.178
+            "n": 76,
+            "mean_conf": 0.619,
+            "hit_rate": 0.434,
+            "gap": -0.185
           },
           {
             "range": "70-80",
-            "n": 6,
-            "mean_conf": 0.717,
+            "n": 4,
+            "mean_conf": 0.7,
             "hit_rate": 0.5,
-            "gap": -0.217
-          },
-          {
-            "range": "80-90",
-            "n": 3,
-            "mean_conf": 0.83,
-            "hit_rate": 0.667,
-            "gap": -0.163
-          },
-          {
-            "range": "90-100",
-            "n": 13,
-            "mean_conf": 0.969,
-            "hit_rate": 0.615,
-            "gap": -0.354
+            "gap": -0.2
           }
         ]
       },
       "t10": {
-        "n": 252,
-        "brier": 0.2646,
-        "base_rate": 0.421,
-        "brier_skill_score": -0.086,
-        "ece": 0.1777,
+        "n": 223,
+        "brier": 0.2659,
+        "base_rate": 0.404,
+        "brier_skill_score": -0.105,
+        "ece": 0.1757,
         "bins": [
-          {
-            "range": "0-50",
-            "n": 5,
-            "mean_conf": 0.4,
-            "hit_rate": 0.0,
-            "gap": -0.4
-          },
           {
             "range": "50-60",
             "n": 143,
@@ -1144,48 +1153,27 @@
           },
           {
             "range": "60-70",
-            "n": 82,
-            "mean_conf": 0.623,
-            "hit_rate": 0.439,
-            "gap": -0.184
+            "n": 76,
+            "mean_conf": 0.619,
+            "hit_rate": 0.421,
+            "gap": -0.198
           },
           {
             "range": "70-80",
-            "n": 6,
-            "mean_conf": 0.717,
-            "hit_rate": 0.833,
-            "gap": 0.117
-          },
-          {
-            "range": "80-90",
-            "n": 3,
-            "mean_conf": 0.83,
-            "hit_rate": 0.667,
-            "gap": -0.163
-          },
-          {
-            "range": "90-100",
-            "n": 13,
-            "mean_conf": 0.969,
-            "hit_rate": 0.692,
-            "gap": -0.277
+            "n": 4,
+            "mean_conf": 0.7,
+            "hit_rate": 1.0,
+            "gap": 0.3
           }
         ]
       },
       "t20": {
-        "n": 233,
-        "brier": 0.2761,
+        "n": 230,
+        "brier": 0.2771,
         "base_rate": 0.339,
-        "brier_skill_score": -0.232,
-        "ece": 0.2305,
+        "brier_skill_score": -0.236,
+        "ece": 0.2326,
         "bins": [
-          {
-            "range": "0-50",
-            "n": 3,
-            "mean_conf": 0.4,
-            "hit_rate": 0.333,
-            "gap": -0.067
-          },
           {
             "range": "50-60",
             "n": 142,
@@ -1211,53 +1199,32 @@
       }
     },
     "overall": {
-      "n": 731,
-      "brier": 0.2691,
-      "base_rate": 0.41,
-      "brier_skill_score": -0.112,
-      "ece": 0.1758,
+      "n": 666,
+      "brier": 0.2689,
+      "base_rate": 0.398,
+      "brier_skill_score": -0.123,
+      "ece": 0.1723,
       "bins": [
         {
-          "range": "0-50",
-          "n": 13,
-          "mean_conf": 0.404,
-          "hit_rate": 0.154,
-          "gap": -0.25
-        },
-        {
           "range": "50-60",
-          "n": 421,
+          "n": 418,
           "mean_conf": 0.538,
-          "hit_rate": 0.397,
-          "gap": -0.142
+          "hit_rate": 0.395,
+          "gap": -0.143
         },
         {
           "range": "60-70",
-          "n": 248,
-          "mean_conf": 0.622,
-          "hit_rate": 0.399,
-          "gap": -0.223
+          "n": 235,
+          "mean_conf": 0.62,
+          "hit_rate": 0.387,
+          "gap": -0.233
         },
         {
           "range": "70-80",
-          "n": 17,
-          "mean_conf": 0.712,
-          "hit_rate": 0.647,
-          "gap": -0.065
-        },
-        {
-          "range": "80-90",
-          "n": 6,
-          "mean_conf": 0.83,
-          "hit_rate": 0.667,
-          "gap": -0.163
-        },
-        {
-          "range": "90-100",
-          "n": 26,
-          "mean_conf": 0.969,
-          "hit_rate": 0.654,
-          "gap": -0.315
+          "n": 13,
+          "mean_conf": 0.7,
+          "hit_rate": 0.692,
+          "gap": -0.008
         }
       ]
     }
@@ -1359,6 +1326,36 @@
     }
   },
   "calibration_by_profile": {
+    "baseline": {
+      "n": 561,
+      "brier": 0.2744,
+      "base_rate": 0.358,
+      "brier_skill_score": -0.194,
+      "ece": 0.2145,
+      "bins": [
+        {
+          "range": "50-60",
+          "n": 329,
+          "mean_conf": 0.536,
+          "hit_rate": 0.334,
+          "gap": -0.202
+        },
+        {
+          "range": "60-70",
+          "n": 219,
+          "mean_conf": 0.62,
+          "hit_rate": 0.374,
+          "gap": -0.246
+        },
+        {
+          "range": "70-80",
+          "n": 13,
+          "mean_conf": 0.7,
+          "hit_rate": 0.692,
+          "gap": -0.008
+        }
+      ]
+    },
     "loosened": {
       "n": 105,
       "brier": 0.2396,
@@ -1509,21 +1506,21 @@
   },
   "commitment_by_arm": {
     "baseline": {
-      "n_resolved": 1413,
-      "commitment_rate": 0.56,
-      "neutral_rate": 0.44,
-      "bullish_rate": 0.307,
-      "bearish_rate": 0.253,
-      "bearish_share_of_directional": 0.451,
-      "decisive_rate": 0.443,
-      "wrong_decisive_rate": 0.276,
-      "right_decisive_rate": 0.167,
-      "net_decisive_edge": -0.109,
-      "hit_rate_when_decisive": 0.377,
-      "n_decisive": 626,
-      "n_directional": 791,
-      "n_bullish": 434,
-      "n_bearish": 357
+      "n_resolved": 1239,
+      "commitment_rate": 0.557,
+      "neutral_rate": 0.443,
+      "bullish_rate": 0.291,
+      "bearish_rate": 0.266,
+      "bearish_share_of_directional": 0.478,
+      "decisive_rate": 0.453,
+      "wrong_decisive_rate": 0.291,
+      "right_decisive_rate": 0.162,
+      "net_decisive_edge": -0.128,
+      "hit_rate_when_decisive": 0.358,
+      "n_decisive": 561,
+      "n_directional": 690,
+      "n_bullish": 360,
+      "n_bearish": 330
     },
     "loosened": {
       "n_resolved": 599,
@@ -1543,5 +1540,405 @@
       "n_bearish": 8
     }
   },
-  "_note": "accuracy is on a 0-1 scale where 0.5 = random (coin-flip). directional_acc excludes flat moves and Neutral calls - it measures signal quality on clear directional bets. feedback_windows includes only reports from v0.3+ (adversarial review era) and is used by the daily bias override logic. version_windows shows per-version stats for the 5 most recent pipeline versions. calibration (WP-16.B.2) scores stated confidence as a probability forecast: brier (lower=better, 0=perfect), brier_skill_score (>0 beats the base-rate forecast), ece (expected calibration error), and reliability bins (gap>0 underconfident, <0 overconfident); decisive directional calls only. calibration_feedback restricts to MIN_FEEDBACK_VERSION+."
+  "bias_separation": {
+    "overall": {
+      "n": 1838,
+      "n_dates": 109,
+      "buckets": {
+        "Bullish": {
+          "n": 478,
+          "mean_z": -0.207,
+          "median_z": -0.233,
+          "mean_pct": -1.385
+        },
+        "Neutral": {
+          "n": 1022,
+          "mean_z": 0.025,
+          "median_z": -0.025,
+          "mean_pct": 0.671
+        },
+        "Bearish": {
+          "n": 338,
+          "mean_z": 0.216,
+          "median_z": 0.211,
+          "mean_pct": 1.447
+        }
+      },
+      "ordering": "inverted",
+      "bullish_vs_neutral": {
+        "gap": -0.2328,
+        "p_value": 0.001,
+        "n_a": 478,
+        "n_b": 1022,
+        "n_blocks": 6,
+        "ci_lo": -0.5341,
+        "ci_hi": 0.1052,
+        "ci_width": 0.6393
+      },
+      "bearish_vs_bullish": {
+        "gap": 0.4237,
+        "p_value": 0.0005,
+        "n_a": 338,
+        "n_b": 478,
+        "n_blocks": 6,
+        "ci_lo": -0.0588,
+        "ci_hi": 0.8409,
+        "ci_width": 0.8997
+      }
+    },
+    "windows": {
+      "t5": {
+        "n": 652,
+        "n_dates": 109,
+        "buckets": {
+          "Bullish": {
+            "n": 168,
+            "mean_z": -0.157,
+            "median_z": -0.174,
+            "mean_pct": -0.599
+          },
+          "Neutral": {
+            "n": 370,
+            "mean_z": 0.058,
+            "median_z": -0.027,
+            "mean_pct": 0.456
+          },
+          "Bearish": {
+            "n": 114,
+            "mean_z": 0.043,
+            "median_z": 0.125,
+            "mean_pct": 0.24
+          }
+        },
+        "ordering": "mixed",
+        "bullish_vs_neutral": {
+          "gap": -0.2152,
+          "p_value": 0.028,
+          "n_a": 168,
+          "n_b": 370,
+          "n_blocks": 6,
+          "ci_lo": -0.4587,
+          "ci_hi": 0.038,
+          "ci_width": 0.4967
+        },
+        "bearish_vs_bullish": {
+          "gap": 0.2005,
+          "p_value": 0.1304,
+          "n_a": 114,
+          "n_b": 168,
+          "n_blocks": 6,
+          "ci_lo": -0.1335,
+          "ci_hi": 0.4811,
+          "ci_width": 0.6147
+        }
+      },
+      "t10": {
+        "n": 623,
+        "n_dates": 104,
+        "buckets": {
+          "Bullish": {
+            "n": 161,
+            "mean_z": -0.191,
+            "median_z": -0.291,
+            "mean_pct": -0.996
+          },
+          "Neutral": {
+            "n": 350,
+            "mean_z": 0.018,
+            "median_z": -0.02,
+            "mean_pct": 0.718
+          },
+          "Bearish": {
+            "n": 112,
+            "mean_z": 0.219,
+            "median_z": 0.126,
+            "mean_pct": 1.231
+          }
+        },
+        "ordering": "inverted",
+        "bullish_vs_neutral": {
+          "gap": -0.2092,
+          "p_value": 0.057,
+          "n_a": 161,
+          "n_b": 350,
+          "n_blocks": 5,
+          "ci_lo": -0.5732,
+          "ci_hi": 0.1666,
+          "ci_width": 0.7398
+        },
+        "bearish_vs_bullish": {
+          "gap": 0.41,
+          "p_value": 0.003,
+          "n_a": 112,
+          "n_b": 161,
+          "n_blocks": 5,
+          "ci_lo": -0.1321,
+          "ci_hi": 0.9579,
+          "ci_width": 1.09
+        }
+      },
+      "t20": {
+        "n": 563,
+        "n_dates": 94,
+        "buckets": {
+          "Bullish": {
+            "n": 149,
+            "mean_z": -0.281,
+            "median_z": -0.236,
+            "mean_pct": -2.692
+          },
+          "Neutral": {
+            "n": 302,
+            "mean_z": -0.006,
+            "median_z": -0.031,
+            "mean_pct": 0.878
+          },
+          "Bearish": {
+            "n": 112,
+            "mean_z": 0.39,
+            "median_z": 0.45,
+            "mean_pct": 2.892
+          }
+        },
+        "ordering": "inverted",
+        "bullish_vs_neutral": {
+          "gap": -0.2755,
+          "p_value": 0.024,
+          "n_a": 149,
+          "n_b": 302,
+          "n_blocks": 5,
+          "ci_lo": -0.598,
+          "ci_hi": 0.1342,
+          "ci_width": 0.7322
+        },
+        "bearish_vs_bullish": {
+          "gap": 0.6714,
+          "p_value": 0.0005,
+          "n_a": 112,
+          "n_b": 149,
+          "n_blocks": 5,
+          "ci_lo": 0.0529,
+          "ci_hi": 1.1485,
+          "ci_width": 1.0956
+        }
+      }
+    },
+    "profiles": {
+      "baseline": {
+        "n": 1239,
+        "n_dates": 69,
+        "buckets": {
+          "Bullish": {
+            "n": 360,
+            "mean_z": -0.346,
+            "median_z": -0.31,
+            "mean_pct": -2.526
+          },
+          "Neutral": {
+            "n": 549,
+            "mean_z": -0.126,
+            "median_z": -0.162,
+            "mean_pct": -0.982
+          },
+          "Bearish": {
+            "n": 330,
+            "mean_z": 0.216,
+            "median_z": 0.211,
+            "mean_pct": 1.401
+          }
+        },
+        "ordering": "inverted",
+        "bullish_vs_neutral": {
+          "gap": -0.22,
+          "p_value": 0.0105,
+          "n_a": 360,
+          "n_b": 549,
+          "n_blocks": 4,
+          "ci_lo": -0.5588,
+          "ci_hi": 0.0681,
+          "ci_width": 0.6269
+        },
+        "bearish_vs_bullish": {
+          "gap": 0.5615,
+          "p_value": 0.0005,
+          "n_a": 330,
+          "n_b": 360,
+          "n_blocks": 4,
+          "ci_lo": 0.0738,
+          "ci_hi": 0.9533,
+          "ci_width": 0.8795
+        }
+      },
+      "loosened": {
+        "n": 599,
+        "n_dates": 40,
+        "buckets": {
+          "Bullish": {
+            "n": 118,
+            "mean_z": 0.215,
+            "median_z": -0.015,
+            "mean_pct": 2.095
+          },
+          "Neutral": {
+            "n": 473,
+            "mean_z": 0.201,
+            "median_z": 0.109,
+            "mean_pct": 2.589
+          },
+          "Bearish": {
+            "n": 8,
+            "mean_z": 0.247,
+            "median_z": 0.328,
+            "mean_pct": 3.351
+          }
+        },
+        "ordering": "mixed",
+        "bullish_vs_neutral": {
+          "gap": 0.0143,
+          "p_value": 0.8891,
+          "n_a": 118,
+          "n_b": 473,
+          "n_blocks": 2,
+          "ci_lo": -0.2495,
+          "ci_hi": 0.4243,
+          "ci_width": 0.6738
+        },
+        "bearish_vs_bullish": null
+      }
+    },
+    "by_asset": {
+      "S&P 500": {
+        "Bullish": {
+          "n": 73,
+          "mean_pct": 0.542
+        },
+        "Neutral": {
+          "n": 176,
+          "mean_pct": 1.307
+        },
+        "Bearish": {
+          "n": 57,
+          "mean_pct": 4.237
+        }
+      },
+      "Gold": {
+        "Bullish": {
+          "n": 196,
+          "mean_pct": -0.148
+        },
+        "Neutral": {
+          "n": 102,
+          "mean_pct": -0.175
+        },
+        "Bearish": {
+          "n": 9,
+          "mean_pct": -4.031
+        }
+      },
+      "WTI Oil": {
+        "Bullish": {
+          "n": 54,
+          "mean_pct": -6.02
+        },
+        "Neutral": {
+          "n": 235,
+          "mean_pct": -0.501
+        },
+        "Bearish": {
+          "n": 18,
+          "mean_pct": 4.144
+        }
+      },
+      "10Y Treasury Yield": {
+        "Bullish": {
+          "n": 61,
+          "mean_pct": 0.316
+        },
+        "Neutral": {
+          "n": 195,
+          "mean_pct": 1.045
+        },
+        "Bearish": {
+          "n": 51,
+          "mean_pct": 0.52
+        }
+      },
+      "DXY": {
+        "Bullish": {
+          "n": 10,
+          "mean_pct": -0.043
+        },
+        "Neutral": {
+          "n": 157,
+          "mean_pct": -0.23
+        },
+        "Bearish": {
+          "n": 140,
+          "mean_pct": 0.147
+        }
+      },
+      "Bitcoin": {
+        "Bullish": {
+          "n": 84,
+          "mean_pct": -4.364
+        },
+        "Neutral": {
+          "n": 157,
+          "mean_pct": 2.696
+        },
+        "Bearish": {
+          "n": 63,
+          "mean_pct": 2.575
+        }
+      }
+    },
+    "provenance": {
+      "arm": "market",
+      "composition": {
+        "market": {
+          "n_reports": 109,
+          "n_calls": 1838,
+          "first_date": "2026-03-13",
+          "last_date": "2026-08-21"
+        },
+        "exogenous": {
+          "n_reports": 4,
+          "n_calls": 24,
+          "first_date": "2026-07-27",
+          "last_date": "2026-08-17"
+        },
+        "kimi": {
+          "n_reports": 15,
+          "n_calls": 150,
+          "first_date": "2026-08-03",
+          "last_date": "2026-08-21"
+        }
+      },
+      "n_reports_used": 109,
+      "n_reports_total": 128
+    },
+    "profile_overlap": {
+      "baseline|loosened": {
+        "n_shared": 0,
+        "n_a": 69,
+        "n_b": 40,
+        "confounded": true,
+        "span_a": [
+          "2026-03-13",
+          "2026-06-26"
+        ],
+        "span_b": [
+          "2026-06-29",
+          "2026-08-21"
+        ]
+      }
+    },
+    "params": {
+      "block_days": 21,
+      "n_perm": 2000,
+      "n_boot": 2000,
+      "min_bucket_n": 15
+    }
+  },
+  "_note": "accuracy is on a 0-1 scale where 0.5 = random (coin-flip). directional_acc excludes flat moves and Neutral calls - it measures signal quality on clear directional bets. feedback_windows includes only reports from v0.3+ (adversarial review era) and is used by the daily bias override logic. version_windows shows per-version stats for the 5 most recent pipeline versions. calibration (WP-16.B.2) scores stated confidence as a probability forecast: brier (lower=better, 0=perfect), brier_skill_score (>0 beats the base-rate forecast), ece (expected calibration error), and reliability bins (gap>0 underconfident, <0 overconfident); decisive directional calls only. calibration_feedback restricts to MIN_FEEDBACK_VERSION+. bias_separation asks whether realized forward returns differ by stated bias - the regime-robust discrimination test the accuracy score cannot answer while the market trends; z is in per-(window, asset) standard deviations and p comes from a block permutation test that respects overlapping evaluation windows. arm scopes every headline number to one prediction system (default 'market'); arm_composition lists what else was scored and excluded, and calibration_by_arm is the only cross-arm comparison. profile_confound reports report-date overlap between run profiles - a pair with n_shared=0 means the profile A/B is indistinguishable from a before/after market comparison and must not be read as an A/B (KB-023)."
 }
