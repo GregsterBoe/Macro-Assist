@@ -808,6 +808,88 @@ supplies ALFRED-vintage snapshots back to 1997.
   upper bound on achievable skill, the base-rate feed for WP-21.C, and the
   benchmark the LLM arm has never had.
 
+**WP-21.A.1 — The harness. ✅ Done** (2026-09-03 →
+`.macro-assist/numeric_baseline.py`, `tests/test_numeric_baseline.py`; +33 tests,
+615 green). Everything above is built and tested; what is **not** done is the
+run — see "Status" below.
+
+- **Both models, both small.** `fit_ridge` is a standardised L2 logistic
+  (scaler inside the pipeline, so it is fitted on the training fold only —
+  scaling on the full sample would leak the future's variance into the past);
+  `fit_gbm` is a depth-2, 150-tree, lr-0.03 gradient booster. Depth 2 allows
+  pairwise interactions and nothing deeper, which is as much as ~150 independent
+  windows over ~3 factors [KB-009] can support. `scikit-learn` is now named in
+  `requirements.txt` (hmmlearn already pulled it in transitively).
+- **Both leaks are closed, and tested as such.**
+  1. *Panel leak.* `point_in_time.historical_snapshot()` costs one HTTP call per
+     series per date — ~40k calls for a decade of daily walk-forward, which is
+     why `strategy_existing_pipeline` was never run. The baseline takes the other
+     route to the same guarantee: **only never-revised inputs are eligible**
+     (yfinance prices; FRED's market-observed daily series — DGS10, DGS2, BAA10Y,
+     T10YIE, DFII10, VIXCLS), so today's vintage *is* the historical vintage and
+     no ALFRED call is needed. CPI / payrolls / M2 / WALCL / NFCI / claims are
+     excluded **by construction**, and `test_fred_inputs_contain_only_unrevised_series`
+     encodes that rule as an assertion rather than a comment. Every FRED series is
+     additionally shifted one business day, so a print is only readable the day
+     after it lands.
+  2. *Label leak.* `walk_forward` embargoes `horizon + 1` trading days: predicting
+     on `t` may train only on rows whose forward window closed **strictly** before
+     `t`. `test_walk_forward_embargo_excludes_unresolved_labels` spies on every
+     training matrix the harness hands the model and asserts it at all three
+     horizons.
+- **Scored by the production readers, not by a re-implementation.** Calls are
+  emitted as score-file-shaped JSON and fed through `score_predictions.score_call`,
+  `summarize_accuracy._brier_and_reliability` and `bias_separation.bias_separation`
+  — the identical yardstick the LLM arm is held to, so the two can never diverge
+  on what counts as a hit. Each model and comparator is a separate `arm`
+  (`ridge`, `gbm`, `neutral`, `random_walk`, `always_bullish`), which makes the
+  whole comparison a `calibration_by_arm` table for free. Comparators are scored
+  on **exactly the model dates** — scoring them on a different sample would repeat
+  the [KB-023] error inside the experiment meant to correct for it.
+- **Output isolation.** Everything lands in `results/numeric_baseline/`, never in
+  `results/scores/`. Dropping simulated arms where `summarize_accuracy.py` looks
+  would contaminate the live A/B the moment the weekly job ran; there is a test
+  for that too. The raw calls (~30k reports, ~100MB indented) are opt-in behind
+  `--emit-scores` and written gzipped — the report and the diagnostics JSON are
+  the deliverable.
+- **The bar is written down before the numbers.** `verdict()` reports `edge` only
+  at n ≥ 30 decisive calls, decisive hit-rate > 0.52, and either BSS > 0 or an
+  `aligned` ordering — the same standard as [KB-007] / [KB-022] — and
+  `underpowered` rather than `no edge` below n.
+- **Two controls, because "no edge" is the result we half expect.** A harness that
+  can only ever say "no edge" is indistinguishable from the truth we suspect, so
+  the suite plants a learnable signal and requires it to be *found*
+  (`test_walk_forward_finds_planted_signal`, >75% hit-rate, informative input
+  outweighing the noise input) as well as requiring pure random walks to be
+  reported as no edge.
+- **20-day reversion is folded in, not chased separately.** `ret_20` is one of the
+  own-price features; the report's per-input table carries its mean weight, its
+  **sign stability** across refits (a big coefficient that flips sign every quarter
+  is a refit artefact, not a finding) and its out-of-sample permutation drop. If
+  the effect is real it shows up as a reliably negative, stable weight; if not,
+  that is measured in the same pass as everything else.
+- **One upstream change:** `bias_separation._compare` / `_section` /
+  `bias_separation()` now take `n_perm` / `n_boot` (defaults unchanged, and the
+  values actually used are echoed in `params`). Cost is draws × observations, and
+  a decade of daily simulated calls is ~20× the daily report's ~2k — the defaults
+  turned a research sweep into a coffee break.
+
+**Status: the harness is shipped, the measurement is not run.** The panel needs
+`FRED_API_KEY` plus reachable yfinance/FRED hosts; the session that built this had
+neither, so **no number here has been produced yet and nothing has been written to
+the Knowledge Base.** Running it is one command:
+
+```bash
+python .macro-assist/numeric_baseline.py --start 2005-01-01 --save-panel panel.csv
+python .macro-assist/numeric_baseline.py --panel panel.csv --windows t5   # offline re-runs
+```
+
+The first form caches the panel; every later analysis re-runs offline from the CSV.
+`--no-importance`, `--no-separation`, `--separation-draws` and `--windows` trade
+completeness for speed while iterating — a **reported** result uses none of them.
+The KB entry gets written from that run's `results/numeric_baseline/numeric_baseline.md`,
+and it is the entry that decides WP-21.C and WP-21.D.
+
 ### WP-21.B — Clean arm A/B *(day-alternating assignment)*
 
 [KB-023] makes this a prerequisite rather than a refinement: with ~5 independent
@@ -883,7 +965,8 @@ the separation bar in [KB-022] (Bull−Neut > 0, ordering `aligned`).
 
 ### Phase 21 — execution order
 
-1. **WP-21.A** — numeric baseline (~1 week, zero LLM cost, parallel-safe).
+1. **WP-21.A** — numeric baseline. Harness ✅ done; **the run is the open item**
+   (needs `FRED_API_KEY` + network). Zero LLM cost, parallel-safe.
 2. **WP-21.B** — arm-filtered readers (✅ done) then day-alternating assignment
    (independent of A; the earlier it starts accumulating, the sooner it reads).
 3. **WP-21.C** — base rates into the prompt (gated on A showing edge).

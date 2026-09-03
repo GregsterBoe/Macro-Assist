@@ -284,6 +284,24 @@ class TestBiasSeparation:
         assert sep["params"]["block_days"] > 0
         assert sep["params"]["n_perm"] > 0
 
+    def test_draw_counts_are_overridable_and_echoed(self):
+        """A lowered draw count must be visible in the output it produced.
+
+        The cost of the permutation test is draws x observations, and a
+        multi-year simulated arm (WP-21.A) carries an order of magnitude more
+        calls than the daily report the defaults were sized for. Reporting the
+        module default while having run 200 draws would misdescribe the p-value's
+        resolution floor.
+        """
+        sep = bias_separation(self._planted(), n_perm=200, n_boot=200)
+        assert sep["params"]["n_perm"] == 200
+        assert sep["params"]["n_boot"] == 200
+        # The estimate is unchanged by the draw count — only its resolution is.
+        full = bias_separation(self._planted())
+        assert sep["overall"]["bullish_vs_neutral"]["gap"] == \
+            full["overall"]["bullish_vs_neutral"]["gap"]
+        assert sep["overall"]["ordering"] == full["overall"]["ordering"]
+
 
 class TestSeparationMarkdown:
 
