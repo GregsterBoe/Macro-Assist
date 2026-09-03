@@ -13,11 +13,18 @@ detailed doc disagree, the detailed doc wins — fix the row.
 
 **Status legend:** 🟢 running / on-track · 🟡 in progress, needs work · ⏳ forward-accumulating (waiting on live data) · ⏸ holding / queued · ✅ done · ❌ dropped
 
-_Last updated: 2026-08-27._
+_Last updated: 2026-09-03._
 
 ---
 
 ## Active
+
+### Phase 21 — Directional product validation 🟢
+- **Tests:** the rival hypothesis nobody has tested — is 5/10/20-day direction on these assets learnable from this payload by *any* model, or is the LLM being blamed for the task's difficulty? Three metrics say the product doesn't work ([KB-007] BSS<0 and ~36% decisive accuracy; [KB-022] inverted separation) and the one apparent repair is confounded ([KB-023]).
+- **Latest:** phase opened 2026-09-03 off the [KB-023] finding. Also records the **no-neural-network decision**: effective sample ≈150 non-overlapping 20d windows over ~3 independent factors, and [KB-002]/[KB-016] both already found this data supports *fewer, discrete* weights rather than learned continuous ones.
+- **Shipped:** **WP-21.B.1 ✅** — both readers (`bias_separation.py`, `summarize_accuracy.py`) are arm-scoped to `market`, emit an `arm_composition` table, and print a ⛔ guardrail when two profiles share no report-dates. Also fixed: a silently empty profile A/B (the untagged control population was being dropped), and a verdict that read an underpowered sample as "no separation". De-pooling moved the headline — decisive n 731→666, BSS −0.112→**−0.123**, commitment baseline net edge −0.109→**−0.128** — i.e. the baseline had been flattered. KB-007/011/022 annotated; `accuracy_report.md` regenerated.
+- **Next:** **WP-21.A** — `strategy_ridge` / `strategy_gbm` against the existing `backtest.py` strategy interface + `point_in_time.py` ALFRED snapshots, walk-forward over 5–10y, scored vs `strategy_neutral` / `strategy_random_walk`. Zero LLM cost, confounds no live A/B, and symmetric: a negative kills the directional product for every model class; a positive gives the first real benchmark plus the base-rate feed for WP-21.C. Then **WP-21.B.2** — day-alternating profile assignment.
+- **Where:** `Project_Development.md` (Phase 21) · `.macro-assist/backtest.py` · branch `claude/directional-product-validation-0l70pa`.
 
 ### IMP-4 — OR-of-channels recall mode + regime-holdout CV ✅
 - **Tests:** does IMP-1's OR-of-channels recall doubling survive *honest* out-of-sample evaluation, and can it become a live high-recall fragility flag?
@@ -31,11 +38,11 @@ _Last updated: 2026-08-27._
 - **Next:** hands off to **IMP-4** (OR recall mode). Deliberately NOT auto-wired — needs a live sector-ETF panel, PIT-rolling thresholds, regime-holdout CV.
 - **Where:** `Project_Improvement.md` (IMP-1) · harness `.macro-assist/input_testing.py` · branch `main`.
 
-### Loosened-profile A/B (WP-16.B) — conviction floor off + Opus ⏳
+### Loosened-profile A/B (WP-16.B) — conviction floor off + Opus 🟡
 - **Tests:** does loosening prompt control (floor OFF, base-rate-first, pruned overrides) beat the control arm on Brier/commitment? Baseline [KB-007]: confidence is anti-informative (BSS < 0).
-- **Latest:** running **loosened-continuously**; decisive-call sample is thin (floor-off → mostly Neutral by design). [KB-011] commitment metric: loosened commits 20% vs baseline 56%, net edge −0.067 vs −0.125 — *directionally* holds, decisive n still tiny.
-- **Next:** accumulate loosened-tagged scored days; read `profile` A/B in `accuracy_report.md`. The decisive-Brier read is months out.
-- **Where:** `Project_Development.md` (Phase 16.B) · `MACRO_PROFILE` repo var · branch `main`.
+- **Latest:** **UNREADABLE AS RUN — [KB-023].** `MACRO_PROFILE` was switched in one block, so the two arms share **zero** report-dates (baseline 03-13→06-26, loosened 06-29→08-21): arm and market period are the same partition of the data. The apparent repair (Bull−Neut −0.008, p=0.93) does not survive — WTI/Bitcoin/Gold, the assets carrying the [KB-022] inversion, flipped sign across the arm boundary (T+20 WTI −5.9%→+6.2%); the loosened 95% CI [−0.250, +0.424] contains the baseline estimate; and excluding those three the loosened arm is **still inverted** (−0.184 vs −0.280). [KB-011]'s commitment read inherits the same defect.
+- **Next:** **do NOT promote `loosened` to default.** Re-run as a day-alternating A/B with arm-filtered readers → **WP-21.B**.
+- **Where:** `Project_Development.md` (Phase 16.B → superseded by Phase 21.B) · `MACRO_PROFILE` repo var · branch `main`.
 
 ### Phase 19 — Exogenous Information Engine ⏳
 - **Tests:** can an independent, market-data-light real-world reasoning branch (expectations-gaps / regime, *not* direction) earn its tokens vs the market-only arm?

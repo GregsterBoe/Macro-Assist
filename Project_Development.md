@@ -728,3 +728,169 @@ Existing dated predictions  (results/**/<date>-*-macro.md, per arm)
 **Branch strategy.** Develop on `feature/paper-portfolio` off `main`. Purely downstream of the prediction arms — it *reads* their notes and never alters them; integrates only at WP-20.D via its own workflow. Start with WP-20.A (design), then the WP-20.B accounting core in isolation before any sizing logic.
 
 **Experimental model arm — Kimi K2.6 ensemble (INTEGRATED into `main`, modular).** A second use of the arm A/B machinery, aimed at the **confidence** problem (KB-007: the market arm's self-reported `confidence_pct` is clamped 50–80 and non-discriminative). `.macro-assist/kimi_arm.py` reads the *same* daily payload the market model sees (`results/llm_payload_preview/<date>.md`), runs **Kimi K2.6** (Moonshot Anthropic-compatible endpoint, thinking disabled — it defaults ON and both breaks forced tool_choice and eats the token budget) **N times**, and derives confidence from **agreement across samples** (self-consistency): unanimous → high & *un-clamped* (33–100%), split → **Neutral** (honest abstention). Emits an `arm: kimi` note that rides the generic arm hooks → `calibration_by_arm` shows **market vs exogenous vs kimi**. First manual run (2026-07-31, n=8): 4/6 Neutral, Gold Bull 62%, **10Y Bull 88%** (converges with the market + exogenous arms' best asset). Runs daily via `kimi_arm_daily.yml` (Mon–Fri 07:05 UTC, after the market run commits the preview); needs `MOONSHOT_API_KEY`. **Modular/removable (grep `KIMI-ARM`):** soft-kill = disable `kimi_arm_daily.yml`; hard-kill = delete `kimi_arm.py` + its test + both kimi workflows + `*-kimi-macro.md`/`*__kimi.json`. **What it proves vs not:** the mechanism (discriminative, grounded, abstaining confidence) is demonstrated; whether that confidence is *calibrated* (does 88%-agreement out-hit 62%?) is the forward question the daily accumulation + `calibration_by_arm` will answer.
+---
+
+## Directional Product Validation (Phase 21) — *is this task learnable at all?*
+
+**Why this phase exists.** After 128 scored reports, three independent metrics
+say the directional product does not work: decisive accuracy ~36% [KB-007],
+BSS < 0 at every horizon [KB-007], and an *inverted* bias/return separation
+[KB-022]. The one result that looked like a repair — the loosened arm's
+apparently-fixed separation — turned out to be perfectly confounded with the
+market period [KB-023]. Meanwhile the numeric track *does* work: the OR-of-
+channels flag roughly doubles crisis recall and survived leave-one-crisis-out CV
+[KB-015/016/017], reproduced on the live feed [KB-020/021].
+
+That asymmetry has been read so far as "the prompt needs another lever." Phase 21
+tests the rival hypothesis that has never been tested: **that 5/10/20-day
+direction on liquid macro assets is close to unlearnable from this payload by
+*any* model**, and that the LLM is being blamed for the task's difficulty. Every
+work package below is chosen so that a negative result is as informative as a
+positive one.
+
+### Why not a neural network (decided 2026-09-03 — recorded so it is not re-litigated)
+
+The instinct behind the proposal is right: this *is* a weighting and
+data-quality problem, and an LLM is structurally a poor weigher — it has no
+gradient, no memory of which input paid off, and its effective weights are
+whatever the prompt emphasised plus its priors. `load_accuracy_context()` is a
+very lossy substitute for an update step. The remedy, however, does not scale to
+a learned per-input model, for three reasons this project has already measured:
+
+1. **Effective sample size, not row count.** Full-panel coverage is bounded by
+   the youngest inputs (reverse repo meaningful from ~2013, Bitcoin from 2014,
+   TIPS/breakeven from 2003, free-FRED HY OAS truncated to ~2023 — see the note
+   in `refit_models.py`). That is ~3,000 business days ⇒ **~150 non-overlapping
+   20-day windows**, across 6 assets that collapse to roughly 3 independent
+   factors [KB-009: the equity complex is ~one factor]. Low hundreds of
+   effective examples against 36+ inputs is where a network learns the sample.
+2. **The small version was already run, twice, and said "fewer weights."**
+   [KB-002]: a 6-scheme weight ablation over 18 years found `autocorr`'s weight
+   contributed nothing (identical to 3 d.p.), `correlation`'s weight was
+   *actively harmful*, and the winner tied a 2-parameter 50/50 blend within
+   noise — the data honestly supported about **two** weights. [KB-016]: the
+   equal-weight continuous blend *degraded* the validated flag; the correct
+   adoption form was a discrete **mode** (an OR), not a weight.
+3. **"An update step each time" is the worst case here.** At a 20-day horizon
+   each new day contributes ~1/20 of an independent observation, and macro is
+   non-stationary — so an online learner tracks the most recent regime. That is
+   precisely the mechanism [KB-023] just caught fooling a block-switched A/B.
+
+**What survives the objection** is the cheap version: a *regularised* model
+(ridge/logistic + a small GBM) fitted point-in-time in the harness that already
+exists. It answers the same question — what is each input worth, measured
+against outcomes — at a model complexity the sample can support, and it doubles
+as the missing benchmark. That is WP-21.A. A more expressive model is
+reconsidered **only if** WP-21.A shows an edge to be expressive about.
+
+### WP-21.A — Numeric directional baseline *(the learnability test — do this first)*
+
+The single highest-value experiment, and mostly wiring: `backtest.py` already
+defines the `strategy(snapshot) -> predictions` interface, ships
+`strategy_neutral` / `strategy_random_walk` comparators, and leaves
+`strategy_existing_pipeline` as an unimplemented stub; `point_in_time.py`
+supplies ALFRED-vintage snapshots back to 1997.
+
+- **Build:** `strategy_ridge` and `strategy_gbm` against that interface —
+  walk-forward refit, trained only on data knowable at `t`, no peeking.
+- **Score:** the same directional metrics the LLM is judged on (hit-rate, Brier,
+  BSS, and the KB-022 bias/return separation), over 5–10 years, against
+  `strategy_neutral`, `strategy_random_walk`, and always-Bullish.
+- **Emit:** per-input coefficients / permutation importances — the detailed
+  input-value measurement, grounded in outcomes rather than in the redundancy
+  [KB-009] and citation [KB-010] *screens*.
+- **Fold in:** the 20-day reversion effect as one candidate feature, validated
+  here rather than as a standalone errand.
+- **Cost/risk:** zero LLM spend, no new output lever, confounds no running A/B.
+- **Decision value — symmetric:** if ridge/GBM cannot beat neutral over 10 years,
+  the directional product is dead for every model class and WP-21.C and any
+  future network are dead with it. If it can, the result is simultaneously the
+  upper bound on achievable skill, the base-rate feed for WP-21.C, and the
+  benchmark the LLM arm has never had.
+
+### WP-21.B — Clean arm A/B *(day-alternating assignment)*
+
+[KB-023] makes this a prerequisite rather than a refinement: with ~5 independent
+21-day blocks in the entire scored history, switching `MACRO_PROFILE` in blocks
+spends the whole sample and still confounds arm with market period.
+
+**WP-21.B.1 — Arm-filter the readers. ✅ Done** (2026-09-03 →
+`.macro-assist/bias_separation.py`, `.macro-assist/summarize_accuracy.py`;
++19 tests, 549 green). Both readers default to the production `market` arm
+(`--arm all` pools deliberately) and emit an `arm_composition` table naming what
+was excluded; `calibration_by_profile`, `calibration_by_floor` and
+`commitment_by_arm` are scoped the same way, while `calibration_by_arm` keeps
+seeing every arm because it *is* the cross-arm comparison. Four defects fixed
+beyond the one that prompted the work:
+
+  1. **The date collision.** `observations()` now reads `arm`/`profile` off each
+     report as it flattens it; nothing keys on `report_date`. A regression test
+     builds the exact two-arms-one-date case.
+  2. **A silently empty A/B.** `calibration_by()` dropped the untagged bucket and
+     the entire pre-WP-16.B control population is untagged — so the profile A/B
+     had been rendering as a single row with nothing to compare. `profile_of()`
+     resolves untagged to `baseline`.
+  3. **A confound guardrail.** `date_overlap()` / `profile_confound()` report
+     shared report-dates between profiles; the accuracy report and the
+     separation section print a ⛔ block when a pair shares none, and the
+     commitment verdict will not say "the thesis holds" while that flag is set.
+  4. **Intervals, not just p-values.** Every gap carries a 95% block-bootstrap
+     interval, and the verdict says **"inconclusive — underpowered"** instead of
+     "no separation" when a high p comes with an interval wide enough to contain
+     the effects already measured — the exact misread [KB-023] corrected.
+
+  De-pooling moved the headline: decisive n 731 → 666, BSS −0.112 → **−0.123**,
+  and the commitment baseline's net edge −0.109 → **−0.128**. The baseline was
+  being flattered, so the loosened arm's apparent gain got *larger* — which is
+  why the guardrail matters more than the filter.
+
+**WP-21.B.2 — Day-alternating assignment. ⏳ Next.** Assign the profile **per
+report-date** (deterministic alternation, or a seeded draw logged with the run)
+instead of switching a repo variable in blocks. The guardrail above will confirm
+it worked: the ⛔ block disappears once the two profiles share dates.
+
+- **Explicitly parked:** promoting `loosened` to default. The evidence cited for
+  it ([KB-011] commitment, [KB-022] separation) is confounded in the same way;
+  it waits for a clean read here.
+
+### WP-21.C — Conditional base rates into the prompt *(gated on WP-21.A)*
+
+Only if WP-21.A finds an edge. `load_accuracy_context()` already injects
+per-asset accuracy; extend it with the *conditional* base rate the numeric layer
+measures — e.g. "10Y has fallen 8% over 20d; historically that has been followed
+by +0.20 sd." This attacks the identified mechanism directly (give the model a
+base rate it cannot compute) instead of tuning commitment levers blindly, and it
+is the intended division of labour: the numeric layer finds the regularity, the
+LLM narrates and risk-flags around it.
+
+**Not started before WP-21.A reads.** Feeding the model a base rate that has not
+been validated on real history would simply relocate the problem.
+
+### WP-21.D — Pre-committed kill criterion for the directional product
+
+Mirrors the calibration bar already set in [KB-007] (BSS>0, ECE<0.05, n≥30) and
+the separation bar in [KB-022] (Bull−Neut > 0, ordering `aligned`).
+
+- **Cut the directional product** — stop publishing per-asset Bullish/Bearish
+  calls — if, after the WP-21.B clean A/B reaches n≥30 decisive calls per arm,
+  separation is still not `aligned` **and** BSS is still < 0.
+- **On a cut, the report does not end** — the fragility / risk-flag products
+  become the headline. They are the ones with validated out-of-sample skill
+  [KB-017/021], and `FRAGILITY_OR_MODE` already has the `log → show → active`
+  ladder to promote them.
+- Recording the criterion now is the point: it makes the decision deliberate
+  rather than something that happens by drift.
+
+### Phase 21 — execution order
+
+1. **WP-21.A** — numeric baseline (~1 week, zero LLM cost, parallel-safe).
+2. **WP-21.B** — arm-filtered readers (✅ done) then day-alternating assignment
+   (independent of A; the earlier it starts accumulating, the sooner it reads).
+3. **WP-21.C** — base rates into the prompt (gated on A showing edge).
+4. **WP-21.D** — read the criterion when B reaches n; decide.
+
+**Deliberately de-prioritised: the Kimi ensemble arm.** It is a *confidence*
+fix layered on a signal that [KB-022] says points the wrong way, and fixing
+sizing on a bad signal is second-order. It is cron'd and cheap — leave it
+accumulating, do not spend attention on it until the direction question is
+settled.

@@ -7,8 +7,19 @@ per-window accuracy, and writes:
   - results/accuracy_summary.json             (copy for human review / vault)
   - results/accuracy_report.md                (human-readable markdown)
 
+Arm scoping
+-----------
+Several prediction arms (`market`, `exogenous`, `kimi`) write score files, and
+sibling arms share a `report_date`. The headline numbers are therefore scoped to
+the **production `market` arm** — pooling three different systems into one
+"pipeline accuracy" figure describes none of them, and joining on the date mixes
+their metadata outright [KB-023]. The other arms are not discarded: they get
+their own rows in the arm A/B (`calibration_by_arm`), which is the one place a
+cross-arm comparison belongs.
+
 Usage:
-    python .macro-assist/summarize_accuracy.py
+    python .macro-assist/summarize_accuracy.py            # market arm
+    python .macro-assist/summarize_accuracy.py --arm all  # pool every arm
 """
 
 import json
@@ -17,7 +28,16 @@ from collections import defaultdict
 from datetime import date
 from pathlib import Path
 
-from bias_separation import bias_separation, separation_md_lines
+from bias_separation import (
+    PRIMARY_ARM,
+    arm_composition,
+    arm_of,
+    bias_separation,
+    date_overlap,
+    filter_arm,
+    profile_of,
+    separation_md_lines,
+)
 from versions import MIN_FEEDBACK_VERSION, PIPELINE_VERSION
 
 # ---------------------------------------------------------------------------
@@ -257,17 +277,24 @@ def calibration(scores: list[dict], min_version: str | None = None) -> dict:
     return {"windows": per_window, "overall": _brier_and_reliability(all_items)}
 
 
-def calibration_by(scores: list[dict], field: str) -> dict:
+def calibration_by(scores: list[dict], field: str,
+                   resolve=None) -> dict:
     """Overall calibration split by any score-file frontmatter field.
 
     Returns {value: <overall calib>} for each distinct value of `field` that has
     scored data, ignoring the 'unknown'/absent bucket (pre-experiment notes).
     The A/B readout for "does this arm calibrate better?".
+
+    `resolve` overrides how a report's value is read, for fields where *absent*
+    carries meaning rather than being a gap — a missing `profile` is the control
+    arm, not an unknown one, and dropping it left the profile A/B with a single
+    row and nothing to compare (see `profile_of`).
     """
+    get = resolve or (lambda s: s.get(field))
     arms: dict = {}
-    values = sorted({s.get(field) for s in scores if s.get(field) not in (None, "unknown")})
+    values = sorted({get(s) for s in scores if get(s) not in (None, "unknown")})
     for v in values:
-        subset = [s for s in scores if s.get(field) == v]
+        subset = [s for s in scores if get(s) == v]
         c = calibration(subset)["overall"]
         if c:
             arms[v] = c
@@ -275,13 +302,35 @@ def calibration_by(scores: list[dict], field: str) -> dict:
 
 
 def calibration_by_floor(scores: list[dict]) -> dict:
-    """Calibration split by the WP-16.B.1 conviction-floor arm (on/off)."""
-    return calibration_by(scores, "conviction_floor")
+    """Calibration split by the WP-16.B.1 conviction-floor arm (on/off).
+
+    Scoped to the production arm: only it ever ran the floor experiment, so
+    pooling would compare `floor=off` against a mixture of pipelines.
+    """
+    return calibration_by(filter_arm(scores, PRIMARY_ARM), "conviction_floor")
 
 
 def calibration_by_profile(scores: list[dict]) -> dict:
-    """Calibration split by WP-16 run profile (control/loosened) — the headline A/B."""
-    return calibration_by(scores, "profile")
+    """Calibration split by WP-16 run profile (control/loosened) — the headline A/B.
+
+    Scoped to the production arm for the same reason as `calibration_by_floor`.
+    Note that this split is currently **confounded with the market period** —
+    see `profile_confound` and [KB-023] before reading it as an A/B.
+    """
+    return calibration_by(filter_arm(scores, PRIMARY_ARM), "profile",
+                          resolve=profile_of)
+
+
+def profile_confound(scores: list[dict]) -> dict:
+    """Report-date overlap between run profiles, within the production arm.
+
+    A profile A/B is only readable if both arms saw the same markets. Switching
+    `MACRO_PROFILE` in one block produced two profiles with **zero** shared
+    dates, making profile and market period the same partition [KB-023]; the
+    numbers looked like a result and were not one. This surfaces the overlap so
+    the next reader does not have to rediscover it.
+    """
+    return date_overlap(filter_arm(scores, PRIMARY_ARM), "profile")
 
 
 def calibration_by_arm(scores: list[dict]) -> dict:
@@ -375,12 +424,19 @@ def commitment_stats(scores: list[dict]) -> dict | None:
 def commitment_by_arm(scores: list[dict]) -> dict:
     """Commitment stats split as loosened vs baseline (everything not loosened).
 
-    There is no contemporaneous control arm (the daily var runs one profile at a
-    time), so 'baseline' pools the pre-loosened / KB-007-era population — the
-    honest comparator for 'does committing less avoid bad calls?'.
+    Scoped to the production arm — 'baseline' previously pooled every non-loosened
+    file, which swept the `kimi` and `exogenous` arms into the comparator [KB-023].
+
+    The deeper problem this cannot fix: the two profiles share **zero** report-dates,
+    because `MACRO_PROFILE` was switched in one block. 'baseline' is therefore also
+    'March-June' and 'loosened' is also 'July-August', and the assets that drove the
+    original result reversed sign between those periods. Read `profile_confound()`
+    alongside this, and treat the split as descriptive until WP-21.B assigns the
+    profile per report-date.
     """
-    loosened = [s for s in scores if s.get("profile") == "loosened"]
-    baseline = [s for s in scores if s.get("profile") != "loosened"]
+    scoped = filter_arm(scores, PRIMARY_ARM)
+    loosened = [s for s in scoped if s.get("profile") == "loosened"]
+    baseline = [s for s in scoped if s.get("profile") != "loosened"]
     out: dict = {}
     b = commitment_stats(baseline)
     l = commitment_stats(loosened)
@@ -408,9 +464,16 @@ def write_json(
     calib_by_arm: dict | None = None,
     commitment: dict | None = None,
     separation: dict | None = None,
+    arm: str = PRIMARY_ARM,
+    composition: dict | None = None,
+    confound: dict | None = None,
 ) -> None:
     output = {
         "generated_at":        date.today().isoformat(),
+        # Every number below describes this arm alone (see "Arm scoping").
+        "arm":                 arm,
+        "arm_composition":     composition or {},
+        "profile_confound":    confound or {},
         "n_reports_total":     n_reports,
         "windows":             stats,
         "min_feedback_version": MIN_FEEDBACK_VERSION,
@@ -438,7 +501,13 @@ def write_json(
             "bias_separation asks whether realized forward returns differ by stated bias - "
             "the regime-robust discrimination test the accuracy score cannot answer while "
             "the market trends; z is in per-(window, asset) standard deviations and p comes "
-            "from a block permutation test that respects overlapping evaluation windows."
+            "from a block permutation test that respects overlapping evaluation windows. "
+            "arm scopes every headline number to one prediction system (default 'market'); "
+            "arm_composition lists what else was scored and excluded, and calibration_by_arm "
+            "is the only cross-arm comparison. profile_confound reports report-date overlap "
+            "between run profiles - a pair with n_shared=0 means the profile A/B is "
+            "indistinguishable from a before/after market comparison and must not be read "
+            "as an A/B (KB-023)."
         ),
     }
     payload = json.dumps(output, indent=2)
@@ -489,7 +558,8 @@ def _ab_md_lines(title: str, by_value: dict) -> list[str]:
 
 def _calibration_md_lines(calib: dict, by_floor: dict | None = None,
                           by_profile: dict | None = None,
-                          by_arm: dict | None = None) -> list[str]:
+                          by_arm: dict | None = None,
+                          confound: dict | None = None) -> list[str]:
     """Render the Brier / reliability-diagram section as markdown lines."""
     lines = [
         "---",
@@ -517,9 +587,12 @@ def _calibration_md_lines(calib: dict, by_floor: dict | None = None,
         lines += ["*No decisive directional calls scored yet.*", ""]
         return lines
 
-    lines += _ab_md_lines("Profile A/B (WP-16 — control vs loosened)", by_profile or {})
+    profile_ab = _ab_md_lines("Profile A/B (WP-16 — control vs loosened)", by_profile or {})
+    lines += profile_ab
+    if profile_ab:
+        lines += _confound_warning_lines(confound, "The profile A/B")
     lines += _ab_md_lines("Conviction-floor A/B (WP-16.B.1)", by_floor or {})
-    lines += _ab_md_lines("Exogenous A/B (Phase 19 — market vs exogenous)", by_arm or {})
+    lines += _ab_md_lines("Arm A/B (market vs exogenous vs kimi)", by_arm or {})
 
     for window in WINDOWS:
         c = calib.get("windows", {}).get(window)
@@ -544,8 +617,38 @@ def _calibration_md_lines(calib: dict, by_floor: dict | None = None,
     return lines
 
 
-def _commitment_md_lines(by_arm: dict) -> list[str]:
-    """Render the commitment metric (loosened vs baseline) as markdown."""
+def _confound_warning_lines(confound: dict | None, what: str) -> list[str]:
+    """A ⛔ block for every profile pair that shares no report-dates.
+
+    `what` names the comparison being warned about, so the same guardrail can sit
+    under the calibration A/B and under the commitment table without either
+    reading as a copy of the other.
+    """
+    lines: list[str] = []
+    for pair, info in (confound or {}).items():
+        if not info.get("confounded"):
+            continue
+        a, b = pair.split("|")
+        span_a = " → ".join(info["span_a"]) if info.get("span_a") else "?"
+        span_b = " → ".join(info["span_b"]) if info.get("span_b") else "?"
+        lines += [
+            f"> ⛔ **{what} is confounded: `{a}` and `{b}` share zero report-dates** "
+            f"(`{a}`: {span_a}; `{b}`: {span_b}). `MACRO_PROFILE` was switched in one "
+            "block, so the profile split *is* a time split — the rows differ by market "
+            "period as much as by prompt. Assign the profile per report-date "
+            "(alternating) before reading this as an A/B [KB-023, WP-21.B].",
+            "",
+        ]
+    return lines
+
+
+def _commitment_md_lines(by_arm: dict, confound: dict | None = None) -> list[str]:
+    """Render the commitment metric (loosened vs baseline) as markdown.
+
+    `confound` is the `profile_confound()` overlap map. When the two profiles
+    share no report-dates the comparison is a before/after on the market, not an
+    A/B, and the verdict line says so instead of crediting the arm [KB-023].
+    """
     if not by_arm:
         return []
     lines = [
@@ -588,19 +691,27 @@ def _commitment_md_lines(by_arm: dict) -> list[str]:
         commit_delta = l["commitment_rate"] - b["commitment_rate"]
         edge_delta   = l["net_decisive_edge"] - b["net_decisive_edge"]
         wrong_delta  = l["wrong_decisive_rate"] - b["wrong_decisive_rate"]
-        verdict = (
-            "loosened commits less **and** bleeds less — the thesis holds so far"
-            if commit_delta < 0 and wrong_delta < 0 and edge_delta >= 0
-            else "loosened commits less but the edge did not improve — watch"
-            if commit_delta < 0
-            else "loosened is not committing less — unexpected"
-        )
+        blocked = [k for k, v in (confound or {}).items() if v.get("confounded")]
+        if blocked:
+            verdict = (
+                "**not attributable to the arm** — the profiles share no dates, so this "
+                "is a before/after on the market as much as an A/B"
+            )
+        else:
+            verdict = (
+                "loosened commits less **and** bleeds less — the thesis holds so far"
+                if commit_delta < 0 and wrong_delta < 0 and edge_delta >= 0
+                else "loosened commits less but the edge did not improve — watch"
+                if commit_delta < 0
+                else "loosened is not committing less — unexpected"
+            )
         lines += [
             "",
             f"Loosened vs baseline: commit-rate {commit_delta:+.0%}, "
             f"wrong-decisive {wrong_delta:+.0%}, net edge {edge_delta:+.3f} — _{verdict}._",
             "",
         ]
+        lines += _confound_warning_lines(confound, "The commitment A/B")
         l_bear_share = l.get("bearish_share_of_directional")
         if l_bear_share is not None and l["n_directional"] >= 10 and l_bear_share < 0.15:
             lines += [
@@ -626,6 +737,9 @@ def write_markdown(
     n_feedback: int = 0,
     version_stats: dict | None = None,
     calib: dict | None = None,
+    arm: str = PRIMARY_ARM,
+    composition: dict | None = None,
+    confound: dict | None = None,
     calib_by_floor: dict | None = None,
     calib_by_profile: dict | None = None,
     calib_by_arm: dict | None = None,
@@ -636,8 +750,13 @@ def write_markdown(
     lines = [
         "# Prediction Accuracy Report",
         "",
-        f"*Generated: {today} | Reports scored: {n_reports} "
+        f"*Generated: {today} | Arm: `{arm}` | Reports scored: {n_reports} "
         f"| Feedback-loop reports ({MIN_FEEDBACK_VERSION}+): {n_feedback}*",
+        "",
+        f"> **Scope: the `{arm}` arm only.** Several prediction arms write score files",
+        "> and sibling arms share a `report_date`, so a pooled figure would average",
+        "> different systems and a date-keyed join would mix their metadata outright",
+        "> [KB-023]. Cross-arm comparison lives in the arm A/B further down.",
         "",
         "> Accuracy scale: 0% = always wrong, 50% = random, 100% = always right.",
         "> **Directional accuracy** excludes flat moves and Neutral calls — it is the",
@@ -647,6 +766,19 @@ def write_markdown(
         "> (adversarial review era). Earlier reports appear below for historical reference.",
         "",
     ]
+
+    if composition and len(composition) > 1:
+        lines += [
+            "| Arm | reports | resolved calls | span | in this report |",
+            "|-----|--------:|---------------:|------|:--------------:|",
+        ]
+        for a, c in sorted(composition.items()):
+            span = f"{c['first_date']} → {c['last_date']}" if c["first_date"] else "—"
+            lines.append(
+                f"| `{a}` | {c['n_reports']} | {c['n_calls']} | {span} | "
+                f"{'✅' if a == arm else '—'} |"
+            )
+        lines.append("")
 
     for window in WINDOWS:
         wdata = stats.get(window)
@@ -737,8 +869,9 @@ def write_markdown(
 
     # Calibration — Brier / reliability (WP-16.B.2)
     if calib:
-        lines += _calibration_md_lines(calib, calib_by_floor, calib_by_profile, calib_by_arm)
-        lines += _commitment_md_lines(commitment or {})
+        lines += _calibration_md_lines(calib, calib_by_floor, calib_by_profile,
+                                       calib_by_arm, confound)
+        lines += _commitment_md_lines(commitment or {}, confound)
 
     # Bias separation - does the stated call predict the realized move?
     lines += separation_md_lines(separation)
@@ -828,14 +961,32 @@ def print_summary(stats: dict, n_reports: int, calib: dict | None = None,
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    import argparse
+
+    ap = argparse.ArgumentParser(description="Aggregate prediction scores.")
+    ap.add_argument("--arm", default=PRIMARY_ARM,
+                    help=f"prediction arm for the headline stats (default {PRIMARY_ARM!r}); "
+                         "'all' pools every arm, which averages different systems together")
+    args = ap.parse_args()
+    arm = None if args.arm == "all" else args.arm
+
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     if not SCORES_DIR.exists() or not any(SCORES_DIR.glob("*.json")):
         print("No score files found. Run score_predictions.py first.")
         return
 
-    scores = load_scores()
-    print(f"Loaded {len(scores)} score file(s).")
+    all_scores = load_scores()
+    composition = arm_composition(all_scores)
+    # The headline describes ONE system. Cross-arm comparison lives in the arm
+    # A/B below, which is handed the full set on purpose.
+    scores = filter_arm(all_scores, arm)
+    print(f"Loaded {len(all_scores)} score file(s); "
+          f"{len(scores)} in arm {args.arm!r}.")
+    if len(composition) > 1:
+        for a, c in sorted(composition.items()):
+            print(f"    {a:<12} {c['n_reports']:>4} reports  "
+                  f"{c['first_date']} → {c['last_date']}")
 
     min_vk = _version_key(MIN_FEEDBACK_VERSION)
     n_feedback = sum(
@@ -866,16 +1017,26 @@ def main() -> None:
     calib_feedback   = calibration(scores, min_version=MIN_FEEDBACK_VERSION)
     calib_by_floor   = calibration_by_floor(scores)
     calib_by_profile = calibration_by_profile(scores)
-    calib_by_arm     = calibration_by_arm(scores)
+    # The arm A/B is the one comparison that must see every arm.
+    calib_by_arm     = calibration_by_arm(all_scores)
     commitment       = commitment_by_arm(scores)
-    separation       = bias_separation(scores)
+    separation       = bias_separation(all_scores, arm=arm)
+    confound         = profile_confound(scores)
+
+    blocked = [k for k, v in confound.items() if v.get("confounded")]
+    if blocked:
+        print(f"  ⛔ profile A/B is confounded — no shared dates: {', '.join(blocked)}")
 
     print_summary(stats, len(scores), calib, separation)
     write_json(stats, len(scores), feedback_stats, n_feedback, version_stats,
                calib, calib_feedback, calib_by_floor, calib_by_profile, calib_by_arm,
-               commitment, separation)
+               commitment, separation, arm=args.arm, composition=composition,
+               confound=confound)
     write_markdown(stats, len(scores), n_feedback, version_stats, calib,
-                   calib_by_floor, calib_by_profile, calib_by_arm, commitment, separation)
+                   arm=args.arm, composition=composition, confound=confound,
+                   calib_by_floor=calib_by_floor, calib_by_profile=calib_by_profile,
+                   calib_by_arm=calib_by_arm, commitment=commitment,
+                   separation=separation)
 
 
 if __name__ == "__main__":
