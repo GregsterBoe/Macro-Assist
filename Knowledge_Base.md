@@ -1281,3 +1281,99 @@ composite monitor.
   `absorption_ratio`), `fetch_sector_etfs` in `fragility_backtest.py` (peer of
   `fetch_histories`); the harness imports both from there. The stated design — validated
   inputs graduate out of the `input_testing` harness into the library — is now realised.
+
+## KB-022 — The bias label separates forward returns, but orders them BACKWARDS (bull-market confound isolated)
+
+**Date:** 2026-09-03 · **Branch:** `claude/llm-prediction-quality-eval-3dwzlt` ·
+**Harness:** `.macro-assist/bias_separation.py` (new), rendered into
+`results/accuracy_report.md`, over 128 scored reports / 2012 resolved calls
+spanning 2026-03-13 → 2026-08-21.
+
+**The problem this answers.** In a sustained bullish phase the accuracy score
+cannot distinguish skill from drift: Neutral is hard-coded to 0.5 and a Bullish
+call scores 1.0 whenever the market happens to rise. A permanently-bullish model
+looks competent while carrying zero information. The regime-robust question is
+**discrimination**, not accuracy: *conditional on what the model said, what did
+the market actually do?* If Bullish and Neutral calls are followed by the same
+return distribution, the label is noise regardless of what the scoreboard says.
+
+**What we measured.** Every resolved call contributes its realized `pct_change`
+at T+5/T+10/T+20 (sign convention is uniform — positive is always the direction
+a Bullish call claims, 10Y yield included). Returns are standardized within
+(window, asset) before pooling, because Bitcoin moves ~10% in a fortnight and
+DXY ~0.5%; pooling raw percentages would just measure which assets got called
+Bullish. Significance uses a **block permutation test** (21-day blocks, 2000
+draws): daily reports with a T+20 horizon overlap almost completely, so
+permuting individual labels would treat ~2000 dependent observations as
+independent and manufacture absurd p-values.
+
+**Headline — the buckets are NOT the same, and the ordering is inverted:
+Bearish > Neutral > Bullish at every horizon, widening with horizon.**
+
+| Window | n | Bullish z | Neutral z | Bearish z | Bull−Neut | p | Bear−Bull | p |
+|---|---|---|---|---|---|---|---|---|
+| All pooled | 2012 | **−0.211** | +0.028 | **+0.236** | −0.239 | 0.001 | **+0.448** | 0.001 |
+| T+5 | 754 | −0.169 | +0.063 | +0.072 | −0.232 | 0.013 | +0.240 | 0.048 |
+| T+10 | 692 | −0.189 | +0.015 | +0.248 | −0.205 | 0.040 | +0.437 | 0.001 |
+| T+20 | 566 | −0.298 | −0.005 | +0.411 | −0.293 | 0.009 | **+0.709** | 0.001 |
+
+*z is in standard deviations of that asset's own move over that horizon.*
+
+So the answer to "is T+5/10/20 different when it calls Bullish vs Neutral?" is
+**yes, materially — and it gets worse with horizon.** Bullish out-returned
+Neutral in only **4 of 18** asset×window cells. The monotone widening of
+Bear−Bull (0.24 → 0.44 → 0.71 sd) is the most robust feature in the data.
+
+**Why the scoreboard hides it.** Mean score by bias: Bullish **0.457**, Neutral
+**0.500**, Bearish **0.386**. Neutral scores highest simply because it is pinned
+to 0.5 — the metric is structurally incapable of showing that Neutral periods
+were the ones with clean upside, or that Bearish calls preceded the *strongest*
+rallies. The separation only becomes visible once you look at realized returns
+conditional on the label.
+
+**Premise correction.** The pipeline is not mostly-bullish in the aggregate:
+across all resolved calls it is **Neutral 54.4% / Bullish 27.4% / Bearish 18.1%**.
+The bullish tilt is real but lives *inside* the directional subset (60.2% of
+committed calls are Bullish) and is heavily asset-specific (Gold 64% Bullish;
+DXY only 5% Bullish vs 42% Bearish).
+
+**Caveats — what is robust and what is not.** The Bear-vs-Bull ordering survives
+every cut; the **Bull-vs-Neutral gap specifically does not**:
+
+| Cut | Bull−Neut | p |
+|---|---|---|
+| All | −0.239 | 0.001 |
+| Excl. Bitcoin & WTI | −0.086 | 0.19 |
+| S&P + 10Y only | −0.308 | 0.006 |
+| First half (Mar–Jun) | −0.325 | 0.000 |
+| Second half (Jun–Aug) | −0.075 | 0.28 |
+
+(a) Much of the pooled Bull−Neut gap is carried by **WTI and Bitcoin**, the two
+highest-volatility assets, where Bullish calls were catastrophic (WTI Bullish
+−6.02% mean vs Bearish +4.72%; Bitcoin Bullish −3.83% vs Neutral +3.72%).
+(b) It is **concentrated in the first half of the sample** and largely absent
+after June — consistent with a handful of bad commodity/crypto calls in one
+stretch rather than a stable law. (c) With 109 report-dates and 21-day blocks
+there are only ~5 independent blocks, so these p-values are indicative, not
+confirmatory. (d) This is *not* a licence to fade the model: the inversion is
+strongest exactly where the model commits on the most volatile assets, which is
+also where a reversed strategy would carry the most risk.
+
+**Relationship to KB-007.** KB-007 showed the *confidence number* is
+anti-informative (BSS<0). This is the sibling result one level up: the *bias
+label itself* is anti-informative in the same direction. Together they say the
+problem is not miscalibrated sizing on top of a good signal — the directional
+signal is itself pointing the wrong way, and confidence amplifies it. Notably
+the low-confidence Bullish calls are the worst (T+20 Bullish z: conf<55 **−0.96**,
+conf 55–65 −0.04, conf≥65 −0.01), i.e. the model's own hedging flag is where the
+damage concentrates.
+
+**Why it matters / how to apply.** Discrimination is now the regime-robust
+companion metric to Brier: accuracy can drift with the market, but "do the
+buckets separate, and in which order?" cannot. Decision metric: **Bull−Neut > 0
+with the ordering `aligned`** is the target; the current `inverted` verdict means
+no directional output should be sized up until it flips. Concretely this
+strengthens the WP-16.B.1 case — the loosened (abstain-capable) arm should push
+Bullish calls back toward the Neutral bucket, and this metric will show whether
+the calls it *stops* making were the value-destroying ones. Re-check the
+per-asset table before reading anything as a contrarian signal.
