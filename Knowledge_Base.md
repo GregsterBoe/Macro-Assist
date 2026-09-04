@@ -1600,3 +1600,185 @@ the arm under analysis; an earlier hand-run of this check standardized across al
 arms first and reported Bull−Neut −0.266 / Bear−Bull +0.485. The shipped,
 reproducible figures are **−0.233 / +0.424** — same sign, same conclusion, and
 these are the ones to quote.
+
+---
+
+## KB-024 — Direction is not learnable from this payload by ANY model class: the numeric baseline loses to `always_bullish` and inverts the same way the LLM does (WP-21.A)
+
+**Date:** 2026-09-04 · **Branch:** `claude/numerical-baseline-eval-4k1ouo` (harness),
+run on `output` · **Harness:** `.macro-assist/numeric_baseline.py` · **Artifact:**
+`numeric_baseline/numeric_baseline.{md,json}` on `origin/output`
+(commit `b3e4255`, the sample-aligned re-run — supersedes the 2026-09-03 first read).
+
+**The question under test.** Every prior measurement of the directional product
+was a measurement of *the LLM* ([KB-007] 36% decisive accuracy, BSS −0.195;
+[KB-011] commitment; [KB-022] inverted separation; [KB-023] the apparent repair
+is confounded). None of them could distinguish "this model is bad at the task"
+from "**this task is not doable from this payload**". WP-21.A asks the second
+question directly, with the LLM removed: can a small, regularised numeric model
+predict 5/10/20-day direction on these assets at all?
+
+**Design.** 18-year panel (2005-01-03 → 2026-09-04, 5,655 business days), 20
+features per asset (own-price + shared macro state), walk-forward expanding
+window, `min_train` 756 days, refit every 21 steps, **embargo = horizon + 1**
+trading days. Point-in-time discipline without ALFRED: **only never-revised
+inputs are eligible** (prices + daily market-observed FRED), each shifted one
+business day, enforced by a test. Two model classes — `strategy_ridge` and
+`strategy_gbm` — scored by the **production** readers (`score_call`,
+`_brier_and_reliability`, `bias_separation`), not bespoke ones, against
+`neutral` / `random_walk` / `always_bullish`. A planted-signal positive control
+proves the harness can detect an edge when one exists, so "no edge" cannot be a
+dead pipeline. Pre-committed bar in `verdict()`: n ≥ 30 decisive, decisive
+hit-rate > 0.52, **and** either BSS > 0 or an `aligned` separation ordering.
+
+**Sample alignment (the WP-21.A.2 fix, and why this run supersedes the first).**
+The 2026-09-03 read committed the [KB-023] error one level down: comparator
+calls keyed off *price availability*, so the comparators were scored on 78,656
+calls against the models' 75,414 — free extra sample for `always_bullish`, the
+benchmark the entire verdict turns on. `shared_call_keys` now intersects the
+(window, date, asset) triples across arms and `restrict_calls` clamps every arm
+to them. **All five arms below are scored on the same 75,432 calls over the same
+4,636 dates.** The fix moved the benchmark, not the conclusion:
+`always_bullish` 0.560 → **0.557** (61,073 decisive, down from 64,167);
+`random_walk` 0.500 → 0.498; both models unchanged to three decimals.
+
+### Headline — no edge, on the wrong side of the trivial benchmark
+
+| Arm | n decisive | decisive hit-rate | Brier | BSS | ECE | separation | verdict |
+|---|---|---|---|---|---|---|---|
+| `ridge` | 42,043 | 0.530 | 0.271 | **−0.087** | 0.119 | inverted | **no edge** |
+| `gbm` | 40,173 | 0.526 | 0.264 | **−0.059** | 0.103 | inverted | **no edge** |
+| `neutral` | 0 | n/a | n/a | n/a | n/a | n/a | abstains |
+| `random_walk` | 58,733 | 0.498 | 0.253 | −0.011 | 0.052 | inverted | no edge |
+| `always_bullish` | 61,073 | **0.557** | **0.247** | −0.000 | **0.007** | n/a | no edge |
+
+Both models fail the pre-committed bar on every clause, and they fail it in the
+worst available way: **`always_bullish` beats them on all four metrics
+simultaneously** — hit-rate (0.557 vs 0.530), Brier (0.247 vs 0.271), BSS
+(−0.000 vs −0.087) and calibration error (0.007 vs 0.119). A constant that
+carries no information outscores both fitted models. `ridge` does clear 0.52 on
+raw hit-rate, which is exactly why the bar demands more than that: in a drifting
+tape hit-rate is free, and the arm collecting it for free collects more.
+
+### The confidence signal is anti-informative, and monotonically so
+
+`ridge`, decisive calls binned by stated confidence:
+
+| bin | n | mean confidence | realized hit-rate | gap |
+|---|---|---|---|---|
+| 50–60 | 13,825 | 0.571 | 0.519 | −0.053 |
+| 60–70 | 18,242 | 0.638 | 0.536 | −0.102 |
+| 70–80 | 7,146 | 0.737 | 0.554 | −0.182 |
+| 80–90 | 2,009 | 0.835 | 0.509 | −0.326 |
+| **90–100** | **821** | **0.943** | **0.404** | **−0.538** |
+
+The most confident bin is the *only* one that resolves below a coin flip.
+`gbm` reproduces the shape on its own scale (80–90: 0.416; 90–100: 0.200,
+n=35). This is [KB-007]'s finding — confidence anti-informative — recovered
+from a model that has no narrative, no prose, and no incentive to sound
+decisive. **It is a property of the task, not of the writer.**
+
+### The inversion is the same inversion, and it strengthens with horizon
+
+`bearish_vs_bullish` — the gap the [KB-021]/[KB-022] convention says to quote,
+because its interval excludes zero (block bootstrap, 221 blocks):
+
+| Arm | window | bear−bull gap | p | 95% CI |
+|---|---|---|---|---|
+| `ridge` | overall | **+0.093** | 0.002 | **[+0.021, +0.165]** |
+| `ridge` | t5 | +0.027 | 0.214 | [−0.045, +0.102] |
+| `ridge` | t10 | +0.077 | 0.002 | [−0.008, +0.171] |
+| `ridge` | t20 | **+0.158** | 0.002 | **[+0.063, +0.259]** |
+| `gbm` | overall | **+0.080** | 0.002 | **[+0.012, +0.146]** |
+| `gbm` | t20 | +0.098 | 0.002 | [+0.010, +0.198] |
+
+Ordering is `inverted` for both model classes: what the model calls Bearish
+subsequently outperforms what it calls Bullish, and the effect roughly
+**sextuples from t5 to t20** in `ridge`. Do **not** quote
+`bullish_vs_neutral` (ridge −0.040, p=0.002) as the headline — its CI
+[−0.094, +0.015] spans zero, and `bias_separation`'s own docstring is explicit
+that the interval, not the p-value, is what separates a real effect from an
+underpowered one.
+
+### Why it inverts — the mechanism is legible and shared by both model classes
+
+Out-of-sample permutation drop (positive = the input was load-bearing) leaves
+almost nothing standing. In `ridge` exactly one input clears zero materially:
+`drawdown` (+0.003). In `gbm`: `drawdown` (+0.004), `vol_ratio` (+0.003),
+`curve_chg_20` / `ma_gap_50` / `sp_ret_20` (+0.002). The one input both models
+agree on is `drawdown`, and in `ridge` it carries a large negative coefficient
+(−0.121, sign stability 0.806) — i.e. **stress → bearish**. Stress mean-reverts
+at 10–20 days. So the models learn the only stable relationship in the panel,
+that relationship is a *contrarian* one, and calling it directionally at
+5–20 days is systematically backwards. That is the 90–100% bin at 0.404, and it
+is why the inversion grows with horizon.
+
+Note the honest reading of the permutation column: in `ridge` even `rv_20`
+(−0.009) and `vol_ratio` (−0.005) come back **negative** — shuffling them
+*helped*. Only `drawdown` survives. The 2026-09-03 first read described three
+load-bearing inputs; on the aligned sample the ridge arm has one.
+
+### The 20-day reversion errand closes negative
+
+`ret_20` was carried specifically to test it. `ridge`: coefficient −0.014 with
+**sign stability 0.778 — the lowest of all 20 inputs** — and permutation drop
+−0.001. `gbm`: split importance 0.020 (bottom quartile), permutation +0.000.
+The sign is nominally right and the effect is indistinguishable from noise.
+20-day reversion is not a usable standalone feature in this panel.
+
+### What this establishes, and what it does not
+
+**Establishes.** Three independent measurements now point the same way:
+
+| | what it measured | result |
+|---|---|---|
+| [KB-007] | the LLM's own calls, 441 decisive | 36% hit-rate, BSS −0.195, confidence anti-informative |
+| [KB-022] | the LLM's bias label vs forward returns | separation inverted |
+| **KB-024** | whether *any* small model can learn it | no — and it inverts the same way |
+
+Two excuses are now closed. "The task was hard, so of course the model
+struggled" is closed: the task was measured directly and no model class reaches
+a trivial constant. "A better model would fix it" is closed: two model classes,
+one linear and one non-linear, fail identically and for the same reason.
+
+**Does not establish.** WP-21.A tested *numeric* models on the numeric panel.
+An LLM can read news, narrative and positioning that a ridge regression cannot
+see, so this result alone does not prove direction is unlearnable from *all*
+information. What makes that objection non-load-bearing is that the LLM has
+already been measured directly on exactly this task with the full payload
+([KB-007], 441 decisive calls, 36%) and failed on its own terms. KB-024 does not
+replace that measurement — it removes the last excuse for it.
+
+This result also **does not** speak to the fragility / risk-flag products.
+Those were scored under a different protocol and passed it ([KB-017] leave-one-
+crisis-out CV, [KB-021] live parity); their honest limit is precision ≈0.32, not
+absence of skill.
+
+### Consequence
+
+The directional product (`Bias` + `Confidence`) is cut from the daily note as of
+**v1.6** — see WP-21.D in `Project_Development.md`. The conditional return
+distribution that already sits underneath each call is kept and published as the
+product; it is computed from data, carries its own n, and is not what failed.
+**WP-21.B (day-alternating prompt A/B) is closed as superseded**: it could only
+ever have ranked two prompt configurations against each other, and this result
+says the target is not there to be hit.
+
+**The way back in is left open and pre-registered.** If a bounded indicator
+search (WP-21.E) finds a feature family that clears this same bar on sealed
+holdout data, the column returns — with the base rate published underneath it.
+
+**Reproduce:**
+
+```bash
+# fetch the artifact
+git show origin/output:numeric_baseline/numeric_baseline.md
+git show origin/output:numeric_baseline/numeric_baseline.json
+
+# or re-run (manual Actions trigger; ~75k model calls, 3,601 refits)
+gh workflow run numeric_baseline.yml     # or the Actions UI
+python .macro-assist/numeric_baseline.py
+```
+
+Per-asset hit-rate/BSS lives in `scores.json.gz` on the 30-day CI artifact
+(stripped before publish) — pull it before **2026-10-03** if that cut is wanted.
