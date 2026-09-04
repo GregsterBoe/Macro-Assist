@@ -16,6 +16,12 @@ The suite is organised around the three ways this experiment could lie to us:
      (`test_run_on_random_walk_finds_no_edge`). A harness that only ever says "no
      edge" would look identical to the truth we suspect, which is exactly why the
      positive control is here.
+  4. **A second feature set that quietly changes the comparison.** The exogenous
+     arms add the Phase-19 SPF anchor to the harness, and three things have to
+     stay true for their rows to mean anything: the survey is invisible before it
+     is released, the exogenous columns contain no market input, and every arm is
+     still scored on one shared call set even though the feature sets become
+     usable on different dates. Section 8 asserts all three.
 
 Everything runs offline: the panel fixtures are synthetic, and only
 `build_panel` / feature / model code is exercised — no yfinance, no FRED.
@@ -729,3 +735,271 @@ def test_report_flags_arms_scored_on_different_samples():
         {"ridge": arm(1000), "always_bullish": arm(1400)}, {}, {"panel_rows": 10}))
     assert "⛔" in mismatched
     assert "KB-023" in mismatched
+
+
+# ---------------------------------------------------------------------------
+# 8. The exogenous arms — the Phase-19 anchor folded into the harness
+# ---------------------------------------------------------------------------
+
+_SPF_DIR = Path(nb.__file__).resolve().parent / "exogenous" / "example"
+
+
+@pytest.fixture
+def spf_series(noise_panel) -> dict:
+    """Synthetic quarterly surveys on the noise panel's window.
+
+    Synthetic on purpose: the real workbooks are exercised once, by
+    `test_spf_loader_reads_the_committed_workbooks`. Everything else needs
+    surveys whose release dates and values the test controls.
+    """
+    idx = noise_panel.index
+    stamps = pd.DatetimeIndex([idx[0] - pd.offsets.BDay(30), *idx[::63]])
+    rng = np.random.default_rng(21)
+
+    def survey(base: float, drift: float) -> pd.Series:
+        return pd.Series(base + np.cumsum(rng.normal(0, drift, len(stamps))), index=stamps)
+
+    out = {
+        "spf_10y":    survey(4.0, 0.15),
+        "spf_10y_q4": survey(4.2, 0.15),
+        "spf_3m":     survey(2.0, 0.10),
+        "spf_3m_q4":  survey(2.1, 0.10),
+        "spf_unemp":  survey(5.0, 0.10),
+    }
+    out[nb.SPF_ASOF_KEY] = pd.Series(
+        [float(ts.toordinal()) for ts in stamps], index=stamps
+    )
+    return out
+
+
+@pytest.fixture
+def exo_panel(noise_panel, spf_series) -> pd.DataFrame:
+    """The noise panel with the exogenous anchor attached."""
+    prices = {c.split(":", 1)[1]: noise_panel[c]
+              for c in noise_panel.columns if c.startswith("px:")}
+    fred = {c.split(":", 1)[1]: noise_panel[c]
+            for c in noise_panel.columns if c.startswith("macro:")}
+    return nb.build_panel(prices, fred, spf_series)
+
+
+def test_sep_is_excluded_because_fred_serves_the_current_vintage():
+    """The one input from the live branch that must never enter the panel.
+
+    `sep.py` reads FEDTARMD from FRED, which returns the *current* dot plot —
+    every SEP release rewrites the earlier target years. Reading it in a
+    walk-forward hands the model the Fed's later revisions, exactly the leak the
+    FRED eligibility rule exists to prevent. Encoded as an assertion so a future
+    "just add the dots" change has to argue with a red test.
+    """
+    from exogenous.sep import SEP_SERIES
+
+    for series_id in SEP_SERIES.values():
+        assert series_id in nb.EXCLUDED_EXOGENOUS_SERIES, (
+            f"{series_id} is used by the live exogenous branch but is not "
+            "listed as ineligible here"
+        )
+        assert series_id not in nb.FRED_INPUTS.values()
+    codes = {code for code, _ in nb.SPF_INPUTS.values()}
+    assert not codes & set(nb.EXCLUDED_EXOGENOUS_SERIES)
+
+
+def test_spf_columns_are_not_visible_before_the_survey_is_released(noise_panel):
+    """Point-in-time, at the panel level: no survey before its release date."""
+    idx = noise_panel.index
+    release = idx[400]
+    spf = {"spf_10y": pd.Series([3.0, 9.0], index=[idx[0] - pd.offsets.BDay(30), release])}
+    prices = {c.split(":", 1)[1]: noise_panel[c]
+              for c in noise_panel.columns if c.startswith("px:")}
+
+    panel = nb.build_panel(prices, {}, spf, lag_bdays=1)
+    col = panel["exo:spf_10y"]
+    assert col.loc[release] == 3.0, "the survey was readable on its own release day"
+    assert col.loc[idx[401]] == 9.0, "the survey was still invisible a day after release"
+
+
+def test_survey_revision_is_zero_when_a_survey_repeats_its_number():
+    """A repeated consensus is an update whose revision is 0.0, not a stale one.
+
+    The 3M consensus sat pinned through years of ZIRP. Detecting updates by
+    value change would read every one of those quarters as "no new survey" and
+    leave a months-old revision standing as if it were current.
+    """
+    idx = pd.bdate_range("2020-01-01", periods=9)
+    value = pd.Series([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.4, 1.4, 1.4], index=idx)
+    asof  = pd.Series([10.0, 10.0, 10.0, 20.0, 20.0, 20.0, 30.0, 30.0, 30.0], index=idx)
+
+    rev = nb._survey_revision(value, asof)
+    assert pd.isna(rev.iloc[0]), "no revision exists before a second survey"
+    assert rev.iloc[3] == pytest.approx(0.0), "an unchanged survey revises by zero"
+    assert rev.iloc[5] == pytest.approx(0.0), "the zero is held across the quarter"
+    assert rev.iloc[6] == pytest.approx(0.4)
+
+
+def test_survey_staleness_counts_from_the_survey_not_the_value():
+    idx = pd.bdate_range("2020-01-01", periods=6)
+    asof = pd.Series([10.0, 10.0, 10.0, 20.0, 20.0, 20.0], index=idx)
+
+    stale = nb._survey_staleness(asof, scale=3)
+    assert list(stale) == pytest.approx([0.0, 1 / 3, 2 / 3, 0.0, 1 / 3, 2 / 3])
+
+
+def test_exogenous_features_carry_no_market_input(exo_panel):
+    """The claim that makes this a different hypothesis, not a bigger model."""
+    exo = nb.build_features(exo_panel, "S&P 500", nb.FEATURES_EXO)
+    market = nb.build_features(exo_panel, "S&P 500", nb.FEATURES_MARKET)
+
+    assert not exo.empty
+    assert set(exo.columns).isdisjoint(market.columns), (
+        "an exogenous column also appears in the market panel"
+    )
+    assert all(c.startswith("spf_") for c in exo.columns)
+
+
+def test_the_survey_clock_is_never_a_model_feature(exo_panel):
+    """A raw date ordinal is the purest date proxy there is — it stays a panel
+    column and never reaches an estimator."""
+    exo = nb.build_features(exo_panel, "S&P 500", nb.FEATURES_EXO)
+    combined = nb.build_features(exo_panel, "S&P 500", nb.FEATURES_COMBINED)
+    for frame in (exo, combined):
+        assert nb.SPF_ASOF_KEY not in frame.columns
+        assert not any(c.endswith(nb.SPF_ASOF_KEY) for c in frame.columns)
+
+
+def test_combined_feature_set_is_exactly_the_union(exo_panel):
+    """`market_plus_exo` vs `ridge` is only a clean read if nothing else moved."""
+    market   = nb.build_features(exo_panel, "S&P 500", nb.FEATURES_MARKET)
+    exo      = nb.build_features(exo_panel, "S&P 500", nb.FEATURES_EXO)
+    combined = nb.build_features(exo_panel, "S&P 500", nb.FEATURES_COMBINED)
+
+    assert list(combined.columns) == list(market.columns) + list(exo.columns)
+    pd.testing.assert_frame_equal(combined[market.columns], market)
+
+
+def test_exogenous_features_are_strictly_backward_looking(exo_panel):
+    """The feature guard from section 1, applied to the new columns."""
+    base = nb.build_features(exo_panel, "S&P 500", nb.FEATURES_EXO)
+    cut = len(exo_panel) // 2
+
+    tampered = exo_panel.copy()
+    for col in tampered.columns:
+        if col.startswith("exo:"):
+            tampered.iloc[cut:, tampered.columns.get_loc(col)] *= 3.0
+    after = nb.build_features(tampered, "S&P 500", nb.FEATURES_EXO)
+
+    pd.testing.assert_frame_equal(base.iloc[:cut - 1], after.iloc[:cut - 1])
+
+
+def test_exogenous_arms_are_skipped_on_a_market_only_panel(noise_panel):
+    """No SPF in the panel means the arm cannot run — and must not run empty.
+
+    An arm that survives with zero calls empties the `shared_call_keys`
+    intersection and takes the entire table down with it, which would turn a
+    missing workbook into a silently unreadable report.
+    """
+    pytest.importorskip("sklearn")
+    calls, diagnostics = nb.run_models(
+        noise_panel, arms=nb.DEFAULT_ARMS, horizons={"t5": 5},
+        min_train=400, refit_every=200, with_importance=False,
+    )
+    assert set(calls) == set(nb.MARKET_ARMS)
+    for arm in nb.EXO_ARMS:
+        assert "skipped" in diagnostics[arm]
+    assert nb.shared_call_keys(calls), "the surviving arms still share a sample"
+
+
+def test_exogenous_arms_share_the_market_arms_sample(exo_panel):
+    """The KB-023 guarantee, across feature sets rather than across models.
+
+    The exogenous columns carry fewer NaNs than the market panel's 252-day
+    lookbacks, so an exo-only arm can start predicting earlier. Every arm must
+    still be judged on the calls all of them made.
+    """
+    pytest.importorskip("sklearn")
+    model_calls, _ = nb.run_models(
+        exo_panel, arms=nb.DEFAULT_ARMS, horizons={"t5": 5},
+        min_train=400, refit_every=200, with_importance=False,
+    )
+    assert set(model_calls) == set(nb.DEFAULT_ARMS)
+
+    keys = nb.shared_call_keys(model_calls)
+    comp = nb.comparator_calls(exo_panel, keys)
+    all_calls = nb.restrict_calls({**model_calls, **comp}, keys)
+
+    def key_set(calls):
+        return {(w, iso, asset)
+                for w, dated in calls.items()
+                for iso, per_asset in dated.items()
+                for asset in per_asset}
+
+    reference = key_set(all_calls[nb.ARM_RIDGE])
+    assert reference
+    for arm, calls in all_calls.items():
+        assert key_set(calls) == reference, (
+            f"{arm} was scored on a different sample than the market arms"
+        )
+
+
+def test_numeric_arm_names_never_collide_with_a_live_arm():
+    """[KB-023] was a pooling defect. A simulated arm sharing the live
+    `exogenous` tag is the same defect waiting for someone to pool the files."""
+    for live in ("market", "exogenous", "kimi"):
+        assert live not in nb.ARM_SPECS
+
+
+def test_every_arm_declares_a_known_feature_set_and_a_question():
+    for arm, spec in nb.ARM_SPECS.items():
+        assert spec.feature_set in nb.FEATURE_SETS
+        assert spec.question.strip(), f"{arm} has no stated question"
+    assert nb.MODEL_FITTERS.keys() == nb.ARM_SPECS.keys()
+
+
+def test_report_names_a_skipped_arm_rather_than_dropping_it():
+    """A blank row and an absent row read very differently to a human."""
+    evaluations = {
+        nb.ARM_RIDGE: {
+            "n_calls": 100,
+            "overall": {"decisive_hit_rate": 0.51, "mean_score": 0.5,
+                        "calibration": {"n": 100, "brier": 0.25,
+                                        "brier_skill_score": -0.01, "ece": 0.02}},
+            "windows": {},
+        }
+    }
+    meta = {"arms_skipped": {nb.ARM_EXO: "the panel carries no `exogenous` features"}}
+    md = "\n".join(nb.report_md_lines(evaluations, {}, meta))
+    assert nb.ARM_EXO in md
+    assert "skipped" in md
+
+
+def test_report_renders_the_increment_read_when_both_arms_ran():
+    def arm(hit, bss):
+        return {
+            "n_calls": 100,
+            "overall": {"decisive_hit_rate": hit, "mean_score": hit,
+                        "calibration": {"n": 100, "brier": 0.25,
+                                        "brier_skill_score": bss, "ece": 0.02}},
+            "windows": {},
+        }
+    evaluations = {nb.ARM_RIDGE: arm(0.520, -0.05),
+                   nb.ARM_MARKET_EXO: arm(0.530, -0.03)}
+    md = "\n".join(nb.report_md_lines(evaluations, {}, {}))
+    assert "Increment over the market panel" in md
+    assert "+0.010" in md and "+0.020" in md
+
+
+def test_spf_loader_reads_the_committed_workbooks():
+    """The one test that touches the real Philly Fed files — still offline."""
+    pytest.importorskip("openpyxl")
+    series = nb.load_spf_inputs(_SPF_DIR)
+
+    assert set(series) == set(nb.SPF_INPUTS) | {nb.SPF_ASOF_KEY}
+    for key, s in series.items():
+        assert not s.empty and s.index.is_monotonic_increasing, key
+    # The clock spans every variable's surveys, not just one workbook's.
+    stamps = set(series[nb.SPF_ASOF_KEY].index)
+    for key in nb.SPF_INPUTS:
+        assert set(series[key].index) <= stamps
+
+
+def test_missing_workbooks_leave_the_market_arms_runnable(tmp_path):
+    """A missing download degrades to the original WP-21.A run, not to a crash."""
+    assert nb.load_spf_inputs(tmp_path) == {}

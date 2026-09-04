@@ -660,7 +660,7 @@ Design commitments: structured contracts not prose; provenance + staleness on ev
    - *Build-log pruned 2026-08-20 (per its own "safe to prune" note). The layer-by-layer detail — L0 SPF/SEP adapters, L1 Haiku extractor, L2 Opus analyst, L3 synth, L4 arm-tagging, the FOMC auto-fetcher + weekly emitter, and the two passed calibration smokes — lives in the code (`exogenous/`), `exogenous/DESIGN.md`, and git history. The summary above + the integration-status block below are the doc-level record.*
 3. **WP-19.C — Generalise the branch contract.** Only after B works, extract the L0–L2 skeleton + brief schema so branch #2/#3 are cheap to add and the payload stays bounded.
 4. **WP-19.D — Add branches by measured value.** One at a time, each gated on "does it improve the scored output vs without it" (Phase-18 ablation discipline). Prune losers immediately.
-5. **WP-19.E — Integrate or kill.** A/B the exogenous arm vs market-only (via `profile`) on Brier/commitment. Outcome is one of: keep (as a context/risk section in the note), merge into the main pipeline, or kill.
+5. **WP-19.E — Integrate or kill. 🟡 RE-POINTED (2026-09-04) — the comparator was cut, so the gate moved.** As written, this A/B'd the exogenous arm against market-only on Brier/commitment. v1.6 cut market-only's directional calls [KB-024], so that comparator froze and the A/B became unreadable. Option (a) from WP-21.F is now taken: **the anchor is scored inside the WP-21.A numeric harness, against the same pre-committed bar.** Detail in the WP-19.E block at the end of this phase.
 
 **Kill criteria (pre-committed).** Cut the whole branch if, after 2–3 branches, it does not beat market-only on Brier/commitment. Watch-items: cost blow-up (mitigate via cheap extraction, caching, cadence-appropriate refresh — policy monthly, news daily); alt-data access/reliability (start free/scrapeable, treat paid feeds as later bets gated on the free ones); look-ahead bias in text backtests (point-in-time from day one).
 
@@ -672,6 +672,72 @@ The user opted to integrate now (autonomous weekly run) rather than manually dis
 - **Isolation guarantees (why it's safe to leave running):** the engine is one directory (`exogenous/`); the emission is its own workflow (never touches the market pipeline); the two shared hooks (`score_predictions` arm-keying, `summarize_accuracy.calibration_by_arm`) are **inert without exogenous data** (all notes default to `arm:"market"`, which keeps the bare `{date}.json` score name). Exogenous scores live in separate `{date}__exogenous.json` files.
 - **KILL PROCEDURE documented in `exogenous/DESIGN.md` §9.** Soft-kill = disable/delete `exo_weekly_emit.yml` (arm freezes, zero risk). Hard-kill = delete `exogenous/` + its 7 tests + both exo workflows + emitted `*-exogenous-macro.md` / `*__exogenous.json` + `grep -rn PHASE-19-EXO` the two inert hooks + drop `beautifulsoup4`. None of it alters the `market` arm.
 - **Validation still forward-only** (DESIGN §6.2): the go/no-go read (KB-012, DESIGN §5 bar) is weeks-to-months out; the early tell is the KB-011 commitment metric. If it doesn't clear the bar → hard-kill.
+- **SUPERSEDED 2026-09-04 — the arm is soft-killed and the weekly cron is gone.** `exo_weekly_emit.yml` is `workflow_dispatch`-only and the emission stage was removed from `pipeline.yml` (WP-21.F). Nothing above was deleted; what changed is that the branch no longer emits on a schedule, so "runs autonomously" and "weeks-to-months out" describe a clock that has stopped. The live scoring contract is paused; the branch's current test is WP-19.E below.
+
+---
+
+### WP-19.E — The anchor, scored in the numeric harness ✅ *(shipped 2026-09-04; the run is the open half)*
+
+**Why the work package changed shape.** WP-19.E was "A/B the exogenous arm vs
+market-only". v1.6 cut market-only's directional calls, so there is no live
+comparator left to A/B against — the gate did not fail, it became **unreadable**.
+WP-21.F named two ways back and this is **(a)**: re-point the gate at the WP-21.A
+benchmark, which [KB-024] shows is a genuinely hard bar rather than a formality.
+
+**What was built.** `numeric_baseline.py` now carries two more arms, and they ask
+two different questions:
+
+| arm | inputs | question |
+|---|---|---|
+| `exogenous_spf` | SPF consensus only — no price, no market input | does the non-market anchor carry direction on its own? |
+| `market_plus_exo` | the WP-21.A market panel **plus** those columns | does the anchor add anything on top of it? (read against `ridge`) |
+
+Seven features, all derived from the Philadelphia Fed SPF median-level workbooks
+already committed as `exogenous/example/` fixtures: the consensus curve
+(`spf_curve`), the consensus path at four quarters out (`spf_10y_path`,
+`spf_policy_path`), the survey-to-survey revisions (10Y / 3M / unemployment), and
+a staleness clock. Levels are deliberately excluded — over two decades a trending
+level is a date proxy, the same reason `macro_features` omits the 10Y level.
+
+**Why this is a real test and not a fifth arm for its own sake.** Everything the
+harness already guarantees now covers the anchor too: the embargo, the shared
+call set, the production readers, and the pre-committed `verdict()` bar. The
+exogenous features carry fewer NaNs than the market panel's 252-day lookbacks, so
+an exo-only arm can start predicting earlier — `shared_call_keys` intersects
+across feature sets, so it earns no hit-rate for starting sooner and
+`always_bullish` gets no free sample either. That is the [KB-023] error one level
+down, and it is asserted by test.
+
+**What is deliberately NOT in it — read this before reading a null.**
+- **The SEP dot plot.** FRED serves the *current* vintage of a projection path
+  that every SEP release rewrites, so a walk-forward reading it would see the
+  Fed's later revisions. `sep.py` says so in its own point-in-time note, and
+  WP-19.B's early read already found the SPF-vs-SEP gap un-backtestable for the
+  same reason. **The SPF-vs-SEP gap therefore stays a live-only signal** — and it
+  is half the two-layer bet. `EXCLUDED_EXOGENOUS_SERIES` holds the exclusion as a
+  checked fact rather than a comment.
+- **The LLM layers** (L1 extract / L2 analyst). DESIGN §6.2: those models were
+  trained on the dated FOMC text they would be reading, so a historical backtest
+  of them is leakage-prone by construction. Nothing in the harness reads a
+  document.
+
+**So what a null here would and would not close.** It would close *the SPF anchor
+as a directional input*, generalising WP-19.B's leakage-free early read (which
+found the SPF 10Y level forecast had no positive directional skill — 40% hit at
+1Q, mildly contrarian) from one asset and one quarterly horizon to six assets at
+t5/t10/t20, on the same sample and bar as every other arm. It would **not** close
+the expectations-gap mechanism, which lives in the SPF-vs-SEP divergence and in
+FOMC communication drifting from a fixed anchor — neither of which this can test.
+Say that plainly when the result is written up; the honest scope of a negative is
+the thing most easily lost between a report and a KB entry.
+
+**Cost.** Zero LLM spend, no new secret, no new network dependency — the
+workbooks are in the repo. Two ridge arms on the existing panel.
+
+**Status.** Harness shipped and tested (16 new tests; the whole suite green). The
+open half is the run itself: `Numeric Directional Baseline` on the Actions tab
+(`exogenous: true`, the default), then read the two rows against the comparators
+and write the result up as a KB entry. Nothing blocks on it.
 
 ---
 
@@ -883,6 +949,13 @@ run — see "Status" below.
   turned a research sweep into a coffee break.
 
 **Status: run, read, and written up → [KB-024]. ✅ WP-21.A is closed.**
+
+*The harness outlived the work package.* It is now the repo's general answer to
+"is there directional signal in these inputs?", and WP-19.E added the Phase-19
+exogenous anchor to it as two more arms (2026-09-04). WP-21.E's indicator search
+is meant to run through the same door. What must not drift: the pre-committed
+bar, the shared call set, and the rule that a new input has to be unrevised or it
+does not enter the panel.
 
 Two runs exist and only the second counts. The 2026-09-03 first read scored the
 comparators on 78,656 calls against the models' 75,414 — the [KB-023] error one
@@ -1143,6 +1216,11 @@ Two live ways back, neither taken here:
   expectations gap itself would be the coherent product.
 
 **(a) is the cheaper read; (b) is the better product.** Deferred to Phase 19.
+
+**Update 2026-09-04 — (a) is taken.** The SPF anchor now runs as two arms inside
+the WP-21.A harness (`exogenous_spf`, `market_plus_exo`), scored on the same
+sample against the same pre-committed bar. See **WP-19.E**. (b) is still open and
+is still the better product.
 
 ### WP-21.G — Wind down the scoring loop ✅ *(2026-09-04)*
 

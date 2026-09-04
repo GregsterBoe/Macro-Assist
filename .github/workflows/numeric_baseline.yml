@@ -1,10 +1,16 @@
-name: Numeric Directional Baseline (WP-21.A)
+name: Numeric Directional Baseline (WP-21.A / WP-19.E)
 
 # The learnability test. Fits ridge + a small GBM walk-forward on the pipeline's
 # own numeric inputs and scores them, on the LLM's own metrics, against neutral /
 # random-walk / always-bullish. Zero LLM spend and no live A/B is touched — the
 # simulated score files are written to results/numeric_baseline/, never to
 # results/scores/.
+#
+# Since WP-19.E it also carries the two exogenous arms: the Phase-19 SPF
+# consensus anchor alone, and the market panel plus that anchor. Both read the
+# median-level workbooks committed under exogenous/example/, so they need no
+# extra secret and no extra network — set `exogenous: false` to reproduce the
+# original market-only WP-21.A run.
 #
 # MANUAL ONLY. This is a research measurement, not a recurring job: the run takes
 # tens of minutes and its output is read once into a Knowledge Base entry. Trigger:
@@ -32,6 +38,10 @@ on:
         description: "Refit cadence in prediction steps"
         type: string
         default: "21"
+      exogenous:
+        description: "Include the Phase-19 SPF anchor arms (exogenous_spf, market_plus_exo)"
+        type: boolean
+        default: true
       publish:
         description: "Commit the report to the output branch"
         type: boolean
@@ -83,6 +93,7 @@ jobs:
             --refit-every "${{ inputs.refit_every }}" \
             --save-panel "${RUNNER_TEMP}/numeric_panel.csv" \
             --emit-scores \
+            ${{ inputs.exogenous && '' || '--no-exogenous' }} \
             ${{ inputs.windows && format('--windows {0}', inputs.windows) || '' }}
           echo "::endgroup::"
 
