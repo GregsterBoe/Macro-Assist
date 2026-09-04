@@ -46,7 +46,7 @@ the Phase-19 exogenous anchor has now been folded as two arms (WP-19.E)._
 ### Fragility shadow clock ⏸
 - **State:** live computation validated sane; 20-trading-day gate met, but the window was benign — **never fired Elevated live.** Held at `FRAGILITY_MODE=log` (zero output impact).
 - **Next:** the A/B half of the gate is gone (closed with Phase 21), so this now waits on **one thing only: a live Elevated episode.** Note that `FRAGILITY_OR_MODE` (the OR flag, IMP-4) has moved to `show` — this row is the *composite* clock (`FRAGILITY_MODE`), still at `log`.
-- **Where:** `Project_Development.md` (Phase 16.A) · `.macro-assist/fragility.py`.
+- **Where:** `Project_Development.md` (Phase 16 — summary; WP detail in `Project_Development_Archive.md`) · `.macro-assist/fragility.py`.
 
 ---
 
@@ -69,7 +69,7 @@ the Phase-19 exogenous anchor has now been folded as two arms (WP-19.E)._
 - **Decision (WP-21.D): CUT, shipped as v1.6.** `Bias` and `Confidence` are gone from the daily note. The conditional distribution that already sat underneath each call — median, P25/P75, n — is now the published product, rendered by Python from `conditional_distributions.json`. `Primary Driver` and `Target Range` stay. `score_predictions.py` gates on version, so v1.5-and-earlier history stays scoreable and [KB-007]/[KB-011]/[KB-022] stay reproducible.
 - **Closed with it:** **WP-21.B.2 ❌** (day-alternating A/B — could only ever rank two prompt configs, never establish the target exists; not started, so waiting on it meant months of publishing ~36%-accurate calls at ~63% confidence). **WP-21.C ❌** (base rates *into* the prompt — inverted: the base rate is now the product, not an input the model overwrites). Promoting `loosened` to default ❌ — no directional product left to improve. WP-21.B.1's reader fixes ✅ are kept; they read the history.
 - **Next:** **WP-21.E** — bounded pre-registered indicator search, **capped at 3 families, VIX term structure first**, scored on sealed holdout against the same `verdict()` bar. Blocks nothing. If a family clears it, the column comes back with the base rate underneath. Also open: **close the Kimi arm** (recommended, not done — it calibrates a `confidence_pct` that no longer exists).
-- **Where:** `Project_Development.md` (Phase 21) · [KB-024] · `.macro-assist/numeric_baseline.py` · `numeric_baseline/` on `origin/output`.
+- **Where:** `Project_Development.md` (Phase 21 — summary + WP-21.E; WP-A–G detail in `Project_Development_Archive.md`) · [KB-024] · `.macro-assist/numeric_baseline.py` · `numeric_baseline/` on `origin/output`.
 
 ### Kimi ensemble confidence arm ❌ DEACTIVATED
 - **Tests:** can ensemble self-consistency (same payload × N through Kimi K2.6; agreement → confidence, split → Neutral) fix the non-discriminative `confidence_pct` ([KB-007])?
@@ -81,7 +81,7 @@ the Phase-19 exogenous anchor has now been folded as two arms (WP-19.E)._
 - **Tests:** does loosening prompt control (floor OFF, base-rate-first, pruned overrides) beat the control arm on Brier/commitment? Baseline [KB-007]: confidence is anti-informative (BSS < 0).
 - **Latest:** **UNREADABLE AS RUN — [KB-023].** `MACRO_PROFILE` was switched in one block, so the two arms share **zero** report-dates (baseline 03-13→06-26, loosened 06-29→08-21): arm and market period are the same partition of the data. The apparent repair (Bull−Neut −0.008, p=0.93) does not survive — WTI/Bitcoin/Gold, the assets carrying the [KB-022] inversion, flipped sign across the arm boundary (T+20 WTI −5.9%→+6.2%); the loosened 95% CI [−0.250, +0.424] contains the baseline estimate; and excluding those three the loosened arm is **still inverted** (−0.184 vs −0.280). [KB-011]'s commitment read inherits the same defect.
 - **Next:** none — **closed 2026-09-04 with Phase 21**. The re-run (WP-21.B.2) never started and is now superseded: [KB-024] says there is no directional signal for either arm to capture, so ranking the two prompt configs answers a question that no longer matters. `loosened` was never promoted. `MACRO_PROFILE` stays wired (it still switches model + prompt-rule blocks); its A/B is over.
-- **Where:** `Project_Development.md` (Phase 16.B → superseded by Phase 21.B) · `MACRO_PROFILE` repo var · branch `main`.
+- **Where:** `Project_Development_Archive.md` (Phase 16.B → superseded by Phase 21) · `MACRO_PROFILE` repo var · branch `main`.
 
 ### IMP-1 — Fragility cross-section (absorption + turbulence) ✅
 - **Tests:** does a broad *homogeneous* cross-section (Fama-French industries) unlock cross-sectional co-movement measures the ~5 heterogeneous live assets can't support?
