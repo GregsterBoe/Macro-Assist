@@ -1078,6 +1078,23 @@ the search closes for good.
 4. **WP-21.D** — criterion read → **cut**, shipped as v1.6, fragility promoted.
 5. **WP-21.E** — capped indicator search, queued, blocking nothing.
 
+**Two other arms still publish a Bias/Confidence table, and neither was touched.**
+`kimi_arm.py` and `exogenous/synth.py` write their own notes with their own crons.
+Both keep scoring: they stamp no `agent_version`, and `has_directional_calls()`
+reads an absent version as scoreable, so the gate that stops the main note does
+not touch them. That is deliberate — silently defunding a running experiment
+through a version constant it never opted into would be the wrong mechanism —
+but both now need a decision:
+
+- **Exogenous (Phase 19).** Its kill criterion is "beat market-only after 2–3
+  branches", and market-only no longer makes calls, so the comparator is a frozen
+  record. Either re-point it at the WP-21.A benchmark (`always_bullish` /
+  `neutral` on the same dates) or re-cut its output — a branch whose stated
+  purpose is *expectations-gaps and regime, not direction* arguably should not
+  have been emitting a directional table in the first place. Details in
+  `Active_Experiments.md`.
+- **Kimi.** See below.
+
 **The Kimi ensemble arm is now a live question, not a de-prioritised one.** It
 was parked as "a *confidence* fix layered on a signal [KB-022] says points the
 wrong way." [KB-024] upgrades that from second-order to targetless: the arm asks

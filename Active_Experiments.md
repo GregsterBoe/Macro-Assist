@@ -49,7 +49,7 @@ _Last updated: 2026-09-04._
 ### Phase 19 — Exogenous Information Engine ⏳
 - **Tests:** can an independent, market-data-light real-world reasoning branch (expectations-gaps / regime, *not* direction) earn its tokens vs the market-only arm?
 - **Latest:** monetary vertical slice code-complete L0→L4, **integrated on `main`**, running weekly cron (`exo_weekly_emit.yml`); modular/removable (`exogenous/DESIGN.md` §9). Smokes passed; **forward validation only.**
-- **Next:** accumulate arm-tagged leans → go/no-go KB entry. Pre-committed kill criterion if it doesn't beat market-only after 2–3 branches.
+- **Next:** accumulate arm-tagged leans → go/no-go KB entry. **⚠ The kill criterion needs restating (2026-09-04).** It reads "kill if it doesn't beat market-only after 2–3 branches" — but v1.6 cut the market arm's directional calls, so the comparator stops accumulating and the arm is now measured against a frozen record. Two honest options: (a) score it against the same bar WP-21.A used (`always_bullish` / `neutral` on the same dates — a real benchmark, and the one [KB-024] shows is hard to beat), or (b) accept that a branch whose stated purpose is *expectations-gaps and regime, not direction* should not be emitting a Bias/Confidence table at all, and re-cut its output the way the main note was re-cut. **(a) is the cheaper read; (b) is the more coherent product.** Not decided here — it is a Phase 19 call, not a consequence of the cut.
 - **Where:** `Project_Development.md` (Phase 19) · `.macro-assist/exogenous/` · integrated on `main`.
 
 ### Kimi ensemble confidence arm ⏳
