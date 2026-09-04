@@ -94,16 +94,12 @@ on:
         description: "Overwrite existing notes for that date (all stages)"
         type: boolean
         default: false
-      kimi_n:
-        description: "Kimi ensemble samples"
-        type: string
-        default: "12"
       pf_reset:
         description: "Portfolio: rewrite this week from a clean slate"
         type: boolean
         default: false
       weekly:
-        description: "Run the Monday-only stages (exo / scoring / rebalance)"
+        description: "Run the Monday-only stages (scoring / rebalance)"
         type: choice
         options: [auto, "yes", "no"]
         default: auto
@@ -187,9 +183,9 @@ jobs:
             echo "| trigger | \`${{ github.event_name }}\` (source: \`$SOURCE\`) |"
             echo "| weekly stages | \`$WEEKLY\` — $REASON |"
             echo ""
-            echo "Daily: data_check → daily → kimi"
+            echo "Daily: data_check → daily"
             if [ "$WEEKLY" = "true" ]; then
-              echo "Weekly: + exo (before kimi), scoring, rebalance"
+              echo "Weekly: + scoring, rebalance"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -208,44 +204,37 @@ jobs:
       force: ${{ inputs.force || false }}
     secrets: inherit
 
-  exo:
-    name: 3 · exogenous arm
-    needs: [plan, daily]
-    if: ${{ needs.plan.outputs.weekly == 'true' }}
-    uses: ./.github/workflows/exo_weekly_emit.yml
-    with:
-      asof: ${{ needs.plan.outputs.asof }}
-      force: ${{ inputs.force || false }}
-    secrets: inherit
-
-  kimi:
-    name: 4 · kimi arm
-    needs: [plan, daily, exo]
-    # `exo` is skipped Tue–Fri, and a skipped dependency would otherwise skip
-    # this job too. Gate on daily's result explicitly and tolerate exo's skip.
-    if: >-
-      ${{ !cancelled()
-          && needs.daily.result == 'success'
-          && (needs.exo.result == 'success' || needs.exo.result == 'skipped') }}
-    uses: ./.github/workflows/kimi_arm_daily.yml
-    with:
-      asof: ${{ needs.plan.outputs.asof }}
-      n: ${{ inputs.kimi_n || '12' }}
-      force: ${{ inputs.force || false }}
-    secrets: inherit
+  # ── Stages 3 (exogenous arm) and 4 (kimi arm) were REMOVED 2026-09-04. ───────
+  # Both emitted a Bias/Confidence table, and v1.6 cut that product from the main
+  # note [KB-024]. Kimi's whole question was whether ensemble agreement could
+  # calibrate a confidence figure that no longer exists; the exogenous arm's
+  # pre-committed gate was "beat market-only", and market-only stopped making
+  # calls, so its comparator was a frozen record.
+  #
+  # Both workflows still exist and still run on `workflow_dispatch` — this is a
+  # SOFT-KILL, exactly as their own kill-list comments describe. Nothing was
+  # deleted: the code, the tests, the accumulated notes and the scored history
+  # all stay, and `calibration_by_arm` still reads them. To resume either arm,
+  # restore its job here.
+  # ─────────────────────────────────────────────────────────────────────────────
 
   scoring:
-    name: 5 · weekly scoring
-    needs: [plan, kimi]
+    name: 3 · weekly scoring
+    needs: [plan, daily]
+    # Was gated on the kimi stage; now on `daily`, so removing the arms cannot
+    # silently stop the scorer. It still has work to do: the last directional
+    # note is 2026-09-04 (v1.5) and its T+20 window resolves ~2026-10-02. The
+    # run prints a closure banner once every open window has resolved — that is
+    # the signal to retire this stage.
     if: >-
       ${{ !cancelled()
           && needs.plan.outputs.weekly == 'true'
-          && needs.kimi.result == 'success' }}
+          && needs.daily.result == 'success' }}
     uses: ./.github/workflows/macro_weekly_scoring.yml
     secrets: inherit
 
   rebalance:
-    name: 6 · portfolio rebalance
+    name: 4 · portfolio rebalance
     needs: [plan, scoring]
     if: >-
       ${{ !cancelled()

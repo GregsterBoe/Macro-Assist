@@ -6,7 +6,7 @@ name: Weekly Paper-Portfolio Rebalance
 # *reads* notes, never alters them. Soft-kill = disable/delete this workflow.
 
 on:
-  # Scheduled as stage 6 of .github/workflows/pipeline.yml (Mondays only), which
+  # Scheduled as stage 4 of .github/workflows/pipeline.yml (Mondays only), which
   # guarantees the week's predictions are scored and committed first.
   workflow_call:
     inputs:

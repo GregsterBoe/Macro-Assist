@@ -20,8 +20,18 @@ it is fully unit-tested with no network. The live wrappers (`fetch_prices`,
 network-touching code. Everything is point-in-time: a rebalance at date `t`
 reads only the note dated `t` and prices ≤ `t`.
 
+STATUS (2026-09-04, WP-21.D): **this book has no input as of v1.6.** The daily
+note no longer publishes a bias or a confidence — [KB-024] found the directional
+call anti-informative and it was cut — and those two fields are what
+`size_positions` sizes from. `run()` now detects a post-cut note and declines to
+advance the book rather than substituting a signal. Re-pointing the sizer at the
+conditional distribution (median sign + IQR) is a plausible v2 and is *not* done
+here: it would be a new, unvalidated strategy wearing an existing track record's
+clothes, and it deserves its own pre-registered test.
+
 Extraction choices (v1, documented so v2 is an edit not a surprise):
   * **bias / confidence** come from the note's 5-Day Predictions table (clean).
+    Present in v1.5 and earlier only.
   * **conditional σ** is parsed from the driver prose's "P25-P75 x%/y%" band
     (IQR→σ, annualized) — this is exactly the distribution the note author saw,
     so it is point-in-time-faithful without reloading the table. A row with no
@@ -134,11 +144,23 @@ def _normalize_asset(raw: str) -> str:
     return raw
 
 
+def note_is_post_cut(text: str) -> bool:
+    """True when the note is a v1.6+ one that makes no directional call.
+
+    WP-21.D / [KB-024] cut Bias and Confidence from the daily note, and this
+    module sizes positions from exactly those two fields. Detecting it explicitly
+    means `run()` can say why the book did not advance instead of reporting a
+    missing table, which would read as a parsing bug.
+    """
+    return "### 5-Day Outlook" in text and "### 5-Day Predictions" not in text
+
+
 def parse_note_signals(text: str) -> dict[str, NoteSignal]:
     """Parse the 5-Day Predictions table (asset / bias / driver / confidence).
 
     Captures the driver column too (unlike score_predictions.parse_predictions)
-    because the conditional band lives there. Returns {} if the block is absent.
+    because the conditional band lives there. Returns {} if the block is absent
+    — including for every v1.6+ note, which has no directional call to parse.
     """
     block = re.search(r"### 5-Day Predictions\s*\n+(.*?)\nReview date:", text, re.DOTALL)
     if not block:
@@ -679,9 +701,19 @@ def run(
     if note_path is None:
         print(f"No macro note found for {asof} / arm={arm}; skipping.")
         return None
-    note_signals = parse_note_signals(note_path.read_text(encoding="utf-8"))
+    note_text = note_path.read_text(encoding="utf-8")
+    note_signals = parse_note_signals(note_text)
     if not note_signals:
-        print(f"No predictions table in {note_path.name}; skipping.")
+        if note_is_post_cut(note_text):
+            # Not a parsing failure — the input was withdrawn. v1.6 (WP-21.D)
+            # cut the bias/confidence this book sizes from, so there is nothing
+            # to size. The book is left exactly as it was rather than advanced
+            # with an improvised signal: a paper track record built on a
+            # substitute input is not the track record it claims to be.
+            print(f"{note_path.name} is a v1.6+ note: no directional call to size from "
+                  f"(WP-21.D / KB-024). Book not advanced.")
+        else:
+            print(f"No predictions table in {note_path.name}; skipping.")
         return None
 
     book_path = portfolio_dir / f"book__{arm}.json"

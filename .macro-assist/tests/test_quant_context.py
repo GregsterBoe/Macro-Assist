@@ -419,7 +419,10 @@ class TestBuildFragilityBlock:
         block = _build_fragility_block(_result=_ELEVATED_RESULT, mode="active")
         assert "**Action:**" in block
         assert "Widen your Target Ranges" in block
-        assert "Do NOT change the Bias" in block
+        # v1.6: there is no Bias left to guard, so the guardrail is now stated as
+        # "this says nothing about direction" rather than "do not flip the Bias".
+        assert "nothing about direction" in block
+        assert "Bias" not in block
 
     def test_no_directive_when_not_elevated(self):
         block = _build_fragility_block(_result=_NORMAL_RESULT, mode="active")
@@ -502,7 +505,10 @@ class TestBuildOrModeBlock:
         block = _build_or_mode_block(_reading=_or_reading(True), mode="active")
         assert "**Action:**" in block
         assert "Widen your Target Ranges" in block
-        assert "Do NOT change the Bias" in block
+        assert "nothing about direction" in block
+        assert "Bias" not in block
+        # the honest limit travels with the directive, not just with the note block
+        assert "0.32" in block
 
     def test_active_no_directive_when_quiet(self):
         block = _build_or_mode_block(_reading=_or_reading(False), mode="active")
@@ -616,8 +622,12 @@ class TestBuildFragilitySnapshot:
         for name in ("variance_trend", "vix_term", "acceleration", "correlation"):
             assert name in block
         assert "autocorr" not in block  # w0.0
-        assert "shadow mode `log`" in block
-        assert "not a directional call" in block or "never a directional call" in block
+        assert "mode `log`" in block
+        assert "never a directional call" in block
+        # v1.6: promoted to the note's headline, so the honest limit rides with it
+        assert block.startswith("### Fragility Monitor — the note's risk read")
+        assert "precision ≈0.32" in block
+        assert "two alarms in three are false" in block
 
     def test_or_rows_only_when_or_mode_ran(self):
         assert "OR-flag" not in build_fragility_snapshot(_RAW_NORMAL)

@@ -1,5 +1,30 @@
 name: Exogenous Weekly Emission (Phase 19)
 
+# ╔═══════════════════════════════════════════════════════════════════════════════╗
+# ║ DEACTIVATED 2026-09-04 (WP-21.D). Removed from pipeline.yml as stage 3, so it  ║
+# ║ no longer runs weekly. `workflow_dispatch` below still works by hand.          ║
+# ║                                                                               ║
+# ║ WHY: the pre-committed gate (DESIGN §4, §5) is a scored directional lean       ║
+# ║ A/B'd head-to-head against the market-only arm. v1.6 cut the market arm's      ║
+# ║ directional calls [KB-024], so the comparator stopped accumulating and the     ║
+# ║ gate became unreadable — the arm would have been measured against a frozen     ║
+# ║ record it can neither beat nor lose to.                                        ║
+# ║                                                                               ║
+# ║ NOTE this is a pause on the *scoring contract*, not a verdict on the           ║
+# ║ mechanism. The expectations-gap thesis (SPF economist consensus vs the Fed's   ║
+# ║ own SEP dots, tracked against evolving FOMC communication) was never tested —  ║
+# ║ it never reached n. Two ways back, both live options:                          ║
+# ║   (a) re-point the gate at the WP-21.A benchmark — always_bullish / neutral    ║
+# ║       on the same dates, which [KB-024] shows is a genuinely hard bar; or      ║
+# ║   (b) re-cut the output the way the main note was re-cut. DESIGN §1 says the   ║
+# ║       branch is about expectations-gaps and regime, NOT direction — the        ║
+# ║       directional lean was chosen as a scoring convenience, and it is the      ║
+# ║       part that just became unscoreable.                                       ║
+# ║                                                                               ║
+# ║ SOFT-KILL per DESIGN §9: nothing deleted. exogenous/, its tests, the emitted   ║
+# ║ notes and the scored history all stay. Restore the stage to resume.            ║
+# ╚═══════════════════════════════════════════════════════════════════════════════╝
+
 # Live/forward emission of the monetary exogenous arm (DESIGN §4/§6.2): fetch the
 # latest FOMC statement, run L0->L3, and write an `arm: exogenous` note into
 # results/ where score_predictions scans.
@@ -17,7 +42,9 @@ name: Exogenous Weekly Emission (Phase 19)
 # honest limit of a monthly-cadence signal (each week is still a fresh forward call).
 
 on:
-  # Scheduled as stage 3 of .github/workflows/pipeline.yml (Mondays only).
+  # WAS stage 3 of .github/workflows/pipeline.yml (Mondays only) until 2026-09-04.
+  # The job is gone from pipeline.yml; this trigger is kept so restoring the arm is
+  # putting that job back, and nothing else.
   workflow_call:
     inputs:
       asof:

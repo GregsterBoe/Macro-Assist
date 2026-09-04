@@ -69,14 +69,19 @@ jobs:
           VAULT_ROOT:        ${{ github.workspace }}/vault
           SUPADATA_API_KEY:  ${{ secrets.SUPADATA_API_KEY }}
           MACRO_PREVIEW:     "1"   # write results/llm_payload_preview/<date>.md
-          # WP-16 experiment arm — set the repo variable MACRO_PROFILE to "loosened"
-          # to switch the daily run for a period (alternate-in-time A/B). Default control.
+          # WP-16 experiment arm. The prompt toggles it gated are INERT since v1.6
+          # (WP-21.D removed every directional-call block); it still selects the
+          # model, and the A/B it existed for is closed. Default control.
           MACRO_PROFILE:     ${{ vars.MACRO_PROFILE || 'control' }}
-          # IMP-4.3 OR recall-mode shadow record (KB-021). Default 'log': computed
-          # daily and written to results/quant_context_log/ with ZERO note impact,
-          # accumulating the live record. Escalate to 'show'/'active' — or 'off' to
-          # stop — via the repo variable FRAGILITY_OR_MODE (no code edit needed).
-          FRAGILITY_OR_MODE: ${{ vars.FRAGILITY_OR_MODE || 'log' }}
+          # IMP-4.3 OR recall-mode (KB-021). Stepped 'log' -> 'show' by WP-21.D:
+          # the loosened A/B that blocked the escalation is closed, so the "new
+          # output lever would confound it" objection is gone, and the fragility
+          # flag is the note's headline risk read now that the directional product
+          # is cut [KB-024]. Deliberately NOT 'active' — that would let the flag
+          # widen Target Ranges, and there is no live forward record of it firing
+          # yet. Override — including back to 'log'/'off' — via the repo variable
+          # FRAGILITY_OR_MODE (no code edit needed).
+          FRAGILITY_OR_MODE: ${{ vars.FRAGILITY_OR_MODE || 'show' }}
         run: |
           python macro-assist/.macro-assist/collect_and_analyze.py \
             ${{ inputs.asof && format('--asof {0}', inputs.asof) || '' }} \

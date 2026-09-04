@@ -15,7 +15,7 @@ from pipeline_common import (
     PortfolioRiskOutput, SectorOpportunityOutput, _STRUCTURED_OUTPUT_AVAILABLE,
 )
 from pipeline_config import (
-    run_config, main_model, _render_prompt, load_accuracy_context,
+    run_config, main_model, _render_prompt,
 )
 from market_data import (
     compute_technicals, format_technicals_block, _TECHNICAL_ASSETS,
@@ -134,30 +134,96 @@ def _build_immutable_anchors(fred_data: dict, market_data: dict) -> dict:
     return anchors
 
 
+# MA-2, post-WP-21.D. This pass used to do two things: tag risks onto the driver
+# and nudge `confidence_pct`. v1.6 cut confidence, so the calibration half is
+# gone — a delta on a number that no longer exists is not a smaller lever, it is
+# no lever. What survives is the risk tag, which never claimed a direction and is
+# the one part of MA-2 a reader uses.
 _ADVERSARIAL_PROMPT = """\
-Adversarial prediction review — return JSON ONLY.
+Adversarial thesis review — return JSON ONLY.
 
-Read the Key Risks & Themes and 5-Day Predictions sections in the report.
+Read the Key Risks & Themes and 5-Day Outlook sections in the report.
 
-For each asset, decide: would a listed Key Risk make the directional call OUTRIGHT WRONG if it materialised?
-HIGH bar: only flag when a risk directly negates the direction entirely — not merely adds uncertainty.
+For each asset, decide: would a listed Key Risk make the stated Primary Driver thesis
+OUTRIGHT WRONG if it materialised?
+HIGH bar: only flag when a risk directly negates the reasoning — not merely adds uncertainty.
 
 Rules:
-- "append_risk": "[Risk: 2-3 word label]" to add to Primary Driver for Bullish/Bearish calls only. null otherwise.
-- "confidence_delta": -5 or -10 when a risk directly contradicts the directional call. 0 for everything else.
-  Do NOT apply a delta to Neutral calls. Do NOT apply a delta that would push below 51% for a directional call.
-- Do NOT reference, restate, invent, or modify any numbers, accuracy stats, prices, or percentages.
+- "append_risk": "[Risk: 2-3 word label]" to add to that asset's Primary Driver. null otherwise.
+- Do NOT reference, restate, invent, or modify any numbers, prices, percentages, or
+  distribution figures. The conditional distribution column is computed from data and is
+  not yours to comment on.
+- Do NOT state or imply a direction, a bias, or a confidence level. The report makes no
+  directional call and neither do you.
 
 Return ONLY this JSON structure — no text outside it:
 {
-  "S&P 500": {"append_risk": null, "confidence_delta": 0},
-  "Gold": {"append_risk": null, "confidence_delta": 0},
-  "WTI Oil": {"append_risk": null, "confidence_delta": 0},
-  "10Y Treasury Yield": {"append_risk": null, "confidence_delta": 0},
-  "DXY": {"append_risk": null, "confidence_delta": 0},
-  "Bitcoin (proxy for crypto risk)": {"append_risk": null, "confidence_delta": 0}
+  "S&P 500": {"append_risk": null},
+  "Gold": {"append_risk": null},
+  "WTI Oil": {"append_risk": null},
+  "10Y Treasury Yield": {"append_risk": null},
+  "DXY": {"append_risk": null},
+  "Bitcoin (proxy for crypto risk)": {"append_risk": null}
 }
 """
+
+
+# ---------------------------------------------------------------------------
+# The 5-Day Outlook table (WP-21.D / v1.6)
+#
+# Was: Asset | Bias | Primary Driver | Confidence | Target Range.
+# [KB-024] cut Bias and Confidence. The conditional return distribution that
+# already sat underneath every call — as prose the model restated — is now the
+# published product, rendered here from the same dict that goes to the JSONL
+# log. The model cannot alter these numbers, which is the point: it is the one
+# part of the old row that was computed from data rather than asserted.
+# ---------------------------------------------------------------------------
+_OUTLOOK_HEADING = "5-Day Outlook"
+_OUTLOOK_HEADER = (
+    "| Asset | 5d Conditional Distribution | Primary Driver | Target Range |\n"
+    "|-------|-----------------------------|----------------|--------------|"
+)
+_NO_BASE_RATE = "— no conditional base rate"
+
+
+def _outlook_table(predictions, quant_raw: dict | None = None) -> str:
+    """Render the outlook table. `quant_raw` is collect_quant_raw()'s dict.
+
+    An asset with no conditional distribution gets an explicit "no base rate"
+    marker rather than a blank or an improvised number — 10Y / DXY / Bitcoin are
+    genuinely absent from the Phase 11 table and saying so is the honest cell.
+    """
+    cells: dict[str, str] = {}
+    try:
+        from quant_context import conditional_cells
+        cells = conditional_cells(quant_raw)
+    except Exception as exc:                                    # pragma: no cover
+        _log("OUTLOOK", "WARN", f"conditional distributions unavailable: {exc}")
+
+    rows = "\n".join(
+        f"| {p.asset} | {cells.get(p.asset, _NO_BASE_RATE)} | {p.primary_driver} | {p.target_range} |"
+        for p in predictions
+    )
+    return f"{_OUTLOOK_HEADER}\n{rows}"
+
+
+def _outlook_footnote(quant_raw: dict | None = None) -> str:
+    """The provenance line under the table. Always states what the column is."""
+    bucket = ""
+    try:
+        from quant_context import conditional_bucket
+        bucket = conditional_bucket(quant_raw)
+    except Exception:                                           # pragma: no cover
+        bucket = ""
+    where = f" in the current `{bucket}` bucket" if bucket else ""
+    return (
+        f"_The distribution column is the empirical forward-return distribution{where}, "
+        "computed from history (Phase 11) and inserted after the analysis — the model "
+        "does not write it. **This note makes no directional call and states no "
+        "confidence.** Bias and Confidence were removed in v1.6: three measurements "
+        "([KB-007], [KB-022], [KB-024]) found them anti-informative. Target Range is a "
+        "plausible-move band, not a forecast; the risk read is the Fragility Monitor above._"
+    )
 
 _RISK_AGENT_SYSTEM = """\
 You are a portfolio risk analyst. You will receive the current macro regime label and a \
@@ -205,12 +271,12 @@ def adversarial_review(
     immutable_anchors: dict | None = None,  # retained for API compatibility
 ) -> str:
     """
-    Second Claude pass: outputs a JSON delta {asset: {append_risk, confidence_delta}}.
+    Second Claude pass: outputs a JSON delta {asset: {append_risk}}.
     Python applies the changes programmatically — numbers in the Primary Driver are
     never touched by the model, eliminating autoregressive drift/hallucination.
-    Directional calls (Bullish/Bearish) are clamped to ≥51% confidence.
+    The confidence-delta half of this pass went with `confidence_pct` in v1.6.
     """
-    table_pattern = r'(\| Asset \| Bias \| Primary Driver \| Confidence \| Target Range \|.*?\n(?:\|[^\n]+\n)+)'
+    table_pattern = r'(\| Asset \| Primary Driver \| Target Range \|.*?\n(?:\|[^\n]+\n)+)'
     match = re.search(table_pattern, draft_analysis, re.DOTALL)
     if not match:
         _log("REVIEW", "WARN", "could not locate predictions table — skipping adversarial review")
@@ -240,9 +306,8 @@ def adversarial_review(
 
 
 def _apply_adversarial_revisions(table: str, revisions: dict) -> str:
-    """Apply adversarial JSON deltas to the predictions table rows.
-    Column order: Asset | Bias | Primary Driver | Confidence | Target Range
-    Directional (Bullish/Bearish) confidence is clamped to [51%, 70%].
+    """Append risk tags to the Primary Driver column of the free-text table.
+    Column order (v1.6): Asset | Primary Driver | Target Range.
     """
     lines = table.rstrip("\n").split("\n")
     result = []
@@ -251,14 +316,12 @@ def _apply_adversarial_revisions(table: str, revisions: dict) -> str:
             result.append(line)
             continue
         cells = line.split("|")
-        if len(cells) < 6:
+        if len(cells) < 4:
             result.append(line)
             continue
-        asset  = cells[1].strip()
-        bias   = cells[2].strip().lower()
-        is_dir = bias in ("bullish", "bearish")
-        # Column indices for new order: [0]="" [1]=Asset [2]=Bias [3]=PD [4]=Conf [5]=TR [6]=""
-        pd_col, conf_col = 3, 4
+        asset = cells[1].strip()
+        # [0]="" [1]=Asset [2]=Primary Driver [3]=Target Range [4]=""
+        pd_col = 2
 
         rev = next(
             (v for k, v in revisions.items()
@@ -269,24 +332,8 @@ def _apply_adversarial_revisions(table: str, revisions: dict) -> str:
             result.append(line)
             continue
 
-        # Apply confidence delta
-        conf_str = cells[conf_col].strip().rstrip("%").strip()
-        try:
-            conf_val = int(conf_str)
-        except ValueError:
-            result.append(line)
-            continue
-        delta    = int(rev.get("confidence_delta", 0) or 0)
-        new_conf = conf_val + delta
-        if is_dir:
-            new_conf = max(51, min(70, new_conf))  # directional calls: never below 51%
-        # Neutral calls stay unchanged (50%)
-
-        cells[conf_col] = f" {new_conf}% "
-
-        # Append risk tag to Primary Driver (never replace — append only)
         risk_tag = rev.get("append_risk")
-        if risk_tag and is_dir:
+        if risk_tag:
             driver = cells[pd_col].strip()
             if risk_tag not in driver:
                 cells[pd_col] = f" {driver} {risk_tag} "
@@ -312,7 +359,7 @@ def _log_adversarial_diff(original: str, revised: str) -> None:
         rev_cells  = [c.strip() for c in rev_row.split("|")[1:-1]]
         asset = orig_cells[0] if orig_cells else "?"
         diffs = []
-        labels = ["Bias", "Primary Driver", "Confidence", "Target Range"]
+        labels = ["Primary Driver", "Target Range"]
         for label, o, r in zip(labels, orig_cells[1:], rev_cells[1:]):
             if o != r:
                 diffs.append(f"  {label}: {o!r} -> {r!r}")
@@ -323,9 +370,9 @@ def _log_adversarial_diff(original: str, revised: str) -> None:
             changes += 1
 
     if changes == 0:
-        _log("REVIEW", "OK", "no predictions revised")
+        _log("REVIEW", "OK", "no drivers revised")
     else:
-        _log("REVIEW", "WARN", f"{changes} prediction(s) revised")
+        _log("REVIEW", "WARN", f"{changes} driver(s) revised")
 
 
 def _adversarial_review_structured(
@@ -333,22 +380,26 @@ def _adversarial_review_structured(
     output: "AnalysisOutput",
 ) -> "AnalysisOutput":
     """
-    Adversarial calibration pass for the structured path (MA-2).
-    Receives only predictions + key_risks — not the full prose — to avoid
+    Adversarial thesis pass for the structured path (MA-2).
+    Receives only the outlook rows + key_risks — not the full prose — to avoid
     the model reading back its own reasoning and rubber-stamping it.
-    Returns an updated AnalysisOutput with confidence deltas and risk tags applied.
+    Returns an updated AnalysisOutput with risk tags appended to drivers.
+
+    v1.6: the confidence-delta half of this pass is gone with `confidence_pct`.
+    The conditional distribution column is deliberately NOT shown here — it is
+    computed from data and there is nothing for an adversarial pass to revise.
     """
     pred_rows = "\n".join(
-        f"| {p.asset} | {p.bias} | {p.primary_driver} | {p.confidence_pct}% | {p.target_range} |"
+        f"| {p.asset} | {p.primary_driver} | {p.target_range} |"
         for p in output.predictions
     )
     pred_table = (
-        "| Asset | Bias | Primary Driver | Confidence | Target Range |\n"
-        "|-------|------|----------------|------------|-------------|\n"
+        "| Asset | Primary Driver | Target Range |\n"
+        "|-------|----------------|--------------|\n"
         + pred_rows + "\n"
     )
     risks_text = "\n".join(f"- {r}" for r in output.key_risks)
-    context = f"## Key Risks\n{risks_text}\n\n## 5-Day Predictions\n{pred_table}"
+    context = f"## Key Risks\n{risks_text}\n\n## {_OUTLOOK_HEADING}\n{pred_table}"
 
     response = client.messages.create(
         model=main_model(),
@@ -363,7 +414,7 @@ def _adversarial_review_structured(
             raise ValueError("no JSON object found")
         revisions = json.loads(json_match.group(0))
     except Exception as e:
-        _log("REVIEW", "WARN", f"could not parse adversarial JSON ({e}) — using original predictions")
+        _log("REVIEW", "WARN", f"could not parse adversarial JSON ({e}) — using original drivers")
         return output
 
     new_predictions = []
@@ -373,33 +424,24 @@ def _adversarial_review_structured(
              if k.lower() in p.asset.lower() or p.asset.lower() in k.lower()),
             None,
         )
-        if rev is None or p.bias == "Neutral":
+        risk_tag = (rev or {}).get("append_risk")
+        if not risk_tag or risk_tag in p.primary_driver:
             new_predictions.append(p)
             continue
 
-        delta    = int(rev.get("confidence_delta", 0) or 0)
-        new_conf = max(51, min(70, p.confidence_pct + delta))
-
-        new_driver = p.primary_driver
-        risk_tag   = rev.get("append_risk")
-        if risk_tag and risk_tag not in new_driver:
-            candidate = f"{new_driver} {risk_tag}"
-            _pd_max = AssetPrediction.model_json_schema()["properties"]["primary_driver"].get("maxLength", 800)
-            new_driver = candidate[:_pd_max - 3] + "..." if len(candidate) > _pd_max else candidate
-
-        new_predictions.append(p.model_copy(update={
-            "confidence_pct": new_conf,
-            "primary_driver": new_driver,
-        }))
+        candidate = f"{p.primary_driver} {risk_tag}"
+        _pd_max = AssetPrediction.model_json_schema()["properties"]["primary_driver"].get("maxLength", 800)
+        new_driver = candidate[:_pd_max - 3] + "..." if len(candidate) > _pd_max else candidate
+        new_predictions.append(p.model_copy(update={"primary_driver": new_driver}))
 
     # Reuse the free-text diff logger via reconstructed table strings
     revised_rows = "\n".join(
-        f"| {p.asset} | {p.bias} | {p.primary_driver} | {p.confidence_pct}% | {p.target_range} |"
+        f"| {p.asset} | {p.primary_driver} | {p.target_range} |"
         for p in new_predictions
     )
     revised_table = (
-        "| Asset | Bias | Primary Driver | Confidence | Target Range |\n"
-        "|-------|------|----------------|------------|-------------|\n"
+        "| Asset | Primary Driver | Target Range |\n"
+        "|-------|----------------|--------------|\n"
         + revised_rows + "\n"
     )
     _log_adversarial_diff(pred_table, revised_table)
@@ -564,6 +606,7 @@ def _synthesize_structured(
     client: anthropic.Anthropic,
     output: "AnalysisOutput",
     today: datetime,
+    quant_raw: dict | None = None,
 ) -> str | None:
     """MA-3b: Synthesis agent — formats AnalysisOutput into the analysis body markdown.
     Returns the markdown string on success; None on any failure (caller uses Python assembly).
@@ -576,16 +619,12 @@ def _synthesize_structured(
 
     review_date = next_review_date(today)
 
-    # Pre-format the predictions table in Python so the agent copies it verbatim
-    pred_header = (
-        "| Asset | Bias | Primary Driver | Confidence | Target Range |\n"
-        "|-------|------|----------------|------------|--------------|"
-    )
-    pred_rows = "\n".join(
-        f"| {p.asset} | {p.bias} | {p.primary_driver} | {p.confidence_pct}% | {p.target_range} |"
-        for p in output.predictions
-    )
-    predictions_table = f"{pred_header}\n{pred_rows}"
+    # Pre-format the outlook table in Python so the agent copies it verbatim.
+    # This matters more since v1.6 than it did before: the distribution column is
+    # measured data, and a formatter that "tidied" a percentile would be
+    # rewriting the product.
+    predictions_table = _outlook_table(output.predictions, quant_raw)
+    outlook_footnote  = _outlook_footnote(quant_raw)
 
     input_data = {
         "executive_summary":     output.executive_summary,
@@ -599,6 +638,7 @@ def _synthesize_structured(
         "sector_opportunity":    output.sector_opportunity,
         "key_risks":             output.key_risks,
         "predictions_table":     predictions_table,
+        "outlook_footnote":      outlook_footnote,
         "review_date":           review_date,
     }
 
@@ -659,168 +699,73 @@ def _reset_structured_success() -> None:
         pass
 
 
-_BULLISH_CONTRADICTIONS = frozenset({"fade", "fade the", "short ", "expect decline"})
-_BEARISH_CONTRADICTIONS = frozenset({"short squeeze", "relief rally", "buy the dip"})
+# ---------------------------------------------------------------------------
+# RETIRED in v1.6 (WP-21.D): the bias-correction layer.
+#
+# Three functions lived here — `_check_prediction_consistency` (WARN when a
+# Bullish bias was contradicted by fade/short language in its driver),
+# `_apply_accuracy_override` (free-text) and `_apply_accuracy_override_structured`
+# (below) — plus the confidence-clustering, directional-at-50 and all-Neutral
+# audits. Every one of them read or wrote `bias` / `confidence_pct`.
+#
+# They were the feedback loop: score the calls, then push next week's calls
+# around with the result. [KB-024] closed the premise — a ridge and a GBM on the
+# same panel both lose to a constant and both invert — so correcting the
+# direction of a call that carries no information is not a smaller error, it is
+# a more elaborate one. The calls are gone; so is the machinery that steered
+# them.
+#
+# `summarize_accuracy.py` still writes `accuracy_summary.json` and the readers
+# still work: the historical record (v1.5 and earlier) stays scoreable and
+# [KB-007] / [KB-011] / [KB-022] stay reproducible. Nothing reads it back into
+# the prompt any more.
+# ---------------------------------------------------------------------------
 
+def _inject_conditional_column(analysis: str, quant_raw: dict | None = None) -> str:
+    """Free-text path only: add the measured distribution column to the model's table.
 
-def _check_prediction_consistency(analysis: str) -> None:
-    """Log a WARN when Bias and Primary Driver text directly contradict each other."""
-    match = re.search(
-        r'\| Asset \| Bias \| Primary Driver \|.*?\n(?:\|[^\n]+\n)+', analysis, re.DOTALL
-    )
-    if not match:
-        return
-    for line in match.group(0).splitlines():
-        if not line.startswith("|") or "---" in line or "Asset" in line:
-            continue
-        cells = line.split("|")
-        if len(cells) < 5:
-            continue
-        asset  = cells[1].strip()
-        bias   = cells[2].strip().lower()
-        driver = cells[3].strip().lower()
-        if bias == "bullish" and any(w in driver for w in _BULLISH_CONTRADICTIONS):
-            _log("VALIDATE", "WARN", f"{asset}: Bullish bias contradicted by driver text (contains fade/short language)")
-        elif bias == "bearish" and any(w in driver for w in _BEARISH_CONTRADICTIONS):
-            _log("VALIDATE", "WARN", f"{asset}: Bearish bias contradicted by driver text (contains squeeze/rally language)")
+    On the structured path Python builds the whole table, so the column is
+    trustworthy by construction. The free-text fallback has the model write the
+    table, and its prompt asks for three columns
+    (Asset | Primary Driver | Target Range) — this splices the fourth in, in the
+    same position the structured path uses, and appends the provenance footnote.
 
-
-def _apply_accuracy_override(analysis: str) -> str:
+    Never raises and never partially rewrites: if the table cannot be located or
+    a row does not have the expected shape, the note ships without the column
+    rather than with a mangled one.
     """
-    Code-level bias correction applied after adversarial review.
-
-    Two passes:
-    1. BIAS FLOOR: if an asset's directional accuracy is <40% at n>=8 in ANY window
-       and the current prediction is Bearish, floor confidence at 50% and annotate.
-       Direction is kept (scoreable) so stats can recover naturally.
-    2. WASTED SIGNAL WARNING: if an asset has ≥70% directional accuracy at n≥10
-       in its best window but the current call is Neutral at 50%, log a warning so
-       it is visible in CI output. (Prompt rules handle the fix; this makes it auditable.)
-    """
-    _check_prediction_consistency(analysis)
-
-    if not ACCURACY_JSON.exists():
-        _log("OVERRIDE", "INFO", "no accuracy data — skipping")
-        return analysis
     try:
-        acc_data = json.loads(ACCURACY_JSON.read_text(encoding="utf-8"))
-    except Exception:
-        return analysis
+        from quant_context import conditional_cells
+        cells = conditional_cells(quant_raw)
+    except Exception as exc:                                    # pragma: no cover
+        _log("OUTLOOK", "WARN", f"conditional distributions unavailable: {exc}")
+        cells = {}
 
-    all_windows = acc_data.get("windows", {})
-    if not all_windows:
-        return analysis
-
-    table_pattern = r'(\| Asset \| Bias \| Primary Driver \| Confidence \| Target Range \|.*?\n(?:\|[^\n]+\n)+)'
-    match = re.search(table_pattern, analysis, re.DOTALL)
+    pattern = r'\| Asset \| Primary Driver \| Target Range \|.*?\n(?:\|[^\n]+\n)+'
+    match = re.search(pattern, analysis, re.DOTALL)
     if not match:
-        _log("OVERRIDE", "WARN", "could not locate predictions table")
+        _log("OUTLOOK", "WARN", "could not locate the outlook table — column not injected")
         return analysis
 
-    table    = match.group(0)
-    modified = table
-    overrides = 0
-
-    # Build per-asset: worst bias window and best signal window
-    all_assets: set[str] = set()
-    for wdata in all_windows.values():
-        all_assets.update(wdata.get("by_asset", {}).keys())
-
-    for asset in all_assets:
-        # --- Pass 1: bias floor (any window <40% at n≥8, Bearish call) ---
-        worst_dacc, worst_wkey, worst_n = None, None, 0
-        for wkey, wdata in all_windows.items():
-            astat = wdata.get("by_asset", {}).get(asset, {})
-            dacc  = astat.get("directional_acc")
-            dn    = astat.get("directional_n", 0)
-            if dacc is None or dn < 8:
-                continue
-            if worst_dacc is None or dacc < worst_dacc:
-                worst_dacc, worst_wkey, worst_n = dacc, wkey, dn
-
-        if worst_dacc is not None and worst_dacc < 0.40:
-            row_pat   = re.compile(
-                rf'(\|\s*{re.escape(asset)}\s*\|\s*)Bearish(\s*\|[^\n]+\n)',
-                re.IGNORECASE,
-            )
-            row_match = row_pat.search(modified)
-            if row_match:
-                original_row = row_match.group(0)
-                cells = original_row.rstrip("\n").split("|")
-                if len(cells) >= 6:
-                    cells[4] = " 51% "   # 51% not 50%: directional calls must be ≥51% to distinguish from Neutral
-                    cells[3] = (
-                        f" {cells[3].strip()} "
-                        f"[Caution: {worst_wkey.upper()} Bearish dir. acc. {worst_dacc:.0%} n={worst_n} — historical bias] "
-                    )
-                    new_row  = "|".join(cells) + "\n"
-                    modified = modified.replace(original_row, new_row, 1)
-                    _log("OVERRIDE", "WARN",
-                         f"{asset}: confidence floored ({worst_wkey.upper()} Bearish {worst_dacc:.0%}, n={worst_n})")
-                    overrides += 1
-
-        # --- Pass 2: wasted signal warning (best window ≥70% at n≥10, Neutral call) ---
-        best_dacc, best_wkey, best_n = None, None, 0
-        for wkey in reversed(list(all_windows.keys())):   # prefer longer horizon on tie
-            wdata = all_windows[wkey]
-            astat = wdata.get("by_asset", {}).get(asset, {})
-            dacc  = astat.get("directional_acc")
-            dn    = astat.get("directional_n", 0)
-            if dacc is None or dn < 10:
-                continue
-            if best_dacc is None or dacc > best_dacc:
-                best_dacc, best_wkey, best_n = dacc, wkey, dn
-
-        if best_dacc is not None and best_dacc >= 0.70:
-            neutral_pat = re.compile(
-                rf'\|\s*{re.escape(asset)}\s*\|\s*Neutral\s*\|[^\|]+\|\s*50%\s*\|',
-                re.IGNORECASE,
-            )
-            if neutral_pat.search(modified):
-                _log("OVERRIDE", "WARN",
-                     f"{asset}: Neutral@50% called despite {best_wkey.upper()} dir. acc. "
-                     f"{best_dacc:.0%} (n={best_n}) — check prompt compliance")
-
-    # --- Pass 3: confidence clustering and directional@50 check ---
-    data_rows = [
-        line for line in modified.splitlines()
-        if line.startswith("|") and "---" not in line and "Asset" not in line
-    ]
-    directional_conf_counts: dict[str, int] = {}
-    directional_at_50 = 0
-    bias_values: list[str] = []
-    for row in data_rows:
-        cells = row.split("|")
-        if len(cells) < 6:
+    out_lines: list[str] = []
+    for line in match.group(0).rstrip("\n").split("\n"):
+        cols = line.split("|")
+        if len(cols) < 5:                       # ["", Asset, Driver, Range, ""]
+            out_lines.append(line)
             continue
-        bias = cells[2].strip().lower()
-        conf = cells[4].strip().rstrip("%").strip()
-        if bias:
-            bias_values.append(bias)
-        # Only count directional calls for clustering — Neutral@50% is structurally expected
-        if conf and bias in ("bullish", "bearish"):
-            directional_conf_counts[conf] = directional_conf_counts.get(conf, 0) + 1
-            if conf == "50":
-                directional_at_50 += 1
+        if "---" in line:
+            out_lines.append("|-------|-----------------------------|----------------|--------------|")
+            continue
+        if "Asset" in cols[1]:
+            out_lines.append(_OUTLOOK_HEADER.split("\n")[0])
+            continue
+        asset = cols[1].strip()
+        cols.insert(2, f" {cells.get(asset, _NO_BASE_RATE)} ")
+        out_lines.append("|".join(cols))
 
-    for conf_val, count in directional_conf_counts.items():
-        if count >= 3:
-            _log("OVERRIDE", "WARN",
-                 f"confidence clustering: {count} directional calls at {conf_val}% — insufficient differentiation")
-    if directional_at_50 >= 2:
-        _log("OVERRIDE", "WARN",
-             f"{directional_at_50} directional (Bullish/Bearish) calls at 50% — indistinguishable from Neutral; min 51%")
-
-    # --- Pass 4: all-Neutral collapse ---
-    directional_calls = [b for b in bias_values if b not in ("neutral", "")]
-    if bias_values and not directional_calls:
-        _log("OVERRIDE", "FAIL", "all-Neutral prediction table — minimum conviction rule violated")
-
-    if overrides == 0:
-        _log("OVERRIDE", "OK", "no accuracy-based overrides applied")
-        return analysis
-
-    return analysis[: match.start()] + modified + analysis[match.end():]
+    rebuilt = "\n".join(out_lines) + "\n\n" + _outlook_footnote(quant_raw) + "\n"
+    _log("OUTLOOK", "OK", f"conditional column injected ({len(cells)} asset(s) with a base rate)")
+    return analysis[: match.start()] + rebuilt + analysis[match.end():]
 
 
 _ARTIFACT_PATTERNS = [
@@ -837,9 +782,17 @@ def _scrub_prompt_artifacts(text: str) -> str:
     return re.sub(r'\n{3,}', '\n\n', text)
 
 
-def _build_analysis_markdown(output: "AnalysisOutput", today: datetime) -> str:
+def _build_analysis_markdown(
+    output: "AnalysisOutput",
+    today: datetime,
+    quant_raw: dict | None = None,
+) -> str:
     """Assemble the analysis section markdown from a structured AnalysisOutput.
     Python owns the section order — the model never writes headings or constraints.
+
+    `quant_raw` (collect_quant_raw()'s dict) supplies the conditional
+    distribution column; without it the column renders as "no base rate" rather
+    than guessing, and the note is still correct — just less useful.
     """
     parts: list[str] = []
 
@@ -863,116 +816,14 @@ def _build_analysis_markdown(output: "AnalysisOutput", today: datetime) -> str:
     parts.append(f"### Key Risks & Themes\n\n{risks_md}")
 
     review_date = next_review_date(today)
-    table_header = (
-        "| Asset | Bias | Primary Driver | Confidence | Target Range |\n"
-        "|-------|------|----------------|------------|--------------|"
-    )
-    table_rows = "\n".join(
-        f"| {p.asset} | {p.bias} | {p.primary_driver} | {p.confidence_pct}% | {p.target_range} |"
-        for p in output.predictions
-    )
     parts.append(
-        f"### 5-Day Predictions\n\n{table_header}\n{table_rows}\n\nReview date: {review_date}"
+        f"### {_OUTLOOK_HEADING}\n\n"
+        f"{_outlook_table(output.predictions, quant_raw)}\n\n"
+        f"{_outlook_footnote(quant_raw)}\n\n"
+        f"Review date: {review_date}"
     )
 
     return "\n\n".join(parts)
-
-
-def _apply_accuracy_override_structured(output: "AnalysisOutput") -> "AnalysisOutput":
-    """Accuracy-based bias corrections applied directly to AnalysisOutput.predictions.
-    Structured equivalent of _apply_accuracy_override() — no regex, operates on typed fields.
-    """
-    _pred_table_text = (
-        "| Asset | Bias | Primary Driver | Confidence | Target Range |\n"
-        + "\n".join(
-            f"| {p.asset} | {p.bias} | {p.primary_driver} | {p.confidence_pct}% | {p.target_range} |"
-            for p in output.predictions
-        )
-        + "\n"
-    )
-    _check_prediction_consistency(_pred_table_text)
-
-    if not ACCURACY_JSON.exists():
-        _log("OVERRIDE", "INFO", "no accuracy data — skipping")
-        return output
-    try:
-        acc_data = json.loads(ACCURACY_JSON.read_text(encoding="utf-8"))
-    except Exception:
-        return output
-
-    # Prefer feedback_windows (version-filtered, >= MIN_FEEDBACK_VERSION) when available;
-    # fall back to windows so behaviour is unchanged before the next summarize run.
-    all_windows = acc_data.get("feedback_windows") or acc_data.get("windows", {})
-    if not all_windows:
-        return output
-
-    new_predictions: list["AssetPrediction"] = []
-    for pred in output.predictions:
-        asset = pred.asset
-
-        # Pass 1: bias floor — <40% Bearish directional accuracy in any window
-        worst_dacc, worst_wkey, worst_n = None, None, 0
-        for wkey, wdata in all_windows.items():
-            astat = wdata.get("by_asset", {}).get(asset, {})
-            dacc  = astat.get("directional_acc")
-            dn    = astat.get("directional_n", 0)
-            if dacc is None or dn < 8:
-                continue
-            if worst_dacc is None or dacc < worst_dacc:
-                worst_dacc, worst_wkey, worst_n = dacc, wkey, dn
-
-        if worst_dacc is not None and worst_dacc < 0.40 and pred.bias == "Bearish":
-            note = (
-                f" [Caution: {worst_wkey.upper()} Bearish dir. acc. "
-                f"{worst_dacc:.0%} n={worst_n} — historical bias]"
-            )
-            pred = pred.model_copy(update={
-                "confidence_pct": 51,
-                "primary_driver": (pred.primary_driver + note)[:350],
-            })
-            _log("OVERRIDE", "WARN",
-                 f"{asset}: confidence floored ({worst_wkey.upper()} Bearish {worst_dacc:.0%}, n={worst_n})")
-
-        # Pass 2: wasted-signal warning — ≥70% best-window, Neutral@50%
-        best_dacc, best_wkey, best_n = None, None, 0
-        for wkey in reversed(list(all_windows.keys())):
-            astat = all_windows[wkey].get("by_asset", {}).get(asset, {})
-            dacc  = astat.get("directional_acc")
-            dn    = astat.get("directional_n", 0)
-            if dacc is None or dn < 10:
-                continue
-            if best_dacc is None or dacc > best_dacc:
-                best_dacc, best_wkey, best_n = dacc, wkey, dn
-
-        if best_dacc is not None and best_dacc >= 0.70 and pred.bias == "Neutral" and pred.confidence_pct == 50:
-            _log("OVERRIDE", "WARN",
-                 f"{asset}: Neutral@50% despite {best_wkey.upper()} dir. acc. "
-                 f"{best_dacc:.0%} (n={best_n}) — check prompt compliance")
-
-        new_predictions.append(pred)
-
-    # Pass 3: clustering + all-Neutral checks
-    dir_conf_counts: dict[str, int] = {}
-    dir_at_50 = 0
-    bias_values = [p.bias for p in new_predictions]
-    for p in new_predictions:
-        if p.bias in ("Bullish", "Bearish"):
-            key = str(p.confidence_pct)
-            dir_conf_counts[key] = dir_conf_counts.get(key, 0) + 1
-            if p.confidence_pct == 50:
-                dir_at_50 += 1
-
-    for conf_val, count in dir_conf_counts.items():
-        if count >= 3:
-            _log("OVERRIDE", "WARN",
-                 f"confidence clustering: {count} directional calls at {conf_val}%")
-    if dir_at_50 >= 2:
-        _log("OVERRIDE", "WARN", f"{dir_at_50} directional calls at 50% — min 51%")
-
-    if bias_values and not [b for b in bias_values if b != "Neutral"]:
-        _log("OVERRIDE", "FAIL", "all-Neutral prediction table — minimum conviction rule violated")
-
-    return output.model_copy(update={"predictions": new_predictions})
 
 
 def _analyze_structured(
@@ -1148,25 +999,35 @@ def analyze_with_claude(
     notable_moves: str = "",
     histories: dict | None = None,
     quant_context: str = "",
+    quant_raw: dict | None = None,
 ) -> "str | AnalysisOutput":
+    """`quant_raw` is collect_quant_raw()'s dict. It is the source of the outlook
+    table's conditional-distribution column (v1.6), so it must be the SAME dict
+    that was logged for this run — passing a freshly recomputed one would let the
+    published column drift from the logged record."""
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     _cfg = run_config()
-    _floor_on = _cfg["conviction_floor"]
+    # v1.6: `conviction_floor` / `base_rate_first` / `prune_rules` are inert. Every
+    # prompt block they gated was a directional-call rule, and those blocks are
+    # gone (see WP-21.D). `run_config()` still resolves and records them so the
+    # frontmatter contract and the historical readers keep working; `MACRO_PROFILE`
+    # still selects the model. The A/B they existed for is closed.
     if _cfg["profile"] != "control":
         _log("PROFILE", "INFO",
-             f"run profile '{_cfg['profile']}' — model={_cfg['model']}, floor={'on' if _floor_on else 'off'}, "
-             f"base_rate_first={_cfg['base_rate_first']}, prune_rules={_cfg['prune_rules']}")
+             f"run profile '{_cfg['profile']}' — model={_cfg['model']} "
+             "(prompt toggles inert since v1.6)")
     system_prompt = _render_prompt((PROMPTS_DIR / "system_prompt.md").read_text(), _cfg)
 
     from parse_positions import get_portfolio_summary, format_portfolio_for_prompt
 
     review_date      = next_review_date(today)
 
-    accuracy_context = load_accuracy_context(_floor_on)
-    if accuracy_context:
-        _log("ACCURACY", "OK", "accuracy history loaded")
-    else:
-        _log("ACCURACY", "INFO", "no accuracy history yet — first run")
+    # v1.6 (WP-21.D): the accuracy-history block is no longer injected. Every
+    # line of it — best-window-per-asset, "anchor YOUR confidence to", the bias
+    # rules — steered a directional call that no longer exists. The scoring that
+    # produced it still runs for the historical record; it just does not feed
+    # back into the prompt any more.
+    accuracy_context = ""
 
     youtube_context = fetch_youtube_context(client)
 
@@ -1275,8 +1136,6 @@ Prediction review date (5 business days): {review_date}
         )
         structured = _analyze_structured(client, system_prompt_structured, user_message_structured)
         if structured is not None:
-            _log("OVERRIDE", "INFO", "checking accuracy-based overrides (structured path)...")
-            structured = _apply_accuracy_override_structured(structured)
             _log("CLAUDE", "INFO", "running adversarial review (structured path)...")
             structured = _adversarial_review_structured(client, structured)
             # MA-3a: portfolio risk agent — Haiku, narrow context (regime + positions only)
@@ -1297,7 +1156,7 @@ Prediction review date (5 business days): {review_date}
                     )
             # MA-3b: synthesis agent — formats structured JSON into final markdown
             _log("MA3B", "INFO", "running synthesis agent...")
-            synthesis_text = _synthesize_structured(client, structured, today)
+            synthesis_text = _synthesize_structured(client, structured, today, quant_raw)
             if synthesis_text is not None:
                 _count = _track_structured_success()
                 if _count >= _SYNTHESIS_ACTIVATE_AFTER:
@@ -1330,6 +1189,8 @@ Prediction review date (5 business days): {review_date}
     _log("CLAUDE", "INFO", "running adversarial review...")
     immutable_anchors = _build_immutable_anchors(fred_data, market_data)
     reviewed = adversarial_review(client, draft, immutable_anchors)
-    _log("OVERRIDE", "INFO", "checking accuracy-based overrides...")
-    final = _apply_accuracy_override(reviewed)
-    return _scrub_prompt_artifacts(final)
+    # v1.6: the accuracy-override pass is retired (see the RETIRED block above).
+    # The conditional column is injected here instead — on this path the model
+    # writes the table, so Python adds the measured column afterwards rather
+    # than trusting prose to carry it.
+    return _scrub_prompt_artifacts(_inject_conditional_column(reviewed, quant_raw))

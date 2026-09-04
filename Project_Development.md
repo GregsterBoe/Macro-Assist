@@ -730,7 +730,15 @@ Existing dated predictions  (results/**/<date>-*-macro.md, per arm)
 **Experimental model arm — Kimi K2.6 ensemble (INTEGRATED into `main`, modular).** A second use of the arm A/B machinery, aimed at the **confidence** problem (KB-007: the market arm's self-reported `confidence_pct` is clamped 50–80 and non-discriminative). `.macro-assist/kimi_arm.py` reads the *same* daily payload the market model sees (`results/llm_payload_preview/<date>.md`), runs **Kimi K2.6** (Moonshot Anthropic-compatible endpoint, thinking disabled — it defaults ON and both breaks forced tool_choice and eats the token budget) **N times**, and derives confidence from **agreement across samples** (self-consistency): unanimous → high & *un-clamped* (33–100%), split → **Neutral** (honest abstention). Emits an `arm: kimi` note that rides the generic arm hooks → `calibration_by_arm` shows **market vs exogenous vs kimi**. First manual run (2026-07-31, n=8): 4/6 Neutral, Gold Bull 62%, **10Y Bull 88%** (converges with the market + exogenous arms' best asset). Runs daily via `kimi_arm_daily.yml` (Mon–Fri 07:05 UTC, after the market run commits the preview); needs `MOONSHOT_API_KEY`. **Modular/removable (grep `KIMI-ARM`):** soft-kill = disable `kimi_arm_daily.yml`; hard-kill = delete `kimi_arm.py` + its test + both kimi workflows + `*-kimi-macro.md`/`*__kimi.json`. **What it proves vs not:** the mechanism (discriminative, grounded, abstaining confidence) is demonstrated; whether that confidence is *calibrated* (does 88%-agreement out-hit 62%?) is the forward question the daily accumulation + `calibration_by_arm` will answer.
 ---
 
-## Directional Product Validation (Phase 21) — *is this task learnable at all?*
+## Directional Product Validation (Phase 21) — *is this task learnable at all?* ✅ COMPLETE
+
+> **Resolved 2026-09-04 — the answer is no, and the directional product is cut.**
+> [KB-024]: neither a ridge nor a GBM beats a constant `always_bullish` on this
+> payload, and both invert exactly the way the LLM does. WP-21.A ✅ ·
+> WP-21.B ❌ superseded · WP-21.C ❌ closed · **WP-21.D → cut, shipped as v1.6** ·
+> WP-21.E queued · WP-21.F ✅ both remaining directional arms stood down ·
+> WP-21.G ✅ scoring loop wound down. Read WP-21.D below for what replaced the
+> two columns.
 
 **Why this phase exists.** After 128 scored reports, three independent metrics
 say the directional product does not work: decisive accuracy ~36% [KB-007],
@@ -874,33 +882,61 @@ run — see "Status" below.
   a decade of daily simulated calls is ~20× the daily report's ~2k — the defaults
   turned a research sweep into a coffee break.
 
-**Status: the harness is shipped, the measurement is not run.** The panel needs
-`FRED_API_KEY` plus reachable yfinance/FRED hosts; the session that built this had
-neither, so **no number here has been produced yet and nothing has been written to
-the Knowledge Base.** Running it is one command:
+**Status: run, read, and written up → [KB-024]. ✅ WP-21.A is closed.**
+
+Two runs exist and only the second counts. The 2026-09-03 first read scored the
+comparators on 78,656 calls against the models' 75,414 — the [KB-023] error one
+level down, and it flattered `always_bullish`, the benchmark the verdict turns
+on. **WP-21.A.2 ✅** fixed it (`shared_call_keys` intersects the
+(window, date, asset) triples across arms, `restrict_calls` clamps every arm to
+them, the report prints the shared n and a ⛔ if arms ever diverge again), and
+the **2026-09-04 aligned re-run** on `origin/output` (`b3e4255`) is the
+reportable one: all five arms on the same **75,432 calls**, 4,636 dates.
+
+**The answer is no, for every model class tested.**
+
+| Arm | n decisive | hit-rate | Brier | BSS | ECE | separation |
+|---|---|---|---|---|---|---|
+| `ridge` | 42,043 | 0.530 | 0.271 | −0.087 | 0.119 | inverted |
+| `gbm` | 40,173 | 0.526 | 0.264 | −0.059 | 0.103 | inverted |
+| `always_bullish` | 61,073 | **0.557** | **0.247** | **−0.000** | **0.007** | n/a |
+
+`always_bullish` — a constant carrying no information — beats both fitted models
+on hit-rate, Brier, BSS *and* calibration simultaneously. Both models fail the
+pre-committed bar on every clause. `ridge`'s 90–100% confidence bin resolves at
+**0.404**; `bear−bull` separation is inverted at **+0.093 (p=0.002, CI [+0.021,
++0.165])** and roughly sextuples from t5 to t20. Mechanism: `drawdown` is the
+only input both classes find load-bearing, it is signed *stress → bearish*, and
+stress mean-reverts at 10–20 days — so the one stable relationship in the panel
+is contrarian and calling it directionally is systematically backwards.
+`ret_20` closes the 20-day reversion errand negatively (sign stability 0.778,
+the lowest of 20; permutation −0.001).
+
+The alignment fix moved the benchmark, not the conclusion: `always_bullish`
+0.560 → 0.557, both models unchanged to three decimals.
+
+Full numbers, caveats and the reproduce recipe: **[KB-024]**.
 
 ```bash
 python .macro-assist/numeric_baseline.py --start 2005-01-01 --save-panel panel.csv
 python .macro-assist/numeric_baseline.py --panel panel.csv --windows t5   # offline re-runs
 ```
 
-The first form caches the panel; every later analysis re-runs offline from the CSV.
 `--no-importance`, `--no-separation`, `--separation-draws` and `--windows` trade
 completeness for speed while iterating — a **reported** result uses none of them.
-The KB entry gets written from that run's `results/numeric_baseline/numeric_baseline.md`,
-and it is the entry that decides WP-21.C and WP-21.D.
 
-### WP-21.B — Clean arm A/B *(day-alternating assignment)*
+### WP-21.B — Clean arm A/B *(day-alternating assignment)* — ❌ CLOSED, superseded by WP-21.A
 
-[KB-023] makes this a prerequisite rather than a refinement: with ~5 independent
+[KB-023] made this a prerequisite rather than a refinement: with ~5 independent
 21-day blocks in the entire scored history, switching `MACRO_PROFILE` in blocks
 spends the whole sample and still confounds arm with market period.
 
-**WP-21.B.1 — Arm-filter the readers. ✅ Done** (2026-09-03 →
+**WP-21.B.1 — Arm-filter the readers. ✅ Done and kept** (2026-09-03 →
 `.macro-assist/bias_separation.py`, `.macro-assist/summarize_accuracy.py`;
-+19 tests, 549 green). Both readers default to the production `market` arm
-(`--arm all` pools deliberately) and emit an `arm_composition` table naming what
-was excluded; `calibration_by_profile`, `calibration_by_floor` and
++19 tests). This work survives the closure: the readers are the historical
+record's readers, and they stay correct. Both default to the production `market`
+arm (`--arm all` pools deliberately) and emit an `arm_composition` table naming
+what was excluded; `calibration_by_profile`, `calibration_by_floor` and
 `commitment_by_arm` are scoped the same way, while `calibration_by_arm` keeps
 seeing every arm because it *is* the cross-arm comparison. Four defects fixed
 beyond the one that prompted the work:
@@ -922,58 +958,217 @@ beyond the one that prompted the work:
      the effects already measured — the exact misread [KB-023] corrected.
 
   De-pooling moved the headline: decisive n 731 → 666, BSS −0.112 → **−0.123**,
-  and the commitment baseline's net edge −0.109 → **−0.128**. The baseline was
-  being flattered, so the loosened arm's apparent gain got *larger* — which is
-  why the guardrail matters more than the filter.
+  and the commitment baseline's net edge −0.109 → **−0.128**.
 
-**WP-21.B.2 — Day-alternating assignment. ⏳ Next.** Assign the profile **per
-report-date** (deterministic alternation, or a seeded draw logged with the run)
-instead of switching a repo variable in blocks. The guardrail above will confirm
-it worked: the ⛔ block disappears once the two profiles share dates.
+**WP-21.B.2 — Day-alternating assignment. ❌ NOT STARTED, and now closed.**
+This is the deliberate call, recorded so it does not look like drift.
 
-- **Explicitly parked:** promoting `loosened` to default. The evidence cited for
-  it ([KB-011] commitment, [KB-022] separation) is confounded in the same way;
-  it waits for a clean read here.
+A clean A/B could only ever have answered *"which of two prompt configurations
+produces less-bad directional calls."* It could never have answered *"is there a
+directional signal to produce."* [KB-024] answers the second question, and the
+answer removes the target: ranking two ways of writing a call is not worth
+months of accumulation when no model class can beat a constant at making one.
 
-### WP-21.C — Conditional base rates into the prompt *(gated on WP-21.A)*
+The ordering argument matters as much as the evidence. WP-21.B.2 had not begun,
+so n≥30 per arm was months away — months in which the note would have kept
+publishing calls that resolve at ~36% while carrying ~63% confidence. Waiting
+for a strictly less informative answer while the anti-informative product stays
+live is the wrong order of operations. **WP-21.A was built precisely to answer
+the bigger question without waiting, and it did.**
 
-Only if WP-21.A finds an edge. `load_accuracy_context()` already injects
-per-asset accuracy; extend it with the *conditional* base rate the numeric layer
-measures — e.g. "10Y has fallen 8% over 20d; historically that has been followed
-by +0.20 sd." This attacks the identified mechanism directly (give the model a
-base rate it cannot compute) instead of tuning commitment levers blindly, and it
-is the intended division of labour: the numeric layer finds the regularity, the
-LLM narrates and risk-flags around it.
+- **Also closed with it:** promoting `loosened` to default. There is no longer a
+  directional product for the profile lever to improve. `MACRO_PROFILE` stays
+  wired (it still switches model and prompt-rule blocks) but its A/B is over.
 
-**Not started before WP-21.A reads.** Feeding the model a base rate that has not
-been validated on real history would simply relocate the problem.
+### WP-21.C — Conditional base rates into the prompt — ❌ CLOSED, inverted into the product
 
-### WP-21.D — Pre-committed kill criterion for the directional product
+Gated on WP-21.A finding an edge. It did not, so the prompt-side version of this
+work does not happen: feeding the model a base rate so it can overwrite it with a
+worse guess is exactly the trade [KB-024] says not to make.
 
-Mirrors the calibration bar already set in [KB-007] (BSS>0, ECE<0.05, n≥30) and
-the separation bar in [KB-022] (Bull−Neut > 0, ordering `aligned`).
+**What survives is the better half of the idea.** The conditional distribution is
+already computed (`conditional.py`, Phase 11) and already appears in the note —
+buried inside `primary_driver` as prose, because the prompt asks the model to
+state it before departing from it. WP-21.D promotes it: the base rate becomes
+**the published product**, rendered by Python from
+`data/conditional_distributions.json`, and nothing overwrites it.
 
-- **Cut the directional product** — stop publishing per-asset Bullish/Bearish
-  calls — if, after the WP-21.B clean A/B reaches n≥30 decisive calls per arm,
-  separation is still not `aligned` **and** BSS is still < 0.
-- **On a cut, the report does not end** — the fragility / risk-flag products
-  become the headline. They are the ones with validated out-of-sample skill
-  [KB-017/021], and `FRAGILITY_OR_MODE` already has the `log → show → active`
-  ladder to promote them.
-- Recording the criterion now is the point: it makes the decision deliberate
-  rather than something that happens by drift.
+### WP-21.D — The kill criterion, read → **CUT** ✅ *(v1.6)*
 
-### Phase 21 — execution order
+The criterion as pre-committed read "cut if, after the WP-21.B clean A/B reaches
+n≥30 per arm, separation is still not `aligned` and BSS is still < 0." That
+condition is now unreachable by design — B is closed — so the criterion is read
+against what actually exists, which is strictly more evidence than it asked for:
 
-1. **WP-21.A** — numeric baseline. Harness ✅ done; **the run is the open item**
-   (needs `FRED_API_KEY` + network). Zero LLM cost, parallel-safe.
-2. **WP-21.B** — arm-filtered readers (✅ done) then day-alternating assignment
-   (independent of A; the earlier it starts accumulating, the sooner it reads).
-3. **WP-21.C** — base rates into the prompt (gated on A showing edge).
-4. **WP-21.D** — read the criterion when B reaches n; decide.
+| | what it measured | result |
+|---|---|---|
+| [KB-007] | the LLM's own calls, 441 decisive | 36% hit-rate, BSS −0.195, confidence anti-informative |
+| [KB-022] | the LLM's bias label vs forward returns | separation inverted |
+| [KB-024] | whether *any* small model can learn the task | no — beaten by a constant, inverts the same way |
 
-**Deliberately de-prioritised: the Kimi ensemble arm.** It is a *confidence*
-fix layered on a signal that [KB-022] says points the wrong way, and fixing
-sizing on a bad signal is second-order. It is cron'd and cheap — leave it
-accumulating, do not spend attention on it until the direction question is
-settled.
+Three independent measurements, none `aligned`, every BSS < 0. **Cut.**
+
+**The cut is surgical — the claim goes, the base rate stays.** Today's S&P row
+already carries *"5d conditional median +0.4% (P25 −0.6%, P75 +1.2%) in the
+current NFCI-low/YC-positive/HY-tight bucket, n=331"* — computed from data,
+honest, and not what failed. The model then puts "Bullish, 63%" on top of it, and
+that is the part three measurements call anti-informative. So the table is not
+deleted; its columns change:
+
+| before | after |
+|---|---|
+| `Bias` | `5d conditional distribution` (median, P25/P75, n — Python-rendered) |
+| `Confidence` | *(gone; the note's risk read is the fragility flag, promoted to a headline block)* |
+| `Primary Driver` | kept — narrative and cross-asset reasoning is not what failed |
+| `Target Range` | kept — a plausible-move band, never scored as a directional call |
+
+Shipped as **v1.6** (`versions.py`). The version gate is what keeps the
+historical record intact: `score_predictions.py` scores v1.5-and-earlier reports
+exactly as before and records v1.6+ as carrying no directional call, so
+[KB-007]/[KB-011]/[KB-022] stay reproducible and the accuracy readers keep
+working on the history they were written for.
+
+**On a cut the report does not end** — the fragility / risk-flag products become
+the headline. They are the ones with validated out-of-sample skill
+([KB-017] leave-one-crisis-out CV, [KB-021] live parity), and the honest limit is
+stated with them: precision ≈0.32, so roughly two of three flags are false
+alarms. It is a high-recall "this is not a normal tape" warning, not a forecast.
+The Fragility Monitor block moves from the tail of the Data Snapshot to a
+headline section, and `FRAGILITY_OR_MODE` steps `log → show`.
+
+**The promotion was blocked by the A/B, and the cut is what unblocks it.**
+`Active_Experiments.md` held the ladder at "escalate only after the loosened A/B
+resolves (a new output lever would confound it)." Closing WP-21.B removes that
+confound. The two decisions were never independent.
+
+It stays at `show`, not `active`: `show` surfaces the flag and lets the model see
+it; `active` would let it widen Target Ranges. There is no live forward record
+yet, so the flag gets one before it moves anything.
+
+### WP-21.E — Bounded, pre-registered indicator search *(queued, blocks nothing)*
+
+The honest way back in. [KB-024] closes "this payload, these model classes" — it
+does not close "no feature family predicts direction." So the search is allowed,
+but on three conditions, written down before it starts:
+
+1. **It does not gate the cut.** The cut is justified by evidence in hand; a
+   search can only ever *add* something back later. Running them in the other
+   order means publishing anti-informative calls for however many months the
+   search takes, in exchange for a result the honest prior says comes back
+   negative.
+2. **It is capped.** Three feature families, maximum. **VIX term structure
+   first** — it is nearly free given the panel `numeric_baseline.py` already
+   builds, and `vix_term` is the strongest single fragility component
+   ([KB-001], AUC 0.77/0.67) that has never been tested for *direction*.
+3. **The bar is the one already written.** Same `verdict()` clause as WP-21.A
+   (n ≥ 30 decisive, hit-rate > 0.52, and BSS > 0 or an `aligned` ordering), on
+   **sealed holdout data** — a slice held out before the family is chosen, not
+   after. Clearing it on the training panel is not a result.
+
+If a family clears that bar, the column comes back — with the conditional
+distribution published underneath it. If none does, WP-21.E is a KB negative and
+the search closes for good.
+
+### Phase 21 — execution order *(complete)*
+
+1. **WP-21.A** — numeric baseline. ✅ Harness, ✅ sample-alignment fix, ✅ run,
+   ✅ **[KB-024]**.
+2. **WP-21.B** — arm-filtered readers ✅ done and kept; day-alternating
+   assignment ❌ closed, superseded by A.
+3. **WP-21.C** — ❌ closed; the base rate is promoted to the product instead of
+   fed to the prompt.
+4. **WP-21.D** — criterion read → **cut**, shipped as v1.6, fragility promoted.
+5. **WP-21.E** — capped indicator search, queued, blocking nothing.
+6. **WP-21.F** — Kimi + exogenous arms stood down ✅ (soft-kill, nothing deleted).
+7. **WP-21.G** — scoring loop wound down ✅; the record closes ~2026-10-02 and the
+   run announces it.
+
+### WP-21.F — Stand down the two remaining directional arms ✅ *(2026-09-04)*
+
+`kimi_arm.py` and `exogenous/synth.py` were the last two things in the repo still
+emitting a Bias/Confidence table. Both are now **deactivated**: their stages were
+removed from `pipeline.yml` (stage 4 and stage 3 respectively), so neither runs on
+its own any more.
+
+**Soft-kill, not deletion.** Both workflows keep their `workflow_dispatch` trigger,
+and nothing else was removed — the modules, their tests, every emitted note and
+every scored file stay exactly where they are, and `calibration_by_arm` still reads
+them. Restoring either arm is putting its job back in `pipeline.yml`. This is the
+kill path both files' own comments describe (`kimi_arm_daily.yml` header,
+`exogenous/DESIGN.md` §9).
+
+Note what did *not* stop them: the version gate. Neither arm stamps an
+`agent_version`, so `has_directional_calls()` reads them as scoreable and they
+would have kept scoring indefinitely. That is the correct behaviour — silently
+defunding a running experiment through a version constant it never opted into
+would be the wrong mechanism — which is why standing them down is an explicit act
+here rather than a side effect of the cut.
+
+**Kimi — closed, and the reason is not "it failed".** The arm asked whether
+ensemble self-consistency could calibrate `confidence_pct`, which [KB-007] found
+anti-informative. v1.6 cut `confidence_pct`. Calibrating a signal that does not
+exist is not a smaller task than calibrating a bad one; it is an empty one. The
+mechanism was proven (it converges with the other arms on rates); the *target* is
+what disappeared.
+
+**Exogenous (Phase 19) — the scoring contract is paused, the thesis is untested.**
+Worth being precise, because these are different claims. Its pre-committed gate
+(DESIGN §4/§5) is a scored directional lean A/B'd head-to-head against the
+market-only arm on `10Y` / `DXY` / `gold`. v1.6 cut market-only's calls, so the
+comparator stopped accumulating and the gate became unreadable — the arm would be
+measured against a frozen record it can neither beat nor lose to.
+
+The *mechanism* never got its test. It is worth restating because it is easy to
+misremember as "market vs institutions", which inverts the key design decision:
+**market data was deliberately barred as a core input.** The natural rates
+consensus is the market-implied path (fed-funds / SOFR futures), and DESIGN §6.1
+excludes it precisely so the arm could not secretly re-derive from prices and
+contaminate the A/B. The anchor is instead two free, official, **non-market**,
+point-in-time consensus sources — the **Philly Fed SPF** (economist consensus) and
+the Fed's own **SEP dot plot** (policymaker consensus) — and the bet has two
+layers: the *gap between them* is itself a tension signal (economists disagreeing
+with the Fed's dots), and because both update only quarterly, the branch tracks
+**new FOMC communication** drifting away from a fixed anchor between updates.
+Economists vs policymakers vs what the Fed is now saying, with the market excluded
+on purpose.
+
+Two live ways back, neither taken here:
+- **(a) Re-point the gate at the WP-21.A benchmark** — score its leans against
+  `always_bullish` / `neutral` on the same dates. Cheap, and [KB-024] shows that
+  is a genuinely hard bar rather than a formality.
+- **(b) Re-cut its output the way the main note was re-cut.** DESIGN §1 says the
+  branch is about expectations-gaps and regime, **not** direction; the directional
+  lean was adopted as a scoring convenience ("judged by the same Brier metric"),
+  and it is exactly the part that just became unscoreable. Publishing the
+  expectations gap itself would be the coherent product.
+
+**(a) is the cheaper read; (b) is the better product.** Deferred to Phase 19.
+
+### WP-21.G — Wind down the scoring loop ✅ *(2026-09-04)*
+
+With the main note cut and both arms stood down, **no new directional call is
+produced anywhere in the repo.** The scored record is now finite, and the cleanup
+follows from that:
+
+- **The feedback loop is deleted, not disabled.** `load_accuracy_context()` (~120
+  lines) built the prompt's "Your Historical Prediction Accuracy" block —
+  best-window-per-asset, "anchor YOUR confidence to…", and a set of bias rules. Its
+  last caller went with the columns. `accuracy_summary.json` is still *written*;
+  nothing reads it back into a prompt.
+- **The scorer still has work to do, and says how much.** The last directional note
+  is 2026-09-04 (v1.5) and its T+20 window resolves ~2026-10-02, so the weekly
+  stage must keep running until then. `record_closure()` / `print_closure()` report
+  the outstanding count each run and print a **DIRECTIONAL RECORD CLOSED** banner
+  once every window has resolved — naming the retirement. Without it the cron would
+  print "0 score file(s) written" forever, which reads exactly like a silent
+  breakage.
+- **The scoring stage was re-parented.** It was gated on the kimi stage succeeding;
+  removing kimi would have silently stopped the scorer. It now hangs off `daily`.
+- **The readers stay.** `summarize_accuracy.py` and `bias_separation.py` read the
+  history and keep working; that history is the evidence base for
+  [KB-007]/[KB-011]/[KB-022] and must stay reproducible.
+
+**Still running, deliberately:** the Phase-20 paper portfolio stage. It sizes from
+bias + confidence, detects a post-cut note, and declines to advance the book with
+a message saying why. Leaving it in place makes the withdrawn input visible every
+week rather than quietly dropping a track record; retiring it is a Phase 20 call.

@@ -91,7 +91,11 @@ Always submit as **null**. Sector opportunity analysis is handled by a dedicated
 A list of 3–5 strings, one per entry, one line each. The most actionable risks or themes for the next 1–4 weeks.
 
 ### predictions
-Exactly 6 AssetPrediction objects in this exact order:
+
+These six objects become the note's **5-Day Outlook** table. (The field keeps the
+name `predictions` for schema compatibility; the contents no longer predict.)
+
+Exactly 6 objects in this exact order:
 1. S&P 500
 2. Gold
 3. WTI Oil
@@ -99,26 +103,43 @@ Exactly 6 AssetPrediction objects in this exact order:
 5. DXY
 6. Bitcoin (proxy for crypto risk)
 
-For each prediction:
+**This note makes no directional call.** There is no bias field and no confidence
+field — they were removed in v1.6 because three independent measurements found
+them anti-informative: the calls resolved at ~36% when decisive with a negative
+Brier skill score, the stated bias ordered forward returns *backwards*, and a
+numeric baseline over 18 years of the same data could not beat a constant and
+inverted the same way. Do not reintroduce a call in prose. Do not write
+"Bullish", "Bearish", a probability, a percentage likelihood, or "I expect X to
+rise/fall" in any field.
+
+For each asset:
 - **asset**: exact name from the list above
-- **bias**: "Bullish" / "Bearish" / "Neutral"
-- **primary_driver**: one-line thesis. Fill this BEFORE setting confidence_pct — write the reasoning chain first (include cross-horizon discount if applicable, e.g. "T+20 accuracy 70% → T+5 confidence adjusted to 60%"), then derive confidence_pct from what you wrote. Max 1200 characters.
-- **confidence_pct**: integer 50–80. Derived from primary_driver reasoning, not set independently.
-- **target_range**: specific numeric range for 5 business days (e.g. "5,150–5,250"). Calibrated to T+5 movement, not T+20.
+- **primary_driver**: the reasoning that matters for this asset over the next
+  week — what is driving it, what the cross-asset context is, what the key
+  tension is. Cite specific numbers from the data. State what *would* change the
+  picture. This is analysis, not a call: describe forces and conditions, not an
+  outcome you are predicting. Max 1200 characters.
+- **target_range**: a plausible 5-business-day range (e.g. "5,150-5,250"). This
+  is a dispersion band — where the asset can reasonably trade — **not** a
+  forecast and not a midpoint you are aiming at. Anchor its width to the vol and
+  distribution data in the payload, not to a view.
 - **horizon_days**: always 5
 
-**Mandatory prediction rules:**
-- **Reasoning-before-confidence**: primary_driver is filled first — horizon math, accuracy discount, then the number.
-<!-- BR:ON-START -->- **Base-rate-first**: when a Conditional return distribution (or other quant base rate) is present for an asset, state that base rate in primary_driver BEFORE your directional view (e.g. "5d conditional median +0.4%, P25–P75 −1.1%/+1.8%"), then justify any deviation from it. Anchor confidence to the base rate and treat a directional call as an explicit, reasoned departure from the conditional distribution — not a free-form guess.<!-- BR:ON-END -->
-- **WTI Oil**: default to Neutral unless you can name a specific supply or demand catalyst. Generic macro headwinds are not sufficient for a directional call.
-<!-- CF:ON-START -->- **Systematic bias override**: if an asset's directional accuracy is <40% at n≥8 in ANY window, your macro lean is demonstrably wrong. Do not default to Neutral. Make a low-confidence contrarian call (50–53%) and state "contrarian bias correction" in primary_driver.<!-- CF:ON-END -->
-- **Best-window rule**: anchor confidence to the window where YOUR directional accuracy is highest at n≥8 — not uniformly to T+5. If T+5 and T+20 diverge by ≥15pp, state which horizon you are calling in primary_driver.
-<!-- CF:ON-START -->- **High-signal assets**: if an asset's best-window directional accuracy is ≥70% at n≥10, make a directional call when macro evidence supports one. Neutral at 50% on a high-signal asset wastes a demonstrated edge.<!-- CF:ON-END -->
-<!-- CF:ON-START -->- **Minimum conviction**: the table must contain at least one Bullish or Bearish call with confidence_pct ≥57%. All-Neutral is not acceptable.<!-- CF:ON-END -->
-<!-- CF:OFF-START -->- **No forced conviction (floor OFF):** an all-Neutral table is acceptable when the honest read is no edge. Make a directional call ONLY where you have genuine conviction — do not manufacture a call to avoid Neutral. (Reading guides, confidence bounds, and the WTI default-Neutral rule still apply.)<!-- CF:OFF-END -->
-- **Confidence diversity**: do not assign the same confidence_pct to more than two assets. Each asset has a different evidence base; reflect that in the spread.
-- **Cross-horizon discount**: if your best accuracy window is T+10 or T+20, apply a 5–10pp discount for the T+5 call and state the discount explicitly in primary_driver.
-- **Target range is T+5 only**: calibrated to plausible 5-business-day movement. If your thesis is T+20, narrow the range to one week.
+**Rules:**
+- **Describe, do not predict.** "Real yields at 2.45% are a live opportunity-cost
+  drag on gold, and the M2 impulse cuts the other way" is the register. "Gold
+  goes up" is not, in any phrasing.
+- **The base rate is published, not restated.** A conditional return distribution
+  column (median, P25/P75, n) is added to the table by the pipeline after you
+  submit — computed from history, not written by you. You do not need to restate
+  those figures in primary_driver, and you must never contradict, "correct", or
+  argue past them. If your reasoning points somewhere the distribution does not,
+  say so as a named tension, not as a call.
+- **Where the data is thin, say so.** 10Y Treasury Yield, DXY and Bitcoin have no
+  conditional distribution in the table; the column will say so. Do not
+  compensate with extra conviction in the prose.
+- **Ranges are widened by uncertainty, never narrowed by confidence.** If the
+  fragility flag is firing or realized vol is elevated, the band gets wider.
 
 ---
 
@@ -172,19 +193,17 @@ If the user message includes a "Recent Video Content" section:
 - When a `## Sector ETF Data` block is present, cite specific sector % changes in equities_note when discussing sector divergence. Do not make generic claims without referencing the actual numbers.
 
 **COT positioning data:**
-- When a `## COT Positioning` block is present, treat speculative (non-commercial) positioning as a contrarian signal. Percentile ≥80 = crowded long → mean-reversion/bearish headwind; percentile ≤20 = crowded short → potential squeeze/contrarian bullish. Use in commodities_note and relevant predictions.
-- Do not make a directional commodity call purely on COT without a confirming catalyst. If COT and fundamentals conflict, name the tension explicitly.
+- When a `## COT Positioning` block is present, treat speculative (non-commercial) positioning as a crowding read. Percentile ≥80 = crowded long, so positioning is a mean-reversion *risk*; ≤20 = crowded short, so a squeeze is a live risk. Use it in commodities_note and in the relevant primary_driver as a named force, never as a call.
+- If COT and fundamentals conflict, name the tension explicitly. Do not resolve it into a direction.
 
 **Technical & Positioning State:**
 - When a `## Technical & Positioning State` table is present, use it in the relevant fields and predictions.
-- RSI: >70 = Overbought (reduce conviction on bullish calls); <30 = Oversold (reduce conviction on bearish calls); 40–60 = Neutral momentum.
-- 50dMA distance: >5% above = extended and more vulnerable to pullback; >3% below = may find near-term support. State the exact figure when making directional calls.
-- 60d Z-Score: |Z| ≥ 2.0 = statistically unusual. Large positive Z at overbought RSI = short-term exhaustion; large negative Z at oversold RSI = potential washout low.
-<!-- PR:OFF-START -->- When Fed Net Liquidity `trend` is "Expanding", do not call S&P 500 Bearish solely on lagging indicators (GDP, unemployment) if RSI <70 and price >50dMA.<!-- PR:OFF-END -->
+- RSI: >70 = Overbought; <30 = Oversold; 40–60 = Neutral momentum. An extreme reading widens the target_range — it does not point it.
+- 50dMA distance: >5% above = extended and more vulnerable to a pullback; >3% below = may find near-term support. State the exact figure in primary_driver.
+- 60d Z-Score: |Z| ≥ 2.0 = statistically unusual. Large positive Z at overbought RSI = short-term exhaustion risk; large negative Z at oversold RSI = potential washout low. Both are dispersion facts, not signals to act on.
 
 **Equity momentum (SPX):**
 - When `momentum` is present inside `sp500` market data, incorporate it in equities_note and the S&P 500 prediction.
-- `trend: "uptrend"` = price > 50dma > 200dma — structural trend is bullish.<!-- PR:OFF-START --> Macro headwinds must be severe and imminent to justify a Bearish call.<!-- PR:OFF-END -->
-- `trend: "downtrend"` = price < 50dma < 200dma<!-- PR:OFF-START --> — do not call Bullish purely on mean-reversion without a catalyst<!-- PR:OFF-END -->.
-- `trend: "mixed"` = weight macro signals more heavily.
-- Always state the trend label and current MA levels when making the S&P 500 prediction (e.g. "SPX trades above its 50dma (5,100) but below its 200dma (5,400) — mixed structure.").
+- `trend: "uptrend"` = price > 50dma > 200dma. `"downtrend"` = price < 50dma < 200dma. `"mixed"` = neither.
+- Report the structure; do not convert it into an expectation. Trend labels are context for the reader, and the horizon at which they are informative is not the 5-day one this table covers.
+- Always state the trend label and current MA levels in the S&P 500 primary_driver (e.g. "SPX trades above its 50dma (5,100) but below its 200dma (5,400) — mixed structure.").
