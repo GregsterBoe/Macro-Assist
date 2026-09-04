@@ -71,13 +71,21 @@ _VALID_FRAGILITY_MODES = ("log", "show", "active")
 # never a directional call). Adopted as a MODE, NOT a composite weight (KB-016: a
 # blend degrades the validated flag).
 #
-# Its own ladder, controlled by FRAGILITY_OR_MODE (default "off"):
-#   off    — NOT computed (zero extra compute/network). The safe default.
+# Its own ladder, controlled by FRAGILITY_OR_MODE (code default "off"; the daily
+# workflow passes "show" since v1.6):
+#   off    — NOT computed (zero extra compute/network).
 #   log    — computed daily and written to the JSONL log ONLY; not shown. Use this
 #            to accumulate the live shadow record (mirrors FRAGILITY_MODE=log).
-#   show   — the reading is rendered into the context (informational).
+#   show   — the reading is rendered into the context (informational). ← CURRENT
 #   active — + when the OR flag fires: widen Target Ranges and add a tail-risk
-#            bullet. NEVER flips the Bias direction (same guardrail as fragility).
+#            bullet.
+#
+# WP-21.D (2026-09-04) stepped this log → show. The escalation had been blocked
+# on "the loosened A/B must resolve first — a new output lever would confound
+# it"; Phase 21 closed that A/B, so the confound is gone. It stops at `show`
+# deliberately: `active` would let the flag widen Target Ranges, and there is
+# still no live forward record of it firing. Precision ≈0.32 [KB-016/017] — a
+# high-recall warning, never a forecast, and never a direction.
 #
 # Separate from FRAGILITY_MODE because the OR flag is a heavier computation (it
 # walks the composite + live sector-ETF channels forward to fit PIT thresholds),
@@ -544,8 +552,8 @@ def _build_fragility_block(
         if mode == "active":
             lines.append(
                 f"- → **Action:** fragility is Elevated{rising}. Widen your Target Ranges and "
-                "add an explicit tail-risk bullet to Key Risks. Do NOT change the Bias "
-                "direction on this basis."
+                "add an explicit tail-risk bullet to Key Risks. This is a risk gauge and says "
+                "nothing about direction. Do not read a view into it."
             )
         else:  # show
             lines.append(
@@ -603,8 +611,8 @@ def _build_or_mode_block(
             lines.append(
                 f"- → **Action:** the high-recall fragility flag is firing ({fired_str}). "
                 "Widen your Target Ranges and add an explicit tail-risk bullet to Key Risks. "
-                "Do NOT change the Bias direction on this basis — this is a recall-tilted "
-                "risk gauge (higher false-alarm rate than the composite Elevated flag)."
+                "This is a recall-tilted risk gauge (precision ≈0.32 — most firings are "
+                "false alarms) and it says nothing about direction. Do not read a view into it."
             )
         else:  # show
             lines.append(
@@ -759,7 +767,12 @@ def conditional_bucket(raw: Optional[dict]) -> str:
 
 
 def build_fragility_snapshot(raw: Optional[dict]) -> str:
-    """Build the '### Fragility Monitor' block for the note's Data Snapshot.
+    """Build the '### Fragility Monitor' block.
+
+    As of v1.6 (WP-21.D) this is a HEADLINE block near the top of the note, not a
+    row at the bottom of the Data Snapshot. The directional product it used to sit
+    beneath was cut [KB-024]; this is what the note leads with instead, because it
+    is the part with measured out-of-sample skill.
 
     Reads the same dict that goes to the JSONL log, so it costs nothing extra and
     matches the logged record exactly. Returns '' when the run produced no
@@ -795,14 +808,27 @@ def build_fragility_snapshot(raw: Optional[dict]) -> str:
     if or_raw:
         modes += f" · OR `{or_raw.get('mode', '?')}`"
 
+    modes = f"`{frag.get('mode', '?')}`"
+    if or_raw:
+        modes += f" · OR `{or_raw.get('mode', '?')}`"
+
+    # WP-21.D: this is the note's headline risk read, so the caveat travels with
+    # it. Precision ≈0.32 [KB-016/017] means roughly two flags in three are false
+    # alarms — that is the honest cost of a high-recall gauge, and burying it
+    # would repeat the mistake the directional product was cut for.
     return (
-        "### Fragility Monitor\n\n"
+        "### Fragility Monitor — the note's risk read\n\n"
         "| Reading | Value |\n"
         "|---------|-------|\n"
         + "\n".join(rows)
-        + "\n\n_Experimental risk gauge (Phase 16) — a tail-risk/resilience "
-          "measure, never a directional call. Computed after the analysis and "
-          f"appended here; shadow mode {modes}, so the model did not see it._\n"
+        + "\n\n_Tail-risk / resilience gauge (Phase 16). **This is a risk flag, never a "
+          "directional call** — it says whether this looks like a normal tape, not which "
+          "way anything goes. It is the one product here with validated out-of-sample "
+          "skill ([KB-017] leave-one-crisis-out CV, [KB-021] live parity), and its honest "
+          "limit is precision ≈0.32: when it fires, roughly two alarms in three are false. "
+          "High recall is the point; a missed crisis costs more than a false one. No live "
+          "forward record yet, so it is shown and not acted on. Computed after the "
+          f"analysis from the same reading that is logged; mode {modes}._\n"
     )
 
 

@@ -333,8 +333,15 @@ If structured output fails after two attempts, the pipeline falls back to a sing
 
 Uses `system_prompt_structured.md` and Anthropic tool use (`submit_analysis`) to produce a validated `AnalysisOutput` Pydantic object. The schema enforces the section structure — section order and constraints are never in the model's output stream. Sections:
 
+0. **Fragility Monitor** — the note's headline risk read, above everything else since
+   v1.6. Computed in Python after the analysis (the model never writes it) from the
+   composite plus the IMP-4 OR-of-channels flag. Carries its own honest limit inline:
+   precision ≈0.32, so most firings are false alarms — high recall is the point.
 1. **Executive Summary** — 2–4 sentences on the dominant macro development
-2. **Macro Dashboard** — signal matrix (9 indicators × 4 asset classes)
+2. **Macro Dashboard** — signal matrix (9 indicators × 4 asset classes). Note these
+   cells are indicator *implications*, not per-asset scored calls; they are not what
+   WP-21.D cut.
+
 3. **Equities** — index moves, risk character, sector divergence, VIX term structure
 4. **Rates & Fed Policy** — yield curve shape, real yield vs. breakeven decomposition, Fed trajectory
 5. **Inflation & Growth** — CPI trend, GDP + unemployment regime read, M2, leading indicators
