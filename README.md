@@ -41,7 +41,7 @@ Macro Pipeline · stage 2 (Mon–Fri, one run per external cron call)
 Macro Pipeline · stage 1 (Mon–Fri, before the daily note)
   └── data fetch check (--fetch-only, no LLM call)
 
-Macro Pipeline · stage 5 (Mondays)
+Macro Pipeline · stage 3 (Mondays)
   │
   ├── score past predictions (T+5, T+10, T+20)
   ├── aggregate accuracy stats → accuracy_summary.json
@@ -108,10 +108,10 @@ Macro-Assist/
 │       ├── pipeline.yml              # THE entry point — external cron Mon–Fri (+catch-up, +backstop)
 │       ├── macro_data_check.yml      # stage 1 — data fetch pre-check
 │       ├── macro_daily.yml           # stage 2 — main pipeline
-│       ├── exo_weekly_emit.yml       # stage 3 — exogenous arm (Mondays)
-│       ├── kimi_arm_daily.yml        # stage 4 — kimi ensemble arm
-│       ├── macro_weekly_scoring.yml  # stage 5 — prediction scoring (Mondays)
-│       ├── portfolio_rebalance.yml   # stage 6 — paper rebalance (Mondays)
+│       ├── macro_weekly_scoring.yml  # stage 3 — prediction scoring (Mondays)
+│       ├── portfolio_rebalance.yml   # stage 4 — paper rebalance (Mondays)
+│       ├── exo_weekly_emit.yml       # DEACTIVATED 2026-09-04 (WP-21.F) — manual only
+│       ├── kimi_arm_daily.yml        # DEACTIVATED 2026-09-04 (WP-21.F) — manual only
 │       ├── macro_weekly_refit.yml    # Sunday 22:00 UTC — model refit (independent call)
 │       └── numeric_baseline.yml      # WP-21.A learnability test — manual only, zero LLM spend
 ├── data/
@@ -407,10 +407,21 @@ nothing reads it back into the prompt.
 
 Runs weekly (Monday). Parses 5-Day Predictions tables from all `*-macro.md` reports and scores each at three horizons:
 
-**As of v1.6 there are no new calls to score.** The script keeps running so the
-historical record (v1.5 and earlier) stays scoreable and the findings built on it stay
-reproducible. Post-cut notes are skipped by *version* — `versions.has_directional_calls`
-— not by table shape, so a stray legacy-shaped table cannot silently re-open the record.
+**As of v1.6 there are no new calls to score, anywhere in the repo.** The main note
+stopped making them, and the two arms that still did — Kimi and exogenous — were stood
+down on 2026-09-04 (WP-21.F). Post-cut notes are skipped by *version*
+(`versions.has_directional_calls`), not by table shape, so a stray legacy-shaped table
+cannot silently re-open the record.
+
+The record is therefore **finite**. The last directional note is 2026-09-04 and its T+20
+window resolves ~2026-10-02, so the weekly stage must keep running until then. Each run
+reports how many reports still have an open window and prints a **DIRECTIONAL RECORD
+CLOSED** banner once none do — that banner is the signal to retire the stage. Without it
+the cron would print "0 score file(s) written" forever, which reads exactly like a silent
+breakage.
+
+`summarize_accuracy.py` and `bias_separation.py` keep working: they read the history, and
+that history is the evidence base for KB-007 / KB-011 / KB-022.
 
 | Window | Trading Days | Calendar |
 |--------|-------------|---------|
@@ -583,7 +594,7 @@ Does not require `ANTHROPIC_API_KEY` or `VAULT_PAT`.
 3. Run `collect_and_analyze.py` (fetch → analyze → write note to vault)
 4. Copy note to `results/` in Macro-Assist and commit back
 
-### macro_weekly_scoring.yml — stage 5 (Mondays)
+### macro_weekly_scoring.yml — stage 3 (Mondays)
 
 Ordered after the daily note and both arm stages by `needs:`, so the week's
 predictions are always committed before they are scored.
@@ -713,7 +724,8 @@ Content-Type: application/json
 Swap `pipeline.yml` for `macro_weekly_refit.yml` in the URL for the refit slot.
 Send input values as **strings** (`"force": "true"`, not `true`) — GitHub coerces
 them to the type the workflow declares. Any input the workflow exposes can be
-passed the same way: `asof`, `force`, `kimi_n`, `pf_reset`, `weekly`.
+passed the same way: `asof`, `force`, `pf_reset`, `weekly`. (`kimi_n` was removed
+with the kimi stage in WP-21.F.)
 
 ### Checking it works
 

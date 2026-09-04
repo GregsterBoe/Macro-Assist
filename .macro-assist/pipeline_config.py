@@ -1,4 +1,7 @@
-"""Run-config resolution, prompt rendering, and accuracy-feedback context."""
+"""Run-config resolution and prompt rendering.
+
+The accuracy-feedback half of this module was removed in v1.6 (WP-21.D) — see the
+note at the bottom of the file."""
 from __future__ import annotations
 
 import json
@@ -95,122 +98,21 @@ def _render_prompt(text: str, config: dict) -> str:
     return text
 
 
-def load_accuracy_context(floor_on: bool = True) -> str:
-    """
-    Read accuracy_summary.json and return a compact text block for injection
-    into the Claude prompt. Returns empty string if no data exists yet.
-    Includes a best-window summary so Claude anchors confidence to the horizon
-    where each asset's signal is strongest, not uniformly to T+5.
-    """
-    if not ACCURACY_JSON.exists():
-        return ""
-
-    try:
-        data = json.loads(ACCURACY_JSON.read_text(encoding="utf-8"))
-    except Exception:
-        return ""
-
-    windows = data.get("windows", {})
-    n_total = data.get("n_reports_total", 0)
-    as_of   = data.get("generated_at", "unknown")
-    asset_order = ["S&P 500", "Gold", "WTI Oil", "10Y Treasury Yield", "DXY", "Bitcoin"]
-    window_keys = ["t5", "t10", "t20"]
-    window_labels = {"t5": "T+5", "t10": "T+10", "t20": "T+20"}
-
-    # --- Compute best window per asset -------------------------------------------
-    # Best = highest directional_acc at n>=8; tie-break on longer horizon.
-    best: dict[str, dict] = {}
-    for asset in asset_order:
-        top_dacc, top_wkey, top_n = None, None, 0
-        for wkey in reversed(window_keys):   # reversed = prefer longer horizon on tie
-            wdata = windows.get(wkey, {})
-            astat = wdata.get("by_asset", {}).get(asset, {})
-            dacc  = astat.get("directional_acc")
-            dn    = astat.get("directional_n", 0)
-            if dacc is None or dn < 8:
-                continue
-            if top_dacc is None or dacc > top_dacc:
-                top_dacc, top_wkey, top_n = dacc, wkey, dn
-        best[asset] = {"wkey": top_wkey, "dacc": top_dacc, "n": top_n}
-
-    # --- Best-window summary table ------------------------------------------------
-    lines = [
-        f"## Your Historical Prediction Accuracy (as of {as_of}, {n_total} reports scored)",
-        "",
-        "### Best Prediction Window Per Asset",
-        "Anchor YOUR confidence to the window where directional accuracy is highest at n≥8.",
-        (
-            "Calling an asset Neutral at 50% when you have a ≥70% signal at T+10 or T+20 wastes genuine edge."
-            if floor_on else
-            "An all-Neutral table is acceptable when the honest read is no edge — make a directional call ONLY where you have genuine conviction."
-        ),
-        "",
-        "| Asset | Best Window | Dir. Acc | n | Guidance |",
-        "|-------|------------|---------|---|----------|",
-    ]
-
-    for asset in asset_order:
-        b = best[asset]
-        if b["wkey"] is None:
-            lines.append(f"| {asset} | Insufficient data | — | — | Default Neutral; do not invent conviction |")
-            continue
-        wlabel = window_labels[b["wkey"]]
-        dacc   = b["dacc"]
-        n      = b["n"]
-        if dacc >= 0.70:
-            guidance = (
-                "STRONG signal — make a directional call at ≥55% confidence" if floor_on
-                else "STRONG signal — directional call supported at ≥55% if evidence agrees; Neutral OK otherwise"
-            )
-        elif dacc >= 0.60:
-            guidance = "Moderate signal — directional call permitted at 52–60%"
-        elif dacc <= 0.40:
-            guidance = "SYSTEMATIC BIAS — direction demonstrably wrong; apply bias rules"
-        else:
-            guidance = "Coin flip — Neutral acceptable; widen range if directional"
-        lines.append(f"| {asset} | {wlabel} | {dacc:.0%} | {n} | {guidance} |")
-
-    lines.append("")
-    if floor_on:
-        lines += [
-            "### Bias Rules (MANDATORY)",
-            "- Any asset whose best-window directional accuracy is <40% at n≥8: weight market structure",
-            "  and momentum at least equally to macro fundamentals. Do not repeat a call the data shows",
-            "  has been wrong 8+ times — that is miscalibration, not caution.",
-            "- Any asset whose best-window directional accuracy is ≥70% at n≥10: you MUST make a",
-            "  directional call when the macro evidence points in a direction. Neutral at 50% is",
-            "  not conservative here — it discards a real edge.",
-            "",
-        ]
-    else:
-        lines += [
-            "### Bias Rules",
-            "- Any asset whose best-window directional accuracy is <40% at n≥8: weight market structure",
-            "  and momentum at least equally to macro fundamentals. Do not repeat a call the data shows",
-            "  has been wrong 8+ times — that is miscalibration, not caution.",
-            "- Conviction floor OFF: an all-Neutral table is acceptable. Make a directional call only where",
-            "  you have genuine conviction; do not manufacture a call to avoid Neutral.",
-            "",
-        ]
-
-    # --- Per-window breakdown (unchanged) -----------------------------------------
-    lines.append("### Full Window Breakdown")
-    for wkey in window_keys:
-        wdata = windows.get(wkey)
-        if not wdata or wdata.get("overall_accuracy") is None:
-            continue
-        ov = wdata["overall_accuracy"]
-        n  = wdata["n_reports"]
-        lines.append(f"**{window_labels[wkey]}** — overall {ov:.0%} ({n} reports)")
-        for asset in asset_order:
-            astat = wdata["by_asset"].get(asset)
-            if not astat:
-                continue
-            acc      = astat["accuracy"]
-            dacc     = astat["directional_acc"]
-            dn       = astat["directional_n"]
-            dacc_str = f"{dacc:.0%} (n={dn})" if dacc is not None else "n/a"
-            lines.append(f"  - {asset}: accuracy {acc:.0%}, directional {dacc_str}")
-        lines.append("")
-
-    return "\n".join(lines)
+# ---------------------------------------------------------------------------
+# REMOVED in v1.6 (WP-21.D): load_accuracy_context()
+#
+# It read accuracy_summary.json and built the prompt's "Your Historical Prediction
+# Accuracy" block — a best-window-per-asset table, "anchor YOUR confidence to the
+# window where directional accuracy is highest", and a set of bias rules. It was
+# the self-calibration feedback loop: score the calls, feed the score back, steer
+# next week's calls.
+#
+# [KB-024] closed the premise. The loop was tuning the direction and confidence of
+# a call that three measurements say carries no information, so its last caller
+# (llm_analysis.analyze_with_claude) was removed with the columns and this became
+# ~120 lines of dead code reading a file nothing consumes.
+#
+# accuracy_summary.json is still WRITTEN by summarize_accuracy.py — it is the
+# historical record, and bias_separation.py / the accuracy report still read it.
+# Nothing reads it back into a prompt.
+# ---------------------------------------------------------------------------

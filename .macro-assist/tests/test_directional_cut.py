@@ -278,3 +278,84 @@ class TestAdversarialPassMakesNoCall:
         )
         assert "%" not in out
         assert out.strip().endswith("| Gold | real yields bite | 4,460-4,620 |")
+
+
+class TestRecordClosure:
+    """The scored record is finite now — the run must say when it is complete.
+
+    Without this the weekly cron prints "0 score file(s) written" forever, which
+    is indistinguishable from a silent breakage.
+    """
+
+    _FRONT = "---\ndate: {d}\nagent_version: {v}\n---\n\n"
+
+    def _report(self, dir_: Path, d: str, version: str) -> tuple:
+        dir_.mkdir(parents=True, exist_ok=True)
+        p = dir_ / f"{d}-macro.md"
+        p.write_text(self._FRONT.format(d=d, v=version), encoding="utf-8")
+        return (date.fromisoformat(d), p)
+
+    @pytest.fixture
+    def _dirs(self, tmp_path):
+        return tmp_path
+
+    def test_directional_reports_filters_by_version(self, tmp_path):
+        import score_predictions as sp
+        reports = [
+            self._report(tmp_path / "a", "2026-09-01", "v1.5"),
+            self._report(tmp_path / "b", "2026-09-05", "v1.6"),
+        ]
+        out = sp.directional_reports(reports)
+        assert [d.isoformat() for d, _ in out] == ["2026-09-01"]
+
+    def test_open_window_is_not_closed(self, _dirs):
+        import score_predictions as sp
+        reports = [self._report(_dirs / "a", "2026-09-04", "v1.5")]
+        status = sp.record_closure(reports, date(2026, 9, 10))
+        assert status["closed"] is False
+        assert status["open_reports"] == 1
+        assert status["last_report"] == date(2026, 9, 4)
+        # ~20 trading days + buffer after the last call
+        assert status["closes_on"] > date(2026, 9, 25)
+
+    def test_all_windows_resolved_closes_the_record(self, _dirs):
+        import score_predictions as sp
+        reports = [self._report(_dirs / "a", "2026-09-04", "v1.5")]
+        assert sp.record_closure(reports, date(2026, 12, 1))["closed"] is True
+
+    def test_post_cut_only_history_is_closed_immediately(self, _dirs):
+        """A repo whose every note is v1.6+ has no directional record at all."""
+        import score_predictions as sp
+        reports = [self._report(_dirs / "a", "2026-09-05", "v1.6")]
+        status = sp.record_closure(reports, date(2026, 9, 6))
+        assert status["closed"] is True
+        assert status["last_report"] is None
+
+    def test_closure_banner_names_the_retirement(self, _dirs, capsys):
+        import score_predictions as sp
+        reports = [self._report(_dirs / "a", "2026-09-04", "v1.5")]
+        sp.print_closure(sp.record_closure(reports, date(2026, 12, 1)))
+        out = capsys.readouterr().out
+        assert "DIRECTIONAL RECORD CLOSED" in out
+        assert "2026-09-04" in out
+        assert "can be retired" in out
+
+    def test_open_banner_names_the_closing_date(self, _dirs, capsys):
+        import score_predictions as sp
+        reports = [self._report(_dirs / "a", "2026-09-04", "v1.5")]
+        sp.print_closure(sp.record_closure(reports, date(2026, 9, 10)))
+        out = capsys.readouterr().out
+        assert "Record closes on" in out
+        assert "CLOSED" not in out
+
+
+class TestDeadFeedbackLoopIsGone:
+
+    def test_load_accuracy_context_is_removed(self):
+        import pipeline_config
+        assert not hasattr(pipeline_config, "load_accuracy_context")
+
+    def test_it_is_no_longer_re_exported(self):
+        import collect_and_analyze as ca
+        assert "load_accuracy_context" not in ca.__all__
+        assert not hasattr(ca, "load_accuracy_context")

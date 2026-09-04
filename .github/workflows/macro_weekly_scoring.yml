@@ -1,7 +1,15 @@
 name: Weekly Prediction Scoring
 
 on:
-  # Scheduled as stage 5 of .github/workflows/pipeline.yml (Mondays only).
+  # Scheduled as stage 3 of .github/workflows/pipeline.yml (Mondays only).
+  # Was stage 5 and gated on the kimi arm; re-parented onto `daily` in WP-21.F so
+  # standing the arms down could not silently stop the scorer.
+  #
+  # The record this scores is FINITE: v1.6 cut the directional product, so the
+  # last note carrying a call is 2026-09-04 and its T+20 window resolves
+  # ~2026-10-02. Each run prints how many reports still have an open window, and a
+  # DIRECTIONAL RECORD CLOSED banner once none do — that banner is the signal to
+  # delete this stage.
   workflow_call:
   workflow_dispatch:   # manual trigger for testing
 

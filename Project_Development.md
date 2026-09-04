@@ -736,7 +736,9 @@ Existing dated predictions  (results/**/<date>-*-macro.md, per arm)
 > [KB-024]: neither a ridge nor a GBM beats a constant `always_bullish` on this
 > payload, and both invert exactly the way the LLM does. WP-21.A ✅ ·
 > WP-21.B ❌ superseded · WP-21.C ❌ closed · **WP-21.D → cut, shipped as v1.6** ·
-> WP-21.E queued. Read WP-21.D below for what replaced the two columns.
+> WP-21.E queued · WP-21.F ✅ both remaining directional arms stood down ·
+> WP-21.G ✅ scoring loop wound down. Read WP-21.D below for what replaced the
+> two columns.
 
 **Why this phase exists.** After 128 scored reports, three independent metrics
 say the directional product does not work: decisive accuracy ~36% [KB-007],
@@ -1077,30 +1079,96 @@ the search closes for good.
    fed to the prompt.
 4. **WP-21.D** — criterion read → **cut**, shipped as v1.6, fragility promoted.
 5. **WP-21.E** — capped indicator search, queued, blocking nothing.
+6. **WP-21.F** — Kimi + exogenous arms stood down ✅ (soft-kill, nothing deleted).
+7. **WP-21.G** — scoring loop wound down ✅; the record closes ~2026-10-02 and the
+   run announces it.
 
-**Two other arms still publish a Bias/Confidence table, and neither was touched.**
-`kimi_arm.py` and `exogenous/synth.py` write their own notes with their own crons.
-Both keep scoring: they stamp no `agent_version`, and `has_directional_calls()`
-reads an absent version as scoreable, so the gate that stops the main note does
-not touch them. That is deliberate — silently defunding a running experiment
-through a version constant it never opted into would be the wrong mechanism —
-but both now need a decision:
+### WP-21.F — Stand down the two remaining directional arms ✅ *(2026-09-04)*
 
-- **Exogenous (Phase 19).** Its kill criterion is "beat market-only after 2–3
-  branches", and market-only no longer makes calls, so the comparator is a frozen
-  record. Either re-point it at the WP-21.A benchmark (`always_bullish` /
-  `neutral` on the same dates) or re-cut its output — a branch whose stated
-  purpose is *expectations-gaps and regime, not direction* arguably should not
-  have been emitting a directional table in the first place. Details in
-  `Active_Experiments.md`.
-- **Kimi.** See below.
+`kimi_arm.py` and `exogenous/synth.py` were the last two things in the repo still
+emitting a Bias/Confidence table. Both are now **deactivated**: their stages were
+removed from `pipeline.yml` (stage 4 and stage 3 respectively), so neither runs on
+its own any more.
 
-**The Kimi ensemble arm is now a live question, not a de-prioritised one.** It
-was parked as "a *confidence* fix layered on a signal [KB-022] says points the
-wrong way." [KB-024] upgrades that from second-order to targetless: the arm asks
-whether ensemble agreement can calibrate `confidence_pct`, and `confidence_pct`
-no longer exists in the main product. It is cron'd, cheap and modular
-(`kimi_arm.py`, its own note, its own table), so nothing breaks by leaving it —
-but it is now accumulating a record about a column that has been cut.
-**Recommend closing it**; deliberately not done here, because it is an
-independent arm and its own cron, not a consequence of the cut.
+**Soft-kill, not deletion.** Both workflows keep their `workflow_dispatch` trigger,
+and nothing else was removed — the modules, their tests, every emitted note and
+every scored file stay exactly where they are, and `calibration_by_arm` still reads
+them. Restoring either arm is putting its job back in `pipeline.yml`. This is the
+kill path both files' own comments describe (`kimi_arm_daily.yml` header,
+`exogenous/DESIGN.md` §9).
+
+Note what did *not* stop them: the version gate. Neither arm stamps an
+`agent_version`, so `has_directional_calls()` reads them as scoreable and they
+would have kept scoring indefinitely. That is the correct behaviour — silently
+defunding a running experiment through a version constant it never opted into
+would be the wrong mechanism — which is why standing them down is an explicit act
+here rather than a side effect of the cut.
+
+**Kimi — closed, and the reason is not "it failed".** The arm asked whether
+ensemble self-consistency could calibrate `confidence_pct`, which [KB-007] found
+anti-informative. v1.6 cut `confidence_pct`. Calibrating a signal that does not
+exist is not a smaller task than calibrating a bad one; it is an empty one. The
+mechanism was proven (it converges with the other arms on rates); the *target* is
+what disappeared.
+
+**Exogenous (Phase 19) — the scoring contract is paused, the thesis is untested.**
+Worth being precise, because these are different claims. Its pre-committed gate
+(DESIGN §4/§5) is a scored directional lean A/B'd head-to-head against the
+market-only arm on `10Y` / `DXY` / `gold`. v1.6 cut market-only's calls, so the
+comparator stopped accumulating and the gate became unreadable — the arm would be
+measured against a frozen record it can neither beat nor lose to.
+
+The *mechanism* never got its test. It is worth restating because it is easy to
+misremember as "market vs institutions", which inverts the key design decision:
+**market data was deliberately barred as a core input.** The natural rates
+consensus is the market-implied path (fed-funds / SOFR futures), and DESIGN §6.1
+excludes it precisely so the arm could not secretly re-derive from prices and
+contaminate the A/B. The anchor is instead two free, official, **non-market**,
+point-in-time consensus sources — the **Philly Fed SPF** (economist consensus) and
+the Fed's own **SEP dot plot** (policymaker consensus) — and the bet has two
+layers: the *gap between them* is itself a tension signal (economists disagreeing
+with the Fed's dots), and because both update only quarterly, the branch tracks
+**new FOMC communication** drifting away from a fixed anchor between updates.
+Economists vs policymakers vs what the Fed is now saying, with the market excluded
+on purpose.
+
+Two live ways back, neither taken here:
+- **(a) Re-point the gate at the WP-21.A benchmark** — score its leans against
+  `always_bullish` / `neutral` on the same dates. Cheap, and [KB-024] shows that
+  is a genuinely hard bar rather than a formality.
+- **(b) Re-cut its output the way the main note was re-cut.** DESIGN §1 says the
+  branch is about expectations-gaps and regime, **not** direction; the directional
+  lean was adopted as a scoring convenience ("judged by the same Brier metric"),
+  and it is exactly the part that just became unscoreable. Publishing the
+  expectations gap itself would be the coherent product.
+
+**(a) is the cheaper read; (b) is the better product.** Deferred to Phase 19.
+
+### WP-21.G — Wind down the scoring loop ✅ *(2026-09-04)*
+
+With the main note cut and both arms stood down, **no new directional call is
+produced anywhere in the repo.** The scored record is now finite, and the cleanup
+follows from that:
+
+- **The feedback loop is deleted, not disabled.** `load_accuracy_context()` (~120
+  lines) built the prompt's "Your Historical Prediction Accuracy" block —
+  best-window-per-asset, "anchor YOUR confidence to…", and a set of bias rules. Its
+  last caller went with the columns. `accuracy_summary.json` is still *written*;
+  nothing reads it back into a prompt.
+- **The scorer still has work to do, and says how much.** The last directional note
+  is 2026-09-04 (v1.5) and its T+20 window resolves ~2026-10-02, so the weekly
+  stage must keep running until then. `record_closure()` / `print_closure()` report
+  the outstanding count each run and print a **DIRECTIONAL RECORD CLOSED** banner
+  once every window has resolved — naming the retirement. Without it the cron would
+  print "0 score file(s) written" forever, which reads exactly like a silent
+  breakage.
+- **The scoring stage was re-parented.** It was gated on the kimi stage succeeding;
+  removing kimi would have silently stopped the scorer. It now hangs off `daily`.
+- **The readers stay.** `summarize_accuracy.py` and `bias_separation.py` read the
+  history and keep working; that history is the evidence base for
+  [KB-007]/[KB-011]/[KB-022] and must stay reproducible.
+
+**Still running, deliberately:** the Phase-20 paper portfolio stage. It sizes from
+bias + confidence, detects a post-cut note, and declines to advance the book with
+a message saying why. Leaving it in place makes the withdrawn input visible every
+week rather than quietly dropping a track record; retiring it is a Phase 20 call.

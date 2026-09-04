@@ -384,6 +384,70 @@ def score_report(report_date: date, predictions: dict, price_series: dict, today
 
 
 # ---------------------------------------------------------------------------
+# Record closure (WP-21.D)
+#
+# The directional record is FINITE now. The last note that carries a call is the
+# last v1.5 one, and its T+20 window resolves ~20 trading days later; after that
+# this script has nothing left to do, forever. Without this the weekly cron would
+# just keep running and printing "0 score file(s) written", which reads the same
+# as a silent breakage. So the run says out loud when the record is closed.
+# ---------------------------------------------------------------------------
+
+def directional_reports(reports: list[tuple[date, Path]]) -> list[tuple[date, Path]]:
+    """The subset of reports that carry a Bias/Confidence table (v1.5 and earlier)."""
+    out = []
+    for d, path in reports:
+        try:
+            version = parse_frontmatter(path).get("agent_version")
+        except Exception:
+            version = None
+        if has_directional_calls(version):
+            out.append((d, path))
+    return out
+
+
+def record_closure(reports: list[tuple[date, Path]], today: date) -> dict:
+    """Is every window on every directional report resolved?
+
+    Returns {closed, last_report, closes_on, open_reports}. `closes_on` is the
+    date the longest outstanding T+20 window resolves — i.e. when this script can
+    be retired.
+    """
+    directional = directional_reports(reports)
+    if not directional:
+        return {"closed": True, "last_report": None, "closes_on": None, "open_reports": 0}
+
+    last_report = max(d for d, _ in directional)
+    resolves = {d: add_trading_days(d, 20) + timedelta(days=BUFFER_DAYS) for d, _ in directional}
+    open_reports = sum(1 for r in resolves.values() if r > today)
+    return {
+        "closed":       open_reports == 0,
+        "last_report":  last_report,
+        "closes_on":    max(resolves.values()),
+        "open_reports": open_reports,
+    }
+
+
+def print_closure(status: dict) -> None:
+    if status["last_report"] is None:
+        return
+    print()
+    if status["closed"]:
+        print("=" * 72)
+        print("DIRECTIONAL RECORD CLOSED.")
+        print(f"  Last report carrying a call: {status['last_report']} (v1.5).")
+        print("  Every T+5/T+10/T+20 window on every directional report has resolved.")
+        print("  Nothing this script scores can change again. The weekly scoring stage")
+        print("  in pipeline.yml can be retired — see WP-21.D in Project_Development.md.")
+        print("  summarize_accuracy.py / bias_separation.py still read the record.")
+        print("=" * 72)
+    else:
+        print(f"Record closes on ~{status['closes_on']}: "
+              f"{status['open_reports']} directional report(s) still have an open window. "
+              f"Last call: {status['last_report']}.")
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -472,6 +536,7 @@ def main() -> None:
             print(f"  {report_date} [{label}] {acc_str} accuracy ({n} assets) | eval: {data['eval_date']}")
 
     print(f"\nDone. {scored} score file(s) written to results/scores/")
+    print_closure(record_closure(reports, today))
 
 
 if __name__ == "__main__":

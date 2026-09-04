@@ -1,5 +1,23 @@
 name: Kimi Arm Daily (experimental model A/B)
 
+# ╔═══════════════════════════════════════════════════════════════════════════════╗
+# ║ DEACTIVATED 2026-09-04 (WP-21.D). Removed from pipeline.yml as stage 4, so it  ║
+# ║ no longer runs on its own. `workflow_dispatch` below still works if you want   ║
+# ║ to fire it by hand.                                                           ║
+# ║                                                                               ║
+# ║ WHY: this arm's question was "can ensemble self-consistency calibrate          ║
+# ║ `confidence_pct`, which [KB-007] found anti-informative?" v1.6 cut             ║
+# ║ `confidence_pct` from the product entirely [KB-024] — no numeric model class   ║
+# ║ can beat a constant on this payload — so the arm was accumulating a record     ║
+# ║ about a column that no longer ships. Fixing the calibration of a signal that   ║
+# ║ does not exist is not a smaller task, it is an empty one.                      ║
+# ║                                                                               ║
+# ║ This is the SOFT-KILL described below: nothing deleted. kimi_arm.py, its       ║
+# ║ tests, the emitted notes and the scored history all stay, and                  ║
+# ║ calibration_by_arm still reads them. Restore the stage in pipeline.yml to      ║
+# ║ resume.                                                                       ║
+# ╚═══════════════════════════════════════════════════════════════════════════════╝
+
 # Daily emission of the Kimi K2.6 ensemble arm (confidence from sample agreement,
 # not self-report). Runs AFTER the Daily Macro Intelligence job has committed that
 # day's payload preview, reads the SAME payload, ensembles it, and commits an
@@ -21,8 +39,11 @@ name: Kimi Arm Daily (experimental model A/B)
 # what makes the pipeline's catch-up run safe to re-fire.
 
 on:
-  # Scheduled as stage 4 of .github/workflows/pipeline.yml, which guarantees the
-  # market run has published the day's payload preview before this starts.
+  # WAS stage 4 of .github/workflows/pipeline.yml until 2026-09-04, which guaranteed
+  # the market run had published the day's payload preview before this started.
+  # The job is gone from pipeline.yml; this trigger is kept so restoring the arm is
+  # putting that job back, and nothing else. Note a manual run still needs that
+  # day's committed payload preview to exist.
   workflow_call:
     inputs:
       asof:

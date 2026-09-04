@@ -40,7 +40,7 @@ from market_data import (
 )
 from calendar_events import fetch_upcoming_events, _check_fomc_dates_expiry
 from pipeline_config import (
-    run_config, main_model, conviction_floor_on, _render_prompt, load_accuracy_context,
+    run_config, main_model, conviction_floor_on, _render_prompt,
 )
 from llm_analysis import (
     fetch_youtube_context, adversarial_review, build_payload_preview, analyze_with_claude,
@@ -67,7 +67,7 @@ __all__ = [
     # calendar
     "fetch_upcoming_events", "_check_fomc_dates_expiry",
     # config
-    "run_config", "main_model", "conviction_floor_on", "_render_prompt", "load_accuracy_context",
+    "run_config", "main_model", "conviction_floor_on", "_render_prompt",
     # llm analysis
     "fetch_youtube_context", "adversarial_review", "build_payload_preview", "analyze_with_claude",
     "_build_analysis_markdown",
