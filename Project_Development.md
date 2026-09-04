@@ -274,9 +274,55 @@ the thing most easily lost between a report and a KB entry.
 workbooks are in the repo. Two ridge arms on the existing panel.
 
 **Status.** Harness shipped and tested (16 new tests; the whole suite green). The
-open half is the run itself: `Numeric Directional Baseline` on the Actions tab
-(`exogenous: true`, the default), then read the two rows against the comparators
-and write the result up as a KB entry. Nothing blocks on it.
+open half is the run itself:
+
+```
+Actions → Numeric Directional Baseline → Run workflow
+  branch: the branch carrying this change   inputs: defaults (exogenous: true)
+```
+
+It needs `FRED_API_KEY` and reachable yfinance/FRED, which is why it lives in CI.
+Expect ~90 minutes (the [KB-024] run took 87; two extra ridge arms are cheap next
+to the GBM). The report prints to the job log and publishes to
+`origin/output:numeric_baseline/`.
+
+#### The read, pre-registered *(written 2026-09-04, before the run)*
+
+Same discipline as WP-21.A: the bar goes down before the numbers, so a marginal
+Δ cannot be talked into a finding afterwards.
+
+**Primary — does the anchor carry direction on its own?** `exogenous_spf` must
+clear the standing `verdict()` bar (n ≥ 30 decisive, decisive hit-rate > 0.52,
+and BSS > 0 **or** an `aligned` separation ordering) **and** beat
+`always_bullish` on the same sample. The second condition is not redundant:
+[KB-024]'s whole point is that the constant is the real bar and the nominal one
+is not.
+
+**Secondary — does it add anything?** `market_plus_exo` vs `ridge`, same model,
+same sample, seven extra columns. An increment counts only if `market_plus_exo`
+clears the bar **in absolute terms** *and* improves BSS over `ridge`. A Δ that
+leaves both arms below the constant is not a gain — it is two failures with a gap
+between them, and the report's increment table is there to be read that way.
+
+**Third outcome, and the one to watch for.** If `exogenous_spf` *inverts* on
+separation (bear − bull positive) the way both market arms did, that is a third
+independent replication of [KB-024]'s mechanism — stress reads bearish, stress
+mean-reverts at 10–20d — and it would mean the SPF anchor is riding the same
+contrarian relationship rather than carrying information of its own. Record it as
+a replication, not as a new finding.
+
+**Read regardless of the verdict** — the pooled per-input table, which is the
+only place this harness can say anything about the branch's actual thesis:
+`spf_policy_path` (does the consensus policy path pay at all?), `spf_staleness`
+(does a stale anchor behave differently from a fresh one — the closest observable
+proxy this harness has for the drift mechanism), and the sign stability of the
+three revision columns.
+
+**What the KB entry says either way.** It must carry the scope sentence: this
+scored the branch's deterministic, point-in-time half; the SPF-vs-SEP gap and the
+FOMC-drift layer were excluded as leakage, so a null closes *the SPF anchor as a
+directional input* and leaves the expectations-gap mechanism untested. Without
+that sentence the entry would read as a verdict on Phase 19, which it is not.
 
 ---
 
