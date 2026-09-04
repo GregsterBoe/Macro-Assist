@@ -1,6 +1,11 @@
 """
 score_predictions.py — Score 5-Day Predictions from macro reports.
 
+Scores the HISTORICAL record. As of v1.6 the daily note no longer makes a
+directional call (WP-21.D / [KB-024]), so this script has no new calls to score;
+it keeps running so that v1.5-and-earlier reports stay scoreable and the findings
+built on them stay reproducible. See `versions.has_directional_calls`.
+
 For each report, scores directional accuracy at T+5, T+10, and T+20 trading days.
 Only processes reports where the evaluation window has fully passed (plus 1-day buffer).
 
@@ -20,6 +25,8 @@ from pathlib import Path
 
 import pandas as pd
 import yfinance as yf
+
+from versions import has_directional_calls
 
 # Point yfinance timezone cache at a per-process temp dir to avoid SQLite
 # database lock errors when multiple CI jobs share the default cache location.
@@ -132,8 +139,18 @@ def parse_predictions(path: Path) -> dict | None:
     """
     Parse the 5-Day Predictions table from a report.
     Returns a dict keyed by normalised asset name, or None if section absent.
+
+    WP-21.D: reports stamped v1.6 or later carry no Bias/Confidence — the
+    directional product was cut [KB-024] — and return None. The gate is the
+    report's own `agent_version`, not the shape of its table: a column sniff
+    would silently start scoring anything that happened to have five columns,
+    and this is the function whose output the whole accuracy record is built on.
+    Everything v1.5 and earlier parses exactly as it always did.
     """
     content = path.read_text(encoding="utf-8")
+
+    if not has_directional_calls(parse_frontmatter(path).get("agent_version")):
+        return None
 
     # Locate the predictions block (between heading and "Review date:")
     block = re.search(
@@ -415,7 +432,11 @@ def main() -> None:
 
         predictions = parse_predictions(path)
         if predictions is None:
-            print(f"  {report_date}: no predictions table - skipping")
+            if not has_directional_calls(agent_version):
+                print(f"  {report_date}: {agent_version} — no directional calls "
+                      f"by design (WP-21.D); nothing to score")
+            else:
+                print(f"  {report_date}: no predictions table - skipping")
             continue
 
         window_results = score_report(report_date, predictions, price_series, today)

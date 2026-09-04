@@ -21,7 +21,7 @@ from datetime import date
 # ---------------------------------------------------------------------------
 # Current pipeline version — stamped into every generated note's YAML frontmatter.
 # ---------------------------------------------------------------------------
-PIPELINE_VERSION: str = "v1.5"
+PIPELINE_VERSION: str = "v1.6"
 
 # ---------------------------------------------------------------------------
 # Minimum version included in the accuracy feedback loop.
@@ -48,8 +48,45 @@ VERSION_MILESTONES: list[tuple[str, date, date]] = [
     ("v1.2", date(2026, 5, 26), date(2026, 5, 28)),  # + Phase 9/10: HAR-RV vol + HMM regime
     ("v1.3", date(2026, 5, 29), date(2026, 5, 28)),  # + Phase 11: conditional distributions (superseded same day by v1.4)
     ("v1.4", date(2026, 5, 29), date(2026, 6, 26)),  # + Phase 12: quant context block; Phase 14: weekly refit + monitoring
-    ("v1.5", date(2026, 6, 27), date(2099, 12, 31)), # + WP-16: run profiles (control/loosened), conviction-floor flag, Brier calibration
+    ("v1.5", date(2026, 6, 27), date(2026, 9,  4)),  # + WP-16: run profiles (control/loosened), conviction-floor flag, Brier calibration
+    ("v1.6", date(2026, 9,  5), date(2099, 12, 31)), # WP-21.D: directional product CUT — Bias/Confidence removed [KB-024];
+                                                     #   conditional distribution published instead; fragility promoted to headline
 ]
+
+# ---------------------------------------------------------------------------
+# The last version that carries a directional call (WP-21.D / [KB-024]).
+#
+# v1.6 removed `bias` and `confidence_pct` from the note, so a v1.6+ report has
+# nothing for score_predictions.py to score. This constant is the single place
+# that fact is written down: the scorer reads it rather than sniffing table
+# columns, so the historical record (v1.5 and earlier) keeps scoring exactly as
+# it always did and [KB-007] / [KB-011] / [KB-022] stay reproducible.
+#
+# If WP-21.E ever earns the column back, add the new version here as the last
+# DIRECTIONAL one and give the gate an explicit gap — do not silently re-open it.
+# ---------------------------------------------------------------------------
+LAST_DIRECTIONAL_VERSION: str = "v1.5"
+
+
+def _version_tuple(v: str) -> tuple[int, ...]:
+    """('v1.10' -> (1, 10)). Unparseable strings sort first, which is the safe
+    side of this gate: an unknown version is treated as old, i.e. scoreable."""
+    try:
+        return tuple(int(x) for x in v.lstrip("v").split("."))
+    except Exception:
+        return (0,)
+
+
+def has_directional_calls(version: str | None) -> bool:
+    """Does a report stamped `version` carry a Bias/Confidence table?
+
+    An absent or unrecognised version reads as True: every report that predates
+    the stamp is a directional one, and mis-skipping real history is a worse
+    failure than the scorer finding no table and saying so.
+    """
+    if not version:
+        return True
+    return _version_tuple(version) <= _version_tuple(LAST_DIRECTIONAL_VERSION)
 
 
 # ---------------------------------------------------------------------------

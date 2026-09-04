@@ -127,15 +127,18 @@ def build_note(
 ) -> str:
     """Assemble the daily note.
 
-    `quant_raw` is the raw quant-context dict from collect_quant_raw(); when it
-    carries a fragility reading, a Fragility Monitor block is appended to the
-    Data Snapshot. Like the rest of the snapshot this is added AFTER the LLM
-    call, so the shadow monitor stays invisible to the model.
+    `quant_raw` is the raw quant-context dict from collect_quant_raw(). It feeds
+    two things: the Fragility Monitor block, and (since v1.6) the 5-Day Outlook
+    table's conditional-distribution column. Both are rendered AFTER the LLM
+    call from the same dict that was logged, so neither can drift from the
+    record and neither is written by the model.
     """
     # Structured path (MA-1): convert AnalysisOutput → markdown string before assembly.
     # Meta-prompt leakage is impossible here — the model never wrote headings or constraints.
     if _STRUCTURED_OUTPUT_AVAILABLE and isinstance(analysis, AnalysisOutput):
-        analysis = _build_analysis_markdown(analysis, today)
+        # quant_raw carries the conditional distributions the outlook table
+        # publishes (v1.6) as well as the fragility reading below.
+        analysis = _build_analysis_markdown(analysis, today, quant_raw)
 
     date_str = today.strftime("%Y-%m-%d")
     day_name = today.strftime("%A")
@@ -510,7 +513,8 @@ def main():
     except Exception as _fg_exc:
         _log("FRAGILITY", "WARN", f"reading unavailable: {type(_fg_exc).__name__}: {_fg_exc}")
 
-    analysis = analyze_with_claude(fred_data, market_data, today, sector_data, notable_moves, histories, quant_context)
+    analysis = analyze_with_claude(fred_data, market_data, today, sector_data, notable_moves,
+                                   histories, quant_context, quant_raw)
 
     note = build_note(fred_data, market_data, analysis, today, sector_data, quant_raw=quant_raw)
     output_path.write_text(note, encoding="utf-8")

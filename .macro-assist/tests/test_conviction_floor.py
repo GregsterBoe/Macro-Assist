@@ -120,29 +120,67 @@ class TestRenderPrompt:
 
 
 class TestRealPromptFiles:
-    """Guard the actual prompt files: markers balanced, strip clean in both arms."""
+    """Guard the actual prompt files.
 
-    @pytest.mark.parametrize("fname", ["system_prompt.md", "system_prompt_structured.md"])
+    Until v1.5 these tests asserted that the CF/BR/PR blocks rendered
+    differently per arm — that was the conviction-floor A/B's contract.
+    WP-21.D removed every one of those blocks with the directional product they
+    gated ([KB-024]), so the contract inverts: the two arms must now render
+    IDENTICALLY, and neither may ask for a call.
+    """
+
+    _FILES = ["system_prompt.md", "system_prompt_structured.md"]
+
+    @pytest.mark.parametrize("fname", _FILES)
     def test_markers_balanced(self, fname):
         raw = (PROMPTS_DIR / fname).read_text(encoding="utf-8")
         for tag in ("CF", "BR", "PR"):
             assert raw.count(f"<!-- {tag}:ON-START -->") == raw.count(f"<!-- {tag}:ON-END -->")
             assert raw.count(f"<!-- {tag}:OFF-START -->") == raw.count(f"<!-- {tag}:OFF-END -->")
 
-    @pytest.mark.parametrize("fname", ["system_prompt.md", "system_prompt_structured.md"])
-    def test_round_trips_both_arms(self, fname):
+    @pytest.mark.parametrize("fname", _FILES)
+    def test_no_profile_markers_remain(self, fname):
+        """v1.6: every arm-gated block was a directional-call rule and is gone."""
+        raw = (PROMPTS_DIR / fname).read_text(encoding="utf-8")
+        for tag in ("CF", "BR", "PR"):
+            assert f"<!-- {tag}:" not in raw, f"{fname} still carries a {tag} block"
+
+    @pytest.mark.parametrize("fname", _FILES)
+    def test_both_arms_render_identically(self, fname):
+        """The prompt toggles are inert — control and loosened get the same text."""
         raw = (PROMPTS_DIR / fname).read_text(encoding="utf-8")
         ctrl = ca._render_prompt(raw, _CTRL)
         loose = ca._render_prompt(raw, _LOOSE)
-        for rendered in (ctrl, loose):
-            assert "CF:" not in rendered and "BR:" not in rendered and "PR:" not in rendered
-        # conviction floor only in control; base-rate-first only in loosened
-        assert "not acceptable" in ctrl and "not acceptable" not in loose
-        assert "Base-rate-first" in loose and "Base-rate-first" not in ctrl
+        assert ctrl == loose == raw
 
-    def test_structured_prunes_hard_overrides_when_loosened(self):
-        raw = (PROMPTS_DIR / "system_prompt_structured.md").read_text(encoding="utf-8")
-        ctrl = ca._render_prompt(raw, _CTRL)
-        loose = ca._render_prompt(raw, _LOOSE)
-        assert "Macro headwinds must be severe" in ctrl
-        assert "Macro headwinds must be severe" not in loose
+    @pytest.mark.parametrize("fname", _FILES)
+    def test_prompt_asks_for_no_directional_call(self, fname):
+        """The regression guard for the cut itself.
+
+        Phrases here are the ones that actually shipped a call: a bias field, a
+        confidence number, or a rule that forces one. Prose *about* not making a
+        call is fine, so match the instruction forms, not the bare words —
+        "Bullish" still legitimately appears in the macro-dashboard signal matrix,
+        which is an indicator-implication grid, not a per-asset scored call.
+        """
+        raw = (PROMPTS_DIR / fname).read_text(encoding="utf-8")
+        banned = [
+            "| Asset | Bias |",
+            "confidence_pct",
+            "Minimum conviction",
+            "minimum conviction rule",
+            "Confidence diversity",
+            "Cross-horizon discount",
+            "Best-window rule",
+            "Systematic bias override",
+            "contrarian bias correction",
+            "5-Day Predictions",
+        ]
+        for phrase in banned:
+            assert phrase not in raw, f"{fname} still contains directional instruction: {phrase!r}"
+
+    @pytest.mark.parametrize("fname", _FILES)
+    def test_prompt_states_the_cut(self, fname):
+        raw = (PROMPTS_DIR / fname).read_text(encoding="utf-8")
+        assert "makes no directional call" in raw
+        assert "5-Day Outlook" in raw

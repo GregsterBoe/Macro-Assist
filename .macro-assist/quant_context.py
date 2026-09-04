@@ -276,8 +276,13 @@ def collect_quant_raw(
             for asset, horizon in _COND_ROWS:
                 dist = lookup_distribution(bucket, asset, horizon, _table)
                 if dist is not None:
+                    # WP-21.D: p25/p75 are carried too — as of v1.6 this dict is
+                    # not just a log record, it is the source for the note's
+                    # published 5-Day Outlook column.
                     cond_raw["distributions"][f"{asset}_{horizon}d"] = {
+                        "p25": round(dist.get("p25", float("nan")), 2),
                         "p50": round(dist.get("p50", float("nan")), 2),
+                        "p75": round(dist.get("p75", float("nan")), 2),
                         "n":   dist.get("n", 0),
                     }
             raw["conditional"] = cond_raw
@@ -696,6 +701,61 @@ def fragility_log_lines(raw: Optional[dict]) -> list[tuple[str, str, str]]:
         lines.append(("FRAG-OR", "WARN" if or_raw.get("flag") else "OK", msg))
 
     return lines
+
+
+# ---------------------------------------------------------------------------
+# The published base rate (WP-21.D / v1.6)
+#
+# Until v1.5 the conditional distribution reached the reader only as prose the
+# model restated inside `primary_driver`, underneath a Bullish/Bearish call.
+# [KB-024] cut the call; the base rate underneath it is what survives, so it is
+# now rendered here, in Python, straight from the same dict that goes to the
+# JSONL log. Nothing the model writes can alter these numbers.
+# ---------------------------------------------------------------------------
+
+# conditional.py keys assets by its own short names; the outlook table uses the
+# note's display names. Assets absent from this map have no conditional
+# distribution at all (10Y / DXY / Bitcoin are not in the Phase 11 table).
+_COND_DISPLAY_TO_NOTE: dict[str, str] = {
+    "SP500":   "S&P 500",
+    "Gold":    "Gold",
+    "WTI Oil": "WTI Oil",
+}
+
+
+def conditional_cells(raw: Optional[dict], horizon: int = 5) -> dict[str, str]:
+    """Map note asset name → a rendered conditional-distribution cell.
+
+    Returns e.g. {"S&P 500": "median +0.4% · P25 −0.6% / P75 +1.2% · n=331"}.
+    Assets with no distribution are simply absent from the mapping — the caller
+    decides what an absent base rate looks like, and must not invent one.
+    Never raises: a malformed or missing reading yields {}.
+    """
+    try:
+        cond = (raw or {}).get("conditional") or {}
+        dists = cond.get("distributions") or {}
+        out: dict[str, str] = {}
+        for short, note_name in _COND_DISPLAY_TO_NOTE.items():
+            d = dists.get(f"{short}_{horizon}d")
+            if not d:
+                continue
+            p25, p50, p75, n = d.get("p25"), d.get("p50"), d.get("p75"), d.get("n", 0)
+            if p50 is None or p25 is None or p75 is None:
+                continue
+            out[note_name] = (
+                f"median {p50:+.1f}% · P25 {p25:+.1f}% / P75 {p75:+.1f}% · n={n}"
+            )
+        return out
+    except Exception:
+        return {}
+
+
+def conditional_bucket(raw: Optional[dict]) -> str:
+    """The regime bucket the distributions above were drawn from, or ''."""
+    try:
+        return str(((raw or {}).get("conditional") or {}).get("bucket") or "")
+    except Exception:
+        return ""
 
 
 def build_fragility_snapshot(raw: Optional[dict]) -> str:

@@ -1,43 +1,48 @@
 """
 Pydantic v2 output contracts for the structured analysis pipeline (Phase MA-1).
 
-AssetPrediction — one row of the 5-Day Predictions table.
+AssetPrediction — one row of the 5-Day Outlook table.
 AnalysisOutput  — full structured output from the analysis agent.
 
 These models are used two ways:
   1. As a tool input_schema (JSON Schema) for Anthropic tool_use.
   2. For runtime validation of the model's response via model_validate().
 
-The @model_validator on AssetPrediction catches bias/narrative contradictions at
-parse time, making them hard errors rather than logged warnings (MA-0.3 soft check).
+WP-21.D / v1.6 — the directional product is CUT. `bias` and `confidence_pct` are
+gone from AssetPrediction, so the model is no longer asked to produce a
+Bullish/Bearish call or a confidence number at all. This is a removal, not a
+suppression: three independent measurements say the call is anti-informative
+([KB-007] 36% decisive accuracy and BSS −0.195; [KB-022] inverted separation;
+[KB-024] no numeric model class beats a constant, and both invert the same way),
+so asking for it and hiding it would just move the problem.
+
+What replaces it is rendered by Python, not by the model: the conditional return
+distribution for each asset (median, P25/P75, n) out of
+`data/conditional_distributions.json`. It is computed from data, carries its own
+sample size, and is not what failed. `primary_driver` and `target_range` stay —
+the narrative and the plausible-move band were never scored as directional calls.
+
+The bias/narrative contradiction validator went with `bias`; there is no longer a
+direction for a driver to contradict.
 """
 from __future__ import annotations
 
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field, model_validator
-
-_FADE_WORDS = frozenset({"fade", "fade the", "expect decline", "downside risk if"})
+from pydantic import BaseModel, Field
 
 
 class AssetPrediction(BaseModel):
+    """One row of the 5-Day Outlook table.
+
+    Name kept (rather than renamed to AssetOutlook) so the tool schema, the
+    JSONL logs and the historical fixtures keep resolving; the contents are what
+    changed. Nothing in this model states or implies a direction.
+    """
     asset: str
-    bias: Literal["Bullish", "Bearish", "Neutral"]
     primary_driver: str = Field(min_length=10, max_length=1200)
-    confidence_pct: int = Field(ge=50, le=80)
     target_range: str
     horizon_days: int = Field(default=5)
-
-    @model_validator(mode="after")
-    def bias_narrative_consistent(self) -> "AssetPrediction":
-        if self.bias == "Bullish":
-            driver_lower = self.primary_driver.lower()
-            for w in _FADE_WORDS:
-                if w in driver_lower:
-                    raise ValueError(
-                        f"Primary driver contradicts Bullish bias: '{w}' found in driver text"
-                    )
-        return self
 
 
 class AnalysisOutput(BaseModel):

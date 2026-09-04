@@ -127,41 +127,48 @@ hold in mind over the next 1–4 weeks based on today's data. Each bullet should
 
 ---
 
-### 5-Day Predictions
+### 5-Day Outlook
 
-Explicit, evaluable forecasts for the next 5 business days. These will be tracked and scored.
-Be specific — vague predictions cannot be scored. State a directional bias and a price range or level.
+Per-asset analysis for the next 5 business days. **This is not a forecast table.**
+
+**This note makes no directional call.** The Bias and Confidence columns were
+removed in v1.6 because three independent measurements found them
+anti-informative: decisive calls resolved at ~36% with a negative Brier skill
+score, the stated bias ordered forward returns *backwards*, and an 18-year
+numeric baseline on the same data could not beat a constant and inverted the same
+way. Do not reintroduce a call in prose — no "Bullish", no "Bearish", no
+probability, no "I expect X to rise/fall", in any section.
 
 Use exactly this table format:
 
-| Asset | Bias | Primary Driver | Confidence | Target Range |
-|-------|------|----------------|------------|--------------|
-| S&P 500 | Bullish / Bearish / Neutral | horizon math → one-line thesis | e.g. 60% | e.g. 5,100–5,200 |
-| Gold | | | | |
-| WTI Oil | | | | |
-| 10Y Treasury Yield | | | | |
-| DXY | | | | |
-| Bitcoin (proxy for crypto risk) | | | | |
+| Asset | Primary Driver | Target Range |
+|-------|----------------|--------------|
+| S&P 500 | the forces and tensions driving it, with specific numbers | e.g. 5,100–5,200 |
+| Gold | | |
+| WTI Oil | | |
+| 10Y Treasury Yield | | |
+| DXY | | |
+| Bitcoin (proxy for crypto risk) | | |
 
 Review date: {the prediction review date provided in the user message}
 
-Rules for predictions:
-- **Reasoning-before-confidence discipline**: Fill Primary Driver BEFORE setting Confidence. This column order is intentional — write out the horizon calculation first (e.g. "T+20 base accuracy 70%; −10pp cross-horizon discount → 60%"), then output that computed number as Confidence. Do not backfill the reasoning after choosing a figure.
-- Confidence must be between 50% and 70% by default.
-<!-- BR:ON-START -->- **Base-rate-first**: when a Conditional return distribution (or other quant base rate) is present for an asset, state that base rate in Primary Driver BEFORE your directional view, then justify any deviation from it. Anchor confidence to the base rate — treat a directional call as an explicit, reasoned departure from the conditional distribution, not a free-form guess.<!-- BR:ON-END -->
-- Target Range must be a specific numeric range, not "higher" or "lower".
-- Primary Driver must name the specific data point or catalyst driving the view.
-- If data is insufficient to form a view, state Neutral with 50% confidence and explain why.
-- **WTI Oil**: default to Neutral unless you can name a specific supply or demand catalyst (e.g. OPEC cut, EIA inventory shock, demand repricing). Generic macro headwinds are not sufficient for a directional call.
-- **Systematic bias override**: if an asset's directional accuracy is <40% at n≥8 in ANY window, your macro lean is demonstrably wrong. Weight market structure and momentum at least equally. Do not repeat a call the data shows has been wrong 8+ times.
-- **Best-window rule**: the injected accuracy data includes a "Best Prediction Window" table. Anchor confidence to the window where YOUR directional accuracy is highest at n≥8 — not uniformly to T+5. If T+5 and T+20 diverge by ≥15pp, state which horizon you are calling in the Primary Driver cell (e.g. "T+10 bias: Bullish").
-<!-- CF:ON-START -->- **High-signal assets**: if an asset's best-window directional accuracy is ≥70% at n≥10, you MUST make a directional call when the macro evidence supports one. Neutral at 50% on a high-signal asset wastes a demonstrated edge and will be flagged in the pipeline. Confidence may be up to 65% for assets with ≥70% best-window accuracy.<!-- CF:ON-END -->
-<!-- CF:ON-START -->- **Minimum conviction requirement**: the predictions table must contain at least one Bullish or Bearish call with confidence ≥57%. An all-Neutral table is not acceptable — it signals analysis paralysis, not caution. If every view feels uncertain, identify the single highest-conviction asset and make a directional call, even at 53%. State the reason in Primary Driver.<!-- CF:ON-END -->
-<!-- CF:OFF-START -->- **No forced conviction (floor OFF)**: an all-Neutral table is acceptable when the honest read is no edge. Make a directional call ONLY where you have genuine conviction — do not manufacture a call to avoid Neutral. Reading guides, confidence bounds, and the WTI default-Neutral rule still apply.<!-- CF:OFF-END -->
-- **Confidence diversity**: do not assign the same confidence figure to more than two assets. If three or more assets land at 55%, you have not differentiated — recalibrate. Each asset has a different evidence base; reflect that in the confidence spread.
-<!-- CF:ON-START -->- **Contrarian call for bias-inverse assets**: assets flagged as SYSTEMATIC BIAS (directional accuracy <40% in any window) mean your natural macro lean is historically wrong for that asset. Do not default to Neutral@50%. If macro evidence points Bearish but historical accuracy shows you are systematically wrong when Bearish, make the explicit contrarian Bullish call at 50–53% confidence and state "contrarian bias correction" in Primary Driver. A low-confidence contrarian call is more honest and more useful than a Neutral that pretends you have no view.<!-- CF:ON-END -->
-- **Cross-horizon confidence discount**: this table scores T+5 outcomes. When your best accuracy window is T+10 or T+20, apply a 5–10pp discount to your confidence for the T+5 call — longer-horizon directional accuracy does not transfer directly to short-term timing. State the discount explicitly in Primary Driver (e.g. "T+20 accuracy 70% → T+5 confidence adjusted to 60%"). If your T+5 directional accuracy (n≥8) is also available, use it as the primary confidence anchor instead.
-- **Target Range is T+5 only**: the Target Range must reflect plausible 5-business-day price movement, not 10- or 20-day movement. If your directional thesis is based on a T+20 signal, narrow the range to what is achievable in one week. If uncertain, widen it — but keep it calibrated to T+5.
+A fourth column — the empirical conditional return distribution (median, P25/P75,
+n) — is inserted into this table by the pipeline after you finish. It is computed
+from history and is not yours to write, restate, or argue with. Leave room for it
+by keeping Primary Driver about mechanism rather than about percentiles.
+
+Rules:
+- **Describe, do not predict.** "Real yields at 2.45% are a live opportunity-cost
+  drag on gold, and the M2 impulse cuts the other way" is the register. "Gold
+  goes up" is not, in any phrasing.
+- Primary Driver must name the specific data point or catalyst that matters, and
+  what would change the picture.
+- Target Range must be a specific numeric range, not "higher" or "lower". It is a
+  **dispersion band** for 5 business days — where the asset can reasonably trade,
+  not a level you are aiming at. Widen it for elevated vol or a firing fragility
+  flag; never narrow it because you feel more certain.
+- If the data is insufficient to say anything useful about an asset, say that
+  plainly in Primary Driver. That is a complete answer, not a failure.
 
 ---
 
@@ -204,7 +211,7 @@ published new content since the last report. Use it as follows:
 ## Additional Data Usage Rules
 
 **Accuracy statistics:**
-- Only cite historical directional accuracy statistics when `directional_n ≥ 8` for that asset-window pair. For `n < 8`, treat it as insufficient history — do not use it to justify or inflate confidence levels. State "insufficient history" if you would otherwise reference it.
+- Historical directional accuracy is no longer injected into this prompt (v1.6): it existed to anchor a confidence figure that no longer exists. If a stale block appears anyway, ignore it — do not cite it, and do not reason from it toward a view.
 
 **Real yields and inflation breakevens:**
 - When `real_yield_10y` and `breakeven_10y` are present in FRED data, include them in the Rates & Fed Policy section. Cross-check nominal yield moves: rising nominal yield + rising real yield + flat breakeven = growth repricing; rising nominal yield + rising breakeven + flat real yield = inflation repricing. Name which one is occurring.
@@ -235,11 +242,10 @@ published new content since the last report. Use it as follows:
 
 **Equity momentum (SPX technical structure):**
 - When `momentum` is present inside `sp500` market data, incorporate it in the Equities section and the S&P 500 prediction.
-- `trend: "uptrend"` means price > 50dma > 200dma — the structural trend is bullish. Macro headwinds must be severe and imminent to justify a Bearish call in an uptrend.
-- `trend: "downtrend"` means price < 50dma < 200dma — structural trend is bearish. Do not call Bullish purely on mean-reversion without a catalyst.
-- `trend: "mixed"` means the structure is indeterminate — weight macro signals more heavily.
-- `one_month_return` above +3% signals near-term momentum; below -3% signals deterioration. Use it to calibrate confidence, not to flip direction.
-- Always state the trend label and current MA levels explicitly when making the S&P 500 prediction. E.g. "SPX trades above its 50dma (5,100) but below its 200dma (5,400) — mixed structure."
+- `trend: "uptrend"` = price > 50dma > 200dma. `"downtrend"` = price < 50dma < 200dma. `"mixed"` = neither.
+- Report the structure; do not convert it into an expectation. The horizon at which a trend label is informative is not the 5-day one this table covers.
+- `one_month_return` above +3% or below -3% is a dispersion fact worth stating; it widens the plausible range, it does not point it.
+- Always state the trend label and current MA levels explicitly in the S&P 500 row. E.g. "SPX trades above its 50dma (5,100) but below its 200dma (5,400) — mixed structure."
 
 ---
 
@@ -254,16 +260,14 @@ If this block is absent, the quantitative models were unavailable — proceed wi
 
 Rules for use:
 
-1. **Anchor predictions to the conditional distribution.** Bullish/Bearish calls in the
-   5-Day Predictions table should sit within the P10–P90 range of the conditional
-   distribution at the matching horizon. Calls outside this range MUST justify the
-   deviation explicitly in the Primary Driver cell (e.g. "above P90 conditional range —
-   catalyst: FOMC surprise").
+1. **The conditional distribution is the published product, not an input to argue
+   with.** It is added to the 5-Day Outlook table by the pipeline. Keep Target
+   Range consistent with the P10–P90 band at the matching horizon; if your
+   reasoning points outside it, name that as a tension in Primary Driver rather
+   than resolving it into a view.
 
-2. **Regime persistence informs confidence.** If the current regime has high posterior
-   (>0.80), regime-consistent calls warrant up to +5pp confidence vs. the base
-   accuracy-driven floor. Do not upgrade confidence on a low-posterior (<0.60) regime
-   reading — the model is uncertain.
+2. **Regime posterior is context, not conviction.** Report it where relevant.
+   There is no confidence figure for it to modify.
 
 3. **VRP informs equity risk character.** VRP 'Compressed' means options markets are
    pricing less risk than the HAR-RV model projects — treat as latent fragility in the
@@ -272,5 +276,6 @@ Rules for use:
    backdrop stabilises.
 
 4. **Small-sample buckets require disclosure.** If `n < 20` for the current macro state
-   bucket, note the small sample explicitly in any prediction that references the
-   conditional distribution (e.g. "conditional n=14 — limited historical precedent").
+   bucket, say so explicitly wherever you lean on the conditional distribution
+   (e.g. "conditional n=14 — limited historical precedent"). The table publishes
+   `n` for exactly this reason; do not talk past a thin one.

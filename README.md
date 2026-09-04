@@ -342,13 +342,34 @@ Uses `system_prompt_structured.md` and Anthropic tool use (`submit_analysis`) to
 7. **Portfolio Risk Assessment** — position-level macro alignment (only when `tr_positions.csv` is present)
 8. **Sector Opportunity Research** — 2–3 macro-driven sector tailwinds with P/E context
 9. **Key Risks & Themes** — 3–5 actionable bullets for the next 1–4 weeks
-10. **5-Day Predictions** — scoreable table per asset: Bias / Primary Driver / Confidence % / Target Range
+10. **5-Day Outlook** — table per asset: 5d Conditional Distribution / Primary Driver / Target Range
 
-Key prompt rules: confidence bounded 50%–70%; historical context anchored to `five_yr_mean`; VIX term structure used to distinguish acute from anticipated stress; minimum conviction requirement (at least one Bullish/Bearish call ≥57%).
+> **v1.6 (WP-21.D): the directional product was cut.** Until v1.5 this table's first
+> two columns were `Bias` (Bullish/Bearish/Neutral) and `Confidence %`. Three
+> independent measurements said they were anti-informative — decisive calls resolved
+> at ~36% with BSS −0.195 [KB-007], the bias label ordered forward returns *backwards*
+> [KB-022], and an 18-year numeric baseline on the same panel lost to a constant
+> `always_bullish` and inverted the same way [KB-024]. They were removed rather than
+> hidden: the schema no longer has the fields, so the model is not asked for a call.
+>
+> What replaced them was already in the note, buried in the driver prose: the
+> **empirical conditional return distribution** (median, P25/P75, n) for the current
+> macro-state bucket. It is rendered by Python from `conditional_distributions.json`
+> after the analysis, so the model cannot alter it. 10Y / DXY / Bitcoin have no
+> conditional distribution and the column says so rather than improvising one.
+>
+> The note's risk read is now the **Fragility Monitor**, promoted to a headline block —
+> it is the product with validated out-of-sample skill [KB-017/021], with its honest
+> limit attached (precision ≈0.32: a high-recall warning, not a forecast).
+
+Key prompt rules: describe forces, never predict an outcome; Target Range is a
+dispersion band widened by uncertainty and never narrowed by confidence; historical
+context anchored to `five_yr_mean`; VIX term structure used to distinguish acute from
+anticipated stress; small-sample buckets (`n < 20`) disclosed explicitly.
 
 ### MA-2 — Adversarial Review (Claude Sonnet, max 250 tokens)
 
-Receives only the predictions table + key risks (not the full analysis) to prevent rubber-stamping. Outputs a JSON delta `{asset: {append_risk, confidence_delta}}`. Python applies changes programmatically — numbers in Primary Driver are never touched by the model, eliminating autoregressive drift. Directional calls are clamped to ≥51% confidence.
+Receives only the outlook rows + key risks (not the full analysis) to prevent rubber-stamping. Outputs a JSON delta `{asset: {append_risk}}`. Python applies changes programmatically — numbers in Primary Driver are never touched by the model, eliminating autoregressive drift. The `confidence_delta` half of this pass was removed in v1.6 along with `confidence_pct`; the conditional distribution column is deliberately not shown to this agent, because measured data has nothing for an adversarial pass to revise.
 
 ### MA-3a — Portfolio Risk Agent (Claude Haiku, max 600 tokens)
 
@@ -356,18 +377,20 @@ Narrow context: only the current macro regime label + portfolio positions table.
 
 ### MA-3b — Synthesis Agent (Claude Haiku, max 3000 tokens)
 
-Receives the structured `AnalysisOutput` JSON and formats it into the final markdown note body. Python pre-formats the predictions table verbatim so the synthesis agent copies it without modification.
+Receives the structured `AnalysisOutput` JSON and formats it into the final markdown note body. Python pre-formats the outlook table verbatim so the synthesis agent copies it without modification — since v1.6 that matters more than it did, because the distribution column is measured data and a formatter that "tidied" a percentile would be rewriting the product.
 
-### Python Accuracy Override
+### Python Accuracy Override — RETIRED in v1.6
 
-`_apply_accuracy_override_structured()` runs post-review and applies four checks:
+`_apply_accuracy_override_structured()` and its free-text twin used to apply four
+checks after the adversarial pass: a bias floor on assets with <40% directional
+accuracy, a wasted-signal warning at ≥70%, a confidence-clustering warning, and an
+all-Neutral `FAIL`. Every one of them read or wrote `bias` / `confidence_pct`.
 
-1. **Bias floor:** if any asset has directional accuracy <40% at n≥8 in any scoring window and the current call is Bearish, confidence is floored at 51% and a bias warning is appended to Primary Driver.
-2. **Wasted signal warning:** if an asset has ≥70% directional accuracy at n≥10 in its best window but is called Neutral@50%, a `WARN` is emitted in CI output.
-3. **Confidence clustering:** if 3+ directional calls share the same confidence figure, a `WARN` fires.
-4. **All-Neutral collapse:** if every asset is called Neutral, a `FAIL` fires (minimum conviction rule violated).
-
-The override uses `feedback_windows` (v0.3+ reports, adversarial review era) when available, falling back to `windows` (all reports).
+They were the feedback loop — score the calls, then steer next week's calls with the
+result. [KB-024] closed the premise: correcting the direction of a call that carries
+no information is not a smaller error, it is a more elaborate one. The calls are gone
+and so is the machinery. The historical accuracy record is still produced (see below);
+nothing reads it back into the prompt.
 
 ---
 
@@ -376,6 +399,11 @@ The override uses `feedback_windows` (v0.3+ reports, adversarial review era) whe
 ### score_predictions.py
 
 Runs weekly (Monday). Parses 5-Day Predictions tables from all `*-macro.md` reports and scores each at three horizons:
+
+**As of v1.6 there are no new calls to score.** The script keeps running so the
+historical record (v1.5 and earlier) stays scoreable and the findings built on it stay
+reproducible. Post-cut notes are skipped by *version* — `versions.has_directional_calls`
+— not by table shape, so a stray legacy-shaped table cannot silently re-open the record.
 
 | Window | Trading Days | Calendar |
 |--------|-------------|---------|
@@ -769,6 +797,12 @@ export VAULT_ROOT=/path/to/your/vault
 ```
 
 Set `MACRO_PREVIEW=1` to write a payload preview to `results/llm_payload_preview/<date>.md` — a section-size index plus the verbatim user message the model receives, and the signals computed but withheld from it (shadow fragility, retired HMM regime). Useful for inspecting what data is being injected. (The daily Action sets this automatically and prints the file to its log.)
+
+> **v1.6:** the prompt toggles below are **inert**. Every block they gated was a
+> directional-call rule and those blocks are gone (WP-21.D). `run_config()` still
+> resolves and records them so the frontmatter contract and the historical readers
+> keep working, and `MACRO_PROFILE` still selects the model — but the A/B they
+> existed for is closed (see Phase 21 in `Project_Development.md`).
 
 Set `MACRO_PROFILE=loosened` to run the WP-16 loosened experiment arm — Opus 4.8 main model, conviction floor OFF (all-Neutral tables allowed), base-rate-first reasoning, and hard directional-override rules pruned, all bundled. `control` (default) preserves current production behaviour (Sonnet 4.6, floor on). Individual levers can be overridden independently of the profile: `MACRO_MODEL`, `CONVICTION_FLOOR`, `BASE_RATE_FIRST`, `PRUNE_RULES`. Each note records the resolved config in frontmatter (`config:` summary + `profile`/`model`/per-lever fields), and `summarize_accuracy.py` reports a Brier/BSS A/B by profile (and by floor) once ≥2 arms have scored data.
 
