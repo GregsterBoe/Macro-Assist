@@ -555,10 +555,71 @@ def test_run_models_covers_every_scoring_window(noise_panel):
 
 def test_comparators_are_scored_on_the_model_dates(noise_panel):
     dates = [d.date().isoformat() for d in noise_panel.index[500:520]]
-    comp = nb.comparator_calls(noise_panel, {"t5": dates})
+    assets = frozenset(nb.ASSET_TICKERS)
+    comp = nb.comparator_calls(noise_panel, {"t5": {d: assets for d in dates}})
     for arm in nb.COMPARATOR_ARMS:
         assert sorted(comp[arm]["t5"]) == sorted(dates), (
             "a comparator was scored on a different sample than the models"
+        )
+
+
+def test_comparators_do_not_call_an_asset_the_models_skipped(noise_panel):
+    """The KB-023 error one level down: same dates, different assets.
+
+    A model cannot predict an asset until it has `min_train` days of that
+    asset's own history; a comparator keyed off price availability calls it from
+    day one. That hands `always_bullish` — the benchmark the whole verdict turns
+    on — a free sample of a young asset the models never saw.
+    """
+    dates = [d.date().isoformat() for d in noise_panel.index[500:520]]
+    late = sorted(nb.ASSET_TICKERS)[0]
+    keys = {"t5": {d: frozenset(a for a in nb.ASSET_TICKERS if a != late)
+                   for d in dates}}
+    comp = nb.comparator_calls(noise_panel, keys)
+
+    for arm in nb.COMPARATOR_ARMS:
+        called = {a for per_asset in comp[arm]["t5"].values() for a in per_asset}
+        assert late not in called, (
+            f"{arm} called {late}, which the models never predicted"
+        )
+
+
+def test_shared_call_keys_intersects_across_model_arms():
+    """One sample for the whole table, not one per arm."""
+    model_calls = {
+        "ridge": {"t5": {"2020-01-02": {"Gold": ("Bullish", 60),
+                                        "DXY":  ("Bearish", 60)},
+                         "2020-01-03": {"Gold": ("Bullish", 60)}}},
+        "gbm":   {"t5": {"2020-01-02": {"Gold": ("Bearish", 60)}}},
+    }
+    keys = nb.shared_call_keys(model_calls)
+    assert keys == {"t5": {"2020-01-02": frozenset({"Gold"})}}, (
+        "an asset or date only one model arm reached must not enter the sample"
+    )
+
+
+def test_every_arm_is_scored_on_an_identical_call_set(noise_panel):
+    """The guarantee the headline comparison rests on, asserted end to end."""
+    pytest.importorskip("sklearn")
+    model_calls, _ = nb.run_models(
+        noise_panel, arms=(nb.ARM_RIDGE,), min_train=400, refit_every=120,
+        with_importance=False,
+    )
+    keys = nb.shared_call_keys(model_calls)
+    comp = nb.comparator_calls(noise_panel, keys)
+    all_calls = nb.restrict_calls({**model_calls, **comp}, keys)
+
+    def key_set(calls):
+        return {(w, iso, asset)
+                for w, dated in calls.items()
+                for iso, per_asset in dated.items()
+                for asset in per_asset}
+
+    reference = key_set(all_calls[nb.ARM_RIDGE])
+    assert reference, "the fixture produced no calls to compare"
+    for arm, calls in all_calls.items():
+        assert key_set(calls) == reference, (
+            f"{arm} was scored on a different sample than the models"
         )
 
 
@@ -641,3 +702,30 @@ def test_permutation_importance_ranks_the_useful_column_first():
     imp = nb.permutation_importance(model, X, y, ["useful", "useless"])
     assert imp["useful"] > imp["useless"]
     assert imp["useful"] > 0.1
+
+
+def test_report_flags_arms_scored_on_different_samples():
+    """The guard that would have caught the Bitcoin mismatch in the first run.
+
+    `restrict_calls` makes unequal samples impossible upstream; this is the
+    reader-side backstop, in the shape [WP-21.B.1] gave the accuracy readers —
+    a ⛔ line in the report rather than a silently invalid comparison.
+    """
+    def arm(n_calls):
+        return {
+            "n_calls": n_calls,
+            "overall": {"decisive_hit_rate": 0.53,
+                        "calibration": {"n": n_calls, "brier": 0.25,
+                                        "brier_skill_score": -0.01, "ece": 0.02}},
+            "windows": {},
+        }
+
+    matched = "\n".join(nb.report_md_lines(
+        {"ridge": arm(1000), "always_bullish": arm(1000)}, {}, {"panel_rows": 10}))
+    assert "all arms scored on the same 1000 calls" in matched
+    assert "⛔" not in matched
+
+    mismatched = "\n".join(nb.report_md_lines(
+        {"ridge": arm(1000), "always_bullish": arm(1400)}, {}, {"panel_rows": 10}))
+    assert "⛔" in mismatched
+    assert "KB-023" in mismatched

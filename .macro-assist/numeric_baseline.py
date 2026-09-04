@@ -838,29 +838,82 @@ def _out_of_sample_importance(
     }
 
 
+CallKeys = dict[str, dict[str, frozenset[str]]]
+
+
+def shared_call_keys(model_calls: dict[str, dict]) -> CallKeys:
+    """The (window, date, asset) triples *every* model arm committed to.
+
+    The unit of comparison is the call, not the date. A model cannot predict an
+    asset until it has `min_train` days of that asset's own history, so on a date
+    where Bitcoin is young the models call five assets and a comparator that
+    keys off price availability would call six. Intersecting here — across model
+    arms, and per date rather than per window — is what makes "same sample" true
+    at the granularity the hit-rate is actually computed on.
+    """
+    if not model_calls:
+        return {}
+    windows = set.intersection(*(set(w) for w in model_calls.values()))
+    out: CallKeys = {}
+    for window in windows:
+        per_arm = [calls[window] for calls in model_calls.values()]
+        out[window] = {
+            iso: frozenset.intersection(
+                *(frozenset(dated[iso]) for dated in per_arm)
+            )
+            for iso in set.intersection(*(set(dated) for dated in per_arm))
+        }
+        out[window] = {iso: a for iso, a in out[window].items() if a}
+    return out
+
+
+def restrict_calls(calls: dict[str, dict], keys: CallKeys) -> dict[str, dict]:
+    """Clamp every arm to `keys` so the whole table shares one sample.
+
+    A no-op for arms that produced exactly these keys; the point is that the
+    guarantee does not depend on that happening to be true.
+    """
+    out: dict[str, dict] = {}
+    for arm, windows in calls.items():
+        out[arm] = {}
+        for window, dated in windows.items():
+            allowed = keys.get(window, {})
+            kept = {
+                iso: {a: c for a, c in per_asset.items() if a in allowed.get(iso, ())}
+                for iso, per_asset in dated.items()
+                if iso in allowed
+            }
+            out[arm][window] = {iso: p for iso, p in kept.items() if p}
+    return out
+
+
 def comparator_calls(
     panel: pd.DataFrame,
-    dates_by_window: dict[str, list[str]],
+    keys_by_window: CallKeys,
     arms: Sequence[str] = COMPARATOR_ARMS,
 ) -> dict[str, dict]:
-    """Comparator calls on exactly the dates the models predicted on.
+    """Comparator calls on exactly the calls the models made.
 
-    Same dates, same assets — otherwise the comparison would also be comparing
-    two different samples, which is the error [KB-023] was written about.
+    Same dates *and the same assets on each date* — otherwise the comparison
+    would also be comparing two different samples, which is the error [KB-023]
+    was written about. `always_bullish` is the arm this protects: it is the
+    benchmark the models are judged against, and handing it a few extra years of
+    a young, hard-drifting asset would flatter it for free.
     """
     prices = {
         asset: panel[f"px:{asset}"].dropna()
         for asset in ASSET_TICKERS
         if f"px:{asset}" in panel.columns
     }
-    out: dict[str, dict] = {arm: {w: {} for w in dates_by_window} for arm in arms}
-    for window, isos in dates_by_window.items():
-        for iso in isos:
+    out: dict[str, dict] = {arm: {w: {} for w in keys_by_window} for arm in arms}
+    for window, by_date in keys_by_window.items():
+        for iso, assets in by_date.items():
             ts = pd.Timestamp(iso)
             for arm in arms:
                 per_asset: dict[str, tuple[str, int]] = {}
-                for asset, close in prices.items():
-                    if ts not in close.index:
+                for asset in assets:
+                    close = prices.get(asset)
+                    if close is None or ts not in close.index:
                         continue
                     per_asset[asset] = comparator_call(arm, close, ts)
                 if per_asset:
@@ -1016,7 +1069,18 @@ def report_md_lines(evaluations: dict[str, dict], diagnostics: dict[str, dict],
             f"{_fmt(calib.get('ece'))} | {sep or 'n/a'} | **{verdict(ev)}** |"
         )
 
+    n_calls = {ev.get("n_calls", 0) for ev in evaluations.values()}
+    sample = (f"all arms scored on the same {n_calls.pop()} calls"
+              if len(n_calls) == 1 else
+              "⛔ **arms were scored on different samples** — the [KB-023] error; "
+              "the comparison below is not valid")
+
     lines += [
+        "",
+        f"> **Sample.** {sample}. The comparators call exactly the (date, asset)",
+        "> pairs the models called — a model cannot predict an asset until it has",
+        "> `min_train` days of that asset's own history, and handing `always_bullish`",
+        "> the difference would flatter the benchmark the verdict turns on.",
         "",
         f"> **Bar (pre-committed).** An arm shows an edge only with n ≥ {EDGE_MIN_N} decisive",
         f"> calls, decisive hit-rate > {EDGE_MIN_HIT_RATE:.2f}, and either BSS > {EDGE_MIN_BSS:.0f}",
@@ -1029,8 +1093,8 @@ def report_md_lines(evaluations: dict[str, dict], diagnostics: dict[str, dict],
         "",
         "## Per-horizon",
         "",
-        "| Arm | window | n | decisive hit-rate | Brier | BSS |",
-        "|---|---|---|---|---|---|",
+        "| Arm | window | n calls | n decisive | decisive hit-rate | Brier | BSS |",
+        "|---|---|---|---|---|---|---|",
     ]
     for arm, ev in evaluations.items():
         for window in SCORING_WINDOWS:
@@ -1039,7 +1103,7 @@ def report_md_lines(evaluations: dict[str, dict], diagnostics: dict[str, dict],
                 continue
             calib = w.get("calibration") or {}
             lines.append(
-                f"| `{arm}` | {window} | {w.get('n', 0)} | "
+                f"| `{arm}` | {window} | {w.get('n', 0)} | {calib.get('n', 0)} | "
                 f"{_fmt(w.get('decisive_hit_rate'))} | {_fmt(calib.get('brier'))} | "
                 f"{_fmt(calib.get('brier_skill_score'), plus=True)} |"
             )
@@ -1194,13 +1258,10 @@ def run(
         refit_every=refit_every, deadband=deadband, with_importance=with_importance,
     )
 
-    dates_by_window = {
-        window: sorted({iso for arm in model_calls for iso in model_calls[arm][window]})
-        for window in horizons
-    }
-    comp_calls = comparator_calls(panel, dates_by_window)
+    call_keys = shared_call_keys(model_calls)
+    comp_calls = comparator_calls(panel, call_keys)
 
-    all_calls = {**model_calls, **comp_calls}
+    all_calls = restrict_calls({**model_calls, **comp_calls}, call_keys)
     prices = {
         asset: panel[f"px:{asset}"].dropna()
         for asset in ASSET_TICKERS
