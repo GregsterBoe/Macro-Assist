@@ -6,18 +6,18 @@
 > upper bound on achievable skill and the benchmark the LLM arm has never had.
 
 - Panel: **2005-01-03 → 2026-09-04** (5655 business days)
-- Features per asset: **20** (own-price + shared macro state; unrevised inputs only)
+- Features per asset: **20** market (own-price + shared macro state) + **0** exogenous (SPF consensus); unrevised inputs only
 - Walk-forward: expanding window, min train **756** days, refit every **21** steps, embargo **horizon + 1** trading days
 
 ## Headline
 
-| Arm | n decisive | decisive hit-rate | mean score | Brier | BSS | ECE | separation | verdict |
-|---|---|---|---|---|---|---|---|---|
-| `ridge` | 42043 | 0.530 | 0.517 | 0.271 | -0.087 | 0.119 | inverted | **no edge** |
-| `gbm` | 40173 | 0.526 | 0.514 | 0.264 | -0.059 | 0.103 | inverted | **no edge** |
-| `neutral` | 0 | n/a | 0.500 | n/a | n/a | n/a | n/a | **abstains** |
-| `random_walk` | 58733 | 0.498 | 0.499 | 0.253 | -0.011 | 0.052 | inverted | **no edge** |
-| `always_bullish` | 61073 | 0.557 | 0.546 | 0.247 | -0.000 | 0.007 | n/a | **no edge** |
+| Arm | inputs | n decisive | decisive hit-rate | mean score | Brier | BSS | ECE | separation | verdict |
+|---|---|---|---|---|---|---|---|---|---|
+| `ridge` | market | 42043 | 0.530 | 0.517 | 0.271 | -0.087 | 0.119 | inverted | **no edge** |
+| `gbm` | market | 40173 | 0.526 | 0.514 | 0.264 | -0.059 | 0.103 | inverted | **no edge** |
+| `neutral` | comparator | 0 | n/a | 0.500 | n/a | n/a | n/a | n/a | **abstains** |
+| `random_walk` | comparator | 58734 | 0.498 | 0.499 | 0.253 | -0.011 | 0.052 | inverted | **no edge** |
+| `always_bullish` | comparator | 61074 | 0.557 | 0.546 | 0.247 | -0.000 | 0.007 | n/a | **no edge** |
 
 > **Sample.** all arms scored on the same 75432 calls. The comparators call exactly the (date, asset)
 > pairs the models called — a model cannot predict an asset until it has
@@ -46,10 +46,10 @@
 | `neutral` | t5 | 25224 | 0 | n/a | n/a | n/a |
 | `neutral` | t10 | 25164 | 0 | n/a | n/a | n/a |
 | `neutral` | t20 | 25044 | 0 | n/a | n/a | n/a |
-| `random_walk` | t5 | 25224 | 18067 | 0.495 | 0.253 | -0.012 |
+| `random_walk` | t5 | 25224 | 18068 | 0.495 | 0.253 | -0.012 |
 | `random_walk` | t10 | 25164 | 19658 | 0.495 | 0.253 | -0.012 |
 | `random_walk` | t20 | 25044 | 21008 | 0.504 | 0.252 | -0.009 |
-| `always_bullish` | t5 | 25224 | 18786 | 0.547 | 0.248 | -0.000 |
+| `always_bullish` | t5 | 25224 | 18787 | 0.547 | 0.248 | -0.000 |
 | `always_bullish` | t10 | 25164 | 20437 | 0.557 | 0.247 | -0.000 |
 | `always_bullish` | t20 | 25044 | 21850 | 0.566 | 0.246 | -0.001 |
 
@@ -97,8 +97,8 @@
 | `sp_ret_20` | 0.021 | +0.002 |
 | `breakeven_chg_20` | 0.028 | -0.002 |
 | `vix_chg_20` | 0.028 | +0.001 |
-| `curve` | 0.107 | +0.001 |
 | `baa_chg_20` | 0.049 | +0.001 |
+| `curve` | 0.107 | +0.001 |
 | `baa_z` | 0.103 | +0.001 |
 | `ma_gap_200` | 0.069 | -0.001 |
 | `ret_5` | 0.019 | +0.001 |
