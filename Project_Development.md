@@ -64,7 +64,7 @@ Measured results live in `Knowledge_Base.md`.
 | 13 | End-to-end validation | ⏸ Backlog (optional) |
 | 14 | Production hardening (weekly refit, monitoring) | ✅ 2026-05-29 |
 | 16 | Fragility monitor + design-by-emergence prompt levers | ✅ Closed 2026-09-04 — 16.A shipped and alive (→ IMP-4), 16.B/C closed by Phase 21; detail archived |
-| 21 | Directional product validation → **the cut (v1.6)** | ✅ Closed 2026-09-04 — [KB-024]; WP-level detail archived, WP-21.E queued |
+| 21 | Directional product validation → **the cut (v1.6)** | ✅ Closed 2026-09-04 — [KB-024]; WP-level detail archived. WP-21.E reopened as a bounded search: family 1 (VIX term structure) built + pre-registered 2026-09-07 |
 
 The v1.5 **system-state snapshot** that used to open this file was archived on the
 same pass; `README.md` is the maintained system reference.
@@ -417,7 +417,9 @@ Existing dated predictions  (results/**/<date>-*-macro.md, per arm)
 > [KB-024]: neither a ridge nor a GBM beats a constant `always_bullish` on this
 > payload, and both invert exactly the way the LLM does. WP-21.A ✅ ·
 > WP-21.B ❌ superseded · WP-21.C ❌ closed · **WP-21.D → cut, shipped as v1.6** ·
-> WP-21.E queued · WP-21.F ✅ both remaining directional arms stood down ·
+> **WP-21.E in flight** (family 1 of 3, VIX term structure, built + pre-registered
+> 2026-09-07 — it does not reopen the phase's verdict, it can only ever add a
+> column back) · WP-21.F ✅ both remaining directional arms stood down ·
 > WP-21.G ✅ scoring loop wound down. The WP-21.A–D table below carries the
 > verdicts, including what replaced the two cut columns.
 
@@ -489,11 +491,15 @@ result is **[KB-024]**.
 **The harness outlived the phase.** `numeric_baseline.py` is now the repo's
 general answer to "is there directional signal in these inputs?": WP-19.E added
 the Phase-19 exogenous anchor to it as two more arms (2026-09-04), and WP-21.E's
-indicator search is meant to run through the same door. Three things must not
-drift — the pre-committed bar, the shared call set, and the rule that an input
-has to be unrevised to enter the panel at all.
+indicator search now runs through the same door (2026-09-07, two more arms and a
+sealed-holdout scope). Four things must not drift — the pre-committed bar, the
+shared call set, the rule that an input has to be unrevised to enter the panel at
+all, and now the seal date. Every optional family also arrives with its own
+`--require-<family>` flag, because a run that quietly drops the thing it was
+dispatched to test publishes a valid report answering a different question
+[KB-025].
 
-### WP-21.E — Bounded, pre-registered indicator search *(queued, blocks nothing)*
+### WP-21.E — Bounded, pre-registered indicator search *(family 1 built + pre-registered 2026-09-07; run pending)*
 
 The honest way back in. [KB-024] closes "this payload, these model classes" — it
 does not close "no feature family predicts direction." So the search is allowed,
@@ -516,6 +522,111 @@ but on three conditions, written down before it starts:
 If a family clears that bar, the column comes back — with the conditional
 distribution published underneath it. If none does, WP-21.E is a KB negative and
 the search closes for good.
+
+#### Family 1 — VIX term structure *(built 2026-09-07, harness on `main`)*
+
+**Why it is first, restated as a cost argument.** `vix_term` is the strongest
+single fragility component ([KB-001], AUC 0.77/0.67) and has never been tested
+for *direction*. It needs exactly one more input — FRED `VXVCLS`, the 3-month
+VIX — which is a published index close, printed once and never restated, so it
+satisfies `numeric_baseline.py`'s no-revision rule with no ALFRED call and no new
+secret. Everything else in the family is arithmetic on two columns the panel now
+carries.
+
+**The four columns.** `vix_term_ratio` (VIX/VIX3M; >1 = backwardation),
+`vix_term_persist_20` (fraction of the trailing 20 days in backwardation —
+literally `fragility.vix_term_backwardation`'s own statistic at its own default
+window, asserted equal by test, so this measures the thing [KB-001] scored and
+not a near-miss of it), `vix_term_chg_5` (is the curve inverting *now*) and
+`vix_term_pct_252` (the ratio against its own trailing year, so "inverted" is
+regime-relative rather than a fixed 1.0 for all time).
+
+**The [KB-009] objection, answered in the construction.** That screen found VIX
+and VIX3M correlate 0.98 *in levels* and put `vix3m` on the WP-18.4 prune queue.
+The family is not the level: the ratio of two series that collinear is what is
+left once the shared component is divided out.
+`test_the_family_is_not_a_second_copy_of_the_vix_level` builds a panel that
+reproduces the 0.98 and fails if the ratio tracks the level. The prune-queue item
+also concerned the *LLM payload*, which is a different question from whether a
+numeric arm can use the curve.
+
+**Two arms, the WP-19.E shape.** `vix_term` is ridge on the family alone — does
+the curve carry direction by itself? `market_plus_vixterm` is the same ridge on
+the market panel plus those four columns, read against `ridge`: identical model,
+identical sample, identical rows, one strictly larger column set. [KB-026] is why
+the second read is not a formality — seven plausible point-in-time columns added
+to this same panel made every calibration metric *worse* and the model a third
+more decisive.
+
+**The market panel does not move.** `vix3m` enters the panel; no market feature
+reads it. `ridge` and `gbm` therefore fit exactly the columns they fit in
+[KB-024] and [KB-026], and their three-run reproducibility anchor survives this
+change. `test_market_feature_set_is_unchanged_by_the_vix_term_inputs` holds the
+line rather than trusting a diff reader to notice.
+
+#### The seal — how condition 3 is actually enforced
+
+`SEAL_START = 2018-01-01`, a constant in `numeric_baseline.py`, committed before
+the family was fitted. Calls dated on or after it are the **sealed holdout**;
+earlier calls are the **explore** slice.
+
+- **`verdict()` is read on the sealed slice only.** The report renders it as the
+  leading table, labelled as the bar; the explore table renders `_not the bar_`
+  in place of every verdict, because that slice is the surface a family is
+  allowed to be shaped against and a verdict there is circular by construction.
+- **Why 2018.** A term-structure family is a stress instrument, so a holdout
+  containing no stress episode could not falsify it in either direction. From
+  2018 the sealed slice spans February 2018, Q4 2018, the 2020 crash, the 2022
+  bear market and the recovery — five regimes, not one long tape. Calls begin
+  ~2009 once the lookbacks and `min_train` are paid, so the split is roughly even
+  and the explore surface stays usable.
+- **A calendar date, not a fraction of the panel**, so it does not move when the
+  panel is rebuilt a day later. Families 2 and 3 face the same holdout family 1
+  faced, which is the only way three families are comparable to each other.
+- The workflow pins `--seal-start` explicitly, so the boundary a verdict was read
+  on is in the run's own log and not only in whichever revision of the source
+  happened to be checked out.
+- **Multiplicity is a stated cost, not a solved problem.** Three families share
+  one sealed slice, so a single family clearing 0.52 once is worth roughly a
+  third of what it looks like. The cap of three is what bounds it. This is on the
+  report, not just here.
+
+#### Pre-registration — the read, written before the run
+
+Same discipline as WP-19.E's ([KB-024], correctly applied): the interpretation
+is fixed while the numbers are still unknown.
+
+1. **Primary question — does the curve carry direction alone?** `vix_term` must
+   clear `verdict()` on the sealed slice: n ≥ 30 decisive, decisive hit-rate >
+   0.52, and BSS > 0 **or** an `aligned` separation ordering. Beating
+   `always_bullish` on hit-rate alone is not a pass — that is the clause
+   [KB-024] added after a drifting tape handed the constant arm free accuracy.
+2. **Secondary question — does it add to the market panel?**
+   `market_plus_vixterm` against `ridge` on the sealed slice, on the four
+   headline metrics. A Δ that does not move the pre-committed bar is a null, not
+   a small gain.
+3. **The third outcome, named in advance.** The family may come back
+   *inverted* — a stable relationship with the wrong sign, which is what
+   [KB-024] found for `drawdown` (stress → bearish, and stress mean-reverts at
+   10–20d). An inversion is **not** a pass and must not be re-labelled a
+   contrarian signal after the fact; it is a finding about the panel, recorded as
+   such.
+4. **What clearing would and would not license.** Not a restored product: an
+   argument for returning the directional column **with the conditional
+   distribution published underneath it**, which is what v1.6 made the product.
+   It would still need the live-emission decision separately.
+5. **What a null closes.** Family 1 only. Two of the three families the cap
+   allows would remain, and the honest prior on them drops.
+
+**Scope limit, to be carried into the write-up.** This scores the term structure
+as a *directional* input at 5/10/20 days on six assets. [KB-001] scored it as a
+*stress* instrument, and that result stands untouched either way — a null here
+says the curve does not predict direction, not that it does not predict trouble.
+The two live fragility flags do not depend on this outcome.
+
+**Where:** `.macro-assist/numeric_baseline.py` (`vix_term_features`,
+`SEAL_START`, `split_reports_by_seal`) · `.github/workflows/numeric_baseline.yml`
+(`vix_term`, `seal_start` inputs) · tests section 9.
 
 ### Phase 21 — execution order and wind-down *(complete; detail archived 2026-09-04)*
 

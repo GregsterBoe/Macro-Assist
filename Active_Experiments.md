@@ -17,8 +17,10 @@ _Last updated: 2026-09-07 — Phase 21 resolved; the directional product is cut 
 both remaining directional arms are stood down, and the scoring loop is winding down.
 WP-19.E is now resolved too: the Phase-19 SPF anchor does not carry direction, alone
 or added to the market panel [KB-026], so Phase 19's directional route is closed and
-only its non-directional route (b) survives. What is left running is the fragility
-track and the numeric/quant work._
+only its non-directional route (b) survives. **WP-21.E has moved from queued to
+in flight the same day** — family 1 of the capped indicator search (VIX term
+structure) is built, pre-registered and sealed; the run is pending. What is left
+running is the fragility track and the numeric/quant work._
 
 ---
 
@@ -29,6 +31,13 @@ track and the numeric/quant work._
 - **Latest:** **COMPLETE — IMP-4.3 wired the OR recall MODE live → [KB-021].** `fragility_or.py` computes the flag (composite | absorption | turbulence, each vs its own PIT top decile) off the live ETF panel; a `FRAGILITY_OR_MODE` ladder (off/log/show/active; code default **off**, daily workflow now passes **`show`**) wires it into `quant_context.py` — a MODE, not a weight ([KB-016]). Live path reproduces the operating point (5d OR recall 0.588 vs composite 0.118); today's live reading is **quiet**. Arc: [KB-017] CV spine → [KB-020] live feed parity → [KB-021] live shadow flag. `turbulence_signal` / `fetch_sector_etfs` graduated into the library layer.
 - **Next:** **escalated `log → show` (2026-09-04, v1.6)** — the loosened A/B that blocked this is closed with Phase 21, so the confound the ladder was waiting on is gone. The OR flag now renders in the prompt and the Fragility Monitor is a **headline block** in the note, not a footnote in the Data Snapshot. Held at `show`, **not** `active`: `active` would let it widen Target Ranges, and there is still no live forward record. Honest limit stays attached — precision ≈0.32 [KB-016/017], a high-recall "not a normal tape" warning, never a forecast. Next gate: a live firing episode → then consider `active`.
 - **Where:** `.macro-assist/fragility_or.py` · `FRAGILITY_OR_MODE` in `quant_context.py` · harness `input_testing.py` (`run_holdout_cv`, `run_etf_panel_gate`) · branch `main`.
+
+### WP-21.E — Bounded indicator search, family 1: VIX term structure 🟡 BUILT + PRE-REGISTERED, run pending
+- **Tests:** does the VIX term structure (VIX/VIX3M) carry 5/10/20-day direction — on its own, or added to the market panel — measured on a **sealed holdout** against the same pre-committed bar every other arm faces? This is family **1 of a hard cap of 3**.
+- **Why it exists:** [KB-024] closed "this payload, these model classes". It did **not** close "no feature family predicts direction", and Phase 21 wrote down the only honest way to ask the smaller question. `vix_term` is the strongest single fragility component ([KB-001], AUC 0.77/0.67) that has never been tested for *direction*, and it costs one extra unrevised FRED series (`VXVCLS`).
+- **Latest (2026-09-07):** the harness is built and on the branch — four columns (`vix_term_ratio`, `vix_term_persist_20`, `vix_term_chg_5`, `vix_term_pct_252`), two arms (`vix_term` alone; `market_plus_vixterm` read against `ridge`), 19 new tests, 83 passing in the module. **The seal is the new machinery:** `SEAL_START = 2018-01-01`, committed before the family was fitted; `verdict()` is read on calls from that date onward and nowhere else, and the report renders the explore slice with `_not the bar_` in place of every verdict. **The market panel does not move** — `vix3m` enters the panel and no market feature reads it, so `ridge`/`gbm` still fit the [KB-024] columns and the three-run reproducibility anchor survives. The read is **pre-registered** in `Project_Development.md` (including the third outcome: an inversion is not a pass).
+- **Next:** dispatch the run — Actions → *Numeric Directional Baseline* → `vix_term: true`, `seal_start: 2018-01-01`. Then read the sealed table only, and write it up as a KB entry either way. **Multiplicity is a stated cost:** three families share one sealed slice, so one family clearing 0.52 once is worth about a third of what it looks like.
+- **Where:** `Project_Development.md` (Phase 21 → WP-21.E) · `.macro-assist/numeric_baseline.py` · `.github/workflows/numeric_baseline.yml`.
 
 ### WP-19.E — The exogenous anchor, scored in the numeric harness ✅ RESOLVED — the anchor does not carry direction [KB-026]
 - **Tests:** does the Phase-19 non-market consensus anchor (Philly Fed **SPF**) carry 5/10/20-day direction — on its own, or as an addition to the market panel — measured against the same pre-committed bar every other arm faces?
@@ -54,7 +63,6 @@ track and the numeric/quant work._
 
 ## Queued / dormant
 
-- **WP-21.E — Bounded indicator search** ⏸ — the honest way back to a directional column. **Capped at 3 feature families, VIX term structure first** (nearly free given the `numeric_baseline.py` panel, and `vix_term` is the strongest fragility component [KB-001] never tested for *direction*). Scored on **sealed holdout** against the same pre-committed `verdict()` bar as WP-21.A. Blocks nothing; if a family clears it the column returns with the base rate published underneath, and if none does it is a KB negative and the search closes for good.
 - **WP-18.4 — Input ablation** ⏸ — the real LLM-cost decision gate; gated on sample. Queue (from [KB-009]/[KB-010], union of redundancy + citation screens): drop `vix3m`, collapse sector block, nasdaq-vs-sp500, real_yield-vs-10y, drop-`baa_spread`, drop raw net-liq components. Start cheapest (drop-baa_spread + net-liq).
 - **WP-17.5 — Vol / conditional layers** ⏸ — fix the HY-OAS-truncation in the conditional table; safe parallel numeric work, confounds no live A/B. **Higher value than it was:** the conditional table is now the note's published product, not a prompt input.
 - **Retire the weekly scoring stage** ⏸ — dated, not open-ended. The last directional note is 2026-09-04 and its T+20 window resolves ~**2026-10-02**; the run prints a `DIRECTIONAL RECORD CLOSED` banner when every window has resolved. Delete stage 3 from `pipeline.yml` then. The readers (`summarize_accuracy.py`, `bias_separation.py`) stay — they read the history.
@@ -70,7 +78,7 @@ track and the numeric/quant work._
 - **Shipped:** **WP-21.A ✅** (harness + `horizon+1` embargo + planted-signal positive control + pre-committed bar) and **WP-21.A.2 ✅** (sample alignment — comparators had been scored on 78,656 calls to the models' 75,414, free sample for the benchmark the verdict turns on). The fix moved `always_bullish` 0.560 → 0.557 and left both models unchanged to three decimals: **the direction of the result never depended on it.**
 - **Decision (WP-21.D): CUT, shipped as v1.6.** `Bias` and `Confidence` are gone from the daily note. The conditional distribution that already sat underneath each call — median, P25/P75, n — is now the published product, rendered by Python from `conditional_distributions.json`. `Primary Driver` and `Target Range` stay. `score_predictions.py` gates on version, so v1.5-and-earlier history stays scoreable and [KB-007]/[KB-011]/[KB-022] stay reproducible.
 - **Closed with it:** **WP-21.B.2 ❌** (day-alternating A/B — could only ever rank two prompt configs, never establish the target exists; not started, so waiting on it meant months of publishing ~36%-accurate calls at ~63% confidence). **WP-21.C ❌** (base rates *into* the prompt — inverted: the base rate is now the product, not an input the model overwrites). Promoting `loosened` to default ❌ — no directional product left to improve. WP-21.B.1's reader fixes ✅ are kept; they read the history.
-- **Next:** **WP-21.E** — bounded pre-registered indicator search, **capped at 3 families, VIX term structure first**, scored on sealed holdout against the same `verdict()` bar. Blocks nothing. If a family clears it, the column comes back with the base rate underneath. Also open: **close the Kimi arm** (recommended, not done — it calibrates a `confidence_pct` that no longer exists).
+- **Next:** **WP-21.E** — now in flight, see the Active section above: family 1 (VIX term structure) is built, pre-registered and sealed as of 2026-09-07, and the run is pending. Two of the three capped families remain after it. Also open: **close the Kimi arm** (recommended, not done — it calibrates a `confidence_pct` that no longer exists).
 - **Where:** `Project_Development.md` (Phase 21 — summary + WP-21.E; WP-A–G detail in `Project_Development_Archive.md`) · [KB-024] · `.macro-assist/numeric_baseline.py` · `numeric_baseline/` on `origin/output`.
 
 ### Kimi ensemble confidence arm ❌ DEACTIVATED

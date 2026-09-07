@@ -1,4 +1,4 @@
-name: Numeric Directional Baseline (WP-21.A / WP-19.E)
+name: Numeric Directional Baseline (WP-21.A / WP-19.E / WP-21.E)
 
 # The learnability test. Fits ridge + a small GBM walk-forward on the pipeline's
 # own numeric inputs and scores them, on the LLM's own metrics, against neutral /
@@ -9,12 +9,19 @@ name: Numeric Directional Baseline (WP-21.A / WP-19.E)
 # Since WP-19.E it also carries the two exogenous arms: the Phase-19 SPF
 # consensus anchor alone, and the market panel plus that anchor. Both read the
 # median-level workbooks committed under exogenous/example/, so they need no
-# extra secret and no extra network — set `exogenous: false` to reproduce the
-# original market-only WP-21.A run.
+# extra secret and no extra network. Each optional family has its own switch, so
+# the original market-only WP-21.A run is `exogenous: false` AND `vix_term: false`.
 #
 # `exogenous: true` passes --require-exogenous, so a run that asks for the anchor
 # and cannot get it FAILS rather than publishing the market-only report — which
 # is a valid report, and therefore an easy thing not to notice [KB-025].
+#
+# Since WP-21.E it also carries family 1 of the bounded indicator search: the VIX
+# term structure (VIX/VIX3M), as an arm on its own and as an addition to the
+# market panel. `vix_term: true` passes --require-vix-term for the same [KB-025]
+# reason, and the run pins --seal-start explicitly so the holdout boundary the
+# verdict was read on is in this workflow's own log rather than only in whichever
+# revision of the source happened to be checked out.
 #
 # MANUAL ONLY. This is a research measurement, not a recurring job: the run takes
 # tens of minutes and its output is read once into a Knowledge Base entry. Trigger:
@@ -46,6 +53,14 @@ on:
         description: "Include the Phase-19 SPF anchor arms (exogenous_spf, market_plus_exo)"
         type: boolean
         default: true
+      vix_term:
+        description: "Include the WP-21.E VIX term-structure arms (vix_term, market_plus_vixterm)"
+        type: boolean
+        default: true
+      seal_start:
+        description: "First date of the WP-21.E sealed holdout. Do NOT move this after seeing a result."
+        type: string
+        default: "2018-01-01"
       publish:
         description: "Commit the report to the output branch"
         type: boolean
@@ -57,7 +72,7 @@ env:
 jobs:
   baseline:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 240
     permissions:
       contents: write
 
@@ -97,6 +112,7 @@ jobs:
           # WP-19.E run was dispatched with exogenous: true and published a
           # market-only report under a WP-19.E heading [KB-025].
           EXOGENOUS: ${{ inputs.exogenous }}
+          VIX_TERM: ${{ inputs.vix_term }}
           WINDOWS: ${{ inputs.windows }}
         run: |
           set -e
@@ -107,19 +123,29 @@ jobs:
           if [ "$EXOGENOUS" != "true" ]; then
             EXO_ARGS="--no-exogenous"
           fi
+          # Same shape for family 1, and the same reason: a run dispatched to test
+          # the term structure that quietly ran without it is a valid report
+          # answering a different question.
+          VIXTERM_ARGS="--require-vix-term"
+          if [ "$VIX_TERM" != "true" ]; then
+            VIXTERM_ARGS="--no-vix-term"
+          fi
           WINDOW_ARGS=""
           if [ -n "$WINDOWS" ]; then
             WINDOW_ARGS="--windows $WINDOWS"
           fi
           echo "exogenous input: '$EXOGENOUS' -> $EXO_ARGS"
+          echo "vix_term input: '$VIX_TERM' -> $VIXTERM_ARGS"
           echo "::group::numeric_baseline"
           python .macro-assist/numeric_baseline.py \
             --start "${{ inputs.start }}" \
             --min-train "${{ inputs.min_train }}" \
             --refit-every "${{ inputs.refit_every }}" \
             --save-panel "${RUNNER_TEMP}/numeric_panel.csv" \
+            --seal-start "${{ inputs.seal_start }}" \
             --emit-scores \
             $EXO_ARGS \
+            $VIXTERM_ARGS \
             $WINDOW_ARGS
           echo "::endgroup::"
 
@@ -144,4 +170,4 @@ jobs:
         if: ${{ inputs.publish }}
         run: |
           bash .macro-assist/ci_publish_results.sh \
-            "numeric baseline: $(date -u +%Y-%m-%d) WP-21.A run"
+            "numeric baseline: $(date -u +%Y-%m-%d) WP-21.E run"
