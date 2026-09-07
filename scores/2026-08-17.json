@@ -7,7 +7,7 @@
   "model": "claude-opus-4-8",
   "base_rate_first": "on",
   "prune_rules": "on",
-  "scored_at": "2026-08-31",
+  "scored_at": "2026-09-07",
   "windows": {
     "t5": {
       "eval_date": "2026-08-24",
@@ -64,6 +64,69 @@
           "eval_price": 78964.4844,
           "eval_date": "2026-08-24",
           "pct_change": 22.414,
+          "score": 0.5
+        }
+      },
+      "summary": {
+        "n_scored": 6,
+        "accuracy": 0.417
+      }
+    },
+    "t10": {
+      "eval_date": "2026-08-31",
+      "assets": {
+        "S&P 500": {
+          "bias": "Bullish",
+          "confidence": 58,
+          "entry_price": 7745.0601,
+          "eval_price": 7686.1401,
+          "eval_date": "2026-08-31",
+          "pct_change": -0.761,
+          "score": 0.0
+        },
+        "Gold": {
+          "bias": "Neutral",
+          "confidence": 55,
+          "entry_price": 4417.7998,
+          "eval_price": 4431.1001,
+          "eval_date": "2026-08-31",
+          "pct_change": 0.301,
+          "score": 0.5
+        },
+        "WTI Oil": {
+          "bias": "Neutral",
+          "confidence": 58,
+          "entry_price": 84.5,
+          "eval_price": 85.76,
+          "eval_date": "2026-08-31",
+          "pct_change": 1.491,
+          "score": 0.5
+        },
+        "10Y Treasury Yield": {
+          "bias": "Neutral",
+          "confidence": 60,
+          "entry_price": 4.724,
+          "eval_price": 4.758,
+          "eval_date": "2026-08-31",
+          "pct_change": 0.72,
+          "score": 0.5
+        },
+        "DXY": {
+          "bias": "Neutral",
+          "confidence": 56,
+          "entry_price": 99.64,
+          "eval_price": 99.43,
+          "eval_date": "2026-08-31",
+          "pct_change": -0.211,
+          "score": 0.5
+        },
+        "Bitcoin": {
+          "bias": "Neutral",
+          "confidence": 54,
+          "entry_price": 64506.2539,
+          "eval_price": 78548.6328,
+          "eval_date": "2026-08-31",
+          "pct_change": 21.769,
           "score": 0.5
         }
       },
