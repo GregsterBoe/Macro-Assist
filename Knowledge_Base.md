@@ -1782,3 +1782,139 @@ python .macro-assist/numeric_baseline.py
 
 Per-asset hit-rate/BSS lives in `scores.json.gz` on the 30-day CI artifact
 (stripped before publish) — pull it before **2026-10-03** if that cut is wanted.
+
+---
+
+## KB-025 — The WP-19.E exogenous run never ran the exogenous arms: a CI expression silently voided a pre-registered measurement (WP-19.E, void)
+
+**Date:** 2026-09-07 · **Branch:** `claude/exogenous-branch-analysis-wuxmhd` ·
+**Run under examination:** Actions run `33971164426`, 2026-09-05, 2h 50m, green ·
+**Artifact:** `numeric_baseline/numeric_baseline.{md,json}` on `origin/output`
+(commit `91f6b37`).
+
+**The question under test.** WP-19.E pre-registered a read (2026-09-04, before
+the run): does the Phase-19 SPF consensus anchor carry direction on its own
+(`exogenous_spf` vs the standing `verdict()` bar *and* `always_bullish`), and
+does it add anything on top of the market panel (`market_plus_exo` vs `ridge`)?
+The run was dispatched on 2026-09-05 with the documented inputs — defaults,
+`exogenous: true`. This entry is about what that run actually executed.
+
+### Headline — the run is void, and it is void in the way that is hardest to see
+
+**`exogenous_spf` and `market_plus_exo` were never fitted.** The published
+report is a market-only re-run of [KB-024], carrying a WP-19.E heading. The
+evidence chain, every link independently checkable:
+
+| where | what it says |
+|---|---|
+| job log, the invocation | `python .macro-assist/numeric_baseline.py … --emit-scores --no-exogenous` |
+| job log, the panel build | `Loading the SPF consensus anchor ...` never printed — `load_spf_inputs` was not called |
+| job log, the panel | `Panel: 5655 business days, 12 columns` — 6 price + 6 macro, no `exo:` columns (with the anchor: 18, the six `exo:` series the committed workbooks yield) |
+| `meta.n_exo_features` | `0` |
+| report, line 2 | `Features per asset: 20 market … + 0 exogenous (SPF consensus)` |
+| `evaluations` | five arms: `ridge`, `gbm`, `neutral`, `random_walk`, `always_bullish` |
+| `meta.arms_skipped` | **empty** — the exo arms were removed from `arms` *before* the panel was built, so no skip reason was recorded either |
+
+**Mechanism — a GitHub Actions expression that cannot express what it looks
+like it expresses.** The workflow built the flag as:
+
+```yaml
+${{ inputs.exogenous && '' || '--no-exogenous' }}
+```
+
+GitHub's `&&` returns its *right* operand when the left is truthy, so
+`true && ''` evaluates to `''`; `''` is falsy, so `|| '--no-exogenous'` then
+discards it and returns the fallback. The expression emits `--no-exogenous` for
+**both** values of the input. No dispatch could have produced an exogenous run,
+including the default one the work package told the operator to use. The
+`windows` input next to it uses the same idiom and is *safe* — its truthy branch
+is a non-empty `format(...)` — which is precisely why the pattern looked proven.
+
+### The nuance: nothing failed, because a degraded run is a valid run
+
+This is the part worth carrying forward. The run was green end to end and every
+check it passed, it passed honestly:
+
+- The pre-run unit suite passed (58 tests) — it tests the harness, not the
+  invocation.
+- The panel built, 3,601 refits ran, ~75k calls were scored, the report
+  rendered, the JSON validated, the publish succeeded.
+- `_exogenous_lines` renders the Phase-19 block **only when an exogenous arm
+  ran** — a deliberate, correct decision so a market-only run reads exactly as
+  it did before the branch was folded in. Its effect here was to remove the
+  loudest available tell.
+- `arms_skipped` exists precisely to name an arm that could not run, and it was
+  empty: it reports arms dropped *by the panel*, and these were dropped *by the
+  CLI*, one layer earlier.
+
+The degraded output was a legitimate artifact of a legitimate configuration —
+the original WP-21.A market-only run — so there was nothing for any guard to
+catch. **The only surviving tell was `+ 0 exogenous` in a metadata line**, and
+it sat unread for two days. A measurement whose failure mode is a valid result
+of a different measurement needs an explicit assertion that it ran what it
+claimed; it cannot be caught by anything downstream.
+
+### What the 2h 50m did buy — an unplanned reproducibility check on KB-024
+
+The panel was rebuilt from live yfinance/FRED 24 hours after [KB-024]'s run, and
+reproduced it:
+
+| Arm | KB-024 (`b3e4255`) | this run (`91f6b37`) |
+|---|---|---|
+| `ridge` | 42,043 dec · 0.530 · BSS −0.087 · ECE 0.119 | **identical to every digit** |
+| `gbm` | 40,173 dec · 0.526 · BSS −0.059 · ECE 0.103 | **identical to every digit** |
+| `random_walk` | 58,733 dec · 0.498 | 58,734 dec · 0.498 |
+| `always_bullish` | 61,073 dec · 0.557 · Brier 0.247 | 61,074 dec · 0.557 · Brier 0.247 |
+
+Both model arms are byte-identical; the two comparators each gained exactly one
+decisive t5 call (one flat move at the panel edge resolved). [KB-024] is
+reproducible on a rebuilt panel — a real, if accidental, result.
+
+### What this does and does not establish
+
+**Does not establish anything about the SPF anchor.** `exogenous_spf` and
+`market_plus_exo` have never been fitted on real data. Both pre-registered
+questions — does the anchor carry direction alone, does it add anything on top —
+are **untouched**, not answered negatively. Nothing in this entry is evidence
+about Phase 19's thesis, and the WP-19.E scope sentence still applies unspent:
+when the run does happen, it will score the branch's *deterministic,
+point-in-time* half only — the SPF-vs-SEP gap and the FOMC-drift layer are
+excluded as leakage, so even a real null there would close *the SPF anchor as a
+directional input* and leave the expectations-gap mechanism untested.
+
+**Establishes a harness fact.** Pre-registering the read is not sufficient. The
+2026-09-04 pre-registration ([KB-024] discipline, correctly applied) fixed the
+bar, the metrics and the scope in advance — and none of it bound the *execution*.
+A run can satisfy a pre-registered analysis plan and still not be the experiment,
+and the gap between "the plan is right" and "the run implemented the plan" is
+where three hours of compute and two days of belief went.
+
+### Consequence
+
+1. **The workflow no longer builds flags with the ternary idiom.** Inputs arrive
+   as env vars and are branched on in the shell, which cannot silently swallow
+   an empty string.
+2. **`--require-exogenous`** (new): a run that asks for the anchor and finds a
+   panel that cannot carry it now **fails** instead of publishing the market-only
+   report. `exogenous: true` passes it.
+3. **Six tests** in `test_numeric_baseline.py` §9, including one that fails on
+   *any* workflow expression whose truthy branch is an empty string — the literal
+   bug, asserted out of existence — and one that requires
+   `exogenous: true` to reach the script as `--require-exogenous`.
+4. **WP-19.E's run is re-opened.** The published `numeric_baseline.md` is
+   correct as a [KB-024] reproduction and must not be cited as a WP-19.E result
+   until a run with `n_exo_features = 7` replaces it.
+
+**Reproduce:**
+
+```bash
+# the invocation, in the job log of the run that was supposed to test the anchor
+#   https://github.com/GregsterBoe/Macro-Assist/actions/runs/33971164426
+# the published artifact, and the metadata line that was the only tell
+git show origin/output:numeric_baseline/numeric_baseline.md | sed -n 8,10p
+git show origin/output:numeric_baseline/numeric_baseline.json \
+  | python3 -c "import json,sys; m=json.load(sys.stdin)['meta']; print(m['n_exo_features'], m['arms_skipped'])"
+
+# the guard, locally: a market-only panel plus --require-exogenous must exit non-zero
+python .macro-assist/numeric_baseline.py --panel panel.csv --require-exogenous
+```

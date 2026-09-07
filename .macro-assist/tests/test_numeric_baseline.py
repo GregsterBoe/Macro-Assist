@@ -1003,3 +1003,87 @@ def test_spf_loader_reads_the_committed_workbooks():
 def test_missing_workbooks_leave_the_market_arms_runnable(tmp_path):
     """A missing download degrades to the original WP-21.A run, not to a crash."""
     assert nb.load_spf_inputs(tmp_path) == {}
+
+
+# ---------------------------------------------------------------------------
+# 9. The run is what it says it is — the KB-025 guard
+# ---------------------------------------------------------------------------
+#
+# The 2026-09-05 WP-19.E run was dispatched with `exogenous: true` and executed
+# `--no-exogenous`, because the workflow built the flag with
+# `${{ inputs.exogenous && '' || '--no-exogenous' }}` — an idiom that returns the
+# fallback whenever the middle value is the empty string. Nothing failed: the run
+# published a perfectly valid market-only report under a WP-19.E heading. These
+# tests exist because a silently-degraded run is indistinguishable from an
+# honest one unless something asserts the difference.
+
+WORKFLOW = Path(__file__).resolve().parents[2] / ".github" / "workflows" / "numeric_baseline.yml"
+
+
+def test_n_exogenous_features_reports_zero_on_a_market_only_panel(noise_panel):
+    """The number the report prints, and the number the guard refuses."""
+    assert nb.n_exogenous_features(noise_panel) == 0
+
+
+def test_n_exogenous_features_counts_the_anchor_columns(exo_panel):
+    """The seven WP-19.E columns, and the same count an arm would be fit on."""
+    assert nb.n_exogenous_features(exo_panel) == 7
+    assert nb.n_exogenous_features(exo_panel) == len(
+        nb.build_features(exo_panel, "S&P 500", nb.FEATURES_EXO).columns
+    )
+
+
+def test_require_exogenous_fails_rather_than_running_market_only(noise_panel, tmp_path,
+                                                                 monkeypatch):
+    """A run that asks for the anchor and cannot get it must not publish.
+
+    Without this the fallback is a *valid* report — the exact failure mode of
+    [KB-025], where a market-only table was read as a WP-19.E result for two days.
+    """
+    panel_csv = tmp_path / "panel.csv"
+    nb.save_panel(noise_panel, panel_csv)
+    monkeypatch.setattr("sys.argv", [
+        "numeric_baseline.py", "--panel", str(panel_csv),
+        "--out", str(tmp_path / "out"), "--require-exogenous",
+    ])
+    with pytest.raises(SystemExit) as excinfo:
+        nb.main()
+    assert "no exogenous features" in str(excinfo.value)
+    assert not (tmp_path / "out").exists(), "it must fail before writing a report"
+
+
+def test_require_and_no_exogenous_contradict(tmp_path, monkeypatch):
+    monkeypatch.setattr("sys.argv", [
+        "numeric_baseline.py", "--panel", str(tmp_path / "panel.csv"),
+        "--require-exogenous", "--no-exogenous",
+    ])
+    with pytest.raises(SystemExit):
+        nb.main()
+
+
+def test_workflow_never_builds_a_flag_from_an_empty_string_ternary():
+    """The literal bug, asserted out of existence.
+
+    `${{ cond && '' || 'flag' }}` evaluates to 'flag' for *every* value of cond,
+    because GitHub's `&&` yields '' on a true condition and '' is falsy. Any
+    expression whose truthy branch is an empty string is the same trap.
+    """
+    text = WORKFLOW.read_text()
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#") or "${{" not in line or "&&" not in line:
+            continue
+        assert "&& ''" not in line and '&& ""' not in line, (
+            f"empty-string truthy branch in a workflow ternary: {stripped}"
+        )
+
+
+def test_workflow_asks_the_harness_to_prove_the_anchor_ran():
+    """`exogenous: true` has to reach the script as --require-exogenous.
+
+    A run whose whole purpose is the WP-19.E read must fail on a panel that
+    cannot carry the arms, rather than fall back to the market-only report.
+    """
+    text = WORKFLOW.read_text()
+    assert "--require-exogenous" in text
+    assert "EXOGENOUS: ${{ inputs.exogenous }}" in text

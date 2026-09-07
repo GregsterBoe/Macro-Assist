@@ -215,7 +215,7 @@ The user opted to integrate now (autonomous weekly run) rather than manually dis
 
 ---
 
-### WP-19.E — The anchor, scored in the numeric harness ✅ *(shipped 2026-09-04; the run is the open half)*
+### WP-19.E — The anchor, scored in the numeric harness 🟡 *(harness shipped 2026-09-04; the 2026-09-05 run is VOID — [KB-025] — the re-run is the open half)*
 
 **Why the work package changed shape.** WP-19.E was "A/B the exogenous arm vs
 market-only". v1.6 cut market-only's directional calls, so there is no live
@@ -273,18 +273,36 @@ the thing most easily lost between a report and a KB entry.
 **Cost.** Zero LLM spend, no new secret, no new network dependency — the
 workbooks are in the repo. Two ridge arms on the existing panel.
 
-**Status.** Harness shipped and tested (16 new tests; the whole suite green). The
-open half is the run itself:
+**Status.** Harness shipped and tested. The run is still the open half — **the
+2026-09-05 attempt is void [KB-025]**: the workflow built the CLI flag with
+`${{ inputs.exogenous && '' || '--no-exogenous' }}`, which returns the fallback
+whenever its truthy branch is the empty string, so every dispatch passed
+`--no-exogenous`. The run went green for 2h50m and published a valid
+**market-only** report (`n_exo_features: 0`) under a WP-19.E heading. Neither
+pre-registered question has been touched; both stand unspent below.
+
+Fixed 2026-09-07 — the workflow branches on the inputs in the shell instead, and
+`--require-exogenous` (passed whenever `exogenous: true`) turns "the panel cannot
+carry the anchor" into a failed run rather than a fallback to the report that
+looks just like it. Six tests in `test_numeric_baseline.py` §9 hold both, one of
+them failing on *any* workflow expression whose truthy branch is empty.
+
+To re-run:
 
 ```
 Actions → Numeric Directional Baseline → Run workflow
-  branch: the branch carrying this change   inputs: defaults (exogenous: true)
+  branch: the branch carrying the KB-025 fix   inputs: defaults (exogenous: true)
 ```
 
+**Before reading a number, check two things:** the job log line
+`exogenous input: 'true' -> --require-exogenous`, and `n_exo_features` in the
+report header — it must be **7**. A market-only table is a valid report, which is
+exactly why it went unnoticed for two days.
+
 It needs `FRED_API_KEY` and reachable yfinance/FRED, which is why it lives in CI.
-Expect ~90 minutes (the [KB-024] run took 87; two extra ridge arms are cheap next
-to the GBM). The report prints to the job log and publishes to
-`origin/output:numeric_baseline/`.
+Expect ~3 hours (the void run took 2h50m on the market arms alone; two extra
+ridge arms are cheap next to the GBM). The report prints to the job log and
+publishes to `origin/output:numeric_baseline/`.
 
 #### The read, pre-registered *(written 2026-09-04, before the run)*
 
