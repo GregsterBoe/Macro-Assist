@@ -1415,3 +1415,21 @@ def test_the_report_states_the_shared_call_window(noise_panel, tmp_path):
         "the full-sample table must not claim to reproduce KB-024 when the "
         "shared window may have moved under it"
     )
+
+
+def test_workflow_disables_a_family_only_on_an_explicit_false():
+    """An unset dispatch input must follow the declared default, not drop a family.
+
+    Both family switches default to `true`. A `!= "true"` test would turn any
+    empty value — an input that never reached the step, a dispatch rendered from
+    a different revision of this file — into a market-only run: the [KB-025]
+    outcome by a different road, and just as valid-looking a report. Disabling on
+    an explicit "false" makes an unexpected value fail loudly on the --require-
+    flag instead of quietly answering a different question.
+    """
+    text = WORKFLOW.read_text()
+    for var in ("EXOGENOUS", "VIX_TERM"):
+        assert f'[ "${var}" = "false" ]' in text, (
+            f"{var} must be disabled only on an explicit false"
+        )
+        assert f'[ "${var}" != "true" ]' not in text

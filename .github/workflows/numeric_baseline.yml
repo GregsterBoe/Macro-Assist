@@ -113,37 +113,55 @@ jobs:
           # market-only report under a WP-19.E heading [KB-025].
           EXOGENOUS: ${{ inputs.exogenous }}
           VIX_TERM: ${{ inputs.vix_term }}
+          SEAL_START: ${{ inputs.seal_start }}
           WINDOWS: ${{ inputs.windows }}
         run: |
           set -e
           # --require-exogenous, not a bare absence of --no-exogenous: asking for
           # the arms and getting a panel that cannot carry them must fail the run
           # rather than publish the market-only report that looks just like it.
+          #
+          # Note the test: an optional family is disabled ONLY on an explicit
+          # "false", never on an empty or unset value. Both inputs default to
+          # true, so an unset one must follow that default rather than silently
+          # dropping the family — `!= "true"` would turn any empty value into a
+          # market-only run, which is the [KB-025] outcome reached by a different
+          # road (a dispatch whose inputs did not reach this step at all). An
+          # unexpected value now fails loudly on the --require- flag instead.
           EXO_ARGS="--require-exogenous"
-          if [ "$EXOGENOUS" != "true" ]; then
+          if [ "$EXOGENOUS" = "false" ]; then
             EXO_ARGS="--no-exogenous"
           fi
           # Same shape for family 1, and the same reason: a run dispatched to test
           # the term structure that quietly ran without it is a valid report
           # answering a different question.
           VIXTERM_ARGS="--require-vix-term"
-          if [ "$VIX_TERM" != "true" ]; then
+          if [ "$VIX_TERM" = "false" ]; then
             VIXTERM_ARGS="--no-vix-term"
           fi
           WINDOW_ARGS=""
           if [ -n "$WINDOWS" ]; then
             WINDOW_ARGS="--windows $WINDOWS"
           fi
+          # Empty -> let SEAL_START in numeric_baseline.py stand, rather than
+          # passing --seal-start "" and dying on the parse. The echo below is the
+          # record either way: whichever boundary the verdict was read on is in
+          # this run's own log.
+          SEAL_ARGS=""
+          if [ -n "$SEAL_START" ]; then
+            SEAL_ARGS="--seal-start $SEAL_START"
+          fi
           echo "exogenous input: '$EXOGENOUS' -> $EXO_ARGS"
           echo "vix_term input: '$VIX_TERM' -> $VIXTERM_ARGS"
+          echo "seal_start input: '$SEAL_START' -> ${SEAL_ARGS:-(code default)}"
           echo "::group::numeric_baseline"
           python .macro-assist/numeric_baseline.py \
             --start "${{ inputs.start }}" \
             --min-train "${{ inputs.min_train }}" \
             --refit-every "${{ inputs.refit_every }}" \
             --save-panel "${RUNNER_TEMP}/numeric_panel.csv" \
-            --seal-start "${{ inputs.seal_start }}" \
             --emit-scores \
+            $SEAL_ARGS \
             $EXO_ARGS \
             $VIXTERM_ARGS \
             $WINDOW_ARGS
