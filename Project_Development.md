@@ -199,7 +199,7 @@ Design commitments: structured contracts not prose; provenance + staleness on ev
    - *Build-log pruned 2026-08-20 (per its own "safe to prune" note). The layer-by-layer detail — L0 SPF/SEP adapters, L1 Haiku extractor, L2 Opus analyst, L3 synth, L4 arm-tagging, the FOMC auto-fetcher + weekly emitter, and the two passed calibration smokes — lives in the code (`exogenous/`), `exogenous/DESIGN.md`, and git history. The summary above + the integration-status block below are the doc-level record.*
 3. **WP-19.C — Generalise the branch contract.** Only after B works, extract the L0–L2 skeleton + brief schema so branch #2/#3 are cheap to add and the payload stays bounded.
 4. **WP-19.D — Add branches by measured value.** One at a time, each gated on "does it improve the scored output vs without it" (Phase-18 ablation discipline). Prune losers immediately.
-5. **WP-19.E — Integrate or kill. 🟡 RE-POINTED (2026-09-04) — the comparator was cut, so the gate moved.** As written, this A/B'd the exogenous arm against market-only on Brier/commitment. v1.6 cut market-only's directional calls [KB-024], so that comparator froze and the A/B became unreadable. Option (a) from WP-21.F is now taken: **the anchor is scored inside the WP-21.A numeric harness, against the same pre-committed bar.** Detail in the WP-19.E block at the end of this phase.
+5. **WP-19.E — Integrate or kill. ✅ RESOLVED (2026-09-07) — the anchor does not carry direction [KB-026].** As written, this A/B'd the exogenous arm against market-only on Brier/commitment. v1.6 cut market-only's directional calls [KB-024], so that comparator froze and the A/B became unreadable; option (a) from WP-21.F re-pointed the gate at the WP-21.A benchmark. **Both pre-registered questions closed negative** — the SPF anchor carries no direction alone, and added to the market panel it makes every calibration metric worse. **This closes Phase 19's directional route**; the untested expectations-gap mechanism and route (b) are unaffected — see the WP-19.E block at the end of this phase for the scope, which matters more than the verdict.
 
 **Kill criteria (pre-committed).** Cut the whole branch if, after 2–3 branches, it does not beat market-only on Brier/commitment. Watch-items: cost blow-up (mitigate via cheap extraction, caching, cadence-appropriate refresh — policy monthly, news daily); alt-data access/reliability (start free/scrapeable, treat paid feeds as later bets gated on the free ones); look-ahead bias in text backtests (point-in-time from day one).
 
@@ -215,7 +215,7 @@ The user opted to integrate now (autonomous weekly run) rather than manually dis
 
 ---
 
-### WP-19.E — The anchor, scored in the numeric harness ✅ *(shipped 2026-09-04; the run is the open half)*
+### WP-19.E — The anchor, scored in the numeric harness ✅ *(harness 2026-09-04; the 2026-09-05 run was void [KB-025]; the valid run landed 2026-09-07 and closes negative — [KB-026])*
 
 **Why the work package changed shape.** WP-19.E was "A/B the exogenous arm vs
 market-only". v1.6 cut market-only's directional calls, so there is no live
@@ -273,18 +273,48 @@ the thing most easily lost between a report and a KB entry.
 **Cost.** Zero LLM spend, no new secret, no new network dependency — the
 workbooks are in the repo. Two ridge arms on the existing panel.
 
-**Status.** Harness shipped and tested (16 new tests; the whole suite green). The
-open half is the run itself:
+**Status — closed.** Harness shipped 2026-09-04. The first attempt (2026-09-05)
+was **void [KB-025]**: the workflow built the CLI flag with
+`${{ inputs.exogenous && '' || '--no-exogenous' }}`, which returns the fallback
+whenever its truthy branch is the empty string, so every dispatch passed
+`--no-exogenous` and a valid **market-only** report went out under a WP-19.E
+heading. Fixed the same day — the workflow branches on the inputs in the shell,
+and `--require-exogenous` (passed whenever `exogenous: true`) turns "the panel
+cannot carry the anchor" into a failed run rather than that fallback.
 
-```
-Actions → Numeric Directional Baseline → Run workflow
-  branch: the branch carrying this change   inputs: defaults (exogenous: true)
-```
+**The valid run landed 2026-09-07** (Actions `34104184917`, `origin/output`
+`2780cb4`), with the validity check passing first: `exogenous input: 'true' ->
+--require-exogenous`, `Panel: 5656 business days, 18 columns`,
+`n_exo_features: 7`, `arms_skipped: {}`.
 
-It needs `FRED_API_KEY` and reachable yfinance/FRED, which is why it lives in CI.
-Expect ~90 minutes (the [KB-024] run took 87; two extra ridge arms are cheap next
-to the GBM). The report prints to the job log and publishes to
-`origin/output:numeric_baseline/`.
+**Both pre-registered questions close negative → [KB-026].** On the same 75,450
+calls: `exogenous_spf` (0.561 / Brier 0.254 / BSS −0.030 / ECE 0.078, separation
+`mixed`) fails the BSS-or-ordering clause and loses to `always_bullish` on Brier,
+BSS and ECE. `market_plus_exo` fails both increment clauses and is *worse than
+the panel it was added to* — BSS −0.087 → −0.124, ECE 0.118 → 0.141 — while
+getting a third more decisive. The pre-registered third outcome did **not** occur:
+the anchor is not inverted (bear−bull −0.038, CI [−0.135, +0.056]), so it does
+not replicate [KB-024]'s mechanism; instead it *dissolves* that mechanism when
+added to the market panel. On the per-input read the pre-registration demanded
+regardless: `spf_policy_path`, the branch's actual thesis column, carries the
+highest sign stability of the seven (0.952) and a permutation drop of −0.001, and
+`spf_staleness` shows nothing (+0.001).
+
+The scope sentence this work package required, discharged in [KB-026]: this
+scored the branch's **deterministic, point-in-time half only**. The SEP dot plot
+and the L1/L2 LLM layers were excluded as leakage, so the SPF-vs-SEP gap and the
+FOMC-drift layer — both layers of the actual bet — remain untested. The null
+closes *the SPF anchor as a directional input*, not the expectations-gap
+mechanism.
+
+**To reproduce or re-run:** `Actions → Numeric Directional Baseline → Run
+workflow`, defaults (`exogenous: true`). Needs `FRED_API_KEY` and reachable
+yfinance/FRED, which is why it lives in CI; 1–3 hours depending on the runner
+(2h50m for the market arms alone on 09-05, 63m for all four on 09-07 — runner
+variance, not a truncated fit: `ridge` returns 0.530 / BSS −0.087 on all three
+panel builds). **Before reading a number, check the log line `exogenous input:
+'true' -> --require-exogenous` and `n_exo_features: 7`** — a market-only table is
+a valid report, which is exactly why the void run went unnoticed for two days.
 
 #### The read, pre-registered *(written 2026-09-04, before the run)*
 

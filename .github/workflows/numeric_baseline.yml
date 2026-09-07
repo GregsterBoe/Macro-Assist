@@ -12,6 +12,10 @@ name: Numeric Directional Baseline (WP-21.A / WP-19.E)
 # extra secret and no extra network — set `exogenous: false` to reproduce the
 # original market-only WP-21.A run.
 #
+# `exogenous: true` passes --require-exogenous, so a run that asks for the anchor
+# and cannot get it FAILS rather than publishing the market-only report — which
+# is a valid report, and therefore an easy thing not to notice [KB-025].
+#
 # MANUAL ONLY. This is a research measurement, not a recurring job: the run takes
 # tens of minutes and its output is read once into a Knowledge Base entry. Trigger:
 # Actions tab -> this workflow -> Run.
@@ -84,8 +88,30 @@ jobs:
       - name: Fit and score
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          # The inputs arrive as env and are branched on in the shell, NOT built
+          # with the `${{ cond && 'a' || 'b' }}` idiom. That idiom returns 'b'
+          # whenever 'a' is the empty string: `&&` yields '' on a true condition,
+          # '' is falsy, and `||` then discards it for 'b'. So the old
+          # `${{ inputs.exogenous && '' || '--no-exogenous' }}` passed
+          # --no-exogenous on *every* run, whatever the box said. The 2026-09-05
+          # WP-19.E run was dispatched with exogenous: true and published a
+          # market-only report under a WP-19.E heading [KB-025].
+          EXOGENOUS: ${{ inputs.exogenous }}
+          WINDOWS: ${{ inputs.windows }}
         run: |
           set -e
+          # --require-exogenous, not a bare absence of --no-exogenous: asking for
+          # the arms and getting a panel that cannot carry them must fail the run
+          # rather than publish the market-only report that looks just like it.
+          EXO_ARGS="--require-exogenous"
+          if [ "$EXOGENOUS" != "true" ]; then
+            EXO_ARGS="--no-exogenous"
+          fi
+          WINDOW_ARGS=""
+          if [ -n "$WINDOWS" ]; then
+            WINDOW_ARGS="--windows $WINDOWS"
+          fi
+          echo "exogenous input: '$EXOGENOUS' -> $EXO_ARGS"
           echo "::group::numeric_baseline"
           python .macro-assist/numeric_baseline.py \
             --start "${{ inputs.start }}" \
@@ -93,8 +119,8 @@ jobs:
             --refit-every "${{ inputs.refit_every }}" \
             --save-panel "${RUNNER_TEMP}/numeric_panel.csv" \
             --emit-scores \
-            ${{ inputs.exogenous && '' || '--no-exogenous' }} \
-            ${{ inputs.windows && format('--windows {0}', inputs.windows) || '' }}
+            $EXO_ARGS \
+            $WINDOW_ARGS
           echo "::endgroup::"
 
       - name: Upload the panel and raw calls as artifacts

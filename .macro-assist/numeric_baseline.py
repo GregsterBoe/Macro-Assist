@@ -115,6 +115,9 @@ Usage:
 
     # market arms only (skip the Phase-19 anchor)
     python .macro-assist/numeric_baseline.py --panel panel.csv --no-exogenous
+
+    # the WP-19.E read: fail loudly rather than fall back to market-only
+    python .macro-assist/numeric_baseline.py --panel panel.csv --require-exogenous
 """
 from __future__ import annotations
 
@@ -615,6 +618,21 @@ def build_features(panel: pd.DataFrame, asset: str,
     if exo.empty:
         return pd.DataFrame()
     return exo if feature_set == FEATURES_EXO else market.join(exo)
+
+
+def n_exogenous_features(panel: pd.DataFrame) -> int:
+    """How many exogenous columns an arm on this panel would actually get.
+
+    Zero means the exogenous arms cannot run: the panel was built without SPF
+    inputs, or a cached panel CSV predates them. It is the number the report
+    prints, and the number `--require-exogenous` refuses to publish a zero of —
+    a market-only report is a *valid* report, which is exactly why a run that
+    silently became one is hard to notice afterwards [KB-025].
+    """
+    asset = next((a for a in ASSET_TICKERS if f"px:{a}" in panel.columns), None)
+    if asset is None:
+        return 0
+    return len(build_features(panel, asset, FEATURES_EXO).columns)
 
 
 def forward_label(close: pd.Series, horizon: int) -> pd.Series:
@@ -1677,8 +1695,7 @@ def run(
     }
     first_asset = next(iter(prices), None)
     n_features = len(build_features(panel, first_asset).columns) if first_asset else 0
-    n_exo = (len(build_features(panel, first_asset, FEATURES_EXO).columns)
-             if first_asset else 0)
+    n_exo = n_exogenous_features(panel)
     meta = {
         "panel_start": str(panel.index.min().date()) if len(panel) else None,
         "panel_end":   str(panel.index.max().date()) if len(panel) else None,
@@ -1762,7 +1779,14 @@ def main() -> None:
     ap.add_argument("--no-exogenous", action="store_true",
                     help="skip the Phase-19 SPF anchor entirely — market arms "
                          "only, i.e. the original WP-21.A run")
+    ap.add_argument("--require-exogenous", action="store_true",
+                    help="fail the run if the panel carries no exogenous "
+                         "features, instead of quietly producing the market-only "
+                         "report. For any run whose purpose is the WP-19.E read.")
     args = ap.parse_args()
+
+    if args.require_exogenous and args.no_exogenous:
+        ap.error("--require-exogenous and --no-exogenous contradict each other")
 
     arms = DEFAULT_ARMS
     if args.arms:
@@ -1805,6 +1829,18 @@ def main() -> None:
         if args.save_panel:
             save_panel(panel, args.save_panel)
             print(f"  cached → {args.save_panel}")
+
+    if args.require_exogenous and not n_exogenous_features(panel):
+        raise SystemExit(
+            "ERROR: --require-exogenous was passed but the panel carries no "
+            "exogenous features.\n"
+            "       The exogenous arms would be skipped and this run would "
+            "publish the market-only\n"
+            "       report — valid, and indistinguishable from a WP-19.E read. "
+            "Check the SPF\n"
+            f"       workbooks under {args.spf_dir} (or the cached panel, if "
+            "--panel was used)."
+        )
 
     if panel.empty:
         print("Empty panel — nothing to fit.")
