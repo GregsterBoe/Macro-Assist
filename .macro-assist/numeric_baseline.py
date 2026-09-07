@@ -1693,17 +1693,25 @@ def report_md_lines(evaluations: dict[str, dict], diagnostics: dict[str, dict],
             "> against these numbers, which is exactly why a verdict here would be circular.",
             "> Separation is not computed for this slice — nothing binding is read off it.",
             "",
-            "## Full sample (continuity with [KB-024] / [KB-026])",
+            "## Full sample (this run's whole shared window)",
             "",
         ]
         lines += _headline_rows(evaluations, meta)
         lines += [
             "",
-            "> The slice every earlier run reported. It is here so the market arms'",
-            "> three-run reproducibility anchor stays readable off this run — `ridge` has",
-            "> returned 0.530 / Brier 0.271 / BSS −0.087 on three independently rebuilt",
-            "> panels. It **overlaps the sealed slice** and is not an independent",
-            "> confirmation of anything in the table above it.",
+            "> The slice earlier runs reported — **but read the window before comparing**.",
+            "> `shared_call_keys` intersects across every arm, so the feature set with the",
+            "> shortest input history sets the start date for all of them, comparators",
+            "> included. Adding a family whose input begins later than the market panel's",
+            "> therefore moves this window, and the numbers here are **not** a like-for-like",
+            "> reproduction of [KB-024] / [KB-026] whenever the spans differ. The way to",
+            "> reproduce those is `--no-exogenous --no-vix-term`, which restores the",
+            "> original market-only sample.",
+            "",
+            "> This also **overlaps the sealed slice** and is not independent confirmation",
+            "> of anything in the table above it. The sealed slice is unaffected by the",
+            f"> window question: it starts at {seal}, well after every arm's first call, so",
+            "> the arms are compared at full width exactly where the bar is read.",
             "",
         ]
     else:
@@ -1716,6 +1724,10 @@ def report_md_lines(evaluations: dict[str, dict], diagnostics: dict[str, dict],
               if len(n_calls) == 1 else
               "⛔ **arms were scored on different samples** — the [KB-023] error; "
               "the comparison below is not valid")
+
+    span = (meta.get("call_span") or {}).get(SCOPE_FULL)
+    if span:
+        sample += f", spanning **{span[0]} → {span[1]}**"
 
     lines += [
         "",
@@ -2105,6 +2117,17 @@ def run(
         "seal_start":  seal_start.isoformat(),
         "verdict_scope": VERDICT_SCOPE,
         "scope_reports": {scope: len(rs) for scope, rs in scoped_reports.items()},
+        # The shared call window, printed so a change in it is visible instead of
+        # inferred. It moves whenever a feature set with a shorter input history
+        # joins the run — `shared_call_keys` intersects across arms, so the
+        # youngest input sets the start date for *every* arm including the
+        # comparators. That is the correct behaviour and it is exactly the kind of
+        # silent sample change [KB-023] was written about.
+        "call_span": {
+            scope: ([min(r["report_date"] for r in rs),
+                     max(r["report_date"] for r in rs)] if rs else None)
+            for scope, rs in scoped_reports.items()
+        },
         "min_train":   min_train,
         "refit_every": refit_every,
         "deadband":    deadband,

@@ -558,11 +558,27 @@ the second read is not a formality — seven plausible point-in-time columns add
 to this same panel made every calibration metric *worse* and the model a third
 more decisive.
 
-**The market panel does not move.** `vix3m` enters the panel; no market feature
-reads it. `ridge` and `gbm` therefore fit exactly the columns they fit in
-[KB-024] and [KB-026], and their three-run reproducibility anchor survives this
-change. `test_market_feature_set_is_unchanged_by_the_vix_term_inputs` holds the
-line rather than trusting a diff reader to notice.
+**The market panel does not move — but the shared *window* does.** Two separate
+claims, and conflating them would be a [KB-023]-shaped error:
+
+- **The columns are unchanged.** `vix3m` enters the panel; no market feature
+  reads it, so `ridge` and `gbm` fit exactly the columns they fit in [KB-024] and
+  [KB-026]. `test_market_feature_set_is_unchanged_by_the_vix_term_inputs` holds
+  that line rather than trusting a diff reader to notice.
+- **The sample is not.** `shared_call_keys` intersects across every arm, so the
+  feature set with the shortest input history sets the start date for *all* of
+  them, comparators included. VIX3M's FRED history begins **2007-12-04** against
+  the market panel's 2005 start, and once the 252-day percentile window and
+  `min_train` are paid the shared window starts roughly three years later than
+  [KB-024]'s. **So a run carrying family 1 does not reproduce [KB-024]'s headline
+  numbers, and must not be read as having tried to.** The reproduction path is
+  `--no-exogenous --no-vix-term`, which restores the original market-only sample.
+  The report prints the shared window on the sample line so a change in it is
+  visible rather than inferred.
+- **The bar is unaffected.** The sealed slice starts 2018-01-01, well after every
+  arm's first call under either configuration, so the arms are compared at full
+  width exactly where the verdict is read. This is a second reason the seal date
+  sits where it does.
 
 #### The seal — how condition 3 is actually enforced
 

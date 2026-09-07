@@ -1305,7 +1305,7 @@ def test_the_report_leads_with_the_sealed_table_and_never_scores_the_explore_one
                                       scoped=result["scoped_evaluations"]))
     sealed_at  = md.index("Headline — sealed holdout")
     explore_at = md.index("Explore slice (not the bar)")
-    full_at    = md.index("Full sample (continuity")
+    full_at    = md.index("Full sample (this run's")
     assert sealed_at < explore_at < full_at
 
     explore_block = md[explore_at:full_at]
@@ -1385,3 +1385,33 @@ def test_workflow_pins_the_seal_rather_than_leaving_it_to_a_default():
     text = WORKFLOW.read_text()
     assert "--seal-start" in text
     assert nb.SEAL_START.isoformat() in text
+
+
+def test_the_report_states_the_shared_call_window(noise_panel, tmp_path):
+    """A family with a shorter input history moves the window for every arm.
+
+    `shared_call_keys` intersects across arms, so the youngest input sets the
+    start date for all of them — comparators included. VIX3M's FRED history
+    begins 2007-12-04 while the market panel reaches back to 2005, so a run
+    carrying family 1 is scored on a later window than [KB-024] was. That is
+    correct behaviour and a silent version of it is the [KB-023] defect, so the
+    window has to be on the report rather than inferred from a call count.
+    """
+    pytest.importorskip("sklearn")
+    result = nb.run(
+        noise_panel, out_dir=tmp_path, horizons={"t5": 5}, min_train=400,
+        refit_every=200, with_importance=False, with_separation=False,
+        seal_start=date(2013, 1, 1), write=False,
+    )
+    span = result["meta"]["call_span"]
+    assert span[nb.SCOPE_FULL][0] <= span[nb.SCOPE_EXPLORE][1] < "2013-01-01"
+    assert span[nb.SCOPE_SEALED][0] >= "2013-01-01"
+
+    md = "\n".join(nb.report_md_lines(result["evaluations"], result["diagnostics"],
+                                      result["meta"],
+                                      scoped=result["scoped_evaluations"]))
+    assert f"spanning **{span[nb.SCOPE_FULL][0]} → {span[nb.SCOPE_FULL][1]}**" in md
+    assert "not** a like-for-like" in md, (
+        "the full-sample table must not claim to reproduce KB-024 when the "
+        "shared window may have moved under it"
+    )
