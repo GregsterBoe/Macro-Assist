@@ -1,4 +1,4 @@
-# Numeric directional baseline — WP-21.A
+# Numeric directional baseline — WP-21.A / WP-19.E / WP-21.E
 
 > **The question.** Can a small, regularised numeric model predict 5/10/20-day
 > direction on these assets at all? If it cannot, the directional product is dead
@@ -6,22 +6,76 @@
 > upper bound on achievable skill and the benchmark the LLM arm has never had.
 
 - Panel: **2005-01-03 → 2026-09-07** (5656 business days)
-- Features per asset: **20** market (own-price + shared macro state) + **7** exogenous (SPF consensus); unrevised inputs only
+- Features per asset: **20** market (own-price + shared macro state) + **0** exogenous (SPF consensus) + **4** VIX term structure; unrevised inputs only
 - Walk-forward: expanding window, min train **756** days, refit every **21** steps, embargo **horizon + 1** trading days
+- **Seal (WP-21.E): calls dated from 2018-01-01 are the sealed holdout** — 15827 of 27132 scored reports; the bar is read there and nowhere else
 
-## Headline
+## Headline — sealed holdout, from 2018-01-01 (**the bar**)
 
 | Arm | inputs | n decisive | decisive hit-rate | mean score | Brier | BSS | ECE | separation | verdict |
 |---|---|---|---|---|---|---|---|---|---|
-| `ridge` | market | 42054 | 0.530 | 0.517 | 0.271 | -0.087 | 0.118 | inverted | **no edge** |
-| `gbm` | market | 40181 | 0.526 | 0.514 | 0.264 | -0.059 | 0.102 | inverted | **no edge** |
-| `exogenous_spf` | exogenous | 41050 | 0.561 | 0.533 | 0.254 | -0.030 | 0.078 | mixed | **no edge** |
-| `market_plus_exo` | market+exogenous | 46628 | 0.537 | 0.523 | 0.280 | -0.124 | 0.141 | mixed | **no edge** |
+| `ridge` | market | 21202 | 0.535 | 0.519 | 0.264 | -0.061 | 0.104 | inverted | **no edge** |
+| `gbm` | market | 20234 | 0.522 | 0.511 | 0.262 | -0.051 | 0.100 | inverted | **no edge** |
+| `vix_term` | vix_term | 15215 | 0.573 | 0.528 | 0.244 | +0.003 | 0.028 | inverted | **edge** |
+| `market_plus_vixterm` | market+vix_term | 23172 | 0.528 | 0.516 | 0.270 | -0.083 | 0.126 | inverted | **no edge** |
 | `neutral` | comparator | 0 | n/a | 0.500 | n/a | n/a | n/a | n/a | **abstains** |
-| `random_walk` | comparator | 58747 | 0.498 | 0.499 | 0.253 | -0.011 | 0.052 | inverted | **no edge** |
-| `always_bullish` | comparator | 61087 | 0.557 | 0.546 | 0.247 | -0.000 | 0.007 | n/a | **no edge** |
+| `random_walk` | comparator | 31361 | 0.496 | 0.497 | 0.253 | -0.012 | 0.054 | mixed | **no edge** |
+| `always_bullish` | comparator | 32525 | 0.567 | 0.554 | 0.246 | -0.001 | 0.017 | n/a | **no edge** |
 
-> **Sample.** all arms scored on the same 75450 calls. The comparators call exactly the (date, asset)
+> **This is the only table a WP-21.E verdict may be read from.** The seal date
+> is a constant in `numeric_baseline.py`, committed before the family was
+> fitted; that commit is the whole of the claim that the slice was held out
+> before the family was chosen.
+
+> **Multiplicity.** Phase 21 capped the search at three feature families and
+> they share this one sealed slice. One family clearing a 0.52 bar once is
+> therefore worth about a third of what it looks like — and the cap is what
+> bounds the problem, so it is not a licence to run a fourth family.
+
+## Explore slice (not the bar)
+
+| Arm | inputs | n decisive | decisive hit-rate | mean score | Brier | BSS | ECE | separation | verdict |
+|---|---|---|---|---|---|---|---|---|---|
+| `ridge` | market | 13032 | 0.533 | 0.518 | 0.265 | -0.064 | 0.106 | n/a | _not the bar_ |
+| `gbm` | market | 12403 | 0.527 | 0.514 | 0.263 | -0.053 | 0.096 | n/a | _not the bar_ |
+| `vix_term` | vix_term | 9640 | 0.528 | 0.511 | 0.256 | -0.029 | 0.079 | n/a | _not the bar_ |
+| `market_plus_vixterm` | market+vix_term | 14731 | 0.530 | 0.518 | 0.286 | -0.148 | 0.151 | n/a | _not the bar_ |
+| `neutral` | comparator | 0 | n/a | 0.500 | n/a | n/a | n/a | n/a | _not the bar_ |
+| `random_walk` | comparator | 18005 | 0.498 | 0.499 | 0.253 | -0.011 | 0.052 | n/a | _not the bar_ |
+| `always_bullish` | comparator | 18795 | 0.537 | 0.529 | 0.249 | -0.001 | 0.013 | n/a | _not the bar_ |
+
+> The development surface: everything before the seal. A family may be shaped
+> against these numbers, which is exactly why a verdict here would be circular.
+> Separation is not computed for this slice — nothing binding is read off it.
+
+## Full sample (this run's whole shared window)
+
+| Arm | inputs | n decisive | decisive hit-rate | mean score | Brier | BSS | ECE | separation | verdict |
+|---|---|---|---|---|---|---|---|---|---|
+| `ridge` | market | 34234 | 0.534 | 0.518 | 0.264 | -0.062 | 0.105 | inverted | **no edge** |
+| `gbm` | market | 32637 | 0.524 | 0.512 | 0.262 | -0.052 | 0.098 | inverted | **no edge** |
+| `vix_term` | vix_term | 24855 | 0.555 | 0.521 | 0.249 | -0.007 | 0.047 | inverted | **no edge** |
+| `market_plus_vixterm` | market+vix_term | 37903 | 0.528 | 0.517 | 0.276 | -0.108 | 0.136 | inverted | **no edge** |
+| `neutral` | comparator | 0 | n/a | 0.500 | n/a | n/a | n/a | n/a | **abstains** |
+| `random_walk` | comparator | 49366 | 0.497 | 0.498 | 0.253 | -0.011 | 0.053 | mixed | **no edge** |
+| `always_bullish` | comparator | 51320 | 0.556 | 0.545 | 0.247 | -0.000 | 0.006 | n/a | **no edge** |
+
+> The slice earlier runs reported — **but read the window before comparing**.
+> `shared_call_keys` intersects across every arm, so the feature set with the
+> shortest input history sets the start date for all of them, comparators
+> included. Adding a family whose input begins later than the market panel's
+> therefore moves this window, and the numbers here are **not** a like-for-like
+> reproduction of [KB-024] / [KB-026] whenever the spans differ. The way to
+> reproduce those is `--no-exogenous --no-vix-term`, which restores the
+> original market-only sample.
+
+> This also **overlaps the sealed slice** and is not independent confirmation
+> of anything in the table above it. The sealed slice is unaffected by the
+> window question: it starts at 2018-01-01, well after every arm's first call, so
+> the arms are compared at full width exactly where the bar is read.
+
+
+> **Sample.** all arms scored on the same 64035 calls, spanning **2011-10-24 → 2026-08-31**. The comparators call exactly the (date, asset)
 > pairs the models called — a model cannot predict an asset until it has
 > `min_train` days of that asset's own history, and handing `always_bullish`
 > the difference would flatter the benchmark the verdict turns on.
@@ -35,65 +89,98 @@
 > BSS or an ordering, and why a model that edges past 0.520 while
 > `always_bullish` sits at 0.520 has shown nothing.
 
-## The exogenous arms (Phase 19, re-pointed)
+## WP-21.E family 1 — VIX term structure
 
-> `exogenous_spf` is fit on the Phase-19 anchor **alone** — the Philadelphia
-> Fed SPF economist consensus, no price and no market input. `market_plus_exo`
-> is the same ridge on the market panel **plus** those columns. Two questions,
-> not one: does the anchor carry direction by itself (row 1 against the
-> comparators), and does it add anything on top of the market panel
-> (`market_plus_exo` against `ridge` — same model, same sample, same rows).
+> **Scope: the sealed holdout (calls from 2018-01-01).**
 
-> **Why this is the whole branch's test and not a sixth arm.** Phase 19's own
-> gate was an A/B against the market-only LLM arm, and v1.6 cut that arm's
-> calls — the comparator froze. Scoring the anchor here re-points the gate at
-> the WP-21.A benchmark [KB-024], which is a real bar and a hard one.
+> `vix_term` is ridge on the term-structure family **alone** — the VIX/VIX3M
+> ratio, its 20-day backwardation persistence, its 5-day change and its
+> one-year percentile. `market_plus_vixterm` is the same ridge on the market
+> panel **plus** those four columns. Two questions: does the curve carry
+> direction by itself, and does it add anything to a panel that already has
+> the VIX *level* (`market_plus_vixterm` against `ridge`).
 
-> **What is missing from it, deliberately.** The SEP dot plot (FRED serves the
-> current vintage; each release rewrites earlier years) and the branch's LLM
-> extraction layers (trained on the dated text they would read — DESIGN §6.2).
-> So this scores the branch's *deterministic, point-in-time* half. A null here
-> is a null for the SPF anchor as a directional input, not for the
-> expectations-gap mechanism, which needs the FOMC-drift layer this cannot test.
+> **Why this family first.** [KB-024] closed 'this payload, these model
+> classes', not 'no feature family predicts direction'. Phase 21 capped the
+> search at three families and named this one first: `vix_term` is the
+> strongest single fragility component ([KB-001], AUC 0.77/0.67) and has never
+> been tested for *direction*, and it costs one extra unrevised FRED series.
 
-### Increment over the market panel
+> **The [KB-009] objection, answered in the columns.** That screen found VIX and
+> VIX3M correlate at 0.98 in levels and put `vix3m` on the prune queue. This
+> family is not the level — it is the ratio of two series correlated at 0.98,
+> i.e. what is left once the shared component is divided out.
 
-| metric | `ridge` | `market_plus_exo` | Δ |
+> **What clearing this would mean.** Not a restored product: an argument for
+> putting the column back *with the conditional distribution published
+> underneath it*, which is what v1.6 made the product. A null closes family 1
+> and leaves two of the three the cap allows.
+
+### Increment over the market panel *(sealed)*
+
+| metric | `ridge` | `market_plus_vixterm` | Δ |
 |---|---|---|---|
-| decisive hit-rate | 0.530 | 0.537 | +0.007 |
-| Brier | 0.271 | 0.280 | +0.009 |
-| BSS | -0.087 | -0.124 | -0.037 |
-| ECE | 0.118 | 0.141 | +0.022 |
+| decisive hit-rate | 0.535 | 0.528 | -0.008 |
+| Brier | 0.264 | 0.270 | +0.006 |
+| BSS | -0.061 | -0.083 | -0.022 |
+| ECE | 0.104 | 0.126 | +0.022 |
 
-> A Δ inside the noise of a walk-forward this size is a null, not a small
-> gain: the two arms differ by seven columns on tens of thousands of shared
-> calls, so read the sign only if the pre-committed bar also moves.
+> [KB-026] is why this read is not a formality: seven plausible
+> point-in-time columns added to this same panel made every calibration
+> metric worse and the model a third more decisive. Ablate before adding.
 
-## Per-horizon
+## Per-horizon — sealed sample  *(the bar's slice)*
 
 | Arm | window | n calls | n decisive | decisive hit-rate | Brier | BSS |
 |---|---|---|---|---|---|---|
-| `ridge` | t5 | 25230 | 11708 | 0.540 | 0.262 | -0.054 |
-| `ridge` | t10 | 25170 | 13855 | 0.529 | 0.269 | -0.080 |
-| `ridge` | t20 | 25050 | 16491 | 0.524 | 0.278 | -0.116 |
-| `gbm` | t5 | 25230 | 11340 | 0.530 | 0.258 | -0.035 |
-| `gbm` | t10 | 25170 | 12658 | 0.523 | 0.263 | -0.052 |
-| `gbm` | t20 | 25050 | 16183 | 0.526 | 0.270 | -0.081 |
-| `exogenous_spf` | t5 | 25230 | 11314 | 0.551 | 0.252 | -0.019 |
-| `exogenous_spf` | t10 | 25170 | 13742 | 0.559 | 0.253 | -0.028 |
-| `exogenous_spf` | t20 | 25050 | 15994 | 0.568 | 0.255 | -0.041 |
-| `market_plus_exo` | t5 | 25230 | 13174 | 0.537 | 0.268 | -0.076 |
-| `market_plus_exo` | t10 | 25170 | 15346 | 0.535 | 0.278 | -0.116 |
-| `market_plus_exo` | t20 | 25050 | 18108 | 0.538 | 0.290 | -0.166 |
-| `neutral` | t5 | 25230 | 0 | n/a | n/a | n/a |
-| `neutral` | t10 | 25170 | 0 | n/a | n/a | n/a |
-| `neutral` | t20 | 25050 | 0 | n/a | n/a | n/a |
-| `random_walk` | t5 | 25230 | 18071 | 0.495 | 0.253 | -0.012 |
-| `random_walk` | t10 | 25170 | 19663 | 0.495 | 0.253 | -0.012 |
-| `random_walk` | t20 | 25050 | 21013 | 0.504 | 0.252 | -0.009 |
-| `always_bullish` | t5 | 25230 | 18790 | 0.547 | 0.248 | -0.000 |
-| `always_bullish` | t10 | 25170 | 20442 | 0.557 | 0.247 | -0.000 |
-| `always_bullish` | t20 | 25050 | 21855 | 0.566 | 0.246 | -0.001 |
+| `ridge` | t5 | 13350 | 5822 | 0.549 | 0.255 | -0.031 |
+| `ridge` | t10 | 13315 | 7012 | 0.536 | 0.262 | -0.054 |
+| `ridge` | t20 | 13245 | 8368 | 0.524 | 0.272 | -0.089 |
+| `gbm` | t5 | 13350 | 5800 | 0.529 | 0.256 | -0.029 |
+| `gbm` | t10 | 13315 | 6160 | 0.516 | 0.261 | -0.047 |
+| `gbm` | t20 | 13245 | 8274 | 0.521 | 0.267 | -0.069 |
+| `vix_term` | t5 | 13350 | 3736 | 0.568 | 0.246 | -0.001 |
+| `vix_term` | t10 | 13315 | 5145 | 0.579 | 0.243 | +0.004 |
+| `vix_term` | t20 | 13245 | 6334 | 0.571 | 0.244 | +0.004 |
+| `market_plus_vixterm` | t5 | 13350 | 6283 | 0.541 | 0.260 | -0.046 |
+| `market_plus_vixterm` | t10 | 13315 | 7632 | 0.526 | 0.266 | -0.068 |
+| `market_plus_vixterm` | t20 | 13245 | 9257 | 0.520 | 0.280 | -0.121 |
+| `neutral` | t5 | 13350 | 0 | n/a | n/a | n/a |
+| `neutral` | t10 | 13315 | 0 | n/a | n/a | n/a |
+| `neutral` | t20 | 13245 | 0 | n/a | n/a | n/a |
+| `random_walk` | t5 | 13350 | 9679 | 0.490 | 0.254 | -0.014 |
+| `random_walk` | t10 | 13315 | 10472 | 0.495 | 0.253 | -0.012 |
+| `random_walk` | t20 | 13245 | 11210 | 0.503 | 0.252 | -0.009 |
+| `always_bullish` | t5 | 13350 | 10034 | 0.557 | 0.247 | -0.000 |
+| `always_bullish` | t10 | 13315 | 10859 | 0.568 | 0.246 | -0.001 |
+| `always_bullish` | t20 | 13245 | 11632 | 0.574 | 0.245 | -0.002 |
+
+## Per-horizon — full sample
+
+| Arm | window | n calls | n decisive | decisive hit-rate | Brier | BSS |
+|---|---|---|---|---|---|---|
+| `ridge` | t5 | 21425 | 9367 | 0.543 | 0.257 | -0.037 |
+| `ridge` | t10 | 21365 | 11331 | 0.535 | 0.262 | -0.054 |
+| `ridge` | t20 | 21245 | 13536 | 0.527 | 0.271 | -0.088 |
+| `gbm` | t5 | 21425 | 9167 | 0.530 | 0.256 | -0.028 |
+| `gbm` | t10 | 21365 | 10205 | 0.522 | 0.261 | -0.044 |
+| `gbm` | t20 | 21245 | 13265 | 0.521 | 0.268 | -0.074 |
+| `vix_term` | t5 | 21425 | 6548 | 0.552 | 0.249 | -0.006 |
+| `vix_term` | t10 | 21365 | 8086 | 0.558 | 0.247 | -0.003 |
+| `vix_term` | t20 | 21245 | 10221 | 0.556 | 0.250 | -0.012 |
+| `market_plus_vixterm` | t5 | 21425 | 10412 | 0.538 | 0.265 | -0.065 |
+| `market_plus_vixterm` | t10 | 21365 | 12539 | 0.527 | 0.273 | -0.095 |
+| `market_plus_vixterm` | t20 | 21245 | 14952 | 0.523 | 0.287 | -0.149 |
+| `neutral` | t5 | 21425 | 0 | n/a | n/a | n/a |
+| `neutral` | t10 | 21365 | 0 | n/a | n/a | n/a |
+| `neutral` | t20 | 21245 | 0 | n/a | n/a | n/a |
+| `random_walk` | t5 | 21425 | 15140 | 0.491 | 0.253 | -0.014 |
+| `random_walk` | t10 | 21365 | 16515 | 0.495 | 0.253 | -0.012 |
+| `random_walk` | t20 | 21245 | 17711 | 0.503 | 0.252 | -0.009 |
+| `always_bullish` | t5 | 21425 | 15734 | 0.547 | 0.248 | -0.000 |
+| `always_bullish` | t10 | 21365 | 17171 | 0.556 | 0.247 | -0.000 |
+| `always_bullish` | t20 | 21245 | 18415 | 0.563 | 0.246 | -0.001 |
+
 
 ## What each input was worth
 
@@ -157,54 +244,48 @@
 > Split importances are unsigned and count *splits*, which rewards high-cardinality
 > noise — read the permutation column, not this one, for what an input was worth.
 
-### `exogenous_spf` — 18 streams, 3803 refits
+### `vix_term` — 18 streams, 3108 refits
 
 | input | mean coefficient | sign stability | mean permutation drop |
 |---|---|---|---|
-| `spf_curve` | -0.048 | 0.878 | +0.011 |
-| `spf_10y_revision` | -0.056 | 0.849 | -0.004 |
-| `spf_10y_path` | +0.067 | 0.850 | -0.004 |
-| `spf_3m_revision` | +0.004 | 0.835 | +0.003 |
-| `spf_staleness` | -0.004 | 0.917 | +0.001 |
-| `spf_policy_path` | -0.032 | 0.952 | -0.001 |
-| `spf_unemp_revision` | +0.012 | 0.736 | -0.001 |
+| `vix_term_ratio` | +0.077 | 0.734 | -0.003 |
+| `vix_term_pct_252` | -0.018 | 0.824 | +0.003 |
+| `vix_term_persist_20` | -0.037 | 0.779 | +0.002 |
+| `vix_term_chg_5` | -0.003 | 0.765 | +0.000 |
 
 > A positive permutation drop means shuffling that input *cost* out-of-sample
 > accuracy — the input was load-bearing. Values at or below zero mean it was not.
 > `ret_20` is the 20-day reversion candidate: a reliably negative coefficient
 > with high sign stability is what would confirm the effect.
 
-### `market_plus_exo` — 18 streams, 3601 refits
+### `market_plus_vixterm` — 18 streams, 3061 refits
 
 | input | mean coefficient | sign stability | mean permutation drop |
 |---|---|---|---|
-| `spf_10y_path` | +0.077 | 0.843 | -0.008 |
-| `spf_policy_path` | -0.045 | 0.828 | +0.005 |
-| `spf_unemp_revision` | +0.032 | 0.693 | -0.005 |
-| `curve` | -0.021 | 0.837 | +0.004 |
-| `vix_pct_252` | -0.040 | 0.775 | +0.002 |
-| `spf_staleness` | +0.001 | 0.944 | +0.002 |
-| `ma_gap_200` | -0.024 | 0.771 | +0.002 |
-| `ret_60` | -0.100 | 0.851 | +0.002 |
-| `breakeven_chg_20` | +0.016 | 0.902 | -0.001 |
-| `rv_20` | -0.157 | 0.783 | -0.001 |
-| `spf_3m_revision` | +0.032 | 0.772 | +0.001 |
-| `baa_z` | -0.011 | 0.864 | +0.001 |
-| `vix_level` | +0.022 | 0.802 | -0.001 |
-| `curve_chg_20` | +0.057 | 0.840 | +0.001 |
-| `spf_10y_revision` | -0.082 | 0.815 | -0.001 |
-| `drawdown` | -0.086 | 0.802 | -0.001 |
-| `ret_5` | +0.007 | 0.784 | +0.001 |
-| `sp_ret_20` | -0.039 | 0.822 | +0.001 |
-| `ma_gap_50` | -0.079 | 0.885 | +0.000 |
-| `vix_chg_20` | -0.001 | 0.869 | -0.000 |
-| `baa_chg_20` | -0.017 | 0.897 | +0.000 |
-| `spf_curve` | +0.002 | 0.849 | -0.000 |
-| `ret_20` | -0.010 | 0.793 | +0.000 |
-| `vol_ratio` | +0.043 | 0.789 | -0.000 |
-| `dxy_ret_20` | -0.025 | 0.813 | -0.000 |
-| `real_yield_chg_20` | -0.040 | 0.848 | -0.000 |
-| `y10_chg_20` | -0.023 | 0.805 | +0.000 |
+| `vix_level` | +0.091 | 0.822 | -0.004 |
+| `vix_term_ratio` | +0.086 | 0.775 | +0.002 |
+| `baa_chg_20` | +0.005 | 0.805 | +0.001 |
+| `vol_ratio` | +0.044 | 0.846 | +0.001 |
+| `sp_ret_20` | -0.046 | 0.816 | +0.001 |
+| `baa_z` | -0.033 | 0.839 | +0.001 |
+| `drawdown` | -0.121 | 0.762 | +0.001 |
+| `curve_chg_20` | +0.187 | 0.932 | -0.001 |
+| `vix_pct_252` | -0.142 | 0.830 | +0.001 |
+| `ma_gap_200` | -0.061 | 0.838 | +0.001 |
+| `curve` | +0.020 | 0.799 | -0.001 |
+| `dxy_ret_20` | -0.028 | 0.804 | +0.001 |
+| `vix_term_persist_20` | -0.064 | 0.815 | -0.001 |
+| `rv_20` | -0.099 | 0.817 | -0.001 |
+| `ret_20` | -0.064 | 0.845 | -0.001 |
+| `y10_chg_20` | -0.062 | 0.820 | +0.000 |
+| `vix_chg_20` | -0.019 | 0.852 | +0.000 |
+| `real_yield_chg_20` | -0.079 | 0.889 | +0.000 |
+| `ret_60` | -0.023 | 0.883 | -0.000 |
+| `breakeven_chg_20` | +0.006 | 0.836 | +0.000 |
+| `ret_5` | -0.020 | 0.850 | +0.000 |
+| `vix_term_pct_252` | +0.074 | 0.851 | -0.000 |
+| `vix_term_chg_5` | -0.025 | 0.749 | -0.000 |
+| `ma_gap_50` | +0.013 | 0.778 | -0.000 |
 
 > A positive permutation drop means shuffling that input *cost* out-of-sample
 > accuracy — the input was load-bearing. Values at or below zero mean it was not.
