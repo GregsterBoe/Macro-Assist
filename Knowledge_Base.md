@@ -1918,3 +1918,217 @@ git show origin/output:numeric_baseline/numeric_baseline.json \
 # the guard, locally: a market-only panel plus --require-exogenous must exit non-zero
 python .macro-assist/numeric_baseline.py --panel panel.csv --require-exogenous
 ```
+
+---
+
+## KB-026 — The SPF consensus anchor does not carry direction, and adding it to the market panel makes the panel worse (WP-19.E, the pre-registered null)
+
+**Date:** 2026-09-07 · **Branch:** `claude/exogenous-branch-analysis-wuxmhd` ·
+**Run:** Actions `34104184917` (63 min, green) on `b048966` ·
+**Artifact:** `numeric_baseline/numeric_baseline.{md,json}` on `origin/output`
+(commit `2780cb4`) · **Read pre-registered 2026-09-04**, before this run, in
+`Project_Development.md` → WP-19.E.
+
+**Run validity (the [KB-025] check, done first).** `EXOGENOUS: true` →
+`exogenous input: 'true' -> --require-exogenous`; `Loading the SPF consensus
+anchor ... 6 SPF series`; `Panel: 5656 business days, 18 columns` (12 market +
+6 `exo:`); `meta.n_exo_features: 7`; `arms_skipped: {}`. This run tested what it
+says it tested.
+
+**The question under test.** Two, pre-registered separately. **Primary:** does the
+Phase-19 non-market anchor carry 5/10/20-day direction *on its own* —
+`exogenous_spf`, fit on the Philadelphia Fed SPF economist consensus with no
+price and no market input? **Secondary:** does it *add* anything on top of the
+market panel — `market_plus_exo` against `ridge`, same model, same sample, same
+rows, seven extra columns?
+
+### Headline — both pre-registered questions close negative
+
+All seven arms scored on the same **75,450 calls** over 4,637 dates:
+
+| Arm | inputs | n decisive | decisive hit-rate | Brier | BSS | ECE | separation | verdict |
+|---|---|---|---|---|---|---|---|---|
+| `ridge` | market | 42,054 | 0.530 | 0.271 | −0.087 | 0.118 | inverted | no edge |
+| `gbm` | market | 40,181 | 0.526 | 0.264 | −0.059 | 0.102 | inverted | no edge |
+| **`exogenous_spf`** | **exogenous** | **41,050** | **0.561** | **0.254** | **−0.030** | **0.078** | **mixed** | **no edge** |
+| **`market_plus_exo`** | **market+exo** | **46,628** | **0.537** | **0.280** | **−0.124** | **0.141** | **mixed** | **no edge** |
+| `always_bullish` | comparator | 61,087 | **0.557** | **0.247** | **−0.000** | **0.007** | n/a | no edge |
+
+**Primary — fails.** `exogenous_spf` clears n and the 0.52 hit-rate clause, and
+fails the third: BSS < 0 and separation is `mixed`, not `aligned`. The
+pre-registration's second condition decides it anyway: it must *beat*
+`always_bullish`, and it loses on three of the four metrics — Brier 0.254 vs
+0.247, BSS −0.030 vs −0.000, ECE 0.078 vs 0.007. Its one win, hit-rate 0.561 vs
+0.557, is worth nothing on its own: that is the clause [KB-024] added the BSS /
+ordering requirement *for*.
+
+**Secondary — fails on both clauses, and the sign is negative.** The increment
+was pre-registered to count only if `market_plus_exo` cleared the bar in
+absolute terms **and** improved BSS over `ridge`. It clears neither, and it is
+**worse than the market panel it was added to** on every calibration metric:
+
+| metric | `ridge` | `market_plus_exo` | Δ |
+|---|---|---|---|
+| decisive hit-rate | 0.530 | 0.537 | +0.007 |
+| Brier | 0.271 | 0.280 | **+0.009** |
+| BSS | −0.087 | **−0.124** | **−0.037** |
+| ECE | 0.118 | **0.141** | **+0.022** |
+
+The mechanism is visible in the commitment profile: the seven columns make the
+model **more decisive and no better informed**. Decisive calls rise 42,054 →
+46,628, and the 90–100% confidence bin nearly triples — **821 → 2,317 calls** —
+resolving at **0.496**, a coin flip. This is [KB-007]'s standing warning,
+pre-committed in DESIGN §5 and now measured: adding orthogonal-but-worthless
+information to a below-chance system is a *net negative*, not a wash.
+
+### The pre-registered third outcome did NOT occur — this is not a KB-024 replication
+
+WP-19.E pre-registered that an *inverted* separation on `exogenous_spf` would be
+a third replication of [KB-024]'s stress→bearish→mean-reversion mechanism. It is
+not inverted. Quoting the interval, per the [KB-021]/[KB-022] convention:
+
+| Arm | bear − bull gap | p | 95% CI | reads |
+|---|---|---|---|---|
+| `ridge` | **+0.093** | 0.002 | **[+0.020, +0.164]** | inverted, **excludes zero** |
+| `gbm` | **+0.079** | 0.002 | **[+0.012, +0.146]** | inverted, **excludes zero** |
+| `exogenous_spf` | −0.038 | 0.038 | [−0.135, +0.056] | correctly signed, **spans zero** |
+| `market_plus_exo` | +0.011 | 0.509 | [−0.070, +0.100] | nothing |
+
+The anchor is **not** riding the market arms' contrarian relationship — its gap
+points the right way (what it calls Bearish does underperform) and is
+indistinguishable from zero. Record it as "does not replicate", not as a
+finding in either direction. Note the third row of consequences too:
+`market_plus_exo` **dissolves** the market arms' one established relationship
+(+0.093, CI excluding zero → +0.011, CI spanning it) and puts nothing in its
+place.
+
+### What each SPF input was worth — the read the pre-registration demanded regardless
+
+`exogenous_spf`, 18 streams, 3,803 refits. Positive permutation drop = the input
+was load-bearing out of sample:
+
+| input | mean coefficient | sign stability | permutation drop |
+|---|---|---|---|
+| `spf_curve` | −0.048 | 0.878 | **+0.011** |
+| `spf_3m_revision` | +0.004 | 0.835 | +0.003 |
+| `spf_staleness` | −0.004 | 0.917 | +0.001 |
+| `spf_policy_path` | −0.032 | **0.952** | **−0.001** |
+| `spf_unemp_revision` | +0.012 | 0.736 | −0.001 |
+| `spf_10y_revision` | −0.056 | 0.849 | −0.004 |
+| `spf_10y_path` | +0.067 | 0.850 | −0.004 |
+
+Three things the pre-registration named, answered:
+
+- **`spf_policy_path` does not pay.** This is the branch's actual thesis column —
+  the consensus policy path, sourced from economists precisely because DESIGN
+  §6.1 barred fed-funds futures from supplying it. It has the **highest sign
+  stability of all seven inputs (0.952)** and a consistently negative
+  coefficient, and its permutation drop is **−0.001**. The model reliably learned
+  a direction from it that does not survive out of sample. That combination —
+  stable sign, zero value — is the cleanest statement of the null here.
+- **`spf_staleness` does not distinguish a stale anchor from a fresh one**
+  (+0.001). This was the closest observable proxy the harness has for the drift
+  mechanism; it shows nothing.
+- **The revision columns carry nothing** (+0.003 / −0.001 / −0.004), and
+  `spf_unemp_revision` has the lowest sign stability of the seven (0.736).
+
+**The one load-bearing column is `spf_curve` (+0.011) — the largest permutation
+drop of any input in the entire run**, market columns included (`ridge`'s best is
+`drawdown` at +0.002, `gbm`'s at +0.003). A steeper economist consensus curve
+reads bearish. **Do not promote this.** It is unstable across feature sets:
+in `market_plus_exo` `spf_curve` collapses to −0.000 while `spf_policy_path`
+becomes the second-most load-bearing (+0.005) — the attribution flips when the
+market columns are present, which is what a real mechanism does not do. And
+`spf_curve` is a quarterly, highly persistent level-shape, close to the slow
+date proxy that the design excluded raw levels to avoid.
+
+### One unpre-registered observation, flagged as a hypothesis and not a result
+
+`exogenous_spf` is the **first arm measured in this project whose confidence
+signal is ordered correctly**. Reliability bins, decisive calls:
+
+| bin | n | mean confidence | realized hit-rate | `ridge` at the same bin |
+|---|---|---|---|---|
+| 50–60 | 15,140 | 0.571 | 0.544 | 0.519 |
+| 60–70 | 17,816 | 0.636 | 0.549 | 0.536 |
+| 70–80 | 5,595 | 0.733 | 0.591 | 0.554 |
+| 80–90 | 1,870 | 0.833 | 0.675 | 0.509 |
+| **90–100** | **629** | 0.947 | **0.696** | **0.404** |
+
+Monotonically increasing, against [KB-007]'s flat-to-inverted bins and
+[KB-024]'s collapse to 0.404 in the top bin. The arm is still badly
+overconfident — the top bin says 0.947 and delivers 0.696 — which is why BSS
+stays negative: the reliability penalty exceeds the resolution gain.
+
+**Treat this as a hypothesis, not a finding**, for three reasons. It was not
+pre-registered, and [KB-023] is this project's standing lesson about reading a
+pattern found after the fact. The arm fails its pre-committed bar regardless.
+And there is an untested confound: high-confidence calls may simply concentrate
+on assets or periods with a higher up-rate, which would produce this ordering
+with no discrimination at all. **That confound is testable** — the per-asset
+breakdown is in `scores.json.gz` on CI artifact `10013945071`, **which expires
+2026-10-07**. Pull it before then if this is worth resolving; after that the
+run must be repeated.
+
+### What this establishes, and what it does not
+
+**Establishes.** *The SPF consensus anchor is not a directional input at
+5/10/20 days on these six assets, alone or as an addition to the market panel.*
+This generalises WP-19.B's leakage-free early read (the SPF 10Y level forecast:
+40% hit at 1Q, mildly contrarian) from one asset and one quarterly horizon to six
+assets at three horizons, on the same sample, the same readers and the same
+pre-committed bar as every other arm.
+
+**Does NOT establish — the scope sentence WP-19.E required be carried.** This
+scored the branch's **deterministic, point-in-time half only**. Two things were
+excluded as leakage, not as omissions: the **SEP dot plot** (FRED serves the
+current vintage of a path each release rewrites, so a walk-forward would read the
+Fed's later revisions) and the **L1/L2 LLM layers** (trained on the dated FOMC
+text they would read, DESIGN §6.2). **The SPF-vs-SEP expectations gap and the
+FOMC-drift layer are therefore untested by this run** — they are half the
+two-layer bet and they live entirely in the excluded half. This is a null for the
+SPF anchor as a directional input. It is **not** a verdict on the
+expectations-gap mechanism, and it must not be cited as one.
+
+**Also does not establish** anything about the anchor as a *non-directional*
+input. Direction was the scoring convenience Phase 19 adopted to reuse the
+existing metric; DESIGN §1 says the branch is about expectations gaps and regime,
+**not** direction. This closes the convenience, not the thesis.
+
+### Consequence
+
+1. **Phase 19's directional route is closed.** WP-19.E was its re-pointed gate —
+   the last one available after v1.6 froze the market-only comparator [KB-024] —
+   and the anchor does not clear it. No further directional A/B for this branch.
+2. **`market_plus_exo` is a standing argument against widening any payload on
+   plausibility.** Seven point-in-time, genuinely non-market columns, added to a
+   panel that had already lost to a constant, made every calibration metric worse
+   and the model a third more confident. Ablate before adding.
+3. **What survives is route (b)** (Active_Experiments, Phase 19): re-cut the
+   branch's output to publish the **expectations gap itself** rather than a
+   directional lean. That is the only route that reaches the two-layer mechanism
+   this run could not test — and it needs a scoring protocol that is not
+   direction, which does not exist yet. Building it is a decision, not a
+   continuation.
+4. **The three-run reproducibility anchor holds.** `ridge` returns 0.530 /
+   Brier 0.271 / BSS −0.087 on three independently rebuilt panels across three
+   days ([KB-024] `b3e4255`, the void run `91f6b37` [KB-025], this run
+   `2780cb4`). This run's 63-minute wall time against the void run's 170 is
+   runner variance, not a truncated fit — the market arms are unchanged.
+
+**Reproduce:**
+
+```bash
+git show origin/output:numeric_baseline/numeric_baseline.md
+git show origin/output:numeric_baseline/numeric_baseline.json \
+  | python3 -c "import json,sys; m=json.load(sys.stdin)['meta']; print(m['n_exo_features'], m['arms_skipped'])"
+# must print: 7 {}     — anything else and the run is a KB-025 repeat, not a result
+
+# re-run (manual Actions trigger, ~1-3h; check the log line
+#   exogenous input: 'true' -> --require-exogenous   before reading a number)
+#   Actions -> Numeric Directional Baseline -> Run workflow (exogenous: true)
+```
+
+Per-asset hit-rate/BSS and the raw calls live in `scores.json.gz` on CI artifact
+`10013945071` (stripped before publish) — **pull it before 2026-10-07** if the
+confidence-ordering confound above is worth resolving.
