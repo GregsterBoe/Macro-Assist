@@ -27,39 +27,49 @@
         "n_blocks": 4
       },
       "pit_histogram": {},
-      "skill_vs_unconditional": {
-        "published": {
-          "skill": -0.0074,
-          "n": 210,
-          "ci": {
-            "lo": -0.052,
-            "hi": 0.0181,
-            "n_boot": 2000,
-            "n_blocks": 4
-          }
-        },
-        "trailing_250": {
-          "skill": -0.016,
-          "n": 210,
-          "ci": {
-            "lo": -0.0609,
-            "hi": 0.0173,
-            "n_boot": 2000,
-            "n_blocks": 4
-          }
-        },
-        "har_gaussian": {
-          "skill": 0.0071,
-          "n": 203,
-          "ci": {
-            "lo": -0.0201,
-            "hi": 0.0311,
-            "n_boot": 2000,
-            "n_blocks": 4
-          }
+      "pooled_skill": {
+        "skill": -0.009,
+        "arm": "published",
+        "benchmark": "unconditional",
+        "weighting": "equal per asset",
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ],
+        "excluded": {},
+        "min_pool_blocks": 2,
+        "ci": {
+          "lo": -0.0549,
+          "hi": 0.0188,
+          "n_boot": 2000,
+          "n_blocks": 4
         }
       },
-      "published_skill_equalweight": -0.009,
+      "pooled_skill_all_assets": {
+        "skill": -0.009,
+        "arm": "published",
+        "benchmark": "unconditional",
+        "weighting": "equal per asset",
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ],
+        "excluded": {},
+        "min_pool_blocks": 2,
+        "ci": {
+          "lo": -0.0549,
+          "hi": 0.0188,
+          "n_boot": 2000,
+          "n_blocks": 4
+        }
+      },
+      "pooled_universe": [
+        "Gold",
+        "SP500",
+        "WTI Oil"
+      ],
       "per_asset": {
         "SP500": {
           "n": 70,
@@ -79,6 +89,13 @@
             "n_blocks": 4
           },
           "pit_histogram": {},
+          "unit": "%",
+          "mean_pinball": {
+            "published": 0.7583,
+            "unconditional": 0.7592,
+            "trailing_250": 0.7697,
+            "har_gaussian": 0.7286
+          },
           "skill_vs_unconditional": {
             "published": {
               "skill": 0.0012,
@@ -110,13 +127,6 @@
                 "n_blocks": 3
               }
             }
-          },
-          "unit": "%",
-          "mean_pinball": {
-            "published": 0.7583,
-            "unconditional": 0.7592,
-            "trailing_250": 0.7697,
-            "har_gaussian": 0.7286
           }
         },
         "Gold": {
@@ -137,6 +147,13 @@
             "n_blocks": 4
           },
           "pit_histogram": {},
+          "unit": "%",
+          "mean_pinball": {
+            "published": 1.6789,
+            "unconditional": 1.6302,
+            "trailing_250": 1.6715,
+            "har_gaussian": 1.622
+          },
           "skill_vs_unconditional": {
             "published": {
               "skill": -0.0299,
@@ -168,13 +185,6 @@
                 "n_blocks": 4
               }
             }
-          },
-          "unit": "%",
-          "mean_pinball": {
-            "published": 1.6789,
-            "unconditional": 1.6302,
-            "trailing_250": 1.6715,
-            "har_gaussian": 1.622
           }
         },
         "WTI Oil": {
@@ -195,6 +205,13 @@
             "n_blocks": 4
           },
           "pit_histogram": {},
+          "unit": "%",
+          "mean_pinball": {
+            "published": 3.3672,
+            "unconditional": 3.3726,
+            "trailing_250": 3.4132,
+            "har_gaussian": 3.3539
+          },
           "skill_vs_unconditional": {
             "published": {
               "skill": 0.0016,
@@ -226,13 +243,6 @@
                 "n_blocks": 4
               }
             }
-          },
-          "unit": "%",
-          "mean_pinball": {
-            "published": 3.3672,
-            "unconditional": 3.3726,
-            "trailing_250": 3.4132,
-            "har_gaussian": 3.3539
           }
         }
       },
@@ -259,39 +269,49 @@
         "n_blocks": 3
       },
       "pit_histogram": {},
-      "skill_vs_unconditional": {
-        "published": {
-          "skill": -0.0782,
-          "n": 165,
-          "ci": {
-            "lo": -0.1132,
-            "hi": 0.0484,
-            "n_boot": 2000,
-            "n_blocks": 3
-          }
-        },
-        "trailing_250": {
-          "skill": -0.0572,
-          "n": 165,
-          "ci": {
-            "lo": -0.0896,
-            "hi": 0.046,
-            "n_boot": 2000,
-            "n_blocks": 3
-          }
-        },
-        "har_gaussian": {
-          "skill": -0.0121,
-          "n": 160,
-          "ci": {
-            "lo": -0.085,
-            "hi": 0.0364,
-            "n_boot": 2000,
-            "n_blocks": 3
-          }
+      "pooled_skill": {
+        "skill": -0.0652,
+        "arm": "published",
+        "benchmark": "unconditional",
+        "weighting": "equal per asset",
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ],
+        "excluded": {},
+        "min_pool_blocks": 2,
+        "ci": {
+          "lo": -0.149,
+          "hi": 0.0536,
+          "n_boot": 2000,
+          "n_blocks": 3
         }
       },
-      "published_skill_equalweight": -0.0653,
+      "pooled_skill_all_assets": {
+        "skill": -0.0652,
+        "arm": "published",
+        "benchmark": "unconditional",
+        "weighting": "equal per asset",
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ],
+        "excluded": {},
+        "min_pool_blocks": 2,
+        "ci": {
+          "lo": -0.149,
+          "hi": 0.0536,
+          "n_boot": 2000,
+          "n_blocks": 3
+        }
+      },
+      "pooled_universe": [
+        "Gold",
+        "SP500",
+        "WTI Oil"
+      ],
       "per_asset": {
         "SP500": {
           "n": 55,
@@ -311,6 +331,13 @@
             "n_blocks": 3
           },
           "pit_histogram": {},
+          "unit": "%",
+          "mean_pinball": {
+            "published": 0.8234,
+            "unconditional": 0.8187,
+            "trailing_250": 0.8731,
+            "har_gaussian": 0.871
+          },
           "skill_vs_unconditional": {
             "published": {
               "skill": -0.0058,
@@ -342,13 +369,6 @@
                 "n_blocks": 3
               }
             }
-          },
-          "unit": "%",
-          "mean_pinball": {
-            "published": 0.8234,
-            "unconditional": 0.8187,
-            "trailing_250": 0.8731,
-            "har_gaussian": 0.871
           }
         },
         "Gold": {
@@ -369,6 +389,13 @@
             "n_blocks": 3
           },
           "pit_histogram": {},
+          "unit": "%",
+          "mean_pinball": {
+            "published": 3.4539,
+            "unconditional": 3.0714,
+            "trailing_250": 3.2304,
+            "har_gaussian": 3.075
+          },
           "skill_vs_unconditional": {
             "published": {
               "skill": -0.1245,
@@ -400,13 +427,6 @@
                 "n_blocks": 3
               }
             }
-          },
-          "unit": "%",
-          "mean_pinball": {
-            "published": 3.4539,
-            "unconditional": 3.0714,
-            "trailing_250": 3.2304,
-            "har_gaussian": 3.075
           }
         },
         "WTI Oil": {
@@ -427,6 +447,13 @@
             "n_blocks": 3
           },
           "pit_histogram": {},
+          "unit": "%",
+          "mean_pinball": {
+            "published": 6.9843,
+            "unconditional": 6.5552,
+            "trailing_250": 6.9389,
+            "har_gaussian": 6.6032
+          },
           "skill_vs_unconditional": {
             "published": {
               "skill": -0.0655,
@@ -458,13 +485,6 @@
                 "n_blocks": 3
               }
             }
-          },
-          "unit": "%",
-          "mean_pinball": {
-            "published": 6.9843,
-            "unconditional": 6.5552,
-            "trailing_250": 6.9389,
-            "har_gaussian": 6.6032
           }
         }
       },
