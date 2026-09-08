@@ -802,7 +802,7 @@ def build_report(obs: list[dict]) -> dict:
 # quant log on 2026-09-07, so at the time this was written the interval record
 # was empty: n=0. That is what makes it a pre-registration rather than a
 # rationalisation, and it is the only window in which it could honestly be
-# written. The full statement is Project_Development.md -> Phase 22 -> WP-22.C.
+# written. The full statement is docs/record/roadmap.md -> Phase 22 -> WP-22.C.
 #
 # The median-only backfill (2026-05-29 -> 2026-08-28) had ALREADY been computed
 # when this was written and is therefore EXPLORATORY, not sealed. It is reported
@@ -832,7 +832,7 @@ def build_report(obs: list[dict]) -> dict:
 # This is a pre-data amendment, which is the only honest kind: p25/p75 entered
 # the quant log 2026-09-07, the first 5d interval window resolves ~2026-09-14,
 # and at the time of writing the sealed record holds zero resolved observations.
-# After that date this block is frozen. Recorded in Project_Development.md ->
+# After that date this block is frozen. Recorded in docs/record/roadmap.md ->
 # Phase 22 -> WP-22.C.
 # ---------------------------------------------------------------------------
 

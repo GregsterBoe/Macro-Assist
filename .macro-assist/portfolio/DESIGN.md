@@ -1,6 +1,6 @@
 # Self-Managed Paper Portfolio — Design (WP-20.A, scope-lock)
 
-Design/scope-lock for **Phase 20** (see `Project_Development.md`). This is the
+Design/scope-lock for **Phase 20** (see `../../docs/record/roadmap.md`). This is the
 **locked contract** the WP-20.B accounting core and WP-20.C sizing rule build
 against. Code lives beside this file in `.macro-assist/portfolio/`.
 

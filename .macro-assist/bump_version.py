@@ -11,8 +11,8 @@ What it does (all four manual steps from versions.py, atomically)
   1. Updates PIPELINE_VERSION in versions.py
   2. Closes the current open milestone entry (end date → yesterday)
   3. Appends new milestone entry to versions.py
-  4. Updates the milestones table in Project_Development.md
-  5. Updates the example agent_version YAML in Project_Development.md
+  4. Updates the milestones table in docs/record/roadmap.md
+  5. Updates the example agent_version YAML in docs/record/roadmap.md
 
 Then run the post-bump hooks:
     python .macro-assist/tag_versions.py
@@ -28,7 +28,7 @@ from pathlib import Path
 _HERE        = Path(__file__).resolve().parent
 _REPO_ROOT   = _HERE.parent
 _VERSIONS    = _HERE / "versions.py"
-_PROJECT_DOC = _REPO_ROOT / "Project_Development.md"
+_PROJECT_DOC = _REPO_ROOT / "docs" / "record" / "roadmap.md"
 
 
 def _update_versions_py(new_version: str, capability: str, today: date, yesterday: date) -> None:
@@ -102,12 +102,12 @@ def _update_project_doc(new_version: str, capability: str, today: date, yesterda
 
     if not table_updated:
         raise ValueError(
-            "Could not find a '– present' row in the milestones table in Project_Development.md."
+            "Could not find a '– present' row in the milestones table in docs/record/roadmap.md."
         )
 
     _PROJECT_DOC.write_text("".join(new_lines), encoding="utf-8")
     action = "milestones table + example YAML" if yaml_updated else "milestones table"
-    print(f"  ok  Project_Development.md  {action} updated")
+    print(f"  ok  docs/record/roadmap.md  {action} updated")
 
 
 def bump(new_version: str, capability: str) -> None:

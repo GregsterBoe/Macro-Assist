@@ -31,7 +31,7 @@ The decision value is symmetric, which is the point:
 
 Why not a bigger model
 ----------------------
-Recorded in `Project_Development.md` (Phase 21) and not re-litigated here: full-
+Recorded in `docs/record/roadmap.md` (Phase 21) and not re-litigated here: full-
 panel coverage is bounded by the youngest inputs, giving ~150 *non-overlapping*
 20-day windows across ~3 independent factors [KB-009]. [KB-002] and [KB-016]
 both already found this data supports fewer, discrete weights rather than more

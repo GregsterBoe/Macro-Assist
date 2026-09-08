@@ -1,6 +1,6 @@
 # Exogenous Information Engine — Design (WP-19.A, target-lock)
 
-Design/target-lock for Phase 19 (see `Project_Development.md`). This is the
+Design/target-lock for Phase 19 (see `../../docs/record/roadmap.md`). This is the
 **locked contract** the WP-19.B vertical slice builds against. Code lives beside
 this file in `.macro-assist/exogenous/`.
 

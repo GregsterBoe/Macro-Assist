@@ -9,8 +9,8 @@ the fragility backtest uses (KB-002 discipline): non-overlapping AUC + episode
 recall/precision + lead time. Only inputs that clear the gate graduate to a
 shadow wiring in fragility.py.
 
-See Project_Improvement.md (IMP-1). Findings from anything run here are logged as
-Knowledge_Base.md (KB-###) entries — negatives included.
+See docs/record/improvement-track.md (IMP-1). Findings from anything run here are logged as
+docs/record/knowledge-base.md (KB-###) entries — negatives included.
 
 IMP-1's first data source is a BROAD HOMOGENEOUS CROSS-SECTION (Fama-French daily
 industry portfolios, free, decades deep), which KB-012 identified as the missing

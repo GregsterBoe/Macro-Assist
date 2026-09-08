@@ -1,0 +1,121 @@
+site_name: Macro-Assist
+site_description: A daily macro intelligence pipeline, and the record of what it has actually measured.
+site_url: https://gregsterboe.github.io/Macro-Assist/
+repo_url: https://github.com/GregsterBoe/Macro-Assist
+repo_name: GregsterBoe/Macro-Assist
+edit_uri: edit/main/docs/
+
+docs_dir: docs
+
+theme:
+  name: material
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.top
+    - navigation.indexes
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.action.edit
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+plugins:
+  - search
+
+nav:
+  - Start here: index.md
+  - Concepts:
+      - concepts/index.md
+      - What this is: concepts/what-this-is.md
+      - The signal stack: concepts/the-signal-stack.md
+      - The method: concepts/the-method.md
+      - The cut (v1.6): concepts/the-cut.md
+      - What we believe: concepts/what-we-believe.md
+  - Reference:
+      - reference/index.md
+      - Architecture: reference/architecture.md
+      - Data sources: reference/data-sources.md
+      - Analysis pipeline: reference/analysis-pipeline.md
+      - Scoring: reference/scoring.md
+      - Operations: reference/operations.md
+      - Development: reference/development.md
+  - Decisions:
+      - decisions/index.md
+      - "ADR-0001 — Generated output lives on an orphan `output` branch": decisions/ADR-0001-output-on-an-orphan-branch.md
+      - "ADR-0002 — MA-1 returns a validated object through `tool_use`, not prose": decisions/ADR-0002-structured-output-contract.md
+      - "ADR-0003 — Four narrow agents rather than one wide call": decisions/ADR-0003-four-narrow-agents.md
+      - "ADR-0004 — Retire the HMM regime layer from the note, keep the code": decisions/ADR-0004-retire-hmm-from-the-note.md
+      - "ADR-0005 — Fragility ships behind a mode ladder, never straight to live": decisions/ADR-0005-fragility-mode-ladder.md
+      - "ADR-0006 — Adopt the cross-section as an OR *mode*, not a blended weight": decisions/ADR-0006-or-mode-not-weight.md
+      - "ADR-0007 — Build an instrument that measures the *task*, not the model": decisions/ADR-0007-measure-the-task-not-the-model.md
+      - "ADR-0008 — No neural network": decisions/ADR-0008-no-neural-network.md
+      - "ADR-0009 — Cut the directional product (v1.6)": decisions/ADR-0009-cut-the-directional-product.md
+      - "ADR-0010 — Freeze `score_predictions.py` rather than refactor or delete it": decisions/ADR-0010-freeze-the-directional-scorer.md
+      - "ADR-0011 — One canonical asset registry; stored numbers are display units": decisions/ADR-0011-canonical-asset-registry.md
+      - "ADR-0012 — An external cron service triggers the pipeline; GitHub's scheduler is a backstop": decisions/ADR-0012-external-cron-with-backstop.md
+      - "ADR-0013 — One pipeline entry point, `needs:`-ordered, with one resolved `asof`": decisions/ADR-0013-one-pipeline-entry-point.md
+      - "ADR-0014 — Point-in-time discipline without ALFRED: only never-revised inputs are eligible": decisions/ADR-0014-point-in-time-without-alfred.md
+      - "ADR-0015 — Soft-kill: deactivate, never delete": decisions/ADR-0015-soft-kill-convention.md
+      - "ADR-0016 — Phase 22 scores the conditional distribution only": decisions/ADR-0016-phase-22-scores-the-distribution-only.md
+      - "ADR-0017 — `EDGE_MIN_BSS` stays at 0.0; the floor is an open decision, not a fix": decisions/ADR-0017-bss-floor-left-open.md
+      - "ADR-0018 — Market data is barred from the exogenous branch's core inputs": decisions/ADR-0018-market-data-barred-from-the-exogenous-branch.md
+      - "ADR-0019 — The paper portfolio is mechanical and paper-only in v1": decisions/ADR-0019-paper-portfolio-mechanical-and-paper-only.md
+  - Record:
+      - Knowledge Base: record/knowledge-base.md
+      - Active experiments: record/active-experiments.md
+      - Roadmap: record/roadmap.md
+      - Improvement track: record/improvement-track.md
+      - Open decisions (TODO): record/todo.md
+      - Maintenance log: record/maintenance-log.md
+      - Roadmap archive: record/roadmap-archive.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/GregsterBoe/Macro-Assist

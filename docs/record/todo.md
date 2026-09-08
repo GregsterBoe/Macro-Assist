@@ -186,6 +186,43 @@ bear-share into the first risk-off. Revisit at the DESIGN §9 quarter mark.
 
 ---
 
+## Tooling
+
+### Open decision #9 — `bump_version.py` cannot find its anchors (pre-existing)
+**Where:** `.macro-assist/bump_version.py:31` (`_PROJECT_DOC`) · `:86` (the
+milestones regex) · `:97` (the `agent_version` regex).
+
+`_update_project_doc()` edits two things in the roadmap: the `– present` row of
+the milestones table, and the example `agent_version` YAML. **Neither is in the
+roadmap any more.** The 2026-09-04 archive pass moved both into
+`roadmap-archive.md` along with the v1.5 system-state snapshot, so
+`_update_project_doc()` raises
+`ValueError: Could not find a '– present' row ...` on any bump.
+
+Confirmed against `git show HEAD:Project_Development.md` — **zero** matching
+rows there, one in the archive. This predates the 2026-09-08 docs restructure;
+that pass only updated the path constant, which now correctly resolves to
+`docs/record/roadmap.md`.
+
+It is an **open decision, not a bug fix**, because it asks where the milestones
+table belongs now:
+1. **Restore a live milestones table to the roadmap** and let the archive keep
+   its dated snapshot copy — but the archive convention says archived blocks are
+   not maintained, and a second live table is the exact drift defect the same
+   pass was cleaning up.
+2. **Point `bump_version.py` at `versions.py` only** and drop the doc-editing
+   half. `VERSION_MILESTONES` is already the single source of truth and the
+   README calls it that; the roadmap table is a derived view.
+3. **Generate the table** from `versions.py` into a doc page at build time.
+
+Option 2 looks right — a bump helper that maintains a hand-written duplicate of
+a constant it already owns is the drift problem in miniature — but it deletes a
+documented workflow step, so it is a call rather than a fix. Until then, bump the
+version by hand per
+[Development → Version Management](../reference/development.md#version-management).
+
+---
+
 ## Housekeeping
 
 - The DESIGN §9 go/no-go clock is **forward-only** and already running. Every
