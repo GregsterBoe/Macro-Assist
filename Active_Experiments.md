@@ -13,14 +13,16 @@ detailed doc disagree, the detailed doc wins — fix the row.
 
 **Status legend:** 🟢 running / on-track · 🟡 in progress, needs work · ⏳ forward-accumulating (waiting on live data) · ⏸ holding / queued · ✅ done · ❌ dropped
 
-_Last updated: 2026-09-07 — Phase 21 resolved; the directional product is cut (v1.6),
+_Last updated: 2026-09-08 — Phase 21 resolved; the directional product is cut (v1.6),
 both remaining directional arms are stood down, and the scoring loop is winding down.
 WP-19.E is now resolved too: the Phase-19 SPF anchor does not carry direction, alone
 or added to the market panel [KB-026], so Phase 19's directional route is closed and
-only its non-directional route (b) survives. **WP-21.E has moved from queued to
-in flight the same day** — family 1 of the capped indicator search (VIX term
-structure) is built, pre-registered and sealed; the run is pending. What is left
-running is the fragility track and the numeric/quant work._
+only its non-directional route (b) survives. **WP-21.E family 1 ran and closes
+negative** (2026-09-08, [KB-027]): the VIX term structure is the drift benchmark,
+adding it to the market panel makes the panel worse, and the run exposed a defect
+in the pre-committed `verdict()` — which said "edge" for an arm its own
+pre-registration had disqualified. Two of the three capped families remain. What
+is left running is the fragility track and the numeric/quant work._
 
 ---
 
@@ -32,12 +34,13 @@ running is the fragility track and the numeric/quant work._
 - **Next:** **escalated `log → show` (2026-09-04, v1.6)** — the loosened A/B that blocked this is closed with Phase 21, so the confound the ladder was waiting on is gone. The OR flag now renders in the prompt and the Fragility Monitor is a **headline block** in the note, not a footnote in the Data Snapshot. Held at `show`, **not** `active`: `active` would let it widen Target Ranges, and there is still no live forward record. Honest limit stays attached — precision ≈0.32 [KB-016/017], a high-recall "not a normal tape" warning, never a forecast. Next gate: a live firing episode → then consider `active`.
 - **Where:** `.macro-assist/fragility_or.py` · `FRAGILITY_OR_MODE` in `quant_context.py` · harness `input_testing.py` (`run_holdout_cv`, `run_etf_panel_gate`) · branch `main`.
 
-### WP-21.E — Bounded indicator search, family 1: VIX term structure 🟡 BUILT + PRE-REGISTERED, run pending
-- **Tests:** does the VIX term structure (VIX/VIX3M) carry 5/10/20-day direction — on its own, or added to the market panel — measured on a **sealed holdout** against the same pre-committed bar every other arm faces? This is family **1 of a hard cap of 3**.
-- **Why it exists:** [KB-024] closed "this payload, these model classes". It did **not** close "no feature family predicts direction", and Phase 21 wrote down the only honest way to ask the smaller question. `vix_term` is the strongest single fragility component ([KB-001], AUC 0.77/0.67) that has never been tested for *direction*, and it costs one extra unrevised FRED series (`VXVCLS`).
-- **Latest (2026-09-07):** the harness is built and on the branch — four columns (`vix_term_ratio`, `vix_term_persist_20`, `vix_term_chg_5`, `vix_term_pct_252`), two arms (`vix_term` alone; `market_plus_vixterm` read against `ridge`), 19 new tests, 83 passing in the module. **The seal is the new machinery:** `SEAL_START = 2018-01-01`, committed before the family was fitted; `verdict()` is read on calls from that date onward and nowhere else, and the report renders the explore slice with `_not the bar_` in place of every verdict. **The market panel's columns do not move** — `vix3m` enters the panel and no market feature reads it, so `ridge`/`gbm` still fit the [KB-024] columns. Its **sample** does move, though: `shared_call_keys` intersects across arms, VIX3M's FRED history starts 2007-12-04, and the shared window therefore begins ~3y later than [KB-024]'s — so this run does *not* reproduce those headline numbers (use `--no-exogenous --no-vix-term` for that). The sealed slice is unaffected: 2018 is after every arm's first call either way. The read is **pre-registered** in `Project_Development.md` (including the third outcome: an inversion is not a pass).
-- **Next:** dispatch the run — Actions → *Numeric Directional Baseline* → `vix_term: true`, `seal_start: 2018-01-01`. Then read the sealed table only, and write it up as a KB entry either way. **Multiplicity is a stated cost:** three families share one sealed slice, so one family clearing 0.52 once is worth about a third of what it looks like.
-- **Where:** `Project_Development.md` (Phase 21 → WP-21.E) · `.macro-assist/numeric_baseline.py` · `.github/workflows/numeric_baseline.yml`.
+### WP-21.E — Bounded indicator search, family 1: VIX term structure ✅ RESOLVED — negative, and the bar was wrong [KB-027]
+- **Tested:** does the VIX term structure (VIX/VIX3M) carry 5/10/20-day direction — alone, or added to the market panel — on a **sealed holdout** against the pre-committed bar? Family **1 of a hard cap of 3**.
+- **Answer: no, twice. → [KB-027].** Run 2026-09-07/08 (Actions `34150561527`, 1h 52m, `origin/output` `e3bedc4`; the [KB-025] check passed first — `n_vix_term_features: 4`, `arms_skipped: {}`). **Primary fails:** on the sealed slice `vix_term` is 0.573 / Brier 0.244 / BSS +0.003 against `always_bullish`'s 0.567 / 0.246 / −0.001 — a margin of **+0.006** that goes **negative at t20** and is **−0.009 behind** the same constant on the explore slice. It is 41% Bullish, 56.5% Neutral, **2.5% Bearish** — tracking a bull tape. Its largest coefficient sits on the one column with a *negative* permutation drop. **Secondary fails with a negative sign:** `market_plus_vixterm` is worse than `ridge` on every metric (BSS −0.061→−0.083, ECE 0.104→0.126) while making **+1,970 more decisive calls** — [KB-026]'s result reproduced by a second, unrelated family. **Mechanism is [KB-024]'s:** bearish calls precede the *highest* returns (+1.685% vs +0.951%); at t5 the bear−bull gap is +0.294, p=0.002, CI [+0.060, +0.629]. Stress → bearish → stress mean-reverts → rally.
+- **The other finding — the bar did not implement its own pre-registration.** `verdict()` returned **`edge`**: its clause was `hit > 0.52 AND (BSS > 0 OR aligned)`, so a BSS of +0.003 satisfied the disjunct and the `inverted` ordering was never consulted — skipped in exactly the case it was written for, and unreachable until an arm finally cleared BSS 0. The pre-registration had said outright that an inversion is not a pass. **Corrected:** an inverted ordering now disqualifies before the pass clause and prints as its own verdict. Not a goalpost that moved — the defence is that the read was committed before the run. Note the published report on `origin/output` still shows the pre-correction `edge`; [KB-027] carries both columns.
+- **Next:** **decide the BSS floor before family 2 runs, in writing.** A floor of literally zero is not a skill threshold; +0.003 on heavily overlapping calls is indistinguishable from zero. A margin, or a comparator-relative clause ("must beat the best comparator on Brier"), is the principled bar — but raising `EDGE_MIN_BSS` *is* a goalpost move and is not covered by the pre-registration, so it is a decision, not a fix. It was deliberately left at 0.0.
+- **Scope (carried, as the pre-registration required):** this closes the term structure as a *directional* input. [KB-001] scored it as a *stress* instrument (AUC 0.77/0.67) and that stands — the two live fragility flags are unaffected and `fragility.py` is unchanged.
+- **Where:** `Project_Development.md` (Phase 21 → WP-21.E) · [KB-027] · `.macro-assist/numeric_baseline.py` · `numeric_baseline/` on `origin/output`.
 
 ### WP-19.E — The exogenous anchor, scored in the numeric harness ✅ RESOLVED — the anchor does not carry direction [KB-026]
 - **Tests:** does the Phase-19 non-market consensus anchor (Philly Fed **SPF**) carry 5/10/20-day direction — on its own, or as an addition to the market panel — measured against the same pre-committed bar every other arm faces?
@@ -63,6 +66,7 @@ running is the fragility track and the numeric/quant work._
 
 ## Queued / dormant
 
+- **WP-21.E families 2 and 3** ⏸ — **blocked on one decision, deliberately.** The cap allows two more feature families, but [KB-027] showed the bar hands out `edge` for a BSS of +0.003, and a floor of literally zero is not a skill threshold on calls this overlapping. Settle it in writing first — a margin, or a comparator-relative clause ("must beat the best comparator on Brier") — because raising `EDGE_MIN_BSS` after seeing a result is a real goalpost move, unlike the inversion fix which the pre-registration already required. Deciding it *now*, with no candidate family on the table, is the only moment it can be decided honestly. No family has been chosen; the honest prior after [KB-024]/[KB-026]/[KB-027] is low.
 - **WP-18.4 — Input ablation** ⏸ — the real LLM-cost decision gate; gated on sample. Queue (from [KB-009]/[KB-010], union of redundancy + citation screens): drop `vix3m`, collapse sector block, nasdaq-vs-sp500, real_yield-vs-10y, drop-`baa_spread`, drop raw net-liq components. Start cheapest (drop-baa_spread + net-liq).
 - **WP-17.5 — Vol / conditional layers** ⏸ — fix the HY-OAS-truncation in the conditional table; safe parallel numeric work, confounds no live A/B. **Higher value than it was:** the conditional table is now the note's published product, not a prompt input.
 - **Retire the weekly scoring stage** ⏸ — dated, not open-ended. The last directional note is 2026-09-04 and its T+20 window resolves ~**2026-10-02**; the run prints a `DIRECTIONAL RECORD CLOSED` banner when every window has resolved. Delete stage 3 from `pipeline.yml` then. The readers (`summarize_accuracy.py`, `bias_separation.py`) stay — they read the history.

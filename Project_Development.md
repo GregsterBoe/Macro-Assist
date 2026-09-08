@@ -64,7 +64,7 @@ Measured results live in `Knowledge_Base.md`.
 | 13 | End-to-end validation | ⏸ Backlog (optional) |
 | 14 | Production hardening (weekly refit, monitoring) | ✅ 2026-05-29 |
 | 16 | Fragility monitor + design-by-emergence prompt levers | ✅ Closed 2026-09-04 — 16.A shipped and alive (→ IMP-4), 16.B/C closed by Phase 21; detail archived |
-| 21 | Directional product validation → **the cut (v1.6)** | ✅ Closed 2026-09-04 — [KB-024]; WP-level detail archived. WP-21.E reopened as a bounded search: family 1 (VIX term structure) built + pre-registered 2026-09-07 |
+| 21 | Directional product validation → **the cut (v1.6)** | ✅ Closed 2026-09-04 — [KB-024]. WP-21.E bounded search: family 1 (VIX term structure) resolved **negative** 2026-09-08 → [KB-027]; 2 of 3 families remain |
 
 The v1.5 **system-state snapshot** that used to open this file was archived on the
 same pass; `README.md` is the maintained system reference.
@@ -417,9 +417,11 @@ Existing dated predictions  (results/**/<date>-*-macro.md, per arm)
 > [KB-024]: neither a ridge nor a GBM beats a constant `always_bullish` on this
 > payload, and both invert exactly the way the LLM does. WP-21.A ✅ ·
 > WP-21.B ❌ superseded · WP-21.C ❌ closed · **WP-21.D → cut, shipped as v1.6** ·
-> **WP-21.E in flight** (family 1 of 3, VIX term structure, built + pre-registered
-> 2026-09-07 — it does not reopen the phase's verdict, it can only ever add a
-> column back) · WP-21.F ✅ both remaining directional arms stood down ·
+> **WP-21.E family 1 ❌ negative** (VIX term structure, 2026-09-08 → [KB-027]:
+> the arm is the drift benchmark, adding it to the panel makes the panel worse,
+> and the mechanism is [KB-024]'s inversion through a new instrument. It also
+> exposed a defect in the pre-committed bar — see the WP below. 2 of 3 families
+> remain) · WP-21.F ✅ both remaining directional arms stood down ·
 > WP-21.G ✅ scoring loop wound down. The WP-21.A–D table below carries the
 > verdicts, including what replaced the two cut columns.
 
@@ -499,7 +501,7 @@ all, and now the seal date. Every optional family also arrives with its own
 dispatched to test publishes a valid report answering a different question
 [KB-025].
 
-### WP-21.E — Bounded, pre-registered indicator search *(family 1 built + pre-registered 2026-09-07; run pending)*
+### WP-21.E — Bounded, pre-registered indicator search *(family 1 ✅ RESOLVED 2026-09-08 — negative, and it found a defect in the bar → [KB-027]. Two families remain.)*
 
 The honest way back in. [KB-024] closes "this payload, these model classes" — it
 does not close "no feature family predicts direction." So the search is allowed,
@@ -522,6 +524,53 @@ but on three conditions, written down before it starts:
 If a family clears that bar, the column comes back — with the conditional
 distribution published underneath it. If none does, WP-21.E is a KB negative and
 the search closes for good.
+
+#### Family 1 — result: negative, twice over → [KB-027]
+
+**Run** Actions `34150561527` (1h 52m, green) on `11b0e93`; report on
+`origin/output` `e3bedc4`. The [KB-025] check passed first
+(`n_vix_term_features: 4`, `arms_skipped: {}`, `seal_start: 2018-01-01`).
+
+**Primary — fails.** On the sealed slice `vix_term` posts hit-rate 0.573 / Brier
+0.244 / BSS +0.003 / ECE 0.028 against `always_bullish`'s 0.567 / 0.246 /
+−0.001 / 0.017. The entire margin is **+0.006**, it goes **negative at t20**
+(−0.003), and on the explore slice the arm is **−0.009 behind** the same
+constant. It is tracking a bull tape: 41% Bullish, 56.5% Neutral, **2.5%
+Bearish**. Its largest coefficient sits on the column with a *negative*
+permutation drop.
+
+**Secondary — fails, with a negative sign.** `market_plus_vixterm` is worse than
+`ridge` on every metric (Brier 0.264→0.270, BSS −0.061→−0.083, ECE 0.104→0.126)
+while being **more decisive** (+1,970 calls). Four columns did to the panel what
+[KB-026]'s seven did — two independent families, same result. "Ablate before
+adding" is no longer a single observation.
+
+**The mechanism is [KB-024]'s, through a new instrument.** Bearish calls precede
+the *highest* forward returns of any bucket (+1.685% vs +0.951% Bullish); at t5
+the bearish-vs-bullish gap is +0.294, p=0.002, CI [+0.060, +0.629]. Curve inverts
+under stress → model reads bearish → stress mean-reverts → market rallies.
+
+**And the bar was wrong.** `verdict()` returned **`edge`**. Its clause was
+`hit > 0.52 AND (BSS > 0 OR aligned)`, so a positive BSS satisfied the disjunct
+and the `inverted` ordering was never consulted — skipped in exactly the case it
+was written for, and unreachable until an arm finally posted BSS > 0. The
+pre-registration below had already said an inversion is not a pass. **The
+function did not implement its own pre-registration**, and it has been corrected:
+an `inverted` ordering now disqualifies before the pass clause and prints as its
+own verdict. This is not a goalpost that moved — the defence is entirely that the
+read was committed before the run — and the full argument is in [KB-027].
+
+**Open before family 2 runs, and it must be settled in writing first:** a BSS
+floor of literally zero is not a skill threshold. +0.003 on heavily overlapping
+calls is not distinguishable from zero. Either a margin or a comparator-relative
+clause ("must beat the best comparator on Brier") is the principled bar.
+`EDGE_MIN_BSS` was deliberately left at 0.0 — raising it *is* a goalpost move and
+is not covered by the pre-registration, so it is a decision, not a fix.
+
+**Scope, as the pre-registration required it be carried:** this closes the term
+structure as a *directional* input. [KB-001] scored it as a *stress* instrument
+(AUC 0.77/0.67) and that stands untouched; the two live fragility flags do not
+depend on this outcome and nothing in `fragility.py` changes.
 
 #### Family 1 — VIX term structure *(built 2026-09-07, harness on `main`)*
 

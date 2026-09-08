@@ -359,12 +359,21 @@ def test_verdict_reports_edge_when_the_bar_is_cleared():
 
 
 def test_verdict_rejects_a_hit_rate_without_calibration_or_ordering():
+    """A good hit-rate alone is not a pass — the point [KB-024] added the clause for.
+
+    The fixture reads `mixed` rather than `inverted` since [KB-027]: an inverted
+    ordering now returns its own verdict, so using it here would test the
+    disqualifier instead of the clause this test is about. Both are asserted.
+    """
     ev = {
         "overall": {"decisive_hit_rate": 0.58,
                     "calibration": {"n": 500, "brier_skill_score": -0.10}},
-        "separation": {"overall": {"ordering": "inverted"}},
+        "separation": {"overall": {"ordering": "mixed"}},
     }
     assert nb.verdict(ev) == "no edge"
+
+    ev["separation"]["overall"]["ordering"] = "inverted"
+    assert nb.verdict(ev) == "inverted"
 
 
 # ---------------------------------------------------------------------------
@@ -1310,7 +1319,7 @@ def test_the_report_leads_with_the_sealed_table_and_never_scores_the_explore_one
 
     explore_block = md[explore_at:full_at]
     assert "_not the bar_" in explore_block
-    for outcome in ("**edge**", "**no edge**", "**underpowered**"):
+    for outcome in ("**edge**", "**no edge**", "**underpowered**", "**inverted**"):
         assert outcome not in explore_block, (
             "the explore slice must never render a verdict — it is the slice a "
             "family is allowed to be shaped on"
@@ -1433,3 +1442,77 @@ def test_workflow_disables_a_family_only_on_an_explicit_false():
             f"{var} must be disabled only on an explicit false"
         )
         assert f'[ "${var}" != "true" ]' not in text
+
+
+# ---------------------------------------------------------------------------
+# 10. KB-027 — an inverted ordering disqualifies, whatever the BSS says
+# ---------------------------------------------------------------------------
+
+def _evaluation(hit: float, bss: float, ordering: str | None, n: int = 15215) -> dict:
+    return {
+        "n_calls": n * 2,
+        "overall": {"decisive_hit_rate": hit,
+                    "calibration": {"n": n, "brier_skill_score": bss}},
+        "separation": {"overall": {"ordering": ordering}} if ordering else None,
+    }
+
+
+def test_an_inverted_ordering_cannot_pass_on_a_hair_of_positive_bss():
+    """The KB-027 regression, with WP-21.E family 1's own sealed numbers.
+
+    `vix_term` returned decisive hit-rate 0.573 (against `always_bullish`'s
+    0.567), BSS +0.003 and an `inverted` ordering, and the old clause
+    `hit > 0.52 AND (BSS > 0 OR aligned)` called it an edge: the positive BSS
+    satisfied the disjunct, so the ordering was never consulted — in exactly the
+    case the ordering clause existed for. WP-21.E's pre-registration had already
+    said an inversion is not a pass.
+    """
+    assert nb.verdict(_evaluation(0.573, 0.003, "inverted")) == "inverted"
+
+
+def test_inversion_disqualifies_however_good_the_other_numbers_are():
+    """No combination of hit-rate and BSS buys a pass for a wrong-signed arm."""
+    for hit, bss in ((0.99, 0.5), (0.60, 0.10), (0.53, 0.001)):
+        assert nb.verdict(_evaluation(hit, bss, "inverted")) == "inverted", (
+            f"hit={hit} bss={bss} bought a pass for an inverted arm"
+        )
+
+
+def test_inverted_is_its_own_verdict_not_folded_into_no_edge():
+    """"Did nothing" and "did something backwards" must not print the same word."""
+    assert nb.verdict(_evaluation(0.500, -0.05, "mixed")) == "no edge"
+    assert nb.verdict(_evaluation(0.500, -0.05, "inverted")) == "inverted"
+
+
+def test_the_pass_path_still_passes():
+    """The correction must only ever remove passes, never add or block a clean one."""
+    assert nb.verdict(_evaluation(0.55, 0.01, "aligned")) == "edge"
+    assert nb.verdict(_evaluation(0.55, 0.01, "mixed")) == "edge"
+    assert nb.verdict(_evaluation(0.55, -0.01, "aligned")) == "edge"
+    assert nb.verdict(_evaluation(0.55, 0.01, None)) == "edge"
+    # Still short of the bar on hit-rate, ordering notwithstanding.
+    assert nb.verdict(_evaluation(0.51, 0.01, "aligned")) == "no edge"
+
+
+def test_inversion_does_not_override_an_unscoreable_arm():
+    """Ordering is read after the sample checks, not before them."""
+    thin = _evaluation(0.90, 0.5, "inverted", n=5)
+    assert nb.verdict(thin) == "underpowered"
+    abstainer = {"n_calls": 900, "overall": {"calibration": {"n": 0}},
+                 "separation": {"overall": {"ordering": "inverted"}}}
+    assert nb.verdict(abstainer) == "abstains"
+
+
+def test_the_bss_margin_was_deliberately_left_alone():
+    """KB-027's second lesson is recorded as open, not silently implemented.
+
+    Raising the BSS floor above zero so +0.003 stops reading as skill is a real
+    goalpost move — the pre-registration says nothing about a margin — so it must
+    not arrive as a quiet constant change alongside the correction that *was*
+    pre-registered.
+    """
+    assert nb.EDGE_MIN_BSS == 0.0
+    assert nb.verdict(_evaluation(0.573, 0.003, "aligned")) == "edge", (
+        "a hair of positive BSS still passes when the ordering is clean — that "
+        "is the open question, not something this change decided"
+    )

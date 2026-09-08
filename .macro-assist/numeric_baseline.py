@@ -1557,9 +1557,37 @@ EDGE_MIN_N: int = 30
 EDGE_MIN_HIT_RATE: float = 0.52
 EDGE_MIN_BSS: float = 0.0
 
+# An `inverted` bias/return ordering disqualifies an arm outright, whatever its
+# other numbers say (WP-21.E, 2026-09-08 — see [KB-027]).
+#
+# This is NOT a bar that moved after seeing a result. WP-21.E's pre-registration,
+# committed before the family was fitted, named the inversion as outcome 3 and
+# said in terms: *"An inversion is not a pass and must not be re-labelled a
+# contrarian signal after the fact."* The function did not implement that. Its
+# clause was `hit > 0.52 AND (BSS > 0 OR aligned)`, so a positive BSS satisfied
+# the disjunct and the ordering was never consulted — the inversion check was
+# skipped in exactly the case it was written for.
+#
+# The hole was invisible until this run because no arm had ever returned BSS > 0:
+# every arm in [KB-024] and [KB-026] failed on the first clause and the second was
+# never reached. `vix_term` cleared it with BSS **+0.003** and an inverted
+# ordering, and `verdict()` called it an edge.
+#
+# Deliberately NOT also done: raising `EDGE_MIN_BSS` above zero so that +0.003
+# stops counting as skill. That is the other lesson of [KB-027] and it is a real
+# goalpost move — the pre-registration says nothing about a margin — so it stays
+# an open question in the KB rather than a quiet edit here.
+EDGE_DISQUALIFYING_ORDERING: str = "inverted"
+
 
 def verdict(evaluation: dict) -> str:
-    """'edge' / 'no edge' / 'abstains' / 'underpowered', by the bar above."""
+    """'edge' / 'no edge' / 'inverted' / 'abstains' / 'underpowered'.
+
+    `inverted` is its own verdict, not folded into 'no edge': across [KB-022],
+    [KB-024] and [KB-027] a wrong-signed relationship has been the single most
+    repeated finding in this project, and "did nothing" and "did something
+    backwards" are different results that should not print the same word.
+    """
     overall = evaluation.get("overall", {})
     calib   = overall.get("calibration") or {}
     n       = calib.get("n", 0)
@@ -1575,6 +1603,11 @@ def verdict(evaluation: dict) -> str:
     sep = ((evaluation.get("separation") or {}).get("overall") or {}).get("ordering")
     if hit is None:
         return "underpowered"
+    if sep == EDGE_DISQUALIFYING_ORDERING:
+        # Checked before the pass clause, not inside it. An arm whose calls run
+        # the wrong way has not shown an edge no matter how the hit-rate and the
+        # Brier came out, and this ordering is what the pre-registration barred.
+        return "inverted"
     beats_chance = hit > EDGE_MIN_HIT_RATE
     calibrated   = bss is not None and bss > EDGE_MIN_BSS
     aligned      = sep == "aligned"
@@ -1739,6 +1772,10 @@ def report_md_lines(evaluations: dict[str, dict], diagnostics: dict[str, dict],
         f"> **Bar (pre-committed).** An arm shows an edge only with n ≥ {EDGE_MIN_N} decisive",
         f"> calls, decisive hit-rate > {EDGE_MIN_HIT_RATE:.2f}, and either BSS > {EDGE_MIN_BSS:.0f}",
         "> or an `aligned` separation ordering. Same standard as [KB-007] / [KB-022].",
+        f"> An **`{EDGE_DISQUALIFYING_ORDERING}`** ordering disqualifies outright, whatever the",
+        "> other numbers say — WP-21.E pre-registered that and [KB-027] is where the",
+        "> function was corrected to implement it. `inverted` prints as its own verdict:",
+        "> doing nothing and doing something backwards are different results.",
         "",
         "> **Read the comparator rows before the model rows.** In a drifting tape",
         "> `always_bullish` collects hit-rate for free — that is why the bar also demands",
