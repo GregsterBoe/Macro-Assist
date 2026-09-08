@@ -2132,3 +2132,211 @@ git show origin/output:numeric_baseline/numeric_baseline.json \
 Per-asset hit-rate/BSS and the raw calls live in `scores.json.gz` on CI artifact
 `10013945071` (stripped before publish) — **pull it before 2026-10-07** if the
 confidence-ordering confound above is worth resolving.
+
+---
+
+## KB-027 — The VIX term structure does not carry direction, and the bar said "edge" anyway: the pre-committed `verdict()` did not implement its own pre-registration (WP-21.E family 1)
+
+**Date:** 2026-09-08 · **Branch:** `claude/project-dev-status-8jk1gk` ·
+**Run:** Actions `34150561527` (1h 52m, green) on `11b0e93` ·
+**Artifact:** `numeric_baseline/numeric_baseline.{md,json}` on `origin/output`
+(commit `e3bedc4`); raw calls on CI artifact `10031564717`, **expires
+2026-10-07** · **Read pre-registered 2026-09-07**, before this run, in
+`Project_Development.md` → WP-21.E.
+
+**Run validity (the [KB-025] check, done first).** `meta.n_vix_term_features: 4`,
+`arms_skipped: {}`, `seal_start: 2018-01-01`, `verdict_scope: sealed`,
+`n_exo_features: 0` (dispatched `exogenous: false` — the Phase-19 question closed
+with [KB-026] and its arms would only have cost fit time). This run tested what
+it says it tested.
+
+**The questions under test.** Two, pre-registered separately. **Primary:** does
+the VIX term structure carry 5/10/20-day direction *on its own* — `vix_term`, a
+ridge on four columns off VIX and VIX3M and nothing else? **Secondary:** does it
+*add* anything on top of the market panel — `market_plus_vixterm` against
+`ridge`, same model, same sample, same rows, four extra columns?
+
+### Headline — the family is a null, and the bar mislabelled it
+
+Sealed holdout (calls from 2018-01-01), all seven arms on the same **39,910
+calls** over 2,261 dates:
+
+| Arm | inputs | n decisive | decisive hit-rate | Brier | BSS | ECE | separation | verdict as run | corrected |
+|---|---|---|---|---|---|---|---|---|---|
+| `ridge` | market | 21,202 | 0.535 | 0.264 | −0.061 | 0.104 | inverted | no edge | inverted |
+| `gbm` | market | 20,234 | 0.522 | 0.262 | −0.051 | 0.100 | inverted | no edge | inverted |
+| **`vix_term`** | **vix_term** | **15,215** | **0.573** | **0.244** | **+0.003** | **0.028** | **inverted** | **edge** | **inverted** |
+| **`market_plus_vixterm`** | **market+vix_term** | **23,172** | **0.528** | **0.270** | **−0.083** | **0.126** | **inverted** | no edge | inverted |
+| `random_walk` | comparator | 31,361 | 0.496 | 0.253 | −0.012 | 0.054 | mixed | no edge | no edge |
+| `always_bullish` | comparator | 32,525 | **0.567** | **0.246** | −0.001 | 0.017 | n/a | no edge | no edge |
+
+**`vix_term` cleared the pre-committed bar and it is still a null.** Both halves
+of that sentence are the finding, and they are separate findings.
+
+### Why it is a null, on three independent readings
+
+**1. It is the drift benchmark.** The whole margin over `always_bullish` is
+**+0.006** hit-rate, and it does not survive disaggregation:
+
+| horizon | `vix_term` | `always_bullish` | gap | `vix_term` BSS |
+|---|---|---|---|---|
+| t5  | 0.568 | 0.557 | +0.011 | −0.001 |
+| t10 | 0.579 | 0.568 | +0.011 | +0.004 |
+| t20 | 0.571 | 0.574 | **−0.003** | +0.004 |
+
+The edge inverts sign at the longest horizon. And the explore slice settles it:
+there `vix_term` runs **0.528 against `always_bullish`'s 0.537 — a gap of
+−0.009**. Across the seal the arm's hit-rate rises 0.528 → 0.573 while the
+constant's rises 0.537 → 0.567. **It is tracking a bull tape, not beating one.**
+
+**2. Its call mix is how a null collects hit-rate here.** 41.0% Bullish, 56.5%
+Neutral, **2.5% Bearish** (996 of 39,910). An arm that is almost never bearish in
+a rising market inherits the drift; the low ECE (0.028) is largely the same fact,
+a model sitting near 0.5 and abstaining.
+
+**3. Its own strongest column hurts it.** `vix_term_ratio` carries the largest
+mean coefficient (**+0.077**) and a **negative** permutation drop (**−0.0033**) —
+permuting the model's favourite input *improves* out-of-sample performance. The
+two columns with positive drops are worth +0.0028 and +0.0023. Sign stability
+runs 0.734–0.824, none near the 0.952 [KB-026] recorded for `spf_policy_path`,
+and `vix_term_pct_252` flips sign between feature sets (−0.018 alone, +0.074 in
+`market_plus_vixterm`) — the instability that stopped `spf_curve` being promoted,
+repeated.
+
+### The mechanism, and it is [KB-024]'s
+
+Bucket means on the sealed slice: Bullish **+0.951%**, Neutral **+0.494%**,
+Bearish **+1.685%**. Its rare bearish calls precede the *highest* forward returns
+of any bucket. At t5 the bearish-vs-bullish gap is **+0.294, p=0.002, CI
+[+0.060, +0.629]** — the one signed result in this run whose CI excludes zero, on
+143 bearish calls.
+
+This is [KB-024]'s `drawdown` finding reached through a different input: the
+curve inverts under stress → the model reads bearish → **stress mean-reverts at
+5–20 days** → the market rallies. The one stable relationship in this panel is
+contrarian, and it is now visible through two unrelated instruments.
+
+**Honesty about the label.** Pooled ordering is `inverted`, but per horizon it is
+`mixed` / `inverted` / `mixed` — only t10 inverts on its own — and the overall
+block-bootstrap CIs span zero (bullish-vs-neutral gap −0.0345, p=0.026, CI
+[−0.127, +0.050]; bearish-vs-bullish +0.046, p=0.42, CI [−0.157, +0.229]). **So
+`inverted` is a weak label on a near-zero effect, exactly as `edge` was.** The
+defensible claim is not "the term structure is contrarian" but *"it is
+indistinguishable from the drift benchmark, and what signed evidence exists
+points the wrong way."* The substantive conclusion does not depend on which label
+wins — which is the strongest form this finding takes.
+
+### Secondary — fails, with a negative sign, and it is [KB-026] repeated
+
+`market_plus_vixterm` is **worse than the panel it was added to** on every
+metric: Brier 0.264 → 0.270, BSS −0.061 → −0.083, ECE 0.104 → 0.126, hit-rate
+0.535 → 0.528 — while being **more decisive** (21,202 → 23,172, +1,970 calls).
+
+Four columns did to the market panel what [KB-026]'s seven did. Two independent
+families, different data, same result: **adding plausible point-in-time columns
+to this panel degrades it and makes it more confident.** [KB-026]'s "ablate
+before adding" is no longer a single observation.
+
+### The second finding: the bar did not implement its own pre-registration
+
+`verdict()` returned **`edge`** for `vix_term`. It was not a bug in the numbers —
+it was the clause:
+
+```python
+if beats_chance and (calibrated or aligned):   # hit>0.52 and (BSS>0 or aligned)
+    return "edge"
+```
+
+An `inverted` ordering is only ever consulted through `aligned`, inside a
+disjunct. **A positive BSS satisfies the disjunct, so the ordering is skipped in
+exactly the case the ordering clause was written for.** BSS **+0.003** bought it.
+
+WP-21.E's pre-registration, committed 2026-09-07 *before* the family was fitted,
+had already named this as outcome 3: *"The family may come back inverted — a
+stable relationship with the wrong sign... An inversion is **not** a pass and
+must not be re-labelled a contrarian signal after the fact."* The registered read
+and the implemented function disagreed, and **the function was the looser one**.
+
+**Why it survived three prior runs undetected.** The hole is unreachable unless
+an arm posts BSS > 0. No arm ever had: every arm in [KB-024] and [KB-026] failed
+the first clause, so the second was never evaluated. The first arm in this
+project to clear a BSS of zero was the first to expose it. A bar is not tested by
+the results that fail it.
+
+**The correction.** An `inverted` ordering now disqualifies outright, before the
+pass clause, and returns **`inverted`** as its own verdict rather than folding
+into `no edge` — across [KB-022], [KB-024] and this entry a wrong-signed
+relationship is the single most repeated finding in this project, and "did
+nothing" and "did something backwards" should not print the same word. Applied to
+the published run it moves `vix_term` `edge` → `inverted` and relabels
+`ridge`/`gbm`/`market_plus_vixterm` `no edge` → `inverted`, which is more
+informative and consistent with [KB-024].
+
+**This is not a goalpost that moved.** The change makes the function do what the
+pre-registration already said. That distinction is the whole defence and it only
+holds because the pre-registration was committed before the run — had the read
+not been written down first, this correction would be indistinguishable from
+rescuing a disliked result, and there would have been no honest way to make it.
+
+**What was deliberately NOT changed.** `EDGE_MIN_BSS` stays at 0.0. Raising it so
+that +0.003 stops reading as skill is the other lesson here and it *is* a
+goalpost move — the pre-registration says nothing about a margin — so it is
+recorded as open rather than edited in quietly.
+`test_the_bss_margin_was_deliberately_left_alone` pins that.
+
+### Open question for family 2
+
+**A BSS floor of literally zero is not a skill threshold.** +0.003 over the base
+rate on 15,215 heavily overlapping calls (2,261 dates × 6 assets × 3 horizons) is
+not distinguishable from zero, and the block-bootstrap CIs above show how wide
+the honest error bars are. Some margin — or a comparator-relative clause, "must
+beat the best comparator on Brier" — would be the principled bar. **It must be
+decided and written down before family 2 runs, not after**, or the next arm to
+post +0.003 reopens the same argument with a result already on the table.
+
+### What this establishes, and what it does not
+
+**Establishes.** *The VIX term structure is not a directional input at 5/10/20
+days on these six assets, alone or added to the market panel.* Family 1 of the
+capped search closes negative. Two families remain and the honest prior on them
+has dropped again.
+
+**Does NOT establish** anything about the term structure as a *stress*
+instrument. [KB-001] scored it there (AUC 0.77/0.67) and that result is untouched:
+this says the curve does not predict direction, not that it does not predict
+trouble. **The two live fragility flags do not depend on this outcome** and
+nothing in `fragility.py` or `fragility_or.py` changes.
+
+**Sample note.** Calls span **2011-10-24 → 2026-08-31**, ~3 years later than
+[KB-024]'s. `shared_call_keys` intersects across arms, so VIX3M's 2007-12-04 FRED
+start sets the first call date for *every* arm including the comparators. This
+run therefore does **not** reproduce [KB-024]'s headline numbers and must not be
+read as having tried to; `--no-exogenous --no-vix-term` restores that sample. The
+sealed slice is unaffected — 2018 is after every arm's first call either way,
+which is the second reason the seal sits there.
+
+**Reproduce:**
+
+```bash
+git show origin/output:numeric_baseline/numeric_baseline.md
+git show origin/output:numeric_baseline/numeric_baseline.json \
+  | python3 -c "import json,sys; m=json.load(sys.stdin)['meta']; \
+print(m['n_vix_term_features'], m['arms_skipped'], m['seal_start'], m['call_span']['sealed'])"
+# must print: 4 {} 2018-01-01 ['2018-01-01', '2026-08-31']
+
+# the verdict as published vs under the corrected bar
+git show origin/output:numeric_baseline/numeric_baseline.json > /tmp/run.json
+python3 -c "
+import json,sys; sys.path.insert(0,'.macro-assist'); import numeric_baseline as nb
+d=json.load(open('/tmp/run.json'))
+for a,ev in d['scoped_evaluations']['sealed'].items():
+    print(f'{a:22s} {d[\"verdicts_binding\"][a]:10s} -> {nb.verdict(ev)}')"
+# vix_term: edge -> inverted
+
+# re-run (manual Actions trigger, ~2h)
+#   Actions -> Numeric Directional Baseline -> Run workflow
+#   (vix_term: true, seal_start: 2018-01-01, exogenous: false)
+```
+
+Per-asset breakdown and the raw calls are in `scores.json.gz` on CI artifact
+`10031564717` — **expires 2026-10-07**, the same day as [KB-026]'s `10013945071`.

@@ -22,6 +22,13 @@ The suite is organised around the three ways this experiment could lie to us:
      is released, the exogenous columns contain no market input, and every arm is
      still scored on one shared call set even though the feature sets become
      usable on different dates. Section 8 asserts all three.
+  5. **A search that marks its own homework.** WP-21.E adds a feature family and
+     a *seal*: calls from `SEAL_START` onward are the holdout the verdict is read
+     on. Three things have to hold or the search is unfalsifiable — the seal
+     splits on the call date and loses nothing, the binding verdict comes from
+     the sealed slice, and the explore slice never renders a verdict at all.
+     Section 9 asserts those, plus the guarantee that keeps the whole thing
+     comparable to [KB-024]: adding the family does not move the market panel.
 
 Everything runs offline: the panel fixtures are synthetic, and only
 `build_panel` / feature / model code is exercised — no yfinance, no FRED.
@@ -71,6 +78,11 @@ def noise_panel() -> pd.DataFrame:
     cols["macro:breakeven_10y"]  = 2.0 + np.cumsum(rng.normal(0, 0.01, n))
     cols["macro:real_yield_10y"] = 1.0 + np.cumsum(rng.normal(0, 0.01, n))
     cols["macro:vix"]            = 18 + np.abs(rng.normal(0, 3, n))
+    # VIX3M, the WP-21.E family's second input. Built as its own noisy series
+    # rather than a multiple of `vix`, so the VIX/VIX3M ratio actually moves and
+    # crosses 1.0 — a fixture where the curve never inverts would let a broken
+    # backwardation column pass every test in the file.
+    cols["macro:vix3m"]          = 19 + np.abs(rng.normal(0, 3, n))
     panel = pd.DataFrame(cols, index=idx)
     panel.index.name = "date"
     return panel
@@ -95,6 +107,11 @@ def test_fred_inputs_contain_only_unrevised_series():
     assert set(nb.FRED_INPUTS.values()).isdisjoint(forbidden), (
         "FRED_INPUTS gained a revised / lagged-release series — see the "
         "point-in-time section of numeric_baseline.py"
+    )
+    # The optional families fetch through the same adapter and inherit the same
+    # rule; checking only FRED_INPUTS would leave every future family unguarded.
+    assert set(nb.VIX_TERM_INPUTS.values()).isdisjoint(forbidden), (
+        "VIX_TERM_INPUTS gained a revised / lagged-release series"
     )
 
 
@@ -342,12 +359,21 @@ def test_verdict_reports_edge_when_the_bar_is_cleared():
 
 
 def test_verdict_rejects_a_hit_rate_without_calibration_or_ordering():
+    """A good hit-rate alone is not a pass — the point [KB-024] added the clause for.
+
+    The fixture reads `mixed` rather than `inverted` since [KB-027]: an inverted
+    ordering now returns its own verdict, so using it here would test the
+    disqualifier instead of the clause this test is about. Both are asserted.
+    """
     ev = {
         "overall": {"decisive_hit_rate": 0.58,
                     "calibration": {"n": 500, "brier_skill_score": -0.10}},
-        "separation": {"overall": {"ordering": "inverted"}},
+        "separation": {"overall": {"ordering": "mixed"}},
     }
     assert nb.verdict(ev) == "no edge"
+
+    ev["separation"]["overall"]["ordering"] = "inverted"
+    assert nb.verdict(ev) == "inverted"
 
 
 # ---------------------------------------------------------------------------
@@ -901,7 +927,7 @@ def test_exogenous_arms_are_skipped_on_a_market_only_panel(noise_panel):
         noise_panel, arms=nb.DEFAULT_ARMS, horizons={"t5": 5},
         min_train=400, refit_every=200, with_importance=False,
     )
-    assert set(calls) == set(nb.MARKET_ARMS)
+    assert set(calls) == set(nb.MARKET_ARMS) | set(nb.VIXTERM_ARMS)
     for arm in nb.EXO_ARMS:
         assert "skipped" in diagnostics[arm]
     assert nb.shared_call_keys(calls), "the surviving arms still share a sample"
@@ -1087,3 +1113,406 @@ def test_workflow_asks_the_harness_to_prove_the_anchor_ran():
     text = WORKFLOW.read_text()
     assert "--require-exogenous" in text
     assert "EXOGENOUS: ${{ inputs.exogenous }}" in text
+
+
+# ---------------------------------------------------------------------------
+# 9. WP-21.E — the bounded indicator search: family 1 and the seal
+# ---------------------------------------------------------------------------
+
+def _drop_vix3m(panel: pd.DataFrame) -> pd.DataFrame:
+    return panel.drop(columns=["macro:vix3m"])
+
+
+def test_vix_term_inputs_are_unrevised_series():
+    """The family's input has to satisfy the same no-revision rule as the panel.
+
+    VXVCLS is a published index close — printed once, never restated — which is
+    why it is eligible at all. The dict is asserted whole so a future family
+    cannot smuggle a revised series in beside it.
+    """
+    assert nb.VIX_TERM_INPUTS == {"vix3m": "VXVCLS"}
+    assert not set(nb.VIX_TERM_INPUTS) & set(nb.FRED_INPUTS), (
+        "the family's inputs must stay out of the market panel's provenance"
+    )
+
+
+def test_market_feature_set_is_unchanged_by_the_vix_term_inputs(noise_panel):
+    """The reproducibility anchor: `ridge` and `gbm` fit what they fit in KB-024.
+
+    `vix3m` joins the *panel*, and nothing in `macro_features` reads it. If that
+    ever stops being true the market arms stop being comparable to [KB-024] and
+    [KB-026], and the three-run anchor those entries rest on is gone — so the
+    equality is asserted rather than trusted to the reader of a diff.
+    """
+    with_3m    = nb.build_features(noise_panel, "S&P 500", nb.FEATURES_MARKET)
+    without_3m = nb.build_features(_drop_vix3m(noise_panel), "S&P 500",
+                                   nb.FEATURES_MARKET)
+    pd.testing.assert_frame_equal(with_3m, without_3m)
+    assert not any("vix_term" in c for c in with_3m.columns)
+
+
+def test_vix_term_features_are_strictly_backward_looking(noise_panel):
+    """A change at t must not move any row before t."""
+    cut = 900
+    base = nb.vix_term_features(noise_panel)
+    tampered = noise_panel.copy()
+    tampered.iloc[cut:, tampered.columns.get_loc("macro:vix3m")] *= 3.0
+    after = nb.vix_term_features(tampered)
+    pd.testing.assert_frame_equal(base.iloc[:cut], after.iloc[:cut])
+
+
+def test_the_family_is_not_a_second_copy_of_the_vix_level():
+    """The [KB-009] objection, measured instead of argued.
+
+    That screen found VIX and VIX3M correlate ~0.98 in levels and nominated
+    `vix3m` for the prune queue. The family is the *ratio*, which is what is left
+    when two series that collinear are divided into each other — so on a panel
+    built to reproduce that collinearity, the ratio must be far less correlated
+    with the VIX level than the two levels are with each other. If this ever
+    fails, the family is re-deriving the level and the arm is not a new question.
+    """
+    n = 800
+    rng = np.random.default_rng(3)
+    vix = pd.Series(18 + np.abs(rng.normal(0, 4, n)), index=_bdays(n))
+    # ~0.98 in levels, the KB-009 reading, with an independent curve component.
+    vix3m = vix * 1.05 + rng.normal(0, 0.9, n)
+    panel = pd.DataFrame({"macro:vix": vix, "macro:vix3m": vix3m})
+
+    level_corr = abs(vix.corr(vix3m))
+    ratio_corr = abs(nb.vix_term_features(panel)["vix_term_ratio"].corr(vix))
+    assert level_corr > 0.95, "fixture should reproduce the KB-009 collinearity"
+    assert ratio_corr < level_corr / 2, (
+        f"the ratio tracks the level too closely (|r|={ratio_corr:.2f} against "
+        f"{level_corr:.2f}) — it is not the orthogonal part"
+    )
+
+
+def test_the_backwardation_column_is_the_fragility_components_statistic():
+    """One definition of backwardation persistence, not two.
+
+    [KB-001] scored `fragility.vix_term_backwardation`. The column here has to be
+    that statistic at that window, or the WP-21.E result is about a near-miss of
+    the thing the search was pointed at.
+    """
+    from fragility import vix_term_backwardation
+
+    n = 300
+    rng = np.random.default_rng(11)
+    vix = pd.Series(20 + rng.normal(0, 4, n), index=_bdays(n))
+    vix3m = pd.Series(20 + rng.normal(0, 4, n), index=_bdays(n))
+    panel = pd.DataFrame({"macro:vix": vix, "macro:vix3m": vix3m})
+
+    column = nb.vix_term_features(panel)[f"vix_term_persist_{nb.VIX_TERM_PERSIST_WINDOW}"]
+    for end in (120, 200, n):
+        expected = vix_term_backwardation(vix.iloc[:end], vix3m.iloc[:end],
+                                          window=nb.VIX_TERM_PERSIST_WINDOW)
+        assert column.iloc[end - 1] == pytest.approx(expected["persistence"])
+
+
+def test_vix_term_arms_are_skipped_without_the_three_month_series(noise_panel):
+    """A cached panel that predates WP-21.E drops the arms, it does not fake them."""
+    pytest.importorskip("sklearn")
+    calls, diagnostics = nb.run_models(
+        _drop_vix3m(noise_panel), arms=nb.DEFAULT_ARMS, horizons={"t5": 5},
+        min_train=400, refit_every=200, with_importance=False,
+    )
+    assert set(calls) == set(nb.MARKET_ARMS)
+    for arm in nb.VIXTERM_ARMS:
+        assert "skipped" in diagnostics[arm]
+    assert nb.shared_call_keys(calls), "the surviving arms still share a sample"
+
+
+def test_combined_vix_term_set_is_exactly_the_union(noise_panel):
+    market   = nb.build_features(noise_panel, "S&P 500", nb.FEATURES_MARKET)
+    family   = nb.build_features(noise_panel, "S&P 500", nb.FEATURES_VIXTERM)
+    combined = nb.build_features(noise_panel, "S&P 500", nb.FEATURES_MARKET_VIXTERM)
+    assert list(combined.columns) == list(market.columns) + list(family.columns)
+
+
+def test_n_vix_term_features_counts_the_family(noise_panel):
+    assert nb.n_vix_term_features(noise_panel) == 4
+    assert nb.n_vix_term_features(_drop_vix3m(noise_panel)) == 0
+
+
+def test_the_seal_partitions_the_calls_without_overlap_or_loss():
+    reports = [{"report_date": d, "arm": "ridge", "windows": {}}
+               for d in ("2011-06-30", "2011-12-31", "2012-01-01", "2013-05-05")]
+    scopes = nb.split_reports_by_seal(reports, date(2012, 1, 1))
+
+    explore = [r["report_date"] for r in scopes[nb.SCOPE_EXPLORE]]
+    sealed  = [r["report_date"] for r in scopes[nb.SCOPE_SEALED]]
+    assert explore == ["2011-06-30", "2011-12-31"]
+    # The seal date itself is sealed, not explore — a boundary a `>` would leak.
+    assert sealed == ["2012-01-01", "2013-05-05"]
+    assert not set(explore) & set(sealed)
+    assert len(scopes[nb.SCOPE_FULL]) == len(explore) + len(sealed)
+
+
+def test_the_seal_splits_on_the_call_date_not_the_evaluation_date():
+    """A call made before the seal stays in explore even though it resolves after.
+
+    Dating a call by its outcome would move calls across the seal as the horizon
+    lengthens, and would let the choice of family be informed by windows the seal
+    is meant to be holding back.
+    """
+    reports = [{"report_date": "2011-12-28", "arm": "ridge",
+                "windows": {"t20": {"eval_date": "2012-01-25", "assets": {}}}}]
+    scopes = nb.split_reports_by_seal(reports, date(2012, 1, 1))
+    assert len(scopes[nb.SCOPE_EXPLORE]) == 1
+    assert scopes[nb.SCOPE_SEALED] == []
+
+
+def test_the_binding_verdict_is_read_on_the_sealed_slice(noise_panel, tmp_path):
+    """`verdicts_binding` must come from the sealed evaluation, not the full one."""
+    pytest.importorskip("sklearn")
+    seal = date(2013, 1, 1)
+    result = nb.run(
+        noise_panel, out_dir=tmp_path, horizons={"t5": 5}, min_train=400,
+        refit_every=200, with_importance=False, with_separation=False,
+        seal_start=seal, write=False,
+    )
+    scoped = result["scoped_evaluations"]
+    assert set(scoped) == {nb.SCOPE_FULL, nb.SCOPE_EXPLORE, nb.SCOPE_SEALED}
+    assert result["meta"]["seal_start"] == seal.isoformat()
+    assert result["meta"]["verdict_scope"] == nb.SCOPE_SEALED
+
+    for arm, v in result["verdicts_binding"].items():
+        assert v == nb.verdict(scoped[nb.SCOPE_SEALED][arm])
+    # Both slices carry calls, so the split is doing real work in this fixture.
+    assert scoped[nb.SCOPE_SEALED][nb.ARM_RIDGE]["n_calls"] > 0
+    assert scoped[nb.SCOPE_EXPLORE][nb.ARM_RIDGE]["n_calls"] > 0
+    assert (scoped[nb.SCOPE_SEALED][nb.ARM_RIDGE]["n_calls"]
+            + scoped[nb.SCOPE_EXPLORE][nb.ARM_RIDGE]["n_calls"]
+            == scoped[nb.SCOPE_FULL][nb.ARM_RIDGE]["n_calls"])
+
+
+def test_the_full_sample_keys_still_mean_what_kb024_reported(noise_panel, tmp_path):
+    """`evaluations` / `verdicts` stay full-sample — KB-024 and KB-026 cite them."""
+    pytest.importorskip("sklearn")
+    result = nb.run(
+        noise_panel, out_dir=tmp_path, horizons={"t5": 5}, min_train=400,
+        refit_every=200, with_importance=False, with_separation=False,
+        seal_start=date(2013, 1, 1), write=False,
+    )
+    assert result["evaluations"] == result["scoped_evaluations"][nb.SCOPE_FULL]
+    assert result["verdicts"] == {
+        arm: nb.verdict(ev) for arm, ev in result["evaluations"].items()
+    }
+
+
+def test_the_report_leads_with_the_sealed_table_and_never_scores_the_explore_one(
+        noise_panel, tmp_path):
+    """A reader lifts the number from the first table. It has to be the bar's."""
+    pytest.importorskip("sklearn")
+    result = nb.run(
+        noise_panel, out_dir=tmp_path, horizons={"t5": 5}, min_train=400,
+        refit_every=200, with_importance=False, with_separation=False,
+        seal_start=date(2013, 1, 1), write=False,
+    )
+    md = "\n".join(nb.report_md_lines(result["evaluations"], result["diagnostics"],
+                                      result["meta"],
+                                      scoped=result["scoped_evaluations"]))
+    sealed_at  = md.index("Headline — sealed holdout")
+    explore_at = md.index("Explore slice (not the bar)")
+    full_at    = md.index("Full sample (this run's")
+    assert sealed_at < explore_at < full_at
+
+    explore_block = md[explore_at:full_at]
+    assert "_not the bar_" in explore_block
+    for outcome in ("**edge**", "**no edge**", "**underpowered**", "**inverted**"):
+        assert outcome not in explore_block, (
+            "the explore slice must never render a verdict — it is the slice a "
+            "family is allowed to be shaped on"
+        )
+    assert "Multiplicity" in md, "the three-family cap has to be on the report"
+
+
+def test_the_report_without_scopes_is_unchanged(noise_panel, tmp_path):
+    """The 3-argument call still renders the old single-table report."""
+    pytest.importorskip("sklearn")
+    result = nb.run(
+        noise_panel, out_dir=tmp_path, horizons={"t5": 5}, min_train=400,
+        refit_every=200, with_importance=False, with_separation=False, write=False,
+    )
+    md = "\n".join(nb.report_md_lines(result["evaluations"], result["diagnostics"],
+                                      result["meta"]))
+    assert "## Headline\n" in md
+    assert "sealed holdout" not in md
+
+
+def test_require_vix_term_fails_rather_than_running_without_the_family(
+        noise_panel, tmp_path, monkeypatch):
+    """The [KB-025] guard, generalised to family 1.
+
+    A run dispatched to test the term structure that silently produces a report
+    without it is valid, publishable and answers a different question.
+    """
+    panel_csv = tmp_path / "panel.csv"
+    nb.save_panel(_drop_vix3m(noise_panel), panel_csv)
+    monkeypatch.setattr("sys.argv", [
+        "numeric_baseline.py", "--panel", str(panel_csv),
+        "--out", str(tmp_path / "out"), "--require-vix-term", "--no-exogenous",
+    ])
+    with pytest.raises(SystemExit) as excinfo:
+        nb.main()
+    assert "no VIX term-structure" in str(excinfo.value)
+    assert not (tmp_path / "out").exists(), "it must fail before writing a report"
+
+
+def test_require_and_no_vix_term_contradict(tmp_path, monkeypatch):
+    monkeypatch.setattr("sys.argv", [
+        "numeric_baseline.py", "--panel", str(tmp_path / "panel.csv"),
+        "--require-vix-term", "--no-vix-term",
+    ])
+    with pytest.raises(SystemExit):
+        nb.main()
+
+
+def test_each_optional_family_has_its_own_off_switch(noise_panel, exo_panel):
+    """`--no-exogenous` must not silently also disable a family it does not name."""
+    assert set(nb.DEFAULT_ARMS) == (set(nb.MARKET_ARMS) | set(nb.EXO_ARMS)
+                                    | set(nb.VIXTERM_ARMS))
+    assert not set(nb.EXO_ARMS) & set(nb.VIXTERM_ARMS)
+    for arm in nb.VIXTERM_ARMS:
+        assert nb.ARM_SPECS[arm].feature_set in (nb.FEATURES_VIXTERM,
+                                                 nb.FEATURES_MARKET_VIXTERM)
+
+
+def test_workflow_asks_the_harness_to_prove_the_family_ran():
+    """`vix_term: true` has to reach the script as --require-vix-term."""
+    text = WORKFLOW.read_text()
+    assert "--require-vix-term" in text
+    assert "VIX_TERM: ${{ inputs.vix_term }}" in text
+
+
+def test_workflow_pins_the_seal_rather_than_leaving_it_to_a_default():
+    """The seal date has to be visible in the run's own log, not just in code.
+
+    A verdict whose holdout boundary can only be recovered by reading the version
+    of the source that happened to be checked out is not a pre-registration.
+    """
+    text = WORKFLOW.read_text()
+    assert "--seal-start" in text
+    assert nb.SEAL_START.isoformat() in text
+
+
+def test_the_report_states_the_shared_call_window(noise_panel, tmp_path):
+    """A family with a shorter input history moves the window for every arm.
+
+    `shared_call_keys` intersects across arms, so the youngest input sets the
+    start date for all of them — comparators included. VIX3M's FRED history
+    begins 2007-12-04 while the market panel reaches back to 2005, so a run
+    carrying family 1 is scored on a later window than [KB-024] was. That is
+    correct behaviour and a silent version of it is the [KB-023] defect, so the
+    window has to be on the report rather than inferred from a call count.
+    """
+    pytest.importorskip("sklearn")
+    result = nb.run(
+        noise_panel, out_dir=tmp_path, horizons={"t5": 5}, min_train=400,
+        refit_every=200, with_importance=False, with_separation=False,
+        seal_start=date(2013, 1, 1), write=False,
+    )
+    span = result["meta"]["call_span"]
+    assert span[nb.SCOPE_FULL][0] <= span[nb.SCOPE_EXPLORE][1] < "2013-01-01"
+    assert span[nb.SCOPE_SEALED][0] >= "2013-01-01"
+
+    md = "\n".join(nb.report_md_lines(result["evaluations"], result["diagnostics"],
+                                      result["meta"],
+                                      scoped=result["scoped_evaluations"]))
+    assert f"spanning **{span[nb.SCOPE_FULL][0]} → {span[nb.SCOPE_FULL][1]}**" in md
+    assert "not** a like-for-like" in md, (
+        "the full-sample table must not claim to reproduce KB-024 when the "
+        "shared window may have moved under it"
+    )
+
+
+def test_workflow_disables_a_family_only_on_an_explicit_false():
+    """An unset dispatch input must follow the declared default, not drop a family.
+
+    Both family switches default to `true`. A `!= "true"` test would turn any
+    empty value — an input that never reached the step, a dispatch rendered from
+    a different revision of this file — into a market-only run: the [KB-025]
+    outcome by a different road, and just as valid-looking a report. Disabling on
+    an explicit "false" makes an unexpected value fail loudly on the --require-
+    flag instead of quietly answering a different question.
+    """
+    text = WORKFLOW.read_text()
+    for var in ("EXOGENOUS", "VIX_TERM"):
+        assert f'[ "${var}" = "false" ]' in text, (
+            f"{var} must be disabled only on an explicit false"
+        )
+        assert f'[ "${var}" != "true" ]' not in text
+
+
+# ---------------------------------------------------------------------------
+# 10. KB-027 — an inverted ordering disqualifies, whatever the BSS says
+# ---------------------------------------------------------------------------
+
+def _evaluation(hit: float, bss: float, ordering: str | None, n: int = 15215) -> dict:
+    return {
+        "n_calls": n * 2,
+        "overall": {"decisive_hit_rate": hit,
+                    "calibration": {"n": n, "brier_skill_score": bss}},
+        "separation": {"overall": {"ordering": ordering}} if ordering else None,
+    }
+
+
+def test_an_inverted_ordering_cannot_pass_on_a_hair_of_positive_bss():
+    """The KB-027 regression, with WP-21.E family 1's own sealed numbers.
+
+    `vix_term` returned decisive hit-rate 0.573 (against `always_bullish`'s
+    0.567), BSS +0.003 and an `inverted` ordering, and the old clause
+    `hit > 0.52 AND (BSS > 0 OR aligned)` called it an edge: the positive BSS
+    satisfied the disjunct, so the ordering was never consulted — in exactly the
+    case the ordering clause existed for. WP-21.E's pre-registration had already
+    said an inversion is not a pass.
+    """
+    assert nb.verdict(_evaluation(0.573, 0.003, "inverted")) == "inverted"
+
+
+def test_inversion_disqualifies_however_good_the_other_numbers_are():
+    """No combination of hit-rate and BSS buys a pass for a wrong-signed arm."""
+    for hit, bss in ((0.99, 0.5), (0.60, 0.10), (0.53, 0.001)):
+        assert nb.verdict(_evaluation(hit, bss, "inverted")) == "inverted", (
+            f"hit={hit} bss={bss} bought a pass for an inverted arm"
+        )
+
+
+def test_inverted_is_its_own_verdict_not_folded_into_no_edge():
+    """"Did nothing" and "did something backwards" must not print the same word."""
+    assert nb.verdict(_evaluation(0.500, -0.05, "mixed")) == "no edge"
+    assert nb.verdict(_evaluation(0.500, -0.05, "inverted")) == "inverted"
+
+
+def test_the_pass_path_still_passes():
+    """The correction must only ever remove passes, never add or block a clean one."""
+    assert nb.verdict(_evaluation(0.55, 0.01, "aligned")) == "edge"
+    assert nb.verdict(_evaluation(0.55, 0.01, "mixed")) == "edge"
+    assert nb.verdict(_evaluation(0.55, -0.01, "aligned")) == "edge"
+    assert nb.verdict(_evaluation(0.55, 0.01, None)) == "edge"
+    # Still short of the bar on hit-rate, ordering notwithstanding.
+    assert nb.verdict(_evaluation(0.51, 0.01, "aligned")) == "no edge"
+
+
+def test_inversion_does_not_override_an_unscoreable_arm():
+    """Ordering is read after the sample checks, not before them."""
+    thin = _evaluation(0.90, 0.5, "inverted", n=5)
+    assert nb.verdict(thin) == "underpowered"
+    abstainer = {"n_calls": 900, "overall": {"calibration": {"n": 0}},
+                 "separation": {"overall": {"ordering": "inverted"}}}
+    assert nb.verdict(abstainer) == "abstains"
+
+
+def test_the_bss_margin_was_deliberately_left_alone():
+    """KB-027's second lesson is recorded as open, not silently implemented.
+
+    Raising the BSS floor above zero so +0.003 stops reading as skill is a real
+    goalpost move — the pre-registration says nothing about a margin — so it must
+    not arrive as a quiet constant change alongside the correction that *was*
+    pre-registered.
+    """
+    assert nb.EDGE_MIN_BSS == 0.0
+    assert nb.verdict(_evaluation(0.573, 0.003, "aligned")) == "edge", (
+        "a hair of positive BSS still passes when the ordering is clean — that "
+        "is the open question, not something this change decided"
+    )

@@ -97,6 +97,48 @@ Two arms come out of it, asking two different questions:
     Does the anchor add anything on top of the market panel? Read against
     `ridge`: same model, same sample, same rows, minus these columns.
 
+The bounded indicator search (WP-21.E, added 2026-09-07)
+--------------------------------------------------------
+[KB-024] closed "this payload, these model classes". It did not close "no
+feature family predicts direction", and Phase 21 wrote down the only honest way
+to ask the smaller question: **three feature families, maximum, VIX term
+structure first, scored on sealed holdout against the bar already written.**
+
+The first family is here. VIX term structure is the strongest single fragility
+component ([KB-001], AUC 0.77/0.67) that has never been tested for *direction*,
+and it is nearly free — one more unrevised FRED daily close (`VXVCLS`, the
+3-month VIX) on top of a panel that already carries the spot VIX.
+
+Two things make this a search and not another arm, and both are machinery:
+
+  * **The seal.** `SEAL_START` partitions the scored calls by date. Everything
+    before it is the *explore* slice — the surface a researcher may look at
+    while choosing and shaping a family. Everything on or after it is *sealed*,
+    and **the sealed slice is the only one `verdict()` is read on**. The date is
+    committed to git before the family is fitted; that commit is what the claim
+    "held out before the family was chosen" rests on. Clearing the bar on the
+    explore slice is not a result, and the report says so on the table itself.
+  * **The market panel does not move.** `vix3m` enters the *panel* but no
+    market feature reads it, so `ridge` and `gbm` fit the identical columns they
+    fit in [KB-024] and [KB-026]. That is deliberate: those two arms are the
+    three-run reproducibility anchor, and a search that quietly redefined the
+    thing it is measured against would forfeit it. `test_market_feature_set_is_
+    unchanged_by_the_vix_term_inputs` holds the line.
+
+Two arms come out of it, the same two questions the exogenous anchor faced:
+
+  * `vix_term` — ridge on the term-structure family alone. Does it carry
+    direction by itself?
+  * `market_plus_vixterm` — the same ridge on the market panel plus those
+    columns. Read against `ridge`: identical model, identical sample, one
+    strictly larger column set. [KB-026] is why this read is not a formality —
+    seven plausible columns made that panel *worse* on every calibration metric.
+
+**Multiplicity, stated up front.** The cap is three families and they share one
+sealed slice, so a single family clearing a 0.52 bar once is worth roughly a
+third of what it looks like. The cap is what bounds this; it is not a licence to
+run a fourth.
+
 Where the output goes
 ---------------------
 `results/numeric_baseline/` — the markdown report, a JSON of every metric and
@@ -174,6 +216,29 @@ FRED_INPUTS: dict[str, str] = {
 # class of "the model saw the close it was predicting" objections.
 PUBLICATION_LAG_BDAYS: int = 1
 
+# --- WP-21.E family 1: VIX term structure (see the module docstring) --------
+
+# The 3-month VIX. Kept OUT of `FRED_INPUTS` on purpose: that dict is the market
+# panel's provenance, and `ridge`/`gbm` must fit in this run exactly the columns
+# they fit in [KB-024] and [KB-026]. This series joins the *panel* — it is read
+# only by `vix_term_features`, which only the WP-21.E arms see.
+#
+# Eligibility under the no-revision rule: VXVCLS is a published index close,
+# printed once and never restated, exactly like VIXCLS beside it.
+VIX_TERM_INPUTS: dict[str, str] = {
+    "vix3m": "VXVCLS",
+}
+
+# Trailing windows for the term-structure family.
+#   VIX_TERM_PERSIST_WINDOW  matches `fragility.vix_term_backwardation`'s default,
+#                            so the column here IS the statistic [KB-001] scored
+#                            rather than a second definition of the same idea.
+#   VIX_TERM_CHG_WINDOW      short by design: the question is whether the curve
+#                            is inverting *now*, not where it has been.
+VIX_TERM_PERSIST_WINDOW: int = 20
+VIX_TERM_CHG_WINDOW: int = 5
+VIX_TERM_PCTILE_WINDOW: int = 252
+
 # --- The Phase-19 exogenous anchor (see the module docstring) ---------------
 
 # Panel key -> (SPF variable code, horizon name). `current_q` is the survey's
@@ -240,6 +305,36 @@ NEUTRAL_DEADBAND: float = 0.05
 # Fixed seed so a given panel always produces the same report.
 SEED: int = 7
 
+# --- The seal (WP-21.E) ----------------------------------------------------
+#
+# Calls dated on or after this are the sealed holdout; earlier calls are the
+# explore slice. `verdict()` is read on the sealed slice ONLY.
+#
+# Why 2018-01-01. Two constraints, and it is the date that satisfies both:
+#   * Power and regime coverage. A term-structure family is a stress instrument,
+#     so a holdout with no stress episode could not falsify it in either
+#     direction. From 2018 the sealed slice spans February 2018, Q4 2018, the
+#     2020 crash, the 2022 bear market and the recovery after it — five distinct
+#     regimes rather than one long tape.
+#   * A usable explore surface. Calls begin ~2009 once the feature lookbacks and
+#     `min_train` are paid, so this leaves ~9 years to look at and ~9 sealed.
+#
+# It is a calendar date, not a fraction of the panel, so it does not move when
+# the panel is rebuilt a day later — the sealed slice a future family faces is
+# the same one this family faced, which is the only way three families are
+# comparable to each other.
+SEAL_START: date = date(2018, 1, 1)
+
+# Scope labels for the three evaluations a run reports.
+SCOPE_FULL:    str = "full"
+SCOPE_EXPLORE: str = "explore"
+SCOPE_SEALED:  str = "sealed"
+
+# The scope `verdict()` is read on. Named, not implied: a report whose headline
+# table came from the wrong slice would be valid, publishable and wrong — the
+# [KB-025] failure mode.
+VERDICT_SCOPE: str = SCOPE_SEALED
+
 # Permutation / bootstrap draws for the separation section. `bias_separation`
 # defaults to 2000, sized for the ~2k calls the daily accuracy report carries; a
 # decade of daily simulated calls across six assets and three horizons is an
@@ -262,6 +357,11 @@ ARM_ALWAYS_BULL  = "always_bullish"
 # its FOMC-text layers.
 ARM_EXO          = "exogenous_spf"
 ARM_MARKET_EXO   = "market_plus_exo"
+# WP-21.E family 1. `vix_term` matches the fragility component's name, which is
+# the point — it is the same quantity, asked a question [KB-001] never asked it.
+# No live LLM arm carries either name, so neither can pool with one [KB-023].
+ARM_VIXTERM      = "vix_term"
+ARM_MARKET_VIXTERM = "market_plus_vixterm"
 
 # The profile tag on emitted files. Never "baseline"/"loosened" — those name the
 # live LLM A/B and must not gain simulated members.
@@ -306,11 +406,17 @@ def fetch_fred_inputs(start: date) -> dict[str, pd.Series]:
 
     That helper is cache-first (CSV on disk), so a second run — and every test
     run on a machine that has already acquired the series — is fully offline.
+
+    `VIX_TERM_INPUTS` is fetched alongside `FRED_INPUTS` but is deliberately a
+    separate dict: it lands in the panel and is read only by the WP-21.E family
+    builder, so the market arms fit the same columns they fit in [KB-024]. A
+    failed fetch is a warning, and the WP-21.E arms then drop out of the run
+    exactly as the exogenous arms do without their workbooks.
     """
     from input_testing import fetch_fred_series
 
     out: dict[str, pd.Series] = {}
-    for key, sid in FRED_INPUTS.items():
+    for key, sid in {**FRED_INPUTS, **VIX_TERM_INPUTS}.items():
         try:
             s = fetch_fred_series(sid)
             out[key] = s[s.index >= pd.Timestamp(start)].dropna()
@@ -496,6 +602,62 @@ def asset_features(close: pd.Series) -> pd.DataFrame:
     return out
 
 
+def vix_term_features(panel: pd.DataFrame) -> pd.DataFrame:
+    """WP-21.E family 1 — the shape of the VIX curve, not its level.
+
+    The market panel already carries `vix_level`, `vix_chg_20` and `vix_pct_252`.
+    What it has never carried is the *term structure*: whether near-dated implied
+    vol is above or below three-month, which is the part of the VIX complex that
+    is orthogonal to the level and the part [KB-001] found predictive of stress.
+
+    This is also the answer to the obvious [KB-009] objection. That screen found
+    VIX and VIX3M correlate at 0.98 **in levels** and nominated `vix3m` for the
+    prune queue on exactly that basis. The ratio of two series correlated at 0.98
+    is precisely what is left when the shared component is divided out — it is
+    the residual, not a second copy of the level. `test_the_family_is_not_a_
+    second_copy_of_the_vix_level` keeps that claim measured rather than asserted.
+
+    Four columns, one source pair, every one strictly backward-looking:
+
+      `vix_term_ratio`         VIX / VIX3M. > 1 is backwardation — near-term fear
+                               priced above three-month, the acute-stress state.
+      `vix_term_persist_20`    fraction of the trailing 20 days spent in
+                               backwardation. This is `fragility.
+                               vix_term_backwardation`'s own persistence
+                               statistic, at its own default window, so the
+                               column is the thing [KB-001] scored rather than a
+                               near-miss of it.
+      `vix_term_chg_5`         5-day change in the ratio — is the curve inverting
+                               now? A level and its recent move answer different
+                               questions and a stress instrument needs both.
+      `vix_term_pct_252`       the ratio's percentile in its own trailing year,
+                               so "inverted" is judged against the recent regime
+                               rather than a fixed 1.0 for all time.
+
+    An empty frame is returned for a panel with no `macro:vix3m` — the signal
+    `build_features` turns into "skip this arm", the same contract the exogenous
+    family uses. A cached panel built before WP-21.E gets exactly that.
+    """
+    out = pd.DataFrame(index=panel.index)
+    vix   = panel.get("macro:vix")
+    vix3m = panel.get("macro:vix3m")
+    if vix is None or vix3m is None:
+        return out
+
+    ratio = (vix.astype(float) / vix3m.astype(float)).replace([np.inf, -np.inf], np.nan)
+    out["vix_term_ratio"] = ratio
+    # `min_periods` on the persistence window: a partial window at the panel edge
+    # is a fraction over fewer days, not a NaN, which matches what the live
+    # fragility component reports when history is short.
+    out[f"vix_term_persist_{VIX_TERM_PERSIST_WINDOW}"] = (
+        (ratio > 1.0).where(ratio.notna())
+        .rolling(VIX_TERM_PERSIST_WINDOW, min_periods=5).mean()
+    )
+    out[f"vix_term_chg_{VIX_TERM_CHG_WINDOW}"] = ratio - ratio.shift(VIX_TERM_CHG_WINDOW)
+    out["vix_term_pct_252"] = ratio.rolling(VIX_TERM_PCTILE_WINDOW).rank(pct=True)
+    return out
+
+
 def _new_survey(asof: pd.Series) -> pd.Series:
     """True on the first row carrying each new survey stamp."""
     return asof.ne(asof.shift(1)) & asof.notna()
@@ -583,8 +745,18 @@ def exogenous_features(panel: pd.DataFrame) -> pd.DataFrame:
 FEATURES_MARKET   = "market"
 FEATURES_EXO      = "exogenous"
 FEATURES_COMBINED = "market+exogenous"
+FEATURES_VIXTERM  = "vix_term"
+FEATURES_MARKET_VIXTERM = "market+vix_term"
 
-FEATURE_SETS: tuple[str, ...] = (FEATURES_MARKET, FEATURES_EXO, FEATURES_COMBINED)
+FEATURE_SETS: tuple[str, ...] = (FEATURES_MARKET, FEATURES_EXO, FEATURES_COMBINED,
+                                 FEATURES_VIXTERM, FEATURES_MARKET_VIXTERM)
+
+# Feature set -> the optional family it needs in the panel. `market` needs
+# nothing beyond prices; every other set is skippable, and this is the table that
+# says which builder decides. Used by `n_optional_features` so the "how many
+# columns would this arm actually get" question has one implementation.
+OPTIONAL_FAMILY_SETS: tuple[str, ...] = (FEATURES_EXO, FEATURES_COMBINED,
+                                         FEATURES_VIXTERM, FEATURES_MARKET_VIXTERM)
 
 
 def build_features(panel: pd.DataFrame, asset: str,
@@ -608,31 +780,51 @@ def build_features(panel: pd.DataFrame, asset: str,
     if col not in panel.columns:
         return pd.DataFrame()
 
+    needs_market = feature_set in (FEATURES_MARKET, FEATURES_COMBINED,
+                                   FEATURES_MARKET_VIXTERM)
     market = (asset_features(panel[col]).join(macro_features(panel))
-              if feature_set in (FEATURES_MARKET, FEATURES_COMBINED)
-              else pd.DataFrame())
+              if needs_market else pd.DataFrame())
     if feature_set == FEATURES_MARKET:
         return market
 
-    exo = exogenous_features(panel).dropna(axis=1, how="all")
-    if exo.empty:
+    if feature_set in (FEATURES_VIXTERM, FEATURES_MARKET_VIXTERM):
+        family = vix_term_features(panel).dropna(axis=1, how="all")
+        alone = FEATURES_VIXTERM
+    else:
+        family = exogenous_features(panel).dropna(axis=1, how="all")
+        alone = FEATURES_EXO
+    if family.empty:
         return pd.DataFrame()
-    return exo if feature_set == FEATURES_EXO else market.join(exo)
+    return family if feature_set == alone else market.join(family)
 
 
-def n_exogenous_features(panel: pd.DataFrame) -> int:
-    """How many exogenous columns an arm on this panel would actually get.
+def n_optional_features(panel: pd.DataFrame, feature_set: str) -> int:
+    """How many columns an arm on this panel would actually get for one family.
 
-    Zero means the exogenous arms cannot run: the panel was built without SPF
-    inputs, or a cached panel CSV predates them. It is the number the report
-    prints, and the number `--require-exogenous` refuses to publish a zero of —
-    a market-only report is a *valid* report, which is exactly why a run that
-    silently became one is hard to notice afterwards [KB-025].
+    Zero means the arms on that family cannot run: the panel was built without
+    the inputs, or a cached panel CSV predates them. These are the numbers the
+    report prints, and the numbers `--require-exogenous` / `--require-vix-term`
+    refuse to publish a zero of — a market-only report is a *valid* report, which
+    is exactly why a run that silently became one is hard to notice afterwards
+    [KB-025]. One implementation, so a second family cannot acquire a subtly
+    different definition of "did it run".
     """
+    if feature_set not in OPTIONAL_FAMILY_SETS:
+        raise ValueError(f"not an optional family set: {feature_set!r}")
     asset = next((a for a in ASSET_TICKERS if f"px:{a}" in panel.columns), None)
     if asset is None:
         return 0
-    return len(build_features(panel, asset, FEATURES_EXO).columns)
+    return len(build_features(panel, asset, feature_set).columns)
+
+
+def n_exogenous_features(panel: pd.DataFrame) -> int:
+    """Exogenous column count. Kept as a name because [KB-025]/[KB-026] cite it."""
+    return n_optional_features(panel, FEATURES_EXO)
+
+
+def n_vix_term_features(panel: pd.DataFrame) -> int:
+    """VIX term-structure column count — the WP-21.E analogue."""
+    return n_optional_features(panel, FEATURES_VIXTERM)
 
 
 def forward_label(close: pd.Series, horizon: int) -> pd.Series:
@@ -746,6 +938,14 @@ ARM_SPECS: dict[str, ArmSpec] = {
         fit_ridge, FEATURES_COMBINED,
         "does the anchor add anything on top of the market panel? "
         "(read against `ridge`)"),
+    ARM_VIXTERM: ArmSpec(
+        fit_ridge, FEATURES_VIXTERM,
+        "does the VIX term structure carry direction on its own? (WP-21.E "
+        "family 1)"),
+    ARM_MARKET_VIXTERM: ArmSpec(
+        fit_ridge, FEATURES_MARKET_VIXTERM,
+        "does the term structure add anything on top of the market panel? "
+        "(read against `ridge`)"),
 }
 
 # One model class per new question, deliberately: the GBM's job was to test for a
@@ -756,9 +956,10 @@ MODEL_FITTERS: dict[str, Callable[..., FittedModel]] = {
     arm: spec.fitter for arm, spec in ARM_SPECS.items()
 }
 
-MARKET_ARMS: tuple[str, ...] = (ARM_RIDGE, ARM_GBM)
-EXO_ARMS:    tuple[str, ...] = (ARM_EXO, ARM_MARKET_EXO)
-DEFAULT_ARMS: tuple[str, ...] = MARKET_ARMS + EXO_ARMS
+MARKET_ARMS:  tuple[str, ...] = (ARM_RIDGE, ARM_GBM)
+EXO_ARMS:     tuple[str, ...] = (ARM_EXO, ARM_MARKET_EXO)
+VIXTERM_ARMS: tuple[str, ...] = (ARM_VIXTERM, ARM_MARKET_VIXTERM)
+DEFAULT_ARMS: tuple[str, ...] = MARKET_ARMS + EXO_ARMS + VIXTERM_ARMS
 
 
 # ---------------------------------------------------------------------------
@@ -1316,6 +1517,27 @@ def evaluate(reports: list[dict], arm: str, with_separation: bool = True,
     }
 
 
+def split_reports_by_seal(reports: list[dict],
+                          seal_start: date = SEAL_START) -> dict[str, list[dict]]:
+    """Partition scored reports into the explore and sealed slices, by call date.
+
+    The split is on `report_date` — the date the call was *made* — not the
+    evaluation date. A call made the week before the seal resolves inside the
+    sealed period, and dating it by its outcome would let the choice of family be
+    informed by data the seal is supposed to be holding back.
+
+    Returns all three scopes, `full` included, because they answer different
+    questions and a run wants all of them: `sealed` is the bar, `explore` is the
+    surface a family may be shaped on, and `full` is the slice [KB-024]/[KB-026]
+    reported, kept so the market arms' reproducibility anchor is still readable
+    off this run.
+    """
+    cutoff = seal_start.isoformat()
+    explore = [r for r in reports if str(r.get("report_date", "")) < cutoff]
+    sealed  = [r for r in reports if str(r.get("report_date", "")) >= cutoff]
+    return {SCOPE_FULL: reports, SCOPE_EXPLORE: explore, SCOPE_SEALED: sealed}
+
+
 def _decisive_hit_rate(scores: list[float]) -> float | None:
     """Mean over decisive calls only — the number [KB-007] reports as ~36%."""
     decisive = [s for s in scores if s in (0.0, 1.0)]
@@ -1335,9 +1557,37 @@ EDGE_MIN_N: int = 30
 EDGE_MIN_HIT_RATE: float = 0.52
 EDGE_MIN_BSS: float = 0.0
 
+# An `inverted` bias/return ordering disqualifies an arm outright, whatever its
+# other numbers say (WP-21.E, 2026-09-08 — see [KB-027]).
+#
+# This is NOT a bar that moved after seeing a result. WP-21.E's pre-registration,
+# committed before the family was fitted, named the inversion as outcome 3 and
+# said in terms: *"An inversion is not a pass and must not be re-labelled a
+# contrarian signal after the fact."* The function did not implement that. Its
+# clause was `hit > 0.52 AND (BSS > 0 OR aligned)`, so a positive BSS satisfied
+# the disjunct and the ordering was never consulted — the inversion check was
+# skipped in exactly the case it was written for.
+#
+# The hole was invisible until this run because no arm had ever returned BSS > 0:
+# every arm in [KB-024] and [KB-026] failed on the first clause and the second was
+# never reached. `vix_term` cleared it with BSS **+0.003** and an inverted
+# ordering, and `verdict()` called it an edge.
+#
+# Deliberately NOT also done: raising `EDGE_MIN_BSS` above zero so that +0.003
+# stops counting as skill. That is the other lesson of [KB-027] and it is a real
+# goalpost move — the pre-registration says nothing about a margin — so it stays
+# an open question in the KB rather than a quiet edit here.
+EDGE_DISQUALIFYING_ORDERING: str = "inverted"
+
 
 def verdict(evaluation: dict) -> str:
-    """'edge' / 'no edge' / 'abstains' / 'underpowered', by the bar above."""
+    """'edge' / 'no edge' / 'inverted' / 'abstains' / 'underpowered'.
+
+    `inverted` is its own verdict, not folded into 'no edge': across [KB-022],
+    [KB-024] and [KB-027] a wrong-signed relationship has been the single most
+    repeated finding in this project, and "did nothing" and "did something
+    backwards" are different results that should not print the same word.
+    """
     overall = evaluation.get("overall", {})
     calib   = overall.get("calibration") or {}
     n       = calib.get("n", 0)
@@ -1353,6 +1603,11 @@ def verdict(evaluation: dict) -> str:
     sep = ((evaluation.get("separation") or {}).get("overall") or {}).get("ordering")
     if hit is None:
         return "underpowered"
+    if sep == EDGE_DISQUALIFYING_ORDERING:
+        # Checked before the pass clause, not inside it. An arm whose calls run
+        # the wrong way has not shown an edge no matter how the hit-rate and the
+        # Brier came out, and this ordering is what the pre-registration barred.
+        return "inverted"
     beats_chance = hit > EDGE_MIN_HIT_RATE
     calibrated   = bss is not None and bss > EDGE_MIN_BSS
     aligned      = sep == "aligned"
@@ -1365,10 +1620,58 @@ def verdict(evaluation: dict) -> str:
 # Reporting
 # ---------------------------------------------------------------------------
 
+_HEADLINE_HEADER = (
+    "| Arm | inputs | n decisive | decisive hit-rate | mean score | Brier | BSS "
+    "| ECE | separation | verdict |",
+    "|---|---|---|---|---|---|---|---|---|---|",
+)
+
+
+def _headline_rows(evaluations: dict[str, dict], meta: dict,
+                   verdict_label: str | None = None) -> list[str]:
+    """One headline table. `verdict_label` overrides the verdict cell.
+
+    The override exists for the explore slice, where a verdict is circular by
+    construction: that slice is the surface a family is allowed to be shaped on,
+    so 'it clears the bar there' is a statement about the shaping, not the family.
+    """
+    lines = list(_HEADLINE_HEADER)
+    for arm, ev in evaluations.items():
+        ov    = ev.get("overall", {})
+        calib = ov.get("calibration") or {}
+        sep   = ((ev.get("separation") or {}).get("overall") or {}).get("ordering")
+        bss   = calib.get("brier_skill_score")
+        spec  = ARM_SPECS.get(arm)
+        cell  = verdict_label if verdict_label is not None else f"**{verdict(ev)}**"
+        lines.append(
+            f"| `{arm}` | {spec.feature_set if spec else 'comparator'} | "
+            f"{calib.get('n', 0)} | "
+            f"{_fmt(ov.get('decisive_hit_rate'))} | {_fmt(ov.get('mean_score'))} | "
+            f"{_fmt(calib.get('brier'))} | {_fmt(bss, plus=True)} | "
+            f"{_fmt(calib.get('ece'))} | {sep or 'n/a'} | {cell} |"
+        )
+    for arm, reason in (meta.get("arms_skipped") or {}).items():
+        lines.append(
+            f"| `{arm}` | {ARM_SPECS[arm].feature_set if arm in ARM_SPECS else '—'} "
+            f"| — | — | — | — | — | — | — | **skipped: {reason}** |"
+        )
+    return lines
+
+
 def report_md_lines(evaluations: dict[str, dict], diagnostics: dict[str, dict],
-                    meta: dict) -> list[str]:
+                    meta: dict,
+                    scoped: dict[str, dict[str, dict]] | None = None) -> list[str]:
+    """The markdown report.
+
+    `evaluations` is the full sample. `scoped` carries the same evaluations cut
+    into `full` / `explore` / `sealed`; when it is present the report leads with
+    the **sealed** table, because that is the only slice WP-21.E's bar may be
+    read on and the leading table is the one a reader lifts a number from.
+    """
+    seal = meta.get("seal_start")
+    scope_n = meta.get("scope_reports") or {}
     lines: list[str] = [
-        "# Numeric directional baseline — WP-21.A",
+        "# Numeric directional baseline — WP-21.A / WP-19.E / WP-21.E",
         "",
         "> **The question.** Can a small, regularised numeric model predict 5/10/20-day",
         "> direction on these assets at all? If it cannot, the directional product is dead",
@@ -1379,42 +1682,85 @@ def report_md_lines(evaluations: dict[str, dict], diagnostics: dict[str, dict],
         f"({meta.get('panel_rows')} business days)",
         f"- Features per asset: **{meta.get('n_features')}** market "
         f"(own-price + shared macro state) + **{meta.get('n_exo_features', 0)}** "
-        f"exogenous (SPF consensus); unrevised inputs only",
+        f"exogenous (SPF consensus) + **{meta.get('n_vix_term_features', 0)}** "
+        "VIX term structure; unrevised inputs only",
         f"- Walk-forward: expanding window, min train **{meta.get('min_train')}** days, "
         f"refit every **{meta.get('refit_every')}** steps, "
         f"embargo **horizon + 1** trading days",
-        "",
-        "## Headline",
-        "",
-        "| Arm | inputs | n decisive | decisive hit-rate | mean score | Brier | BSS | ECE | separation | verdict |",
-        "|---|---|---|---|---|---|---|---|---|---|",
     ]
-
-    for arm, ev in evaluations.items():
-        ov    = ev.get("overall", {})
-        calib = ov.get("calibration") or {}
-        sep   = ((ev.get("separation") or {}).get("overall") or {}).get("ordering")
-        bss   = calib.get("brier_skill_score")
-        spec  = ARM_SPECS.get(arm)
+    # Only with `scoped`: announcing a seal above a full-sample headline table
+    # would describe a bar the report does not actually render.
+    if seal and scoped:
         lines.append(
-            f"| `{arm}` | {spec.feature_set if spec else 'comparator'} | "
-            f"{calib.get('n', 0)} | "
-            f"{_fmt(ov.get('decisive_hit_rate'))} | {_fmt(ov.get('mean_score'))} | "
-            f"{_fmt(calib.get('brier'))} | {_fmt(bss, plus=True)} | "
-            f"{_fmt(calib.get('ece'))} | {sep or 'n/a'} | **{verdict(ev)}** |"
+            f"- **Seal (WP-21.E): calls dated from {seal} are the sealed holdout** — "
+            f"{scope_n.get(SCOPE_SEALED, 0)} of {scope_n.get(SCOPE_FULL, 0)} scored "
+            f"reports; the bar is read there and nowhere else"
         )
+    lines.append("")
 
-    for arm, reason in (meta.get("arms_skipped") or {}).items():
-        lines.append(
-            f"| `{arm}` | {ARM_SPECS[arm].feature_set if arm in ARM_SPECS else '—'} "
-            f"| — | — | — | — | — | — | — | **skipped: {reason}** |"
-        )
+    if scoped:
+        lines += [
+            f"## Headline — sealed holdout, from {seal} (**the bar**)",
+            "",
+        ]
+        lines += _headline_rows(scoped[SCOPE_SEALED], meta)
+        lines += [
+            "",
+            "> **This is the only table a WP-21.E verdict may be read from.** The seal date",
+            "> is a constant in `numeric_baseline.py`, committed before the family was",
+            "> fitted; that commit is the whole of the claim that the slice was held out",
+            "> before the family was chosen.",
+            "",
+            "> **Multiplicity.** Phase 21 capped the search at three feature families and",
+            "> they share this one sealed slice. One family clearing a 0.52 bar once is",
+            "> therefore worth about a third of what it looks like — and the cap is what",
+            "> bounds the problem, so it is not a licence to run a fourth family.",
+            "",
+            "## Explore slice (not the bar)",
+            "",
+        ]
+        lines += _headline_rows(scoped[SCOPE_EXPLORE], meta, verdict_label="_not the bar_")
+        lines += [
+            "",
+            "> The development surface: everything before the seal. A family may be shaped",
+            "> against these numbers, which is exactly why a verdict here would be circular.",
+            "> Separation is not computed for this slice — nothing binding is read off it.",
+            "",
+            "## Full sample (this run's whole shared window)",
+            "",
+        ]
+        lines += _headline_rows(evaluations, meta)
+        lines += [
+            "",
+            "> The slice earlier runs reported — **but read the window before comparing**.",
+            "> `shared_call_keys` intersects across every arm, so the feature set with the",
+            "> shortest input history sets the start date for all of them, comparators",
+            "> included. Adding a family whose input begins later than the market panel's",
+            "> therefore moves this window, and the numbers here are **not** a like-for-like",
+            "> reproduction of [KB-024] / [KB-026] whenever the spans differ. The way to",
+            "> reproduce those is `--no-exogenous --no-vix-term`, which restores the",
+            "> original market-only sample.",
+            "",
+            "> This also **overlaps the sealed slice** and is not independent confirmation",
+            "> of anything in the table above it. The sealed slice is unaffected by the",
+            f"> window question: it starts at {seal}, well after every arm's first call, so",
+            "> the arms are compared at full width exactly where the bar is read.",
+            "",
+        ]
+    else:
+        lines += ["## Headline", ""]
+        lines += _headline_rows(evaluations, meta)
+        lines.append("")
 
     n_calls = {ev.get("n_calls", 0) for ev in evaluations.values()}
     sample = (f"all arms scored on the same {n_calls.pop()} calls"
               if len(n_calls) == 1 else
               "⛔ **arms were scored on different samples** — the [KB-023] error; "
               "the comparison below is not valid")
+
+    span = (meta.get("call_span") or {}).get(SCOPE_FULL)
+    if span:
+        sample += f", spanning **{span[0]} → {span[1]}**"
 
     lines += [
         "",
@@ -1426,6 +1772,10 @@ def report_md_lines(evaluations: dict[str, dict], diagnostics: dict[str, dict],
         f"> **Bar (pre-committed).** An arm shows an edge only with n ≥ {EDGE_MIN_N} decisive",
         f"> calls, decisive hit-rate > {EDGE_MIN_HIT_RATE:.2f}, and either BSS > {EDGE_MIN_BSS:.0f}",
         "> or an `aligned` separation ordering. Same standard as [KB-007] / [KB-022].",
+        f"> An **`{EDGE_DISQUALIFYING_ORDERING}`** ordering disqualifies outright, whatever the",
+        "> other numbers say — WP-21.E pre-registered that and [KB-027] is where the",
+        "> function was corrected to implement it. `inverted` prints as its own verdict:",
+        "> doing nothing and doing something backwards are different results.",
         "",
         "> **Read the comparator rows before the model rows.** In a drifting tape",
         "> `always_bullish` collects hit-rate for free — that is why the bar also demands",
@@ -1435,24 +1785,36 @@ def report_md_lines(evaluations: dict[str, dict], diagnostics: dict[str, dict],
     ]
 
     lines += _exogenous_lines(evaluations)
+    # The WP-21.E block reads the binding slice when there is one: its whole point
+    # is the sealed number, and rendering the family's increment off the full
+    # sample beside a sealed headline would put two different answers to the same
+    # question on one page.
+    lines += _vix_term_lines(scoped[SCOPE_SEALED] if scoped else evaluations,
+                             scope=SCOPE_SEALED if scoped else SCOPE_FULL,
+                             seal_start=seal)
 
-    lines += [
-        "## Per-horizon",
-        "",
-        "| Arm | window | n calls | n decisive | decisive hit-rate | Brier | BSS |",
-        "|---|---|---|---|---|---|---|",
-    ]
-    for arm, ev in evaluations.items():
-        for window in SCORING_WINDOWS:
-            w = ev.get("windows", {}).get(window)
-            if not w:
-                continue
-            calib = w.get("calibration") or {}
-            lines.append(
-                f"| `{arm}` | {window} | {w.get('n', 0)} | {calib.get('n', 0)} | "
-                f"{_fmt(w.get('decisive_hit_rate'))} | {_fmt(calib.get('brier'))} | "
-                f"{_fmt(calib.get('brier_skill_score'), plus=True)} |"
-            )
+    per_horizon_scopes = ([(SCOPE_SEALED, scoped[SCOPE_SEALED]), (SCOPE_FULL, evaluations)]
+                          if scoped else [(SCOPE_FULL, evaluations)])
+    for scope, evs in per_horizon_scopes:
+        lines += [
+            f"## Per-horizon — {scope} sample"
+            + ("  *(the bar's slice)*" if scope == VERDICT_SCOPE and scoped else ""),
+            "",
+            "| Arm | window | n calls | n decisive | decisive hit-rate | Brier | BSS |",
+            "|---|---|---|---|---|---|---|",
+        ]
+        for arm, ev in evs.items():
+            for window in SCORING_WINDOWS:
+                w = ev.get("windows", {}).get(window)
+                if not w:
+                    continue
+                calib = w.get("calibration") or {}
+                lines.append(
+                    f"| `{arm}` | {window} | {w.get('n', 0)} | {calib.get('n', 0)} | "
+                    f"{_fmt(w.get('decisive_hit_rate'))} | {_fmt(calib.get('brier'))} | "
+                    f"{_fmt(calib.get('brier_skill_score'), plus=True)} |"
+                )
+        lines.append("")
 
     lines += ["", "## What each input was worth", ""]
     lines += _importance_lines(diagnostics)
@@ -1493,33 +1855,100 @@ def _exogenous_lines(evaluations: dict[str, dict]) -> list[str]:
         "",
     ]
 
+    lines += _increment_table(evaluations, ARM_RIDGE, ARM_MARKET_EXO,
+                              scope_note="full sample")
     if ARM_MARKET_EXO in evaluations and ARM_RIDGE in evaluations:
-        base = evaluations[ARM_RIDGE]["overall"]
-        plus = evaluations[ARM_MARKET_EXO]["overall"]
-        b_cal = base.get("calibration") or {}
-        p_cal = plus.get("calibration") or {}
         lines += [
-            "### Increment over the market panel",
-            "",
-            "| metric | `ridge` | `market_plus_exo` | Δ |",
-            "|---|---|---|---|",
-        ]
-        for label, b, pl in (
-            ("decisive hit-rate", base.get("decisive_hit_rate"), plus.get("decisive_hit_rate")),
-            ("Brier",             b_cal.get("brier"),            p_cal.get("brier")),
-            ("BSS",               b_cal.get("brier_skill_score"), p_cal.get("brier_skill_score")),
-            ("ECE",               b_cal.get("ece"),              p_cal.get("ece")),
-        ):
-            delta = (pl - b) if (b is not None and pl is not None) else None
-            lines.append(f"| {label} | {_fmt(b)} | {_fmt(pl)} | {_fmt(delta, plus=True)} |")
-        lines += [
-            "",
             "> A Δ inside the noise of a walk-forward this size is a null, not a small",
             "> gain: the two arms differ by seven columns on tens of thousands of shared",
             "> calls, so read the sign only if the pre-committed bar also moves.",
             "",
         ]
     return lines
+
+
+def _increment_table(evaluations: dict[str, dict], base_arm: str, plus_arm: str,
+                     scope_note: str | None = None) -> list[str]:
+    """`base_arm` vs `plus_arm` on the four headline metrics.
+
+    The read both optional families are judged on, so it has one implementation:
+    identical model, identical sample, identical rows, one strictly larger column
+    set — which makes Δ the value of the added columns and nothing else. Empty
+    when either arm did not run.
+    """
+    if base_arm not in evaluations or plus_arm not in evaluations:
+        return []
+    base  = evaluations[base_arm]["overall"]
+    plus  = evaluations[plus_arm]["overall"]
+    b_cal = base.get("calibration") or {}
+    p_cal = plus.get("calibration") or {}
+    heading = "### Increment over the market panel"
+    if scope_note:
+        heading += f" *({scope_note})*"
+    lines = [heading, "", f"| metric | `{base_arm}` | `{plus_arm}` | Δ |", "|---|---|---|---|"]
+    for label, b, pl in (
+        ("decisive hit-rate", base.get("decisive_hit_rate"), plus.get("decisive_hit_rate")),
+        ("Brier",             b_cal.get("brier"),            p_cal.get("brier")),
+        ("BSS",               b_cal.get("brier_skill_score"), p_cal.get("brier_skill_score")),
+        ("ECE",               b_cal.get("ece"),              p_cal.get("ece")),
+    ):
+        delta = (pl - b) if (b is not None and pl is not None) else None
+        lines.append(f"| {label} | {_fmt(b)} | {_fmt(pl)} | {_fmt(delta, plus=True)} |")
+    lines.append("")
+    return lines
+
+
+def _vix_term_lines(evaluations: dict[str, dict], scope: str,
+                    seal_start: str | None = None) -> list[str]:
+    """The WP-21.E block: family 1 of the bounded search, and how to read it.
+
+    Rendered only when a term-structure arm actually ran, so a run on a cached
+    panel that predates `VXVCLS` reads exactly as it did before the family
+    existed.
+    """
+    present = [arm for arm in VIXTERM_ARMS if arm in evaluations]
+    if not present:
+        return []
+
+    where = (f"the sealed holdout (calls from {seal_start})" if scope == SCOPE_SEALED
+             else f"the {scope} sample")
+    return [
+        "## WP-21.E family 1 — VIX term structure",
+        "",
+        f"> **Scope: {where}.**",
+        "",
+        "> `vix_term` is ridge on the term-structure family **alone** — the VIX/VIX3M",
+        "> ratio, its 20-day backwardation persistence, its 5-day change and its",
+        "> one-year percentile. `market_plus_vixterm` is the same ridge on the market",
+        "> panel **plus** those four columns. Two questions: does the curve carry",
+        "> direction by itself, and does it add anything to a panel that already has",
+        "> the VIX *level* (`market_plus_vixterm` against `ridge`).",
+        "",
+        "> **Why this family first.** [KB-024] closed 'this payload, these model",
+        "> classes', not 'no feature family predicts direction'. Phase 21 capped the",
+        "> search at three families and named this one first: `vix_term` is the",
+        "> strongest single fragility component ([KB-001], AUC 0.77/0.67) and has never",
+        "> been tested for *direction*, and it costs one extra unrevised FRED series.",
+        "",
+        "> **The [KB-009] objection, answered in the columns.** That screen found VIX and",
+        "> VIX3M correlate at 0.98 in levels and put `vix3m` on the prune queue. This",
+        "> family is not the level — it is the ratio of two series correlated at 0.98,",
+        "> i.e. what is left once the shared component is divided out.",
+        "",
+        "> **What clearing this would mean.** Not a restored product: an argument for",
+        "> putting the column back *with the conditional distribution published",
+        "> underneath it*, which is what v1.6 made the product. A null closes family 1",
+        "> and leaves two of the three the cap allows.",
+        "",
+    ] + _increment_table(evaluations, ARM_RIDGE, ARM_MARKET_VIXTERM,
+                         scope_note=scope) + (
+        [
+            "> [KB-026] is why this read is not a formality: seven plausible",
+            "> point-in-time columns added to this same panel made every calibration",
+            "> metric worse and the model a third more decisive. Ablate before adding.",
+            "",
+        ] if ARM_MARKET_VIXTERM in evaluations and ARM_RIDGE in evaluations else []
+    )
 
 
 def _importance_lines(diagnostics: dict[str, dict]) -> list[str]:
@@ -1669,6 +2098,7 @@ def run(
     with_separation: bool = True,
     separation_draws: int = SEPARATION_DRAWS,
     emit_scores: bool = False,
+    seal_start: date = SEAL_START,
     write: bool = True,
 ) -> dict:
     """Fit, score, compare and (optionally) write the report. Pure given a panel."""
@@ -1688,11 +2118,29 @@ def run(
     }
     reports = build_score_reports(all_calls, prices, horizon_labels=horizons)
 
-    evaluations = {
-        arm: evaluate(reports, arm, with_separation=with_separation,
-                      n_perm=separation_draws, n_boot=separation_draws)
-        for arm in all_calls
+    # The three scopes. Separation is by far the most expensive thing in a run
+    # (block permutation + bootstrap over every call), so it is computed where it
+    # is read: `sealed` needs it because `verdict()` reads the ordering, `full`
+    # needs it to stay comparable to [KB-024]/[KB-026]. `explore` is the
+    # non-binding development surface and does not.
+    scoped_reports = split_reports_by_seal(reports, seal_start)
+    scope_separation = {
+        SCOPE_FULL:    with_separation,
+        SCOPE_SEALED:  with_separation,
+        SCOPE_EXPLORE: False,
     }
+    scoped_evaluations = {
+        scope: {
+            arm: evaluate(scope_reports, arm,
+                          with_separation=scope_separation[scope],
+                          n_perm=separation_draws, n_boot=separation_draws)
+            for arm in all_calls
+        }
+        for scope, scope_reports in scoped_reports.items()
+    }
+    evaluations = scoped_evaluations[SCOPE_FULL]
+    binding = scoped_evaluations[VERDICT_SCOPE]
+
     first_asset = next(iter(prices), None)
     n_features = len(build_features(panel, first_asset).columns) if first_asset else 0
     n_exo = n_exogenous_features(panel)
@@ -1702,6 +2150,21 @@ def run(
         "panel_rows":  len(panel),
         "n_features":  n_features,
         "n_exo_features": n_exo,
+        "n_vix_term_features": n_vix_term_features(panel),
+        "seal_start":  seal_start.isoformat(),
+        "verdict_scope": VERDICT_SCOPE,
+        "scope_reports": {scope: len(rs) for scope, rs in scoped_reports.items()},
+        # The shared call window, printed so a change in it is visible instead of
+        # inferred. It moves whenever a feature set with a shorter input history
+        # joins the run — `shared_call_keys` intersects across arms, so the
+        # youngest input sets the start date for *every* arm including the
+        # comparators. That is the correct behaviour and it is exactly the kind of
+        # silent sample change [KB-023] was written about.
+        "call_span": {
+            scope: ([min(r["report_date"] for r in rs),
+                     max(r["report_date"] for r in rs)] if rs else None)
+            for scope, rs in scoped_reports.items()
+        },
         "min_train":   min_train,
         "refit_every": refit_every,
         "deadband":    deadband,
@@ -1714,9 +2177,15 @@ def run(
 
     result = {
         "meta":        meta,
+        # Full-sample, as every earlier run reported it. `verdicts` beside it is
+        # the full-sample verdict for the same reason — [KB-024] and [KB-026] are
+        # readable off these two keys and changing what they mean would silently
+        # rewrite the record. The WP-21.E bar is `verdicts_binding`.
         "evaluations": evaluations,
         "diagnostics": diagnostics,
         "verdicts":    {arm: verdict(ev) for arm, ev in evaluations.items()},
+        "scoped_evaluations": scoped_evaluations,
+        "verdicts_binding":   {arm: verdict(ev) for arm, ev in binding.items()},
     }
 
     if write:
@@ -1735,7 +2204,8 @@ def run(
             json.dumps(result, indent=2, default=str), encoding="utf-8"
         )
         (out_dir / "numeric_baseline.md").write_text(
-            "\n".join(report_md_lines(evaluations, diagnostics, meta)) + "\n",
+            "\n".join(report_md_lines(evaluations, diagnostics, meta,
+                                      scoped=scoped_evaluations)) + "\n",
             encoding="utf-8",
         )
         result["output_dir"] = str(out_dir)
@@ -1777,16 +2247,30 @@ def main() -> None:
                     help="directory holding the SPF median-level workbooks "
                          "(default: the committed exogenous/example/ fixtures)")
     ap.add_argument("--no-exogenous", action="store_true",
-                    help="skip the Phase-19 SPF anchor entirely — market arms "
-                         "only, i.e. the original WP-21.A run")
+                    help="skip the Phase-19 SPF anchor arms. Each optional "
+                         "family has its own flag, so the original market-only "
+                         "WP-21.A run is --no-exogenous --no-vix-term")
     ap.add_argument("--require-exogenous", action="store_true",
                     help="fail the run if the panel carries no exogenous "
                          "features, instead of quietly producing the market-only "
                          "report. For any run whose purpose is the WP-19.E read.")
+    ap.add_argument("--no-vix-term", action="store_true",
+                    help="skip the WP-21.E VIX term-structure arms")
+    ap.add_argument("--require-vix-term", action="store_true",
+                    help="fail the run if the panel carries no VIX term-structure "
+                         "features. The WP-21.E analogue of --require-exogenous, "
+                         "and for the same reason [KB-025].")
+    ap.add_argument("--seal-start", type=date.fromisoformat, default=SEAL_START,
+                    help="first date of the sealed holdout (YYYY-MM-DD; default "
+                         f"{SEAL_START.isoformat()}). The WP-21.E verdict is read "
+                         "on calls from this date onward. Moving it after seeing a "
+                         "result is the one thing the seal exists to prevent.")
     args = ap.parse_args()
 
     if args.require_exogenous and args.no_exogenous:
         ap.error("--require-exogenous and --no-exogenous contradict each other")
+    if args.require_vix_term and args.no_vix_term:
+        ap.error("--require-vix-term and --no-vix-term contradict each other")
 
     arms = DEFAULT_ARMS
     if args.arms:
@@ -1796,9 +2280,13 @@ def main() -> None:
             ap.error(f"unknown arm(s): {', '.join(unknown)}")
         arms = tuple(wanted)
     if args.no_exogenous:
-        arms = tuple(a for a in arms if ARM_SPECS[a].feature_set == FEATURES_MARKET)
+        arms = tuple(a for a in arms if a not in EXO_ARMS)
         if not arms:
             ap.error("--no-exogenous leaves no arms to run")
+    if args.no_vix_term:
+        arms = tuple(a for a in arms if a not in VIXTERM_ARMS)
+        if not arms:
+            ap.error("--no-vix-term leaves no arms to run")
 
     horizons = SCORING_WINDOWS
     if args.windows:
@@ -1842,6 +2330,19 @@ def main() -> None:
             "--panel was used)."
         )
 
+    if args.require_vix_term and not n_vix_term_features(panel):
+        raise SystemExit(
+            "ERROR: --require-vix-term was passed but the panel carries no VIX "
+            "term-structure\n"
+            "       features. The WP-21.E arms would be skipped and this run "
+            "would publish a report\n"
+            "       that is valid and looks exactly like the search having been "
+            "run [KB-025].\n"
+            f"       Check FRED {VIX_TERM_INPUTS['vix3m']} (or the cached panel, "
+            "if --panel was used — a\n"
+            "       panel saved before WP-21.E does not carry the column)."
+        )
+
     if panel.empty:
         print("Empty panel — nothing to fit.")
         return
@@ -1858,11 +2359,13 @@ def main() -> None:
         with_separation=not args.no_separation,
         separation_draws=args.separation_draws,
         emit_scores=args.emit_scores,
+        seal_start=args.seal_start,
     )
     print()
     print("\n".join(report_md_lines(result["evaluations"],
                                     result["diagnostics"],
-                                    result["meta"])))
+                                    result["meta"],
+                                    scoped=result["scoped_evaluations"])))
     print(f"\nWritten → {result.get('output_dir')}")
 
 
