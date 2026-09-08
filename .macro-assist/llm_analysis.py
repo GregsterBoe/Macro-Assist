@@ -190,8 +190,12 @@ def _outlook_table(predictions, quant_raw: dict | None = None) -> str:
     """Render the outlook table. `quant_raw` is collect_quant_raw()'s dict.
 
     An asset with no conditional distribution gets an explicit "no base rate"
-    marker rather than a blank or an improvised number — 10Y / DXY / Bitcoin are
-    genuinely absent from the Phase 11 table and saying so is the honest cell.
+    marker rather than a blank or an improvised number. Before Phase 22 that was
+    the permanent state of 10Y / DXY / Bitcoin, which were absent from the Phase
+    11 table; they are in it now, so the marker means what it says — this run
+    produced no distribution for that asset — and the lookup goes through
+    `resolve_note_name` so a decorated spelling ("Bitcoin (proxy for crypto
+    risk)") cannot hide a base rate that exists.
     """
     cells: dict[str, str] = {}
     try:
@@ -201,10 +205,22 @@ def _outlook_table(predictions, quant_raw: dict | None = None) -> str:
         _log("OUTLOOK", "WARN", f"conditional distributions unavailable: {exc}")
 
     rows = "\n".join(
-        f"| {p.asset} | {cells.get(p.asset, _NO_BASE_RATE)} | {p.primary_driver} | {p.target_range} |"
+        f"| {p.asset} | {_cell_for(p.asset, cells)} | {p.primary_driver} | {p.target_range} |"
         for p in predictions
     )
     return f"{_OUTLOOK_HEADER}\n{rows}"
+
+
+def _cell_for(raw_asset: str, cells: dict[str, str]) -> str:
+    """The distribution cell for a table row, tolerant of the model's spelling."""
+    try:
+        from assets import resolve_note_name
+        canonical = resolve_note_name(raw_asset)
+    except Exception:                                           # pragma: no cover
+        canonical = None
+    if canonical and canonical in cells:
+        return cells[canonical]
+    return cells.get(raw_asset.strip(), _NO_BASE_RATE)
 
 
 def _outlook_footnote(quant_raw: dict | None = None) -> str:
@@ -760,7 +776,7 @@ def _inject_conditional_column(analysis: str, quant_raw: dict | None = None) -> 
             out_lines.append(_OUTLOOK_HEADER.split("\n")[0])
             continue
         asset = cols[1].strip()
-        cols.insert(2, f" {cells.get(asset, _NO_BASE_RATE)} ")
+        cols.insert(2, f" {_cell_for(asset, cells)} ")
         out_lines.append("|".join(cols))
 
     rebuilt = "\n".join(out_lines) + "\n\n" + _outlook_footnote(quant_raw) + "\n"

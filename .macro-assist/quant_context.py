@@ -43,6 +43,7 @@ from conditional import (
     DEFAULT_TABLE_PATH,
 )
 from fragility import fragility_index
+from assets import ASSETS, BY_KEY, format_change
 
 # ---------------------------------------------------------------------------
 # Fragility monitor (Phase 16, WP-16.A.4) — wired in SHADOW mode via a 3-level
@@ -205,14 +206,12 @@ _VOL_ASSETS: list[tuple[str, str]] = [
     ("bitcoin", "Bitcoin"),
 ]
 
-# Rows for the conditional return distribution table: (display_name, horizon_days)
+# Rows for the conditional return distribution table: (asset_key, horizon_days)
+# Derived from the registry so this list cannot fall behind the table the refit
+# actually builds — the previous hand-maintained three-asset version is why the
+# note published "no conditional base rate" for the 10Y, DXY and Bitcoin.
 _COND_ROWS: list[tuple[str, int]] = [
-    ("SP500",    5),
-    ("SP500",   20),
-    ("Gold",     5),
-    ("Gold",    20),
-    ("WTI Oil",  5),
-    ("WTI Oil", 20),
+    (a.key, h) for a in ASSETS for h in (5, 20)
 ]
 
 
@@ -724,11 +723,10 @@ def fragility_log_lines(raw: Optional[dict]) -> list[tuple[str, str, str]]:
 # conditional.py keys assets by its own short names; the outlook table uses the
 # note's display names. Assets absent from this map have no conditional
 # distribution at all (10Y / DXY / Bitcoin are not in the Phase 11 table).
-_COND_DISPLAY_TO_NOTE: dict[str, str] = {
-    "SP500":   "S&P 500",
-    "Gold":    "Gold",
-    "WTI Oil": "WTI Oil",
-}
+# Asset key -> the name the note publishes it under. From the registry: this
+# used to be a hand-maintained three-entry dict, and an asset missing from it
+# rendered as "no conditional base rate" even when the table had a distribution.
+_COND_DISPLAY_TO_NOTE: dict[str, str] = {a.key: a.note_name for a in ASSETS}
 
 
 def conditional_cells(raw: Optional[dict], horizon: int = 5) -> dict[str, str]:
@@ -750,8 +748,15 @@ def conditional_cells(raw: Optional[dict], horizon: int = 5) -> dict[str, str]:
             p25, p50, p75, n = d.get("p25"), d.get("p50"), d.get("p75"), d.get("n", 0)
             if p50 is None or p25 is None or p75 is None:
                 continue
+            # Units come from the registry: percent for price assets, basis
+            # points for the 10Y yield level. A hardcoded "%" here would publish
+            # a 6bp yield move as "+6.0%".
+            asset = BY_KEY[short]
             out[note_name] = (
-                f"median {p50:+.1f}% · P25 {p25:+.1f}% / P75 {p75:+.1f}% · n={n}"
+                f"median {format_change(p50, asset)}"
+                f" · P25 {format_change(p25, asset)}"
+                f" / P75 {format_change(p75, asset)}"
+                f" · n={n}"
             )
         return out
     except Exception:
@@ -919,9 +924,12 @@ def _build_conditional_block(
             p25 = dist.get("p25", float("nan"))
             p50 = dist.get("p50", float("nan"))
             p75 = dist.get("p75", float("nan"))
+            _a = BY_KEY.get(asset)
             table_lines.append(
                 f"| {asset} | {horizon}d"
-                f" | {p25:+.1f}% | {p50:+.1f}% | {p75:+.1f}% |"
+                f" | {format_change(p25, _a) if _a else f'{p25:+.1f}%'}"
+                f" | {format_change(p50, _a) if _a else f'{p50:+.1f}%'}"
+                f" | {format_change(p75, _a) if _a else f'{p75:+.1f}%'} |"
             )
 
         return "\n".join(table_lines)

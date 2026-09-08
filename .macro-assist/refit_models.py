@@ -32,18 +32,21 @@ if str(_HERE) not in sys.path:
 
 from regime import fit_regime_model, DEFAULT_MODEL_PATH, regime_enabled
 from conditional import build_distribution_table, DEFAULT_TABLE_PATH
+from assets import ASSETS, BY_KEY, HORIZONS, forward_change
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
-_ASSETS: dict[str, str] = {
-    "SP500":   "^GSPC",
-    "Gold":    "GC=F",
-    "WTI Oil": "CL=F",
-}
+# The asset universe and its return conventions now come from the registry
+# (`assets.py`) rather than a local dict, so the build side, the render side and
+# the distribution scorer cannot drift apart. Extended from three assets to six
+# alongside the distribution scorer: the note's "no conditional base rate" rows
+# for the 10Y, DXY and Bitcoin were a build-side limit (this dict had three
+# tickers in it), not thin data.
+_ASSETS: dict[str, str] = {a.key: a.ticker for a in ASSETS}
 
-_HORIZONS: tuple[int, ...] = (5, 10, 20)
+_HORIZONS: tuple[int, ...] = HORIZONS
 
 _FRED_SERIES: dict[str, str] = {
     "nfci":         "NFCI",
@@ -211,7 +214,8 @@ def _build_forward_returns(
     }
 
     for name, close in prices.items():
-        if name not in _ASSETS:
+        asset = BY_KEY.get(name)
+        if asset is None:
             continue
         aligned = close.reindex(dates, method="ffill").ffill().dropna()
         arr     = aligned.values
@@ -225,8 +229,16 @@ def _build_forward_returns(
             day_ret: dict[int, float] = {}
             for h in _HORIZONS:
                 j = i + h
-                if j < len(arr):
-                    day_ret[h] = round(float((arr[j] / arr[i] - 1) * 100), 4)
+                if j >= len(arr):
+                    continue
+                # Per-asset convention, from the registry: a percent return for
+                # price assets, an absolute basis-point change for the 10Y yield
+                # level. Computing this inline as a pct return is the
+                # percent-of-a-percent bug `score_predictions` documents.
+                try:
+                    day_ret[h] = round(forward_change(float(arr[i]), float(arr[j]), asset), 4)
+                except (ValueError, ZeroDivisionError):
+                    continue
             if day_ret:
                 forward_returns[name][d] = day_ret
 
