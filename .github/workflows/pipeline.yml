@@ -222,10 +222,14 @@ jobs:
     name: 3 · weekly scoring
     needs: [plan, daily]
     # Was gated on the kimi stage; now on `daily`, so removing the arms cannot
-    # silently stop the scorer. It still has work to do: the last directional
-    # note is 2026-09-04 (v1.5) and its T+20 window resolves ~2026-10-02. The
-    # run prints a closure banner once every open window has resolved — that is
-    # the signal to retire this stage.
+    # silently stop the scorer.
+    #
+    # This stage is NO LONGER slated for retirement (Phase 22). It now runs two
+    # scorers: `score_predictions.py`, which winds down when the last v1.5 note's
+    # T+20 window resolves ~2026-10-02 and prints a closure banner, and
+    # `score_distributions.py`, which scores what v1.6 actually publishes and is
+    # permanent. When the banner appears, delete the directional STEP inside
+    # macro_weekly_scoring.yml — not this stage.
     if: >-
       ${{ !cancelled()
           && needs.plan.outputs.weekly == 'true'

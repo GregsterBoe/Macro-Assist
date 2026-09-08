@@ -50,6 +50,16 @@ jobs:
           set -e
           python macro-assist/.macro-assist/score_predictions.py
 
+      # The v1.6 successor. score_predictions.py above scores the directional
+      # call that v1.6 cut and has had nothing new to score since 2026-09-05;
+      # this scores what the note actually publishes now (Phase 22). It is a
+      # separate step so retiring the directional scorer ~2026-10-02 is a
+      # deletion, not an edit to a step that does two things.
+      - name: Score conditional distributions
+        run: |
+          set -e
+          python macro-assist/.macro-assist/score_distributions.py
+
       - name: Summarize accuracy
         run: |
           set -e
