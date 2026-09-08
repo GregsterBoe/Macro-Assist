@@ -13,7 +13,11 @@ detailed doc disagree, the detailed doc wins — fix the row.
 
 **Status legend:** 🟢 running / on-track · 🟡 in progress, needs work · ⏳ forward-accumulating (waiting on live data) · ⏸ holding / queued · ✅ done · ❌ dropped
 
-_Last updated: 2026-09-08 — Phase 21 resolved; the directional product is cut (v1.6),
+_Last updated: 2026-09-08 (later) — **Phase 22 opened and shipped: the scoring
+system now follows the v1.6 product.** Since the cut, the pipeline had been
+publishing a conditional distribution that no scorer measured; `score_distributions.py`
+closes that, the asset universe went 3 → 6, and the bar was sealed while the
+interval record was still empty. Earlier the same day: Phase 21 resolved; the directional product is cut (v1.6),
 both remaining directional arms are stood down, and the scoring loop is winding down.
 WP-19.E is now resolved too: the Phase-19 SPF anchor does not carry direction, alone
 or added to the market panel [KB-026], so Phase 19's directional route is closed and
@@ -27,6 +31,16 @@ is left running is the fragility track and the numeric/quant work._
 ---
 
 ## Active
+
+### Phase 22 — Scoring the distribution product 🟢 SHIPPED, sealed, first read ~2027-05
+- **Tests:** does the published conditional distribution (median, P25/P75) beat **not conditioning at all**? And is the interval calibrated — does P25–P75 contain 50% of realizations?
+- **Why it exists:** v1.6 cut the directional call and published the distribution in its place, but `score_predictions.py` scores the thing that was cut. Since 2026-09-05 the pipeline has been publishing a product **no scorer measured**. This is the feedback loop catching up with the note, not a new experiment.
+- **Shipped 2026-09-08:** `assets.py` (canonical registry — one definition of "forward change", shared by build/render/score; the 10Y is basis points, not a percent-of-a-percent) · `score_distributions.py` (pinball loss at q25/50/75, IQR coverage, 4-bin PIT, above-median sign, block-bootstrap CIs on 21-date blocks) · wired as its own step in `macro_weekly_scoring.yml` · 55 tests. **The universe went 3 → 6 assets:** the note's "no conditional base rate / thin-data terrain" for the 10Y, DXY and Bitcoin was a *build-side* limit (`refit_models._ASSETS` had three tickers), not thin data. Those three carry no record until a weekly refit rebuilds the table, so `record_start_by_asset` is reported rather than pooled.
+- **The benchmark is the test:** `unconditional` — the same asset's full-history quantiles, **no macro bucket**. [KB-024]/[KB-026]/[KB-027] all found a product scoring as skilled until a trivial rival was put next to it. If conditioning doesn't beat this, the bucket layer is decoration. Also `trailing_250` and `har_gaussian`.
+- **The bar is sealed, and the timing is the point.** p25/p75 only entered the quant log **2026-09-07**, so when the bar was written the interval record had **zero** resolved observations — the only window in which it could be pre-registered honestly. `MIN_SKILL = 0.02` (**not zero** — this settles in advance the exact question [KB-027] left open for `EDGE_MIN_BSS`, before the data exists rather than after) · `MIN_BLOCKS = 8` ≈ 8 months → **earliest sealed read ~2027-05**. Disqualifiers (`underpowered` → `miscalibrated` → `inverted`) are evaluated **first**, each returning its own verdict, with a test asserting each fires ahead of a strong skill number — [KB-027]'s defect designed out.
+- **Exploratory only, recorded so it can't later be dressed up as a result:** the median-only backfill (2026-05-29 → 2026-08-28, seen before the bar was written, so `verdict(sealed=False)` can only ever return `exploratory`) shows skill vs unconditional of **−0.009 at t5** (4 blocks) and **−0.065 at t20** (3 blocks). No detectable edge, and nowhere near the power to claim one either way.
+- **Deliberately out of scope** (named so the omission is a decision): Target Range coverage — needs a pre-registered nominal and a path-vs-endpoint call, since the prompt says "where the asset can reasonably trade", which is the *path*, not the T+5 close. Fragility forward record (IMP-4's clock). HAR-RV vol forecast (WP-17.5).
+- **Where:** `Project_Development.md` (Phase 22) · `.macro-assist/assets.py` · `.macro-assist/score_distributions.py` · `results/dist_scores/` + `dist_scores_summary.json`.
 
 ### IMP-4 — OR-of-channels fragility flag 🟢 LIVE (the note's headline risk read)
 - **Tests:** does IMP-1's OR-of-channels recall doubling survive *honest* out-of-sample evaluation, and can it become a live high-recall fragility flag?
@@ -69,7 +83,7 @@ is left running is the fragility track and the numeric/quant work._
 - **WP-21.E families 2 and 3** ⏸ — **blocked on one decision, deliberately.** The cap allows two more feature families, but [KB-027] showed the bar hands out `edge` for a BSS of +0.003, and a floor of literally zero is not a skill threshold on calls this overlapping. Settle it in writing first — a margin, or a comparator-relative clause ("must beat the best comparator on Brier") — because raising `EDGE_MIN_BSS` after seeing a result is a real goalpost move, unlike the inversion fix which the pre-registration already required. Deciding it *now*, with no candidate family on the table, is the only moment it can be decided honestly. No family has been chosen; the honest prior after [KB-024]/[KB-026]/[KB-027] is low.
 - **WP-18.4 — Input ablation** ⏸ — the real LLM-cost decision gate; gated on sample. Queue (from [KB-009]/[KB-010], union of redundancy + citation screens): drop `vix3m`, collapse sector block, nasdaq-vs-sp500, real_yield-vs-10y, drop-`baa_spread`, drop raw net-liq components. Start cheapest (drop-baa_spread + net-liq).
 - **WP-17.5 — Vol / conditional layers** ⏸ — fix the HY-OAS-truncation in the conditional table; safe parallel numeric work, confounds no live A/B. **Higher value than it was:** the conditional table is now the note's published product, not a prompt input.
-- **Retire the weekly scoring stage** ⏸ — dated, not open-ended. The last directional note is 2026-09-04 and its T+20 window resolves ~**2026-10-02**; the run prints a `DIRECTIONAL RECORD CLOSED` banner when every window has resolved. Delete stage 3 from `pipeline.yml` then. The readers (`summarize_accuracy.py`, `bias_separation.py`) stay — they read the history.
+- **Retire the *directional* scorer** ⏸ — dated, not open-ended. The last directional note is 2026-09-04 and its T+20 window resolves ~**2026-10-02**; the run prints a `DIRECTIONAL RECORD CLOSED` banner when every window has resolved. **Revised by Phase 22:** delete the `score_predictions.py` *step* inside `macro_weekly_scoring.yml` then — **not** stage 3 of `pipeline.yml`, which is now permanent because `score_distributions.py` runs there. The readers (`summarize_accuracy.py`, `bias_separation.py`) stay — they read the history.
 - **Phase 20 paper portfolio** ⏸ — still scheduled, but its input was withdrawn: it sizes from bias + confidence. `rebalance.run()` detects a post-cut note and declines to advance the book with a message saying why. Left running so the withdrawn input stays visible weekly rather than a track record quietly stopping. Re-pointing the sizer at the conditional distribution is a plausible v2 and needs its own pre-registered test.
 
 ---

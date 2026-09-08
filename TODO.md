@@ -10,7 +10,38 @@ Conventions:
 - Cite the file/line and the source (design doc, run, KB entry) so the next
   context can pick it up without re-deriving the analysis.
 
-Last reviewed: 2026-08-24 (TODO sweep — #1/#2/#6 resolved, #4 documented, #5 sharpened).
+Last reviewed: 2026-09-08 (Phase 22 — two open decisions added below).
+
+---
+
+## Phase 22 — distribution scoring
+
+### Open decision #7 — Target Range: nominal coverage, and path vs endpoint
+**Where:** `prompts/system_prompt.md:166` (the band's spec) · not scored anywhere.
+The LLM's Target Range is the only remaining LLM-authored falsifiable claim in the
+note, and it is unscored. Two things have to be decided before it can be, and
+neither is a bug fix:
+1. **No nominal coverage is stated anywhere.** The prompt calls it "a dispersion
+   band for 5 business days", never "an 80% interval". Without a nominal, coverage
+   is a measurement, not a test — so either pre-register a nominal (and the model
+   should be told it), or accept that this can only ever be descriptive.
+2. **It is a *path* band, not an endpoint band.** "Where the asset can reasonably
+   trade" over 5 days is the intraday range, so containment must be scored against
+   the high/low over the window, not the T+5 close. Scoring the close measures a
+   different quantity and would report far higher coverage than the claim earns.
+Deliberately deferred out of Phase 22 (scope was the conditional distribution).
+
+### Open decision #8 — does the distribution deserve a wider published interval?
+**Where:** `quant_context.conditional_cells` · `score_distributions.NOMINAL_COVERAGE`.
+The note publishes P25/P75, so the interval it asks to be judged on contains 50%
+of realizations by construction — half of all outcomes land outside the band the
+reader sees. The table already holds p10/p90. Publishing those instead (or as
+well) would be a more useful risk read, but it changes the published product
+mid-record and would restart the sealed interval clock that starts 2026-09-07.
+**Not a fix — a product decision with a cost.** Revisit only if the note format
+is being revised for another reason.
+
+---
 
 ---
 

@@ -65,6 +65,7 @@ Measured results live in `Knowledge_Base.md`.
 | 14 | Production hardening (weekly refit, monitoring) | ✅ 2026-05-29 |
 | 16 | Fragility monitor + design-by-emergence prompt levers | ✅ Closed 2026-09-04 — 16.A shipped and alive (→ IMP-4), 16.B/C closed by Phase 21; detail archived |
 | 21 | Directional product validation → **the cut (v1.6)** | ✅ Closed 2026-09-04 — [KB-024]. WP-21.E bounded search: family 1 (VIX term structure) resolved **negative** 2026-09-08 → [KB-027]; 2 of 3 families remain |
+| 22 | Scoring the distribution product | 🟢 Open 2026-09-08 — the scorer follows the v1.6 cut. A/B shipped; the bar is sealed, first read ~2027-05 |
 
 The v1.5 **system-state snapshot** that used to open this file was archived on the
 same pass; `README.md` is the maintained system reference.
@@ -715,3 +716,220 @@ The archive carries the rest — why the version gate did *not* stop the arms
 (neither stamps an `agent_version`, and silently defunding a running experiment
 through a constant it never opted into would be the wrong mechanism), and why the
 Phase-20 stage is deliberately left running against a withdrawn input.
+
+---
+
+## Scoring the Distribution Product (Phase 22) — *the scorer follows the product*
+
+**Why it exists.** v1.6 cut the directional call and published the empirical
+conditional distribution in its place (WP-21.D, [KB-024]). `score_predictions.py`
+scored the thing that was cut: it gates on `has_directional_calls()` and returns
+`None` for every v1.6+ note, so from 2026-09-05 the pipeline has been publishing a
+product **no scorer measures**. That is the gap this phase closes. It is not a new
+experiment — it is the feedback loop catching up with the note.
+
+**What is in scope, and what deliberately is not.** The note now carries four
+falsifiable things: the conditional distribution, the LLM's Target Range, the
+Fragility Monitor, and (logged, unpublished) the HAR-RV vol forecast. This phase
+scores **the conditional distribution only**. The other three are named here so
+the omission is a decision rather than an oversight: Target Range needs a
+pre-registered nominal coverage and a path-vs-endpoint call it does not have yet
+(the prompt says "where the asset can reasonably trade", which is the path, not
+the T+5 close); the fragility forward record is IMP-4's clock, not this one; the
+vol forecast is WP-17.5.
+
+### WP-22.A — Six assets in the table ✅ *(2026-09-08)*
+
+The note published `— no conditional base rate` for the 10Y, DXY and Bitcoin, and
+the accompanying prose called it "thin-data terrain". That was **not true**:
+`refit_models._ASSETS` simply had three tickers in it. The gap was build-side.
+
+Shipped: `.macro-assist/assets.py`, a canonical registry (key, ticker, note name,
+return convention) that `refit_models` (build), `quant_context` (render) and
+`score_distributions` (score) all import, replacing three separate hand-maintained
+asset lists. The universe goes 3 → 6.
+
+**The 10Y forced the registry rather than a fourth list.** `^TNX` quotes a yield
+*level*, so a percent return over it is a percent-of-a-percent — the ~13x
+threshold inflation `score_predictions.ABSOLUTE_DIFF_ASSETS` documents for the
+directional scorer. That correction now has to hold on the build side, the render
+side and the score side at once, so it is defined once as
+`assets.forward_change()` and imported. Stored numbers are in display units: **%
+for price assets, basis points for the 10Y**, with `Asset.unit` saying which, and
+`format_change()` as the matching renderer — so a 6bp yield move can no longer
+print as "+6.0%".
+
+`score_predictions.py` is deliberately **not** refactored onto the registry. It is
+frozen legacy whose job is to keep [KB-007]/[KB-011]/[KB-022] reproducible.
+
+*Note on reading the first months:* the three new assets carry no forward record
+until a weekly refit rebuilds the table with them, so their record starts ~5 months
+after the original three. `dist_scores_summary.json` reports
+`record_start_by_asset` rather than pooling the two.
+
+### WP-22.B — The distribution scorer ✅ *(2026-09-08)*
+
+`.macro-assist/score_distributions.py` — the successor to `score_predictions.py`.
+Reads `results/quant_context_log/*.jsonl`, writes `results/dist_scores/<date>.json`
+plus `results/dist_scores_summary.json`.
+
+**The input is already point-in-time, and that is why this was cheap.** The quant
+log carries the exact distribution the note published that day, drawn from a table
+fit at the *prior* weekly refit. A logged quantile is knowable at *t* by
+construction — no vintage to reconstruct, no look-ahead to argue about. This is
+the one place in the project where the honest version was also the easy one.
+
+**Metrics.** Pinball (quantile) loss at q=0.25/0.50/0.75 — the proper scoring rule
+for a quantile forecast, and the distribution product's Brier: minimised in
+expectation only at the true quantile, so it cannot be improved by shading the
+interval. Plus P25–P75 coverage against a nominal 0.50, a four-bin PIT histogram
+(the whole PIT that three published quantiles can honestly support), and
+above-median sign balance.
+
+**Comparators, because [KB-024]/[KB-026]/[KB-027] all say the same thing.** Three
+measurements have now found that a product without a trivial rival scores as
+skilled. So the benchmark is `unconditional` — the same asset's full-history
+forward-return quantiles, **no macro bucket at all**. The entire claim of the
+conditional layer is that conditioning on `NFCI|YC|HY` beats not conditioning; if
+it does not beat this, the bucket machinery is decoration and should be recorded
+as decoration. Also `trailing_250` (recent-regime rival, no macro state) and
+`har_gaussian` (zero-mean Normal on the logged HAR σ, √h-scaled).
+
+**Sample alignment (WP-21.A.2's lesson, applied).** An observation is emitted only
+when every required arm could quote a distribution for it, every arm quotes
+*exactly the quantiles the note claimed that day*, and any head-to-head skill
+score is computed on the shared subsample. `har_gaussian` is optional and scored
+on its own subsample — it declines the 10Y outright, because turning a
+percent-return vol into a basis-point yield move needs the yield level and would
+make it a different model. Better no comparator than a wrong one.
+
+**Units do not pool.** Mean pinball loss is in the asset's own unit, so a
+cross-asset mean would be adding bp to %. Per-asset is the primary read; the only
+pooled figure is an equal-weighted mean of per-asset *skill scores*, which are
+unit-free, and it is labelled as such. Coverage and PIT pool directly.
+
+**Overlap.** Daily notes at 5d overlap 80%; at 20d, 95%. Raw n is not evidence.
+Intervals come from a block bootstrap over whole 21-report-date blocks — the same
+`BLOCK_DAYS` `bias_separation.py` uses, asserted by a test, so two analyses of the
+same overlap cannot disagree about what is independent.
+
+**Controls, in the WP-21.A shape.** A negative control (stationary walk, where the
+unconditional benchmark *is* the truth) must report ~zero skill, and a positive
+control (published distribution knows a regime the benchmark cannot see) must
+detect it. Both are tests, not one-off checks: a null from a harness that has not
+demonstrated it can find a planted signal means nothing.
+
+### WP-22.C — The pre-registered bar *(written 2026-09-08, sealed; first read ~2027-05)*
+
+**The record splits in two, and the split is not a choice.** p25/p75 only entered
+the quant log on **2026-09-07** — before that only `p50` was written, because
+before v1.6 the distribution was a log record rather than the published product.
+So:
+
+- **the median-only backfill** (2026-05-29 → 2026-08-28, 210 obs at t5 across 4
+  blocks) was computed *before* this bar was written. It is **exploratory** and
+  can never return a `pass` verdict — `verdict(sealed=False)` returns
+  `exploratory` and nothing else.
+- **the interval record** — the actual published claim — had **zero resolved
+  observations** when the bar was written. `SEAL_START = 2026-09-07`. That is the
+  only window in which this could honestly be pre-registered, and it is why the
+  bar exists now rather than after the first read.
+
+**Pre-registered questions.** (1) Is the published P25–P75 interval calibrated —
+does the coverage CI contain 0.50? (2) Does conditioning beat not conditioning on
+pinball loss?
+
+**Disqualifiers, evaluated FIRST and each returning its own verdict.** This
+structure is [KB-027] applied literally. That finding was that a pre-committed
+`verdict()` printed `edge` for an arm its own pre-registration had disqualified,
+because the pass clause was reachable without the disqualifier ever being
+consulted. So: `underpowered` (< 8 independent blocks, or no resolved interval
+claims) → `miscalibrated` (coverage CI excludes 0.50 — a miscalibrated interval is
+not an edge whatever its pinball loss says) → `inverted` (skill CI entirely below
+zero: conditioning is reliably *worse* than not conditioning, which is a finding,
+not merely an absent edge). Only then is the pass clause reachable. A test asserts
+each disqualifier fires ahead of a strong skill number.
+
+**`MIN_SKILL = 0.02`, not zero — and this settles in advance the decision WP-21.E
+left open.** [KB-027] recorded that a floor of literally zero is not a skill
+threshold, and that raising `EDGE_MIN_BSS` *after* seeing +0.003 would be a
+goalpost move. The same question arises here, and the difference is timing: this
+margin is set before any interval observation exists. A test pins that a skill of
++0.003 with a zero-excluding CI reads `no_edge`.
+
+**`MIN_BLOCKS = 8`** ≈ 168 report dates ≈ 8 months of daily notes, putting the
+earliest possible sealed read around **2027-05**. This is a slow instrument by
+construction and should not be read early; [KB-023] is the standing reminder that
+a wide interval means "cannot see", not "nothing there".
+
+**What the skill number *is* — amended 2026-09-08, same day, sealed record still
+empty.** As first written the bar read `skill_vs_unconditional["published"]` on
+the multi-asset slice: a ratio of mean pinball losses **pooled across assets**.
+That was safe only while every asset was percent-scale. WP-22.A takes the
+universe to six on the 2026-09-13 refit, and the 10Y is scored in **basis
+points**, where a typical loss is ~50x an equity's — so the pooled ratio would
+have been carried almost entirely by the 10Y in both numerator and denominator,
+and the product's headline skill would in fact have been a 10Y skill score. A
+test states that failure directly: on a synthetic universe where three percent
+assets each beat the benchmark by +0.10 and the 10Y loses by −0.10, the naive
+pooled ratio reads **−0.089**.
+
+The bar now reads `pooled_skill`: skill computed *within* each asset, where it is
+unit-free, then averaged **equally across assets**. Equal weighting is what stops
+the longest record speaking for the product — but on its own it creates the
+mirror failure, an asset five report dates old voting as loudly as one with a
+year. Hence **`MIN_POOL_BLOCKS = 2`**: below two blocks an asset has no bootstrap
+CI at all, so it is held out of the pool and *named* in the report's `excluded`
+map rather than silently dropped. The qualifying set is fixed once on the real
+sample; the bootstrap re-pools exactly those assets, because a resample's own
+block structure is degenerate and must not re-decide who is in the pool.
+
+The headline the verdict is applied to is pooled over the **stable universe**
+(`assets.ORIGINAL_KEYS` — SP500, Gold, WTI Oil): the three assets this seal was
+written over, before the 10Y/DXY/Bitcoin rows existed. The six-asset pool is
+reported alongside as `pooled_skill_all_assets` and judged separately once it has
+a record of its own. Growing the universe mid-stream must not quietly change what
+the sealed question was asking.
+
+**Thresholds are unchanged; only the statistic they read is.** This is a
+pre-data amendment, which is the only honest kind — p25/p75 entered the log
+2026-09-07, the first 5d interval window resolves ~2026-09-14, and the sealed
+record held **zero** resolved observations when this was written. After that date
+the bar is frozen. On the exploratory backfill the pooled number reproduces the
+figures already recorded below (t5 −0.009, CI [−0.055, +0.019] on 4 blocks; t20
+−0.065, CI [−0.149, +0.054] on 3), now with a block-bootstrap interval the
+previous equal-weight field did not carry.
+
+**The honest prior.** Low, and it should be said out loud before the data arrives.
+[KB-024]'s mechanism — stress → bearish → mean-reversion — was about direction,
+and a distribution is a weaker claim that does not need direction to be right. But
+the bucket conditioning is coarse (18 cells on three slow macro series) and the
+first read of the seen median backfill is a skill of **−0.009 at t5 and −0.065 at
+t20** against the unconditional benchmark on 4 and 3 blocks respectively: no
+detectable edge, and nowhere near the power to claim one either way. That number
+is exploratory and is recorded here so it cannot later be presented as a sealed
+result.
+
+**One exploratory observation, flagged as a hypothesis with its confound named.**
+On the same seen backfill, `har_gaussian` posts the *lowest* mean pinball of all
+four arms on all three assets (SP500 0.729 vs published 0.758; Gold 1.622 vs
+1.679; WTI 3.354 vs 3.367). Do not read that as "the vol model is the better
+distribution" yet, because on a **median-only** claim the pinball at q=0.50 is
+just half the absolute error, and `har_gaussian`'s median is **identically zero**
+while the two empirical arms quote the historical drift median. So what this
+measures is narrow and specific: *predicting no move beat predicting the
+historical drift*, on 4 blocks of a bull tape. It is [KB-024]'s "a constant beat
+the model" shape pointing at a different constant, and it is exactly the kind of
+result that would be over-read. The informative version of this comparison —
+all three quantiles, where `har_gaussian` actually has to get the interval width
+right and the drift question falls away — cannot run until the sealed interval
+record accumulates.
+
+### WP-22.D — Wind-down of the directional scorer *(pending ~2026-10-02)*
+
+Unchanged from WP-21.G: `score_predictions.py` keeps running until the last v1.5
+note's T+20 window resolves, prints `DIRECTIONAL RECORD CLOSED`, and then stage 3
+comes out of `pipeline.yml`. What changes is that stage 3 is no longer left empty
+— `score_distributions.py` takes its place, so the pipeline never has a published
+product with no scorer again.
+
