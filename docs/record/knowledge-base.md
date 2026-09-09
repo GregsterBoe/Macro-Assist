@@ -2,7 +2,7 @@
 
 Standing record of **what we have actually measured**, so hard-won findings (and
 their caveats) survive past the conversation that produced them. Each entry is a
-falsifiable result, not a plan — plans live in `Project_Development.md`.
+falsifiable result, not a plan — plans live in `roadmap.md`.
 
 Format per entry: **what we tested → headline → the nuance that's easy to forget
 → what it changes.** Keep the caveats attached to the headline; the headline
@@ -694,7 +694,7 @@ component. (b) `vix_term` re-confirmed as the single strongest component (AUC 0.
 `.macro-assist/input_testing.py` (`run_absorption_gate`; **zero LLM/API cost** —
 free Fama-French data + the reused `fragility_backtest` scorers). Reproduce:
 `python input_testing.py`. First result of the **Project Improvement** track (see
-`Project_Improvement.md`, IMP-1).
+`improvement-track.md`, IMP-1).
 
 **What we tested.** KB-012 found the absorption ratio (AR) had no skill (AUC ≈
 0.50) and diagnosed the cause as the input, not the concept: AR needs a *broad,
@@ -752,7 +752,7 @@ sample noise; treat the episode metrics as the sturdier read.
 **Date:** 2026-08-25 · **Branch:** `main` · **Harness:**
 `.macro-assist/input_testing.py` (`run_turbulence_gate`; **zero LLM/API cost** —
 same free FF panel + reused scorers). Reproduce: `python input_testing.py
-turbulence`. Second Project-Improvement result (`Project_Improvement.md`, IMP-1.4).
+turbulence`. Second Project-Improvement result (`improvement-track.md`, IMP-1.4).
 
 **What we tested.** Financial turbulence (Kritzman & Li 2010) — the Mahalanobis
 distance of the latest industry-return vector from the trailing cross-sectional
@@ -807,7 +807,7 @@ not run — a 30×30 inverse from 60 obs is ill-conditioned even shrunk. (c) Sam
 **Date:** 2026-08-25 · **Branch:** `main` · **Harness:**
 `.macro-assist/input_testing.py` (`run_ensemble_gate`; **zero LLM/API cost**).
 Reproduce: `python input_testing.py ensemble`. Third and decisive Project-Improvement
-result (`Project_Improvement.md`, IMP-1.5) — the adoption gate for KB-013/KB-014.
+result (`improvement-track.md`, IMP-1.5) — the adoption gate for KB-013/KB-014.
 
 **What we tested.** The open question from KB-013/KB-014 was **orthogonality**: AR and
 turbulence each have skill on the industry panel, but do they add anything a
@@ -1757,7 +1757,7 @@ absence of skill.
 ### Consequence
 
 The directional product (`Bias` + `Confidence`) is cut from the daily note as of
-**v1.6** — see WP-21.D in `Project_Development.md`. The conditional return
+**v1.6** — see WP-21.D in `roadmap.md`. The conditional return
 distribution that already sits underneath each call is kept and published as the
 product; it is computed from data, carries its own n, and is not what failed.
 **WP-21.B (day-alternating prompt A/B) is closed as superseded**: it could only
@@ -1927,7 +1927,7 @@ python .macro-assist/numeric_baseline.py --panel panel.csv --require-exogenous
 **Run:** Actions `34104184917` (63 min, green) on `b048966` ·
 **Artifact:** `numeric_baseline/numeric_baseline.{md,json}` on `origin/output`
 (commit `2780cb4`) · **Read pre-registered 2026-09-04**, before this run, in
-`Project_Development.md` → WP-19.E.
+`roadmap.md` → WP-19.E.
 
 **Run validity (the [KB-025] check, done first).** `EXOGENOUS: true` →
 `exogenous input: 'true' -> --require-exogenous`; `Loading the SPF consensus
@@ -2142,7 +2142,7 @@ confidence-ordering confound above is worth resolving.
 **Artifact:** `numeric_baseline/numeric_baseline.{md,json}` on `origin/output`
 (commit `e3bedc4`); raw calls on CI artifact `10031564717`, **expires
 2026-10-07** · **Read pre-registered 2026-09-07**, before this run, in
-`Project_Development.md` → WP-21.E.
+`roadmap.md` → WP-21.E.
 
 **Run validity (the [KB-025] check, done first).** `meta.n_vix_term_features: 4`,
 `arms_skipped: {}`, `seal_start: 2018-01-01`, `verdict_scope: sealed`,

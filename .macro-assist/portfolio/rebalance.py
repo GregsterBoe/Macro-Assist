@@ -227,7 +227,7 @@ def conditional_sigma_annual(
     Returns None when the row carries no band (⇒ the sizer abstains, DESIGN §3
     step 3).
 
-    NOTE (see TODO.md, open decision #1): this reads the band out of the *note
+    NOTE (see docs/record/todo.md, open decision #1): this reads the band out of the *note
     prose* rather than calling `conditional.lookup_distribution`. That keeps it
     point-in-time-faithful — it is exactly the distribution the note author saw —
     but it makes the book's risk input hostage to prompt wording, which is how

@@ -1,8 +1,8 @@
 # Maintenance Log
 
 Running record of housekeeping / cleanup passes (code hygiene, refactors, doc
-pruning) — kept separate from `Project_Development_Archive.md` (closed roadmap
-phases) and `Knowledge_Base.md` (measured findings). Newest entry first. Append a
+pruning) — kept separate from `roadmap-archive.md` (closed roadmap
+phases) and `knowledge-base.md` (measured findings). Newest entry first. Append a
 new dated section per pass; carry any unfinished items into **Open follow-ups**.
 
 ---
@@ -11,13 +11,72 @@ new dated section per pass; carry any unfinished items into **Open follow-ups**.
 
 - **`point_in_time.py` runs network by default.** Its tests make real ALFRED/FRED calls (~113s of the default suite) but are *not* marked `integration`, so they run on every `pytest`. They're an important look-ahead-leakage guard — left in the default run deliberately. Decide whether to mark them `integration` (faster default; guard then only runs on explicit `-m integration`).
 - **Optional further split of `llm_analysis.py`** (1331 lines). One cohesive concern (the multi-agent LLM pipeline) but the largest remaining module and the least test-covered. Could later split into agents / synthesis / note-markdown if it keeps growing; kept as one module for now to minimise churn in untested code.
-- **Archive Phase 19 build detail** (`Project_Development.md`) once the exogenous arm resolves to keep-or-kill. Still open, and the trigger changed: KB-012 will never be written as specified — the arm's live gate became unreadable when v1.6 cut its comparator (WP-21.F). The resolution now comes from **WP-19.E** (the SPF anchor scored in the numeric harness) plus a decision on option (b) (re-cut the branch's output to the expectations gap). Archive the L0–L4 build detail then, keeping the integration-status + kill block inline.
+- **Archive Phase 19 build detail** (`roadmap.md`) once the exogenous arm resolves to keep-or-kill. Still open, and the trigger changed: KB-012 will never be written as specified — the arm's live gate became unreadable when v1.6 cut its comparator (WP-21.F). The resolution now comes from **WP-19.E** (the SPF anchor scored in the numeric harness) plus a decision on option (b) (re-cut the branch's output to the expectations gap). Archive the L0–L4 build detail then, keeping the integration-status + kill block inline.
+
+---
+
+## 2026-09-08 — Docs restructure: four layers, a decision record, and a site
+
+The doc set was disciplined but flat: ~5,300 lines across eight top-level files,
+no index, and a 849-line README serving four audiences at once. Three gaps, none
+of which was "the files aren't listed":
+
+1. **No conceptual layer.** Nothing explained what the project is *for* or told
+   the story that shapes it — the directional product's measurement, falsification
+   and deletion — which existed only as sediment across KB-007/022/023/024/026/027.
+2. **No map.** Eight documents, no entry point.
+3. **Decisions were not addressable.** "Why not a neural network" was prose in the
+   roadmap; the Phase 19/20 scope-locks were `DESIGN.md` files beside code; the
+   load-bearing calls (the cut, the frozen scorer, `EDGE_MIN_BSS` left at 0.0)
+   were buried in KB consequence sections.
+
+**What moved.** All seven long-lived docs into `docs/record/`, via `git mv` so
+history follows. Nothing was rewritten and nothing was deleted; only cross-links
+and filenames changed.
+
+| Was | Now |
+|---|---|
+| `Knowledge_Base.md` | `docs/record/knowledge-base.md` |
+| `Project_Development.md` | `docs/record/roadmap.md` |
+| `Project_Development_Archive.md` | `docs/record/roadmap-archive.md` |
+| `Active_Experiments.md` | `docs/record/active-experiments.md` |
+| `Project_Improvement.md` | `docs/record/improvement-track.md` |
+| `TODO.md` | `docs/record/todo.md` |
+| `Maintenance_Log.md` | `docs/record/maintenance-log.md` |
+
+**What was added.**
+- `docs/concepts/` — five essays: what this is · the signal stack · **the
+  method** · the cut (v1.6) · what we believe.
+- `docs/reference/` — the old README body, split by audience across six pages,
+  updated for v1.6 where it had drifted (the dataflow diagram still showed the
+  retired accuracy override; Window-Aware Calibration was described as live; the
+  `verdict()` bar predated the [KB-027] correction; `score_distributions.py` was
+  undocumented).
+- `docs/decisions/` — **19 ADRs** back-filled from the KB, roadmap, both
+  `DESIGN.md` scope-locks and todo.md. One is `Open` (ADR-0017, the BSS floor)
+  and is the one currently blocking work.
+- `mkdocs.yml` + `.github/workflows/docs.yml` — MkDocs Material on GitHub Pages.
+  The markdown stays the single source of truth and the site is generated from
+  it; `mkdocs build --strict` fails on a broken internal link, so a future doc
+  move cannot leave a dangling reference. **One-time setup still required:**
+  Settings → Pages → Source: GitHub Actions.
+
+**README** cut 849 → 190 lines: the arc, the current state, and the map.
+
+**Code touched, minimally.** Doc-path references in nine modules updated;
+`bump_version._PROJECT_DOC` re-pointed to `docs/record/roadmap.md`. No behaviour
+changed.
+
+**Found, not fixed:** `bump_version.py` has been broken since the 2026-09-04
+archive pass — the anchors it edits moved into the archive with the v1.5
+snapshot, so any bump raises. Recorded as **open decision #9** rather than
+patched, because it asks where the milestones table belongs now.
 
 ---
 
 ## 2026-09-04 — Post-cut doc pass: archive what v1.6 made stale
 
-`Project_Development.md` **1,252 → 460 lines**; `Project_Development_Archive.md`
+`roadmap.md` **1,252 → 460 lines**; `roadmap-archive.md`
 512 → 1,446. Nothing deleted — three blocks moved, each replaced inline by a
 summary that keeps the verdict, the KB pointer and anything a still-open sibling
 WP depends on (the archive-on-completion convention this file's roadmap declares).
@@ -44,7 +103,7 @@ WP depends on (the archive-on-completion convention this file's roadmap declares
   only works if it is where the next reader is.
 
 **Kept deliberately:** Phases 17/18/19/20 (each has an open sibling WP), the
-Phase-15 backlog table, and every cross-reference — `Active_Experiments.md`
+Phase-15 backlog table, and every cross-reference — `active-experiments.md`
 pointers were re-aimed at the summary or the archive rather than left dangling.
 
 **Title changed:** "Project State" → "Project Development (the roadmap)". The old
@@ -62,7 +121,7 @@ Suite baseline before: 435 passed / 4 failed / 1 xfailed → after: **442 passed
 
 **Test-suite health** — the 3 drifting yfinance asserts (`test_r_squared_in_range`, regime `historical_alignment` / `switch_count_reasonable`) were already `@pytest.mark.integration`; added `addopts = -m "not integration"` to `pytest.ini` so the default run excludes them (run with `pytest -m integration`). Fixed an isolation leak in `test_empty_on_no_data` (monkeypatch `DEFAULT_TABLE_PATH`).
 
-**Doc pruning** (`Project_Development.md` 96.7 KB → 85.3 KB) — pruned the self-flagged WP-19.B build-log to a pointer; trimmed completed WP-16.A.1/2/3 to status+verdict+KB-pointer (kept A.4's `FRAGILITY_MODE` ladder — open A.5 depends on it). Phase-17 WPs already at target granularity (no-op). Phase archiving (5d) deferred — see Open follow-ups.
+**Doc pruning** (`roadmap.md` 96.7 KB → 85.3 KB) — pruned the self-flagged WP-19.B build-log to a pointer; trimmed completed WP-16.A.1/2/3 to status+verdict+KB-pointer (kept A.4's `FRAGILITY_MODE` ladder — open A.5 depends on it). Phase-17 WPs already at target granularity (no-op). Phase archiving (5d) deferred — see Open follow-ups.
 
 **HMM regime retired (kept for revival)** — single switch `regime_enabled()` in `regime.py` (grep `REGIME-RETIRED`), **default OFF**, `REGIME_ENABLED=1` revives. Gated all three execution sites: portfolio gate (`rebalance.live_regime` → gate 1.0), weekly refit (`refit_models` → skips HMM fit, keeps the feature matrix the non-retired conditional table needs), payload preview (`quant_context.build_nonlive_signals_block` → omits block). Code (`regime*.py`, `conditional.py`) untouched.
 

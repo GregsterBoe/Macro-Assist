@@ -438,7 +438,7 @@ def print_closure(status: dict) -> None:
         print(f"  Last report carrying a call: {status['last_report']} (v1.5).")
         print("  Every T+5/T+10/T+20 window on every directional report has resolved.")
         print("  Nothing this script scores can change again. The weekly scoring stage")
-        print("  in pipeline.yml can be retired — see WP-21.D in Project_Development.md.")
+        print("  in pipeline.yml can be retired — see WP-21.D in docs/record/roadmap.md.")
         print("  summarize_accuracy.py / bias_separation.py still read the record.")
         print("=" * 72)
     else:

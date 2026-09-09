@@ -1,9 +1,9 @@
 # Macro-Assist — Project Development Archive
 
 Detailed design notes, Claude Code prompts, and execution-order tables for
-**closed phases**, moved out of `Project_Development.md` to keep the live plan
+**closed phases**, moved out of `roadmap.md` to keep the live plan
 lean. Nothing here is deleted — this is the historical implementation record.
-Measured results live in `Knowledge_Base.md`; active plans in `Project_Development.md`.
+Measured results live in `knowledge-base.md`; active plans in `roadmap.md`.
 
 | Moved | What |
 |---|---|
@@ -361,7 +361,7 @@ Rules for use:
 ```
 
 **Claude Code prompt:**
-> In `.macro-assist/prompts/system_prompt.md`, add a new top-level section `## Quantitative Context Block` (place it after the existing Phase-4 rules block, before the predictions section). The section describes the new injected block from Phase 12.1 and gives four rules: (1) predictions should sit within the 10-90 percentile of the conditional distribution unless explicitly justified; (2) regime persistence informs confidence; (3) VRP informs equity risk character; (4) small-sample buckets (n<20) must be noted explicitly. Use the exact wording from Phase 12.2 of `Project_Development.md`.
+> In `.macro-assist/prompts/system_prompt.md`, add a new top-level section `## Quantitative Context Block` (place it after the existing Phase-4 rules block, before the predictions section). The section describes the new injected block from Phase 12.1 and gives four rules: (1) predictions should sit within the 10-90 percentile of the conditional distribution unless explicitly justified; (2) regime persistence informs confidence; (3) VRP informs equity risk character; (4) small-sample buckets (n<20) must be noted explicitly. Use the exact wording from Phase 12.2 of `roadmap.md`.
 
 ---
 
@@ -521,14 +521,14 @@ Each day, log the raw outputs of the three subsections (vol forecast, regime lab
 # Archived 2026-09-04 — the v1.6 cleanup
 
 Three blocks moved here when the directional product was cut. Each is
-preserved as it stood; read the live `Project_Development.md` for what
-replaced it and `Knowledge_Base.md` for the measured results.
+preserved as it stood; read the live `roadmap.md` for what
+replaced it and `knowledge-base.md` for the measured results.
 
 ---
 
 ## A. System-state snapshot (~v1.5) — superseded by README.md
 
-This block opened `Project_Development.md` and described the pipeline as it
+This block opened `roadmap.md` and described the pipeline as it
 then ran. It is stale in specific, checkable ways: the note's 5-Day
 Predictions table lost `Bias` and `Confidence` in v1.6 [KB-024]; the
 self-calibration feedback loop it describes was **deleted** in WP-21.G; the
@@ -932,7 +932,7 @@ Source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
 Closed 2026-09-04. WP-16.A shipped and is alive (its descendant is IMP-4's OR
 flag); WP-16.B/C were closed by Phase 21 — [KB-023] made the loosened A/B
 unreadable and [KB-024] made ranking two prompt configs moot. The live
-summary table is in `Project_Development.md`.
+summary table is in `roadmap.md`.
 
 ### Experimental Track — Emergence & Fragility (Phase 16)
 
@@ -1325,7 +1325,7 @@ The Fragility Monitor block moves from the tail of the Data Snapshot to a
 headline section, and `FRAGILITY_OR_MODE` steps `log → show`.
 
 **The promotion was blocked by the A/B, and the cut is what unblocks it.**
-`Active_Experiments.md` held the ladder at "escalate only after the loosened A/B
+`active-experiments.md` held the ladder at "escalate only after the loosened A/B
 resolves (a new output lever would confound it)." Closing WP-21.B removes that
 confound. The two decisions were never independent.
 

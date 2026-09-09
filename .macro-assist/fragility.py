@@ -6,7 +6,7 @@ system to a transition." It is a RISK / RESILIENCE gauge, never a directional
 signal — downstream it should widen prediction ranges and flag tail risk, not
 flip a Bullish/Bearish call.
 
-Empirical grounding (see Project_Development.md, Phase 16): in equity markets
+Empirical grounding (see docs/record/roadmap.md, Phase 16): in equity markets
 classic *critical slowing down* (rising lag-1 autocorrelation) is NOT a reliable
 pre-crash signal, but RISING VARIANCE / VARIABILITY is. The WP-16.A.3 weight
 ablation (de-overlapped, 2008-2026) confirmed this and went further: the
@@ -21,7 +21,7 @@ Each component returns a sub-score in [0, 100] where higher = more fragile.
 The composite is a weighted mean of whichever components are available.
 
 CALIBRATION (WP-16.A.3, Done): weights chosen by de-overlapped ablation (see
-Knowledge_Base.md KB-002); composite label thresholds are percentile cut-points
+docs/record/knowledge-base.md KB-002); composite label thresholds are percentile cut-points
 of this scheme's own 2008-2026 composite distribution — Elevated = 90th pct,
 Resilient = 40th pct. The 90th-pct (Elevated) cut is exactly the flag whose
 episode precision/recall was validated in the backtest.
@@ -45,7 +45,7 @@ import pandas as pd
 
 # ---------------------------------------------------------------------------
 # Composite weights — recalibrated in WP-16.A.3 by de-overlapped ablation
-# ("var_led_vix35"; see Knowledge_Base.md KB-002). Variance-trend leads (the
+# ("var_led_vix35"; see docs/record/knowledge-base.md KB-002). Variance-trend leads (the
 # cleanest, non-circular fragility signal); the VIX term-structure gets honest
 # but capped weight (strongest component, but semi-circular); `correlation` is
 # a token weight (near-chance, kept only for graceful degradation if VIX3M is

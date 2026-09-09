@@ -8,11 +8,11 @@ reference.
 
 - **How the system works today** — architecture, data sources, the analysis
   pipeline, scoring, workflows, secrets, versioning, maintenance — is
-  [README.md](README.md), which is kept current with the code.
-- **Measured findings** (KB-###, negatives included) are in `Knowledge_Base.md`.
-- **What is running right now** is the board in `Active_Experiments.md`.
+  the [Reference](../reference/index.md) layer, which is kept current with the code.
+- **Measured findings** (KB-###, negatives included) are in `knowledge-base.md`.
+- **What is running right now** is the board in `active-experiments.md`.
 - **Closed phases and superseded detail** are in
-  [Project_Development_Archive.md](Project_Development_Archive.md).
+  [roadmap-archive.md](roadmap-archive.md).
 
 > **Archived 2026-09-04 — the system-state snapshot that used to open this file.**
 > ~390 lines describing the pipeline as it stood around v1.5: the note's
@@ -31,15 +31,15 @@ All phases are implementable at $0 cost using existing API keys (FRED, yfinance)
 ### Completed Phases (detail archived)
 
 Phases 1–14 are deployed and stable; their full design notes and Claude Code
-prompts now live in [Project_Development_Archive.md](Project_Development_Archive.md).
-Measured results live in `Knowledge_Base.md`.
+prompts now live in [roadmap-archive.md](roadmap-archive.md).
+Measured results live in `knowledge-base.md`.
 
 > **Archive-on-completion convention (default editing behaviour).** When a **WP**
-> is marked Done *and* its result is recorded in `Knowledge_Base.md`, trim its
+> is marked Done *and* its result is recorded in `knowledge-base.md`, trim its
 > entry here to a one-line status + verdict + KB pointer (kept inline under its
 > phase — the method/harness/reproduce detail is redundant with the KB entry and
 > the code). When an **entire phase** closes, move its remaining detail to
-> `Project_Development_Archive.md` and add a row to the table below. **Never trim
+> `roadmap-archive.md` and add a row to the table below. **Never trim
 > before the result is in the KB** (no information loss), and don't archive
 > context a still-open sibling WP depends on.
 
@@ -86,12 +86,12 @@ Not on critical path. Listed for future planning.
 
 ---
 
-> **Execution-order table + implementation notes for Phases 1–15** moved to [Project_Development_Archive.md](Project_Development_Archive.md).
+> **Execution-order table + implementation notes for Phases 1–15** moved to [roadmap-archive.md](roadmap-archive.md).
 
 
 ## Experimental Track — Emergence & Fragility (Phase 16) ✅ CLOSED
 
-*Detail archived 2026-09-04 → [Project_Development_Archive.md](Project_Development_Archive.md).*
+*Detail archived 2026-09-04 → [roadmap-archive.md](roadmap-archive.md).*
 
 Two bets: measure the system **losing resilience** instead of predicting the
 trigger (WP-16.A), and stop legislating model behaviour with hand-coded prompt
@@ -106,7 +106,7 @@ phase's real result.
 
 **The live remnant is the fragility shadow clock** (`FRAGILITY_MODE=log`), which
 waits on exactly one thing: a live `Elevated` episode. Current status is on the
-board in `Active_Experiments.md`.
+board in `active-experiments.md`.
 
 **Worth remembering the phase for the method, not the levers.** Fragility earned
 its place through a look-ahead-safe backtest *before* anyone trusted it, and that
@@ -120,7 +120,7 @@ whichever way it goes — is what Phases 17, 19 and 21 all ran on afterwards.
 
 **Why.** The fragility index earned its place via a rigorous, look-ahead-safe backtest before we trusted it (Phase 16.A). The **HMM regime layer (Phase 10) never got the same scrutiny**: it is fit and feeds the quant context, but we have not shown (a) that it is computed look-ahead-safe in the daily pipeline, (b) that its state labels actually separate forward returns / volatility out-of-sample, or (c) that 4 states is the right choice rather than an arbitrary one. This track applies the fragility discipline to the existing numerical layers, **starting with regime**. Pure-numerical, **zero LLM/API cost**, on its own branch in parallel with the fragility shadow.
 
-**Branch.** `feature/regime-validation`. **Method.** Reuse the fragility harness patterns (`fragility_backtest.py`): pull-once-and-slice for prices, walk-forward look-ahead-safety, Mann-Whitney AUC, de-overlapped episode scoring, and record results in `Knowledge_Base.md` (KB-003+), kept separate from this plan.
+**Branch.** `feature/regime-validation`. **Method.** Reuse the fragility harness patterns (`fragility_backtest.py`): pull-once-and-slice for prices, walk-forward look-ahead-safety, Mann-Whitney AUC, de-overlapped episode scoring, and record results in `knowledge-base.md` (KB-003+), kept separate from this plan.
 
 1. **WP-17.1 — Look-ahead audit of the regime pipeline. ✅ Done** (→ KB-003). Built `regime_backtest.py` (walk-forward vs full-sample, look-ahead-safe). Findings: live labeling is safe; validation must use walk-forward, never the persisted full-sample model; inference is single-point so the HMM's transition matrix is unused live. Caught a **shipped bug** — the HY-OAS credit feature (`BAMLH0A0HYM2`, only ~3y of FRED history) truncated training to ~2y; fixed by switching the regime credit feature to **`BAA10Y`** in both training + live (`baa_spread`, model regenerated via `refit_models.py`). Walk-forward vs full-sample labels disagree 70.5%; the full-sample model collapses to one label (startprob-dominated). *(Conditional layer still on truncated HY-OAS → WP-17.5.)*
 
@@ -480,7 +480,7 @@ reconsidered **only if** WP-21.A shows an edge to be expressive about.
 ### WP-21.A–D — the learnability test, and the cut *(detail archived 2026-09-04)*
 
 Method, full numbers and the kill-criterion reasoning →
-[Project_Development_Archive.md](Project_Development_Archive.md). The measured
+[roadmap-archive.md](roadmap-archive.md). The measured
 result is **[KB-024]**.
 
 | WP | What it did | Verdict |

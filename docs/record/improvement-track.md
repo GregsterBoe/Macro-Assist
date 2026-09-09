@@ -6,9 +6,9 @@ apart from the main roadmap on purpose:
 
 | Doc | Holds |
 |---|---|
-| `Project_Development.md` | The main plan — phases, work packages, the forward roadmap. |
-| `Knowledge_Base.md` | **Measured findings** — falsifiable results with their caveats. |
-| **`Project_Improvement.md`** (this) | **Improvement experiments** — the design, the staging, and the current status of attempts to make an existing piece better. |
+| `roadmap.md` | The main plan — phases, work packages, the forward roadmap. |
+| `knowledge-base.md` | **Measured findings** — falsifiable results with their caveats. |
+| **`improvement-track.md`** (this) | **Improvement experiments** — the design, the staging, and the current status of attempts to make an existing piece better. |
 
 This doc holds the *plan and status* of an improvement. It does **not** hold
 results — see the convention immediately below.
@@ -18,7 +18,7 @@ results — see the convention immediately below.
 ## Working convention — improvement knowledge lives in the Knowledge Base
 
 **Every improvement experiment that produces a measured result gets written up as
-a `Knowledge_Base.md` (KB-###) entry** — the same discipline the fragility track
+a `knowledge-base.md` (KB-###) entry** — the same discipline the fragility track
 already follows (KB-001/002/012). Specifically:
 
 - **A result is a KB entry, not a note here.** Whatever the input/component
