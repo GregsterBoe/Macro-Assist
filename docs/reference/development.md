@@ -78,12 +78,25 @@ Whether to mark it `integration` is an open follow-up in the
 
 ## Version Management
 
-Pipeline versions are centralized in `.macro-assist/versions.py`. To bump the version after a structural capability change:
+Pipeline versions are centralized in `.macro-assist/versions.py`. Bump after a
+**structural capability change** — a new data source, a new agent pass, a change
+to what the note publishes — not for a bug fix or a refactor that leaves the
+output identical:
 
-1. Change `PIPELINE_VERSION` to the new `"vX.Y"` string
-2. Close the last `VERSION_MILESTONES` entry (set end date to yesterday)
-3. Append a new milestone entry with today as start and `date(2099, 12, 31)` as end
-4. Run: `python .macro-assist/tag_versions.py && python .macro-assist/summarize_accuracy.py`
+```bash
+python .macro-assist/bump_version.py v1.8 "+ what changed, one line"
+python .macro-assist/tag_versions.py
+python .macro-assist/summarize_accuracy.py
+```
+
+The bump script does the whole edit atomically — `PIPELINE_VERSION`, closing the
+open milestone, the new entry, and the table on the
+[Versioning](versions.md) page — so there is no hand-editing step to get
+half-done. Pass `--start YYYY-MM-DD` when the capability goes live on a date
+that is not today.
+
+[Versioning](versions.md) is the full picture: what each stamp means, the
+milestone table, and the three constants the scorers gate on.
 
 ---
 

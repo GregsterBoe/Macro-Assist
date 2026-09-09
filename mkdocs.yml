@@ -83,6 +83,7 @@ nav:
       - Data sources: reference/data-sources.md
       - Analysis pipeline: reference/analysis-pipeline.md
       - Scoring: reference/scoring.md
+      - Versioning: reference/versions.md
       - Operations: reference/operations.md
       - Development: reference/development.md
   - Decisions:

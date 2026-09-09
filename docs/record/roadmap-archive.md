@@ -845,6 +845,10 @@ Non-trading rows (dividends, interest, transfers, card transactions) are ignored
 
 ### Result Versioning
 
+> **Frozen, as the rest of this block is.** The milestone table below stops at
+> `v1.5 – present` because that is where it stood on 2026-09-04. The maintained
+> version record is `docs/reference/versions.md`.
+
 Every generated note and score file carries an `agent_version` field that identifies which pipeline version produced it. This enables the accuracy feedback loop to filter out predictions from older, lower-quality pipeline versions.
 
 #### Version Milestones

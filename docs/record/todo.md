@@ -188,8 +188,23 @@ bear-share into the first risk-off. Revisit at the DESIGN §9 quarter mark.
 
 ## Tooling
 
-### Open decision #9 — `bump_version.py` cannot find its anchors (pre-existing)
-**Where:** `.macro-assist/bump_version.py:31` (`_PROJECT_DOC`) · `:86` (the
+### RESOLVED 2026-09-09 — #9 `bump_version.py` cannot find its anchors (pre-existing)
+**Resolution: option 3 — generate the table.** The milestones table now lives at
+[Reference → Versioning](../reference/versions.md), rewritten wholesale from
+`VERSION_MILESTONES` between HTML markers on every bump, and
+`tests/test_versions.py::test_docs_table_matches_milestones` fails if the page and
+the code disagree. Option 2 (drop the doc half) was the earlier lean and was
+rejected on one ground: the docs are a published site now, and it would leave a
+reader with no way to learn what a `v1.6` stamp means without opening source. The
+drift objection to option 1 does not apply to a generated view that a test pins.
+
+Two things changed in `versions.py` to make the view derivable: the capability
+text moved out of trailing comments into a `Milestone.capability` field (a
+comment would have to be parsed back out), and `--start YYYY-MM-DD` was added for
+a capability that goes live later than its merge — the Sunday refit case. First
+use was the v1.7 bump, same day.
+
+**Was:** `.macro-assist/bump_version.py:31` (`_PROJECT_DOC`) · `:86` (the
 milestones regex) · `:97` (the `agent_version` regex).
 
 `_update_project_doc()` edits two things in the roadmap: the `– present` row of
@@ -215,10 +230,10 @@ table belongs now:
    README calls it that; the roadmap table is a derived view.
 3. **Generate the table** from `versions.py` into a doc page at build time.
 
-Option 2 looks right — a bump helper that maintains a hand-written duplicate of
-a constant it already owns is the drift problem in miniature — but it deletes a
-documented workflow step, so it is a call rather than a fix. Until then, bump the
-version by hand per
+Option 2 looked right at the time — a bump helper that maintains a hand-written
+duplicate of a constant it already owns is the drift problem in miniature — but
+option 3 keeps the single source of truth *and* the published history, because
+the duplicate is generated rather than hand-written. Bump with
 [Development → Version Management](../reference/development.md#version-management).
 
 ---

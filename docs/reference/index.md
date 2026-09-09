@@ -13,6 +13,7 @@ that is [Concepts](../concepts/index.md) for the reasoning and
 | [Data sources](data-sources.md) | FRED series, market data and technicals, the quantitative intelligence layer, sector ETFs, COT, calendar, transcripts |
 | [Analysis pipeline](analysis-pipeline.md) | The four Claude agents, the structured output contract, the weekly model refit, the optional portfolio module |
 | [Scoring](scoring.md) | The directional scorer (frozen), the distribution scorer (live), accuracy aggregation, bias separation, and the learnability harness |
+| [Versioning](versions.md) | What each `agent_version` stamp means, the milestone table, the three constants the scorers gate on, and how to bump |
 | [Operations](operations.md) | GitHub Actions workflows, the external cron trigger and its backstop, required secrets, annual maintenance |
 | [Development](development.md) | Local runs, environment variables, the test suite, version management |
 
