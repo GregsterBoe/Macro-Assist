@@ -172,8 +172,11 @@ def test_docs_table_matches_milestones():
 
 
 def test_docs_example_stamps_match_the_current_version():
+    """Only the fenced examples — the page also discusses older stamps in prose
+    (why the cut keeps its v1.6 number), and those must not be rewritten."""
     text = _DOC.read_text(encoding="utf-8")
-    stamps = re.findall(r'agent_version"?:\s*"?(v[\d.]+)', text)
+    blocks = "\n".join(re.findall(r"^```[a-z]*\n(.*?)^```", text, re.MULTILINE | re.DOTALL))
+    stamps = re.findall(r'agent_version"?:\s*"?(v[\d.]+)', blocks)
     assert stamps, "expected at least one example agent_version stamp on the page"
     assert set(stamps) == {PIPELINE_VERSION}, (
         f"example stamps {sorted(set(stamps))} do not all match PIPELINE_VERSION {PIPELINE_VERSION!r}"

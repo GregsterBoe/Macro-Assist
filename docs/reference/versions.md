@@ -26,7 +26,8 @@ generated from `VERSION_MILESTONES` by
 | v1.3 | 2026-05-29 – *(superseded same day)* | + Phase 11: conditional distributions |
 | v1.4 | 2026-05-29 – 2026-06-26 | + Phase 12: quant context block; Phase 14: weekly refit + monitoring |
 | v1.5 | 2026-06-27 – 2026-09-04 | + WP-16: run profiles (control/loosened), conviction-floor flag, Brier calibration |
-| **v1.6** | **2026-09-05 – present** | WP-21.D: directional product CUT — Bias/Confidence removed [KB-024]; conditional distribution published instead; fragility promoted to headline |
+| v1.6 | 2026-09-05 – 2026-09-08 | WP-21.D: directional product CUT — Bias/Confidence removed [KB-024]; conditional distribution published instead; fragility promoted to headline |
+| **v2.0** | **2026-09-09 – present** | Phase 22 — the measured product is complete: canonical asset registry; conditional table 3 → 6 assets; distribution scorer live against a sealed pre-registered bar. Major: 1.x predicted direction, 2.x measures |
 
 <!-- END VERSION MILESTONES -->
 
@@ -34,6 +35,32 @@ Two entries are marked *superseded same day*: v1.1 and v1.3 were deployed and
 replaced within the same date, so they own no dates and `version_for_date()`
 never returns them. They are kept because notes stamped with them at runtime
 exist in the record.
+
+## The 1.x and 2.x lines
+
+The major digit marks a change in the **kind of claim the note makes**, not the
+size of a release. There has been exactly one:
+
+| Line | The note's claim | Scored by |
+|---|---|---|
+| **1.x** | A directional call — `Bias` and `Confidence %` per asset, per horizon | `score_predictions.py`, against the market |
+| **2.x** | A measured conditional return distribution (median, P25/P75, `n`) and a tail-risk gauge. **No directional call anywhere** | `score_distributions.py`, against an unconditional benchmark |
+
+So a 1.x note and a 2.x note are not two versions of one product; they are two
+different products, and reading one as the other is a mistake the stamp exists to
+prevent. Spend a major when a reader of an old note would misread a new one — not
+on a large feature.
+
+!!! note "Why the cut is v1.6 and not v2.0"
+    The approach changed on **2026-09-05**, when [the cut](../concepts/the-cut.md)
+    removed the directional call — arguably the major boundary. It is numbered
+    v1.6 anyway, for one reason: notes on the `output` branch already carry
+    `agent_version: v1.6`, and this project does not rewrite the record to match
+    a later opinion. v1.6 is the demolition and reads as post-cut everywhere the
+    scorers gate; **v2.0 is where the replacement product became complete and
+    measurable** — a registry, six assets, and a scorer with a sealed bar. The
+    boundary that actually gates behaviour is `LAST_DIRECTIONAL_VERSION` below,
+    which is `v1.5`, and it is unaffected by either number.
 
 ## What each version boundary means for scoring
 
@@ -79,7 +106,7 @@ Every `*-macro.md` carries `agent_version` in its YAML frontmatter, inserted aft
 date: YYYY-MM-DD
 day: Monday
 type: macro-intelligence
-agent_version: v1.6
+agent_version: v2.0
 tags: [macro, daily-note, economics]
 ---
 ```
@@ -90,7 +117,7 @@ after `report_date`:
 ```json
 {
   "report_date": "2026-09-09",
-  "agent_version": "v1.6",
+  "agent_version": "v2.0",
   "scored_at": "2026-09-15",
   "windows": { ... }
 }
@@ -98,12 +125,14 @@ after `report_date`:
 
 ## Bumping the version
 
-Bump after a **structural capability change** — a new data source, a new agent
-pass, a change to what the note publishes. Not for a bug fix, a doc pass, or a
-refactor that leaves the output identical.
+Bump the **minor** digit after a structural capability change — a new data source,
+a new agent pass, a change to what the note publishes. Not for a bug fix, a doc
+pass, or a refactor that leaves the output identical. Bump the **major** digit
+only when the kind of claim changes, per [the 1.x and 2.x lines](#the-1x-and-2x-lines)
+above.
 
 ```bash
-python .macro-assist/bump_version.py v1.8 "+ what changed, one line"
+python .macro-assist/bump_version.py v2.1 "+ what changed, one line"
 ```
 
 That does all of it atomically: sets `PIPELINE_VERSION`, closes the open
@@ -115,7 +144,7 @@ on Sunday, say — pass the real go-live date so the stamp does not claim a
 capability the notes did not yet have:
 
 ```bash
-python .macro-assist/bump_version.py v1.8 "+ ..." --start 2026-09-14
+python .macro-assist/bump_version.py v2.1 "+ ..." --start 2026-09-14
 ```
 
 Then run the post-bump hooks and the guard:

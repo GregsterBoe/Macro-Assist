@@ -143,15 +143,34 @@ def _update_doc(new_version: str) -> None:
     table = render_milestones_table(versions.VERSION_MILESTONES)
     text = f"{head}{_BEGIN}\n\n{table}\n\n{_END}{tail}"
 
-    # The example frontmatter and score-file stamps on the same page.
-    text, n_yaml = re.subn(r'(agent_version:\s*)v[\d.]+', rf'\g<1>{new_version}', text)
-    text, n_json = re.subn(r'("agent_version":\s*")v[\d.]+(")', rf'\g<1>{new_version}\g<2>', text)
+    text, n_stamps = _rewrite_example_stamps(text, new_version)
 
     _DOC.write_text(text, encoding="utf-8")
     print(
         f"  ok  docs/reference/versions.md  table regenerated "
-        f"({len(versions.VERSION_MILESTONES)} milestones), {n_yaml + n_json} example stamps updated"
+        f"({len(versions.VERSION_MILESTONES)} milestones), {n_stamps} example stamps updated"
     )
+
+
+def _rewrite_example_stamps(text: str, new_version: str) -> tuple[str, int]:
+    """Point the page's example frontmatter and score-file stamps at `new_version`.
+
+    Fenced code blocks only. The prose around them cites *older* stamps on
+    purpose — why the cut keeps its v1.6 number, what a 1.x note carried — and
+    rewriting those would turn an explanation into a false one.
+    """
+    count = 0
+
+    def one_block(m: re.Match) -> str:
+        nonlocal count
+        body, n_yaml = re.subn(r'(agent_version:\s*)v[\d.]+', rf'\g<1>{new_version}', m.group(2))
+        body, n_json = re.subn(r'("agent_version":\s*")v[\d.]+(")', rf'\g<1>{new_version}\g<2>', body)
+        count += n_yaml + n_json
+        return m.group(1) + body + m.group(3)
+
+    text = re.sub(r'(^```[a-z]*\n)(.*?)(^```)', one_block, text,
+                  flags=re.MULTILINE | re.DOTALL)
+    return text, count
 
 
 def bump(new_version: str, capability: str, start: date) -> None:

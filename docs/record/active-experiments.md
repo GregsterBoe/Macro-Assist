@@ -15,7 +15,19 @@ detailed doc disagree, the detailed doc wins — fix the row.
 
 **Status legend:** 🟢 running / on-track · 🟡 in progress, needs work · ⏳ forward-accumulating (waiting on live data) · ⏸ holding / queued · ✅ done · ❌ dropped
 
-_Last updated: 2026-09-08 (later) — **Phase 22 opened and shipped: the scoring
+_Last updated: 2026-09-09 — **Phase 22's shipment is stamped `v2.0`** (2026-09-09 →),
+and the major digit is the point: the 1.x line predicted direction, the 2.x line
+publishes measured distributions and makes no directional call at all. A 1.x note
+and a 2.x note are different products, not two versions of one. v1.6 keeps its
+number — the cut is where the approach changed, but notes on `output` already
+carry `agent_version: v1.6` and the record is not rewritten to match a later
+opinion; v1.6 is the demolition, v2.0 is where the replacement is complete and
+measurable. `LAST_DIRECTIONAL_VERSION` is still `v1.5` and gates unchanged.
+v1.6 now closes 2026-09-08. The
+milestone table has a maintained home again at
+[Reference → Versioning](../reference/versions.md), which also settles
+[open decision #9](todo.md) — it is generated from `versions.py` and pinned there
+by a test. Previously, 2026-09-08 (later) — **Phase 22 opened and shipped: the scoring
 system now follows the v1.6 product.** Since the cut, the pipeline had been
 publishing a conditional distribution that no scorer measured; `score_distributions.py`
 closes that, the asset universe went 3 → 6, and the bar was sealed while the
