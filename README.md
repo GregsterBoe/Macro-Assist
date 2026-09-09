@@ -94,6 +94,7 @@ the story of the v1.6 cut, and the standing conclusions.
 [Data sources](docs/reference/data-sources.md) ·
 [Analysis pipeline](docs/reference/analysis-pipeline.md) ·
 [Scoring](docs/reference/scoring.md) ·
+[Versioning](docs/reference/versions.md) ·
 [Operations](docs/reference/operations.md) ·
 [Development](docs/reference/development.md)
 
@@ -123,7 +124,7 @@ and is never rewritten to match a later opinion.
 
 | | |
 |---|---|
-| **Pipeline version** | v1.6 (2026-09-05 →) |
+| **Pipeline version** | v1.6 → **v2.0** from 2026-09-10 — the measured line; 1.x predicted direction ([what the stamps mean](docs/reference/versions.md)) |
 | **Live product** | Conditional return distribution across 6 assets + the Fragility Monitor headline |
 | **Live experiment** | Phase 22 — the distribution scorer. Bar sealed 2026-09-08, first honest read ~2027-05 |
 | **Winding down** | The directional scorer, once the last T+20 window resolves ~2026-10-02 |

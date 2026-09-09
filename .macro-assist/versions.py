@@ -9,6 +9,16 @@ on the docs page:
     python .macro-assist/tag_versions.py
     python .macro-assist/summarize_accuracy.py
 
+Major vs minor:
+  - **Minor** (vX.Y) — a structural capability change within the current approach:
+    a new data source, a new agent pass, a change to what the note publishes.
+  - **Major** (vX.0) — the *kind* of claim the note makes changes. There has been
+    exactly one: the 1.x line predicted direction (Bias + Confidence, scored
+    against the market); the 2.x line publishes measured distributions and a
+    tail-risk gauge, and makes no directional call at all. Do not spend a major
+    on a large feature — spend it when a reader of an old note would misread a
+    new one.
+
 Notes:
   - All version strings include the "v" prefix (e.g. "v1.4").
   - Zero-range milestone entries (start > end) are never matched by version_for_date();
@@ -46,7 +56,7 @@ class Milestone(NamedTuple):
 # ---------------------------------------------------------------------------
 # Current pipeline version — stamped into every generated note's YAML frontmatter.
 # ---------------------------------------------------------------------------
-PIPELINE_VERSION: str = "v1.6"
+PIPELINE_VERSION: str = "v2.0"
 
 # ---------------------------------------------------------------------------
 # Minimum version included in the accuracy feedback loop.
@@ -74,7 +84,8 @@ VERSION_MILESTONES: list[Milestone] = [
     Milestone("v1.3", date(2026, 5, 29), date(2026, 5, 28), "+ Phase 11: conditional distributions"),
     Milestone("v1.4", date(2026, 5, 29), date(2026, 6, 26), "+ Phase 12: quant context block; Phase 14: weekly refit + monitoring"),
     Milestone("v1.5", date(2026, 6, 27), date(2026, 9,  4), "+ WP-16: run profiles (control/loosened), conviction-floor flag, Brier calibration"),
-    Milestone("v1.6", date(2026, 9,  5), date(2099, 12, 31), "WP-21.D: directional product CUT — Bias/Confidence removed [KB-024]; conditional distribution published instead; fragility promoted to headline"),
+    Milestone("v1.6", date(2026, 9,  5), date(2026,  9,  9), "WP-21.D: directional product CUT — Bias/Confidence removed [KB-024]; conditional distribution published instead; fragility promoted to headline"),
+    Milestone("v2.0", date(2026,  9, 10), date(2099, 12, 31), "Phase 22 — the measured product is complete: canonical asset registry; conditional table 3 → 6 assets; distribution scorer live against a sealed pre-registered bar. Major: 1.x predicted direction, 2.x measures"),
 ]
 
 # ---------------------------------------------------------------------------

@@ -115,8 +115,19 @@ def test_dates_before_the_first_milestone_are_unknown():
     assert version_for_date(_REAL[0].start - timedelta(days=1)) == "unknown"
 
 
-def test_today_resolves_to_the_current_pipeline_version():
-    assert version_for_date(date.today()) == PIPELINE_VERSION
+def test_today_resolves_consistently_with_the_open_milestone():
+    """Once the open milestone has started, today is that version.
+
+    A bump staged ahead of its go-live date (`--start`) is the one legitimate
+    window where it has not: PIPELINE_VERSION is already the new string, but
+    today still belongs to the previous milestone. Either way today must land on
+    a real version — never in a gap, which is what would silently un-tag files.
+    """
+    today = date.today()
+    if today >= current_milestone().start:
+        assert version_for_date(today) == PIPELINE_VERSION
+    else:
+        assert version_for_date(today) == _REAL[-2].version
 
 
 # ---------------------------------------------------------------------------
@@ -172,8 +183,11 @@ def test_docs_table_matches_milestones():
 
 
 def test_docs_example_stamps_match_the_current_version():
+    """Only the fenced examples — the page also discusses older stamps in prose
+    (why the cut keeps its v1.6 number), and those must not be rewritten."""
     text = _DOC.read_text(encoding="utf-8")
-    stamps = re.findall(r'agent_version"?:\s*"?(v[\d.]+)', text)
+    blocks = "\n".join(re.findall(r"^```[a-z]*\n(.*?)^```", text, re.MULTILINE | re.DOTALL))
+    stamps = re.findall(r'agent_version"?:\s*"?(v[\d.]+)', blocks)
     assert stamps, "expected at least one example agent_version stamp on the page"
     assert set(stamps) == {PIPELINE_VERSION}, (
         f"example stamps {sorted(set(stamps))} do not all match PIPELINE_VERSION {PIPELINE_VERSION!r}"

@@ -135,9 +135,11 @@ For each asset:
   those figures in primary_driver, and you must never contradict, "correct", or
   argue past them. If your reasoning points somewhere the distribution does not,
   say so as a named tension, not as a call.
-- **Where the data is thin, say so.** 10Y Treasury Yield, DXY and Bitcoin have no
-  conditional distribution in the table; the column will say so. Do not
-  compensate with extra conviction in the prose.
+- **Where the data is thin, say so.** An asset with no distribution for the
+  current macro bucket shows `— no conditional base rate` in that column instead
+  of numbers. Which assets those are is not fixed — it changes as the weekly
+  refit rebuilds the table — so read the column rather than assuming, and never
+  compensate for a missing distribution with extra conviction in the prose.
 - **Ranges are widened by uncertainty, never narrowed by confidence.** If the
   fragility flag is firing or realized vol is elevated, the band gets wider.
 

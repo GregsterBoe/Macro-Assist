@@ -186,10 +186,17 @@ class TestFreeTextColumnInjection:
 
 class TestVersionGate:
 
-    def test_v16_is_current_and_starts_after_v15(self):
-        assert versions.PIPELINE_VERSION == "v1.6"
+    def test_the_cut_boundary_holds(self):
+        """2026-09-05 is where the directional product stopped. Pinned by date,
+        not by whichever version is current: the current version moves on every
+        bump, this boundary must not — [KB-007]/[KB-011]/[KB-022] reproduce off
+        it."""
         assert versions.version_for_date(date(2026, 9, 4)) == "v1.5"
         assert versions.version_for_date(date(2026, 9, 5)) == "v1.6"
+
+    def test_current_version_is_post_cut(self):
+        """Whatever the pipeline is stamping today, it carries no direction."""
+        assert versions.has_directional_calls(versions.PIPELINE_VERSION) is False
 
     @pytest.mark.parametrize("v", ["v0.1", "v1.4", "v1.5"])
     def test_history_still_scores(self, v):

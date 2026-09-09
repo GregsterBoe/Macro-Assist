@@ -202,7 +202,7 @@ Two things changed in `versions.py` to make the view derivable: the capability
 text moved out of trailing comments into a `Milestone.capability` field (a
 comment would have to be parsed back out), and `--start YYYY-MM-DD` was added for
 a capability that goes live later than its merge — the Sunday refit case. First
-use was the v1.7 bump, same day.
+use was the v2.0 bump, same day.
 
 **Was:** `.macro-assist/bump_version.py:31` (`_PROJECT_DOC`) · `:86` (the
 milestones regex) · `:97` (the `agent_version` regex).

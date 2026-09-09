@@ -26,7 +26,8 @@ generated from `VERSION_MILESTONES` by
 | v1.3 | 2026-05-29 – *(superseded same day)* | + Phase 11: conditional distributions |
 | v1.4 | 2026-05-29 – 2026-06-26 | + Phase 12: quant context block; Phase 14: weekly refit + monitoring |
 | v1.5 | 2026-06-27 – 2026-09-04 | + WP-16: run profiles (control/loosened), conviction-floor flag, Brier calibration |
-| **v1.6** | **2026-09-05 – present** | WP-21.D: directional product CUT — Bias/Confidence removed [KB-024]; conditional distribution published instead; fragility promoted to headline |
+| v1.6 | 2026-09-05 – 2026-09-09 | WP-21.D: directional product CUT — Bias/Confidence removed [KB-024]; conditional distribution published instead; fragility promoted to headline |
+| **v2.0** | **2026-09-10 – present** | Phase 22 — the measured product is complete: canonical asset registry; conditional table 3 → 6 assets; distribution scorer live against a sealed pre-registered bar. Major: 1.x predicted direction, 2.x measures |
 
 <!-- END VERSION MILESTONES -->
 
@@ -34,6 +35,32 @@ Two entries are marked *superseded same day*: v1.1 and v1.3 were deployed and
 replaced within the same date, so they own no dates and `version_for_date()`
 never returns them. They are kept because notes stamped with them at runtime
 exist in the record.
+
+## The 1.x and 2.x lines
+
+The major digit marks a change in the **kind of claim the note makes**, not the
+size of a release. There has been exactly one:
+
+| Line | The note's claim | Scored by |
+|---|---|---|
+| **1.x** | A directional call — `Bias` and `Confidence %` per asset, per horizon | `score_predictions.py`, against the market |
+| **2.x** | A measured conditional return distribution (median, P25/P75, `n`) and a tail-risk gauge. **No directional call anywhere** | `score_distributions.py`, against an unconditional benchmark |
+
+So a 1.x note and a 2.x note are not two versions of one product; they are two
+different products, and reading one as the other is a mistake the stamp exists to
+prevent. Spend a major when a reader of an old note would misread a new one — not
+on a large feature.
+
+!!! note "Why the cut is v1.6 and not v2.0"
+    The approach changed on **2026-09-05**, when [the cut](../concepts/the-cut.md)
+    removed the directional call — arguably the major boundary. It is numbered
+    v1.6 anyway, for one reason: notes on the `output` branch already carry
+    `agent_version: v1.6`, and this project does not rewrite the record to match
+    a later opinion. v1.6 is the demolition and reads as post-cut everywhere the
+    scorers gate; **v2.0 is where the replacement product became complete and
+    measurable** — a registry, six assets, and a scorer with a sealed bar. The
+    boundary that actually gates behaviour is `LAST_DIRECTIONAL_VERSION` below,
+    which is `v1.5`, and it is unaffected by either number.
 
 ## What each version boundary means for scoring
 
@@ -79,7 +106,7 @@ Every `*-macro.md` carries `agent_version` in its YAML frontmatter, inserted aft
 date: YYYY-MM-DD
 day: Monday
 type: macro-intelligence
-agent_version: v1.6
+agent_version: v2.0
 tags: [macro, daily-note, economics]
 ---
 ```
@@ -90,7 +117,7 @@ after `report_date`:
 ```json
 {
   "report_date": "2026-09-09",
-  "agent_version": "v1.6",
+  "agent_version": "v2.0",
   "scored_at": "2026-09-15",
   "windows": { ... }
 }
@@ -98,38 +125,55 @@ after `report_date`:
 
 ## Bumping the version
 
-Bump after a **structural capability change** — a new data source, a new agent
-pass, a change to what the note publishes. Not for a bug fix, a doc pass, or a
-refactor that leaves the output identical.
+Bump the **minor** digit after a structural capability change — a new data source,
+a new agent pass, a change to what the note publishes. Not for a bug fix, a doc
+pass, or a refactor that leaves the output identical. Bump the **major** digit
+only when the kind of claim changes, per [the 1.x and 2.x lines](#the-1x-and-2x-lines)
+above.
 
 ```bash
-python .macro-assist/bump_version.py v1.8 "+ what changed, one line"
+python .macro-assist/bump_version.py v2.1 "+ what changed, one line"
 ```
 
 That does all of it atomically: sets `PIPELINE_VERSION`, closes the open
 milestone at yesterday, appends the new entry, and regenerates the table on this
 page from `VERSION_MILESTONES`.
 
-When the capability goes live on a date that is not today — a weekly refit lands
-on Sunday, say — pass the real go-live date so the stamp does not claim a
-capability the notes did not yet have:
+**Date the milestone to the first note that will carry the stamp.** The pipeline
+stamps from `PIPELINE_VERSION` the moment the bump is on `main`, so the milestone
+must start on the first run after the merge — usually the next weekday. Date it
+later and notes get stamped with a version the table says had not started yet;
+date it earlier and it claims notes that were built by the old code.
 
 ```bash
-python .macro-assist/bump_version.py v1.8 "+ ..." --start 2026-09-14
+python .macro-assist/bump_version.py v2.1 "+ ..." --start 2026-09-14
 ```
+
+If the merge slips past the date you picked, re-run the bump with the right one
+before merging — it is one command, and nothing downstream repairs it afterwards
+(see the warning below).
 
 Then run the post-bump hooks and the guard:
 
 ```bash
-python .macro-assist/tag_versions.py         # backfill the stamp onto existing files
+python .macro-assist/tag_versions.py         # only if untagged pre-2026-05-26 files exist
 python .macro-assist/summarize_accuracy.py   # rebuild per-version stats
 pytest .macro-assist/tests/test_versions.py  # milestones + this page agree
 ```
 
-`tag_versions.py` assigns by **date**, so it will re-stamp a note whose runtime
-`PIPELINE_VERSION` was written before the bump landed. That is the intended
-direction: the date range is the more accurate record of which code built the
-note.
+!!! warning "`tag_versions.py` backfills; it does not correct"
+    It **skips any file that already carries an `agent_version`** — see
+    `tag_result_files()`. It exists for reports that predate the versioning
+    system (before 2026-05-26) and have no stamp at all; on a modern bump it
+    will report `0 tagged` and change nothing.
+
+    So the runtime stamp is the one that sticks. A note generated *before* a
+    bump merges keeps the old version even if the new milestone's date range
+    covers it, and nothing in the repo will reconcile the two. That is why
+    `--start` matters: set the milestone to begin on the first note that will
+    actually be stamped with it, rather than assuming a backfill will clean up
+    afterwards. If a note does end up mis-stamped, it is a manual edit on the
+    `output` branch.
 
 ## Where the old table went
 
