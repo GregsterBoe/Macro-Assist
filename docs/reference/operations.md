@@ -94,13 +94,42 @@ the result to GitHub Pages. Pull requests build but do not deploy: `mkdocs build
 --strict` fails on a broken internal link, so a doc move that leaves a dangling
 reference is caught in review.
 
-**Publishing requires one manual setting**, done once by a repo admin at
-**Settings → Pages → Build and deployment → Source: "GitHub Actions"**. The
-workflow cannot set it: creating a Pages site is an admin-level API call and the
-Actions token is not a repo admin, so `actions/configure-pages` with `enablement`
-returns *Resource not accessible by integration* whatever `permissions:` grants.
-Until it is set, the deploy job's preflight check fails with that instruction
-rather than letting `actions/deploy-pages` report a bare 404.
+**Publishing requires Pages to be switched on once**, by a repo admin, in one of
+two ways.
+
+*In the browser:* **Settings → Pages → Build and deployment → Source: "GitHub
+Actions"**.
+
+*Over the API*, which is the way out when that settings page 404s or the
+dropdown will not stick. It needs a token with admin on the repo — a classic PAT
+with `repo`, or a fine-grained one with *Pages: read and write*:
+
+```bash
+# create the Pages site with source "GitHub Actions" (201 = done)
+curl -X POST -H "Authorization: Bearer $PAT" \
+  -H "Accept: application/vnd.github+json" \
+  -H "Content-Type: application/json" \
+  https://api.github.com/repos/GregsterBoe/Macro-Assist/pages \
+  -d '{"build_type":"workflow"}'
+
+# if it answers 409 the site already exists on a branch source; switch it
+curl -X PUT ...same headers... \
+  https://api.github.com/repos/GregsterBoe/Macro-Assist/pages \
+  -d '{"build_type":"workflow"}'      # 204 = done
+
+# confirm
+curl -H "Authorization: Bearer $PAT" \
+  https://api.github.com/repos/GregsterBoe/Macro-Assist/pages | jq .build_type
+```
+
+Storing that same token as the repository secret `PAGES_ADMIN_TOKEN` hands the
+job to the workflow: the deploy preflight creates the site, or switches it off a
+branch source, on the next run. The default Actions token cannot do either —
+creating a Pages site is an admin-level API call and `GITHUB_TOKEN` is not a repo
+admin, so `actions/configure-pages` with `enablement` returns *Resource not
+accessible by integration* whatever `permissions:` grants. Until Pages is on, the
+preflight fails with these instructions rather than letting
+`actions/deploy-pages` report a bare 404.
 
 All workflows support `workflow_dispatch` for manual testing from the GitHub Actions UI. Cron calls dispatch `ref: main`, and the backstop schedule (like every GitHub schedule) runs on the default branch, so everything executes against `main`.
 

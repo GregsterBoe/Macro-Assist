@@ -6,17 +6,31 @@ name: Docs
 # renders it. Nothing here authors content, so the site cannot drift from the
 # repo the way a hand-maintained second copy would.
 #
-# ONE-TIME SETUP, done by a repo admin in the browser:
+# ONE-TIME SETUP. Either of these, done once by a repo admin:
 #
-#   Settings -> Pages -> Build and deployment -> Source: "GitHub Actions"
+#   a) Settings -> Pages -> Build and deployment -> Source: "GitHub Actions"
 #
-# There is no way to do this from the workflow. actions/configure-pages with
-# enablement was tried (PR #23) and cannot work here: creating a Pages site is
-# an admin-level API call, and the Actions GITHUB_TOKEN is not a repo admin, so
-# POST /repos/.../pages comes back "Resource not accessible by integration"
-# however the permissions: block is written. Until an admin flips that setting,
-# the deploy job stops at the preflight below with an explicit message rather
-# than at actions/deploy-pages with a bare 404.
+#   b) If that page 404s or the dropdown will not stick, do the same thing
+#      through the API, which needs no browser:
+#
+#        curl -X POST -H "Authorization: Bearer $PAT" \
+#          -H "Accept: application/vnd.github+json" \
+#          -H "Content-Type: application/json" \
+#          https://api.github.com/repos/OWNER/REPO/pages \
+#          -d '{"build_type":"workflow"}'
+#
+#      $PAT is a token with admin on this repo (classic: `repo`; fine-grained:
+#      Pages read and write). Store that same token as the repository secret
+#      PAGES_ADMIN_TOKEN and the preflight below does it for you on the next
+#      run — that is the only way the workflow can enable Pages itself.
+#
+# The default GITHUB_TOKEN cannot. actions/configure-pages with enablement was
+# tried (PR #23) and cannot work here: creating a Pages site is an admin-level
+# API call and the Actions token is not a repo admin, so POST /repos/.../pages
+# comes back "Resource not accessible by integration" however the permissions:
+# block is written. Until Pages is on, the deploy job stops at the preflight
+# below with an explicit message rather than at actions/deploy-pages with a
+# bare 404.
 
 on:
   push:
@@ -77,24 +91,69 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       # deploy-pages reports both "Pages is off" and "Pages is on but reads from
-      # a branch" as an unexplained 404. Name the actual condition instead.
+      # a branch" as an unexplained 404. Name the actual condition instead, and
+      # fix it in place when an admin token is available.
       - name: Check Pages is configured
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Optional. A PAT with admin on this repo, which the Actions token is
+          # not. When set, this step enables Pages (or switches it off a branch
+          # source) by itself; when unset, it explains what to click instead.
+          PAGES_ADMIN_TOKEN: ${{ secrets.PAGES_ADMIN_TOKEN }}
         run: |
           set -euo pipefail
-          status=$(curl -sS -o /tmp/pages.json -w '%{http_code}' \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pages")
+
+          admin_token="${PAGES_ADMIN_TOKEN:-}"
+          pages_api="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pages"
+          settings="https://github.com/${GITHUB_REPOSITORY}/settings/pages"
+
+          # call <method> <token> [json body] -> prints HTTP status,
+          # response body lands in /tmp/pages.json
+          call() {
+            local method="$1" token="$2" body="${3:-}"
+            if [ -n "$body" ]; then
+              curl -sS -X "$method" -o /tmp/pages.json -w '%{http_code}' \
+                -H "Authorization: Bearer $token" \
+                -H "Accept: application/vnd.github+json" \
+                -H "Content-Type: application/json" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                -d "$body" "$pages_api"
+            else
+              curl -sS -X "$method" -o /tmp/pages.json -w '%{http_code}' \
+                -H "Authorization: Bearer $token" \
+                -H "Accept: application/vnd.github+json" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                "$pages_api"
+            fi
+          }
+
+          # The manual remedy, printed whenever this step cannot fix things.
+          how_to_fix="Set it once at ${settings} -> Build and deployment -> \
+          Source: 'GitHub Actions'. If that page 404s, do the same over the API: \
+          curl -X POST -H \"Authorization: Bearer \$PAT\" -H \"Content-Type: \
+          application/json\" ${pages_api} -d '{\"build_type\":\"workflow\"}' \
+          with a token that has admin on this repo, or store that token as the \
+          PAGES_ADMIN_TOKEN secret and re-run this workflow."
+
+          status=$(call GET "$GH_TOKEN")
+
+          if [ "$status" = "404" ] && [ -n "$admin_token" ]; then
+            echo "Pages is off; creating the site with PAGES_ADMIN_TOKEN."
+            created=$(call POST "$admin_token" '{"build_type":"workflow"}')
+            if [ "$created" = "201" ]; then
+              echo "Created the Pages site with source 'GitHub Actions'."
+              status=$(call GET "$GH_TOKEN")
+            else
+              cat /tmp/pages.json || true
+              echo "::error title=PAGES_ADMIN_TOKEN could not enable Pages::\
+          POST /pages returned HTTP ${created}. The token needs admin on this \
+          repository (classic PAT: 'repo'; fine-grained: Pages read and write)."
+              exit 1
+            fi
+          fi
 
           if [ "$status" = "404" ]; then
-            echo "::error title=GitHub Pages is not enabled::\
-          Enable it once at https://github.com/${GITHUB_REPOSITORY}/settings/pages \
-          -> Build and deployment -> Source: 'GitHub Actions'. \
-          The workflow cannot do this itself: creating a Pages site needs repo \
-          admin rights, which the Actions token does not have."
+            echo "::error title=GitHub Pages is not enabled::${how_to_fix}"
             exit 1
           fi
 
@@ -108,12 +167,24 @@ jobs:
           # Only "legacy" is a proven misconfiguration. An absent or unexpected
           # build_type is not worth failing a deploy over, so it falls through.
           build_type=$(jq -r '.build_type // "unset"' /tmp/pages.json)
+
+          if [ "$build_type" = "legacy" ] && [ -n "$admin_token" ]; then
+            echo "Pages reads from a branch; switching it to GitHub Actions."
+            switched=$(call PUT "$admin_token" '{"build_type":"workflow"}')
+            if [ "$switched" = "204" ] || [ "$switched" = "200" ]; then
+              echo "Switched the Pages source to 'GitHub Actions'."
+              build_type=workflow
+            else
+              cat /tmp/pages.json || true
+              echo "::warning::PAGES_ADMIN_TOKEN could not switch the Pages \
+          source (HTTP ${switched}); falling through to the error below."
+            fi
+          fi
+
           if [ "$build_type" = "legacy" ]; then
             echo "::error title=Pages source is not GitHub Actions::\
           Pages is enabled but reads from a branch, so a workflow deployment is \
-          rejected. Set it at \
-          https://github.com/${GITHUB_REPOSITORY}/settings/pages \
-          -> Build and deployment -> Source: 'GitHub Actions'."
+          rejected. ${how_to_fix}"
             exit 1
           fi
 
