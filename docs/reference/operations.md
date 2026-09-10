@@ -86,6 +86,22 @@ catch-up call.
 2. Run `refit_models.py` (5yr FRED + market data fetch, HMM refit, distribution rebuild)
 3. Commit `data/regime_model.pkl` + `data/conditional_distributions.json`
 
+### docs.yml — the documentation site
+
+Independent of the pipeline. Renders `docs/` with MkDocs Material on any push to
+`main` that touches `docs/`, `mkdocs.yml`, or the workflow itself, and publishes
+the result to GitHub Pages. Pull requests build but do not deploy: `mkdocs build
+--strict` fails on a broken internal link, so a doc move that leaves a dangling
+reference is caught in review.
+
+**Publishing requires one manual setting**, done once by a repo admin at
+**Settings → Pages → Build and deployment → Source: "GitHub Actions"**. The
+workflow cannot set it: creating a Pages site is an admin-level API call and the
+Actions token is not a repo admin, so `actions/configure-pages` with `enablement`
+returns *Resource not accessible by integration* whatever `permissions:` grants.
+Until it is set, the deploy job's preflight check fails with that instruction
+rather than letting `actions/deploy-pages` report a bare 404.
+
 All workflows support `workflow_dispatch` for manual testing from the GitHub Actions UI. Cron calls dispatch `ref: main`, and the backstop schedule (like every GitHub schedule) runs on the default branch, so everything executes against `main`.
 
 Stages 1–6 are reusable workflows (`workflow_call`) and carry no trigger of their own — `pipeline.yml` is the only scheduled entry point in the chain, so there is exactly one thing to check when a morning looks quiet.

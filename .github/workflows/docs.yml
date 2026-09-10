@@ -6,11 +6,17 @@ name: Docs
 # renders it. Nothing here authors content, so the site cannot drift from the
 # repo the way a hand-maintained second copy would.
 #
-# Setup: the build job calls actions/configure-pages with enablement, which
-# turns Pages on and sets its source to "GitHub Actions" via the API on the
-# first run. If that call is blocked (org policy on workflow token scopes),
-# do it by hand once: repo Settings -> Pages -> Source: "GitHub Actions".
-# Without it, actions/deploy-pages fails with a bare 404 at deploy time.
+# ONE-TIME SETUP, done by a repo admin in the browser:
+#
+#   Settings -> Pages -> Build and deployment -> Source: "GitHub Actions"
+#
+# There is no way to do this from the workflow. actions/configure-pages with
+# enablement was tried (PR #23) and cannot work here: creating a Pages site is
+# an admin-level API call, and the Actions GITHUB_TOKEN is not a repo admin, so
+# POST /repos/.../pages comes back "Resource not accessible by integration"
+# however the permissions: block is written. Until an admin flips that setting,
+# the deploy job stops at the preflight below with an explicit message rather
+# than at actions/deploy-pages with a bare 404.
 
 on:
   push:
@@ -36,12 +42,10 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # pages: write lets configure-pages enable Pages on a repo where it was
-    # never turned on; id-token: write is what that action's API call signs with.
+    # Rendering the site needs nothing but the source. The Pages scopes live on
+    # the deploy job, which is the only place they are used.
     permissions:
       contents: read
-      pages: write
-      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -50,13 +54,6 @@ jobs:
           cache: pip
       - name: Install MkDocs
         run: pip install -r docs/requirements.txt
-      # Enables Pages if it is off, and pins the source to Actions. Only needed
-      # on a real publish; PR builds just check that the site compiles.
-      - name: Configure Pages
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
       # --strict fails the build on a broken internal link, so a doc move that
       # leaves a dangling reference is caught in the PR rather than on the site.
       - name: Build site
@@ -79,5 +76,47 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # deploy-pages reports both "Pages is off" and "Pages is on but reads from
+      # a branch" as an unexplained 404. Name the actual condition instead.
+      - name: Check Pages is configured
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          status=$(curl -sS -o /tmp/pages.json -w '%{http_code}' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pages")
+
+          if [ "$status" = "404" ]; then
+            echo "::error title=GitHub Pages is not enabled::\
+          Enable it once at https://github.com/${GITHUB_REPOSITORY}/settings/pages \
+          -> Build and deployment -> Source: 'GitHub Actions'. \
+          The workflow cannot do this itself: creating a Pages site needs repo \
+          admin rights, which the Actions token does not have."
+            exit 1
+          fi
+
+          if [ "$status" != "200" ]; then
+            echo "::warning::Could not read the Pages configuration (HTTP $status); \
+          letting the deploy step report the real error."
+            cat /tmp/pages.json || true
+            exit 0
+          fi
+
+          # Only "legacy" is a proven misconfiguration. An absent or unexpected
+          # build_type is not worth failing a deploy over, so it falls through.
+          build_type=$(jq -r '.build_type // "unset"' /tmp/pages.json)
+          if [ "$build_type" = "legacy" ]; then
+            echo "::error title=Pages source is not GitHub Actions::\
+          Pages is enabled but reads from a branch, so a workflow deployment is \
+          rejected. Set it at \
+          https://github.com/${GITHUB_REPOSITORY}/settings/pages \
+          -> Build and deployment -> Source: 'GitHub Actions'."
+            exit 1
+          fi
+
+          echo "Pages is enabled (build_type: ${build_type})."
       - id: deployment
         uses: actions/deploy-pages@v4
