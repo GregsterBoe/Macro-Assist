@@ -11,7 +11,7 @@ new dated section per pass; carry any unfinished items into **Open follow-ups**.
 
 - **`point_in_time.py` runs network by default.** Its tests make real ALFRED/FRED calls (~113s of the default suite) but are *not* marked `integration`, so they run on every `pytest`. They're an important look-ahead-leakage guard — left in the default run deliberately. Decide whether to mark them `integration` (faster default; guard then only runs on explicit `-m integration`).
 - **Optional further split of `llm_analysis.py`** (1331 lines). One cohesive concern (the multi-agent LLM pipeline) but the largest remaining module and the least test-covered. Could later split into agents / synthesis / note-markdown if it keeps growing; kept as one module for now to minimise churn in untested code.
-- **GitHub Pages is still switched off.** The docs site cannot publish until a repo admin sets **Settings → Pages → Build and deployment → Source: "GitHub Actions"** once, in the browser. No workflow can do it (see 2026-09-10 below). Every push to `main` that touches `docs/` will keep failing at the deploy preflight until it is done.
+- **GitHub Pages is still switched off.** The docs site cannot publish until a repo admin sets **Settings → Pages → Build and deployment → Source: "GitHub Actions"** once — or, when that settings page 404s, does the same with `POST /repos/GregsterBoe/Macro-Assist/pages -d '{"build_type":"workflow"}'` under a PAT that has admin on the repo. Storing that PAT as the `PAGES_ADMIN_TOKEN` secret lets the deploy preflight do it instead; the default Actions token still cannot (see 2026-09-10 below). Every push to `main` that touches `docs/` will keep failing at the deploy preflight until it is done.
 - **Archive Phase 19 build detail** (`roadmap.md`) once the exogenous arm resolves to keep-or-kill. Still open, and the trigger changed: KB-012 will never be written as specified — the arm's live gate became unreadable when v1.6 cut its comparator (WP-21.F). The resolution now comes from **WP-19.E** (the SPF anchor scored in the numeric harness) plus a decision on option (b) (re-cut the branch's output to the expectations gap). Archive the L0–L4 build detail then, keeping the integration-status + kill block inline.
 
 ---
@@ -46,6 +46,23 @@ but reading from a branch — naming the setting to change in each case.
 This does not make `main` green. It makes the red legible: until an admin flips
 the setting, the run fails at a step that says exactly what to do, instead of at
 a 404 that says nothing. Carried in **Open follow-ups** above.
+
+**Correction, same day: "in the browser" was too strong.** The admin-rights
+finding holds; the conclusion drawn from it did not. What `POST /repos/.../pages`
+requires is an *admin token*, not a human at a settings page — a PAT the repo
+owner issues has admin, so the same call that `GITHUB_TOKEN` is refused succeeds
+under one. This matters because the settings page itself can be the thing that
+fails: a 404 on `/settings/pages`, or a Source dropdown that will not stick,
+leaves the browser route with no fallback if the browser is believed to be the
+only route.
+
+So the preflight now takes an optional `PAGES_ADMIN_TOKEN` secret. With it set,
+the step stops reporting the misconfiguration and fixes it — `POST` to create the
+site when Pages is off, `PUT` to move it to `build_type: workflow` when it reads
+from a branch — then carries on to deploy. Without it the behaviour is unchanged
+except that the error now prints the `curl` as well as the settings path, so
+whichever route is open to the reader is in front of them. The one-time setup is
+still one-time and still needs admin; it no longer needs a working settings page.
 
 ---
 

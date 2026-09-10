@@ -178,14 +178,28 @@ description is a defect this project has already diagnosed once and written up
 (see the [maintenance log](docs/record/maintenance-log.md), 2026-09-04).
 
 Publishing is handled by `.github/workflows/docs.yml` on pushes to `main`, and
-is **blocked until a repo admin does this once, in the browser**:
+is **blocked until a repo admin turns Pages on once**:
 
 > **Settings → Pages → Build and deployment → Source: “GitHub Actions”**
 
-The workflow cannot do it for you. Creating a Pages site is an admin-level API
-call and the Actions token is not a repo admin, so `actions/configure-pages`
-with `enablement` fails with *Resource not accessible by integration*. Until the
-setting is flipped, the deploy job stops at its preflight check and says so.
+If that settings page 404s, the same change goes through the API and needs no
+browser at all — a PAT with admin on this repo (classic `repo`, or fine-grained
+with *Pages: read and write*):
+
+```bash
+curl -X POST -H "Authorization: Bearer $PAT" \
+  -H "Accept: application/vnd.github+json" \
+  -H "Content-Type: application/json" \
+  https://api.github.com/repos/GregsterBoe/Macro-Assist/pages \
+  -d '{"build_type":"workflow"}'      # 201 = done
+```
+
+Store that token as the repository secret `PAGES_ADMIN_TOKEN` and the workflow's
+preflight does it for you on the next run. Without it the workflow cannot:
+creating a Pages site is an admin-level API call and the Actions token is not a
+repo admin, so `actions/configure-pages` with `enablement` fails with *Resource
+not accessible by integration*. Until Pages is on, the deploy job stops at its
+preflight check and says so.
 
 ---
 
