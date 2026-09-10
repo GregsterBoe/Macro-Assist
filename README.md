@@ -177,8 +177,15 @@ from it and never authored separately — a second, drifting copy of the system
 description is a defect this project has already diagnosed once and written up
 (see the [maintenance log](docs/record/maintenance-log.md), 2026-09-04).
 
-Publishing is handled by `.github/workflows/docs.yml` on pushes to `main`.
-One-time setup: repo **Settings → Pages → Source: GitHub Actions**.
+Publishing is handled by `.github/workflows/docs.yml` on pushes to `main`, and
+is **blocked until a repo admin does this once, in the browser**:
+
+> **Settings → Pages → Build and deployment → Source: “GitHub Actions”**
+
+The workflow cannot do it for you. Creating a Pages site is an admin-level API
+call and the Actions token is not a repo admin, so `actions/configure-pages`
+with `enablement` fails with *Resource not accessible by integration*. Until the
+setting is flipped, the deploy job stops at its preflight check and says so.
 
 ---
 

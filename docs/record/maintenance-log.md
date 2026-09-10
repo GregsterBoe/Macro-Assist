@@ -11,7 +11,41 @@ new dated section per pass; carry any unfinished items into **Open follow-ups**.
 
 - **`point_in_time.py` runs network by default.** Its tests make real ALFRED/FRED calls (~113s of the default suite) but are *not* marked `integration`, so they run on every `pytest`. They're an important look-ahead-leakage guard — left in the default run deliberately. Decide whether to mark them `integration` (faster default; guard then only runs on explicit `-m integration`).
 - **Optional further split of `llm_analysis.py`** (1331 lines). One cohesive concern (the multi-agent LLM pipeline) but the largest remaining module and the least test-covered. Could later split into agents / synthesis / note-markdown if it keeps growing; kept as one module for now to minimise churn in untested code.
+- **GitHub Pages is still switched off.** The docs site cannot publish until a repo admin sets **Settings → Pages → Build and deployment → Source: "GitHub Actions"** once, in the browser. No workflow can do it (see 2026-09-10 below). Every push to `main` that touches `docs/` will keep failing at the deploy preflight until it is done.
 - **Archive Phase 19 build detail** (`roadmap.md`) once the exogenous arm resolves to keep-or-kill. Still open, and the trigger changed: KB-012 will never be written as specified — the arm's live gate became unreadable when v1.6 cut its comparator (WP-21.F). The resolution now comes from **WP-19.E** (the SPF anchor scored in the numeric harness) plus a decision on option (b) (re-cut the branch's output to the expectations gap). Archive the L0–L4 build detail then, keeping the integration-status + kill block inline.
+
+---
+
+## 2026-09-10 — The docs site cannot switch itself on
+
+Three consecutive `main` builds of `docs.yml` failed. The first two died at
+`actions/deploy-pages` with a bare 404; the fix for that (PR #23) added
+`actions/configure-pages` with `enablement: true`, and the third died one step
+earlier and louder:
+
+```
+Get Pages site failed. Error: Not Found
+Create Pages site failed. Error: Resource not accessible by integration
+```
+
+**The finding.** `enablement` cannot work here, and no `permissions:` block
+changes that. `POST /repos/{owner}/{repo}/pages` requires repository *admin*
+rights; the Actions `GITHUB_TOKEN` is an installation token that has `pages:
+write` but is not an admin, so the create call is refused. The one-time setting
+the 2026-09-08 entry recorded is not a convenience — it is the only way to turn
+Pages on, and it has to be done in the browser.
+
+**What changed.** `configure-pages` is gone from the build job: it was
+attempting the impossible, and MkDocs does not use its `base_url` output (the
+site URL is pinned in `mkdocs.yml`). The build job drops back to `contents:
+read`, with the Pages scopes now only on the job that deploys. In their place
+the deploy job runs a preflight that reads the Pages API and distinguishes the
+two states `deploy-pages` reports identically as 404 — Pages off, and Pages on
+but reading from a branch — naming the setting to change in each case.
+
+This does not make `main` green. It makes the red legible: until an admin flips
+the setting, the run fails at a step that says exactly what to do, instead of at
+a 404 that says nothing. Carried in **Open follow-ups** above.
 
 ---
 
