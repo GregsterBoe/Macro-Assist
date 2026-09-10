@@ -6,7 +6,11 @@ name: Docs
 # renders it. Nothing here authors content, so the site cannot drift from the
 # repo the way a hand-maintained second copy would.
 #
-# One-time setup: repo Settings -> Pages -> Source: "GitHub Actions".
+# Setup: the build job calls actions/configure-pages with enablement, which
+# turns Pages on and sets its source to "GitHub Actions" via the API on the
+# first run. If that call is blocked (org policy on workflow token scopes),
+# do it by hand once: repo Settings -> Pages -> Source: "GitHub Actions".
+# Without it, actions/deploy-pages fails with a bare 404 at deploy time.
 
 on:
   push:
@@ -32,6 +36,12 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # pages: write lets configure-pages enable Pages on a repo where it was
+    # never turned on; id-token: write is what that action's API call signs with.
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -40,6 +50,13 @@ jobs:
           cache: pip
       - name: Install MkDocs
         run: pip install -r docs/requirements.txt
+      # Enables Pages if it is off, and pins the source to Actions. Only needed
+      # on a real publish; PR builds just check that the site compiles.
+      - name: Configure Pages
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
       # --strict fails the build on a broken internal link, so a doc move that
       # leaves a dangling reference is caught in the PR rather than on the site.
       - name: Build site
