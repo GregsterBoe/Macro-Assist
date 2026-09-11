@@ -40,11 +40,25 @@ Deliberately deferred out of Phase 22 (scope was the conditional distribution).
 **Where:** `quant_context.conditional_cells` · `score_distributions.NOMINAL_COVERAGE`.
 The note publishes P25/P75, so the interval it asks to be judged on contains 50%
 of realizations by construction — half of all outcomes land outside the band the
-reader sees. The table already holds p10/p90. Publishing those instead (or as
-well) would be a more useful risk read, but it changes the published product
-mid-record and would restart the sealed interval clock that starts 2026-09-07.
-**Not a fix — a product decision with a cost.** Revisit only if the note format
-is being revised for another reason.
+reader sees. The table already holds p10/p90, and publishing those instead (or as
+well) would be a more useful risk read.
+
+**Narrowed 2026-09-11 — the expensive half is gone.** This was logged as costing a
+restart of the sealed interval clock. It no longer does: `collect_quant_raw` now
+writes **p10/p90 into the quant log** alongside the published triple. The log is
+the scorer's point-in-time source, so the wider band is accumulating a record
+from 2026-09-11 whether or not the note ever shows it — a later decision to
+publish would inherit that record instead of starting at zero. Nothing about the
+published product or the [WP-22.C](roadmap.md) seal changed, and
+`score_distributions` ignores the extra keys because it scores the quantiles that
+were *claimed*.
+
+**What is still open is only the product call:** does the reader get a 50% band or
+an 80% one? Publishing p10/p90 changes what the note asks to be judged on
+mid-record, which still means the *published* band's sealed record restarts from
+whenever it changes. That is a real cost, just a much smaller one than before.
+Revisit when the note format is being revised for another reason — the record is
+no longer the thing waiting.
 
 ---
 

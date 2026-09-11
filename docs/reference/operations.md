@@ -143,8 +143,12 @@ Almost every run now arrives as a `workflow_dispatch`, which would otherwise mak
 
 GitHub's `schedule:` no longer starts the pipeline. An external cron service
 does, by calling the workflow-dispatch API. `pipeline.yml` keeps one late
-`schedule:` purely as a [backstop](#the-backstop); `macro_weekly_refit.yml` has
-none.
+`schedule:` purely as a [backstop](#the-backstop).
+
+**`pipeline.yml` is the only thing the cron calls.** That is the whole trigger
+surface: anything not reachable from it does not run on a schedule at all. It was
+not always true — the weekly refit had a Sunday call of its own until 2026-09-11,
+and losing it is [why the refit is now a stage](#everything-rides-one-call).
 
 **Why.** The scheduler was measured, not guessed: runs delivered 42–224 min late
 through July/August 2026, peaking at 372 min on 2026-06-15; 12h25m and 10h28m
@@ -164,13 +168,62 @@ twice a year.
 |---|---|---|
 | Daily pipeline | `23 6 * * 1-5` | `pipeline.yml`, `source=cron-primary` |
 | Catch-up | `47 10 * * 1-5` | `pipeline.yml`, `source=cron-catchup` |
-| Weekly refit | `0 22 * * 0` | `macro_weekly_refit.yml`, `source=cron-refit` |
+
+Two calls, one workflow. There is **no separate weekly slot**: the Monday-only
+stages — scoring, rebalance and the model refit — are jobs inside `pipeline.yml`,
+gated on `plan.outputs.weekly`, which the `plan` job derives from the as-of date
+(`date -u +%u = 1`). So the weekly work rides the same weekday call as the daily
+note; there is nothing extra to schedule and nothing extra to forget.
 
 The catch-up is not a duplicate run: stages no-op when their output for the date
 already exists, so it costs about a minute per stage and writes nothing unless
 the morning call is missing. The odd minutes carry over from the old crons and no
 longer matter — GitHub's contended `:00`/`:15`/`:30`/`:45` slots only affected its
 own scheduler — but there is no reason to move them.
+
+### Everything rides one call
+
+Because the cron calls only `pipeline.yml`, the `needs:` graph *is* the schedule.
+What runs:
+
+| | Runs | On |
+|---|---|---|
+| `plan` → `data_check` → `daily` | every weekday | the cron call |
+| `scoring` (both scorers) · `rebalance` · `refit` | Mondays | `plan.outputs.weekly` |
+
+And what does **not** run on any schedule — dispatch-only, by choice:
+`numeric_baseline.yml` (WP-21's harness, run per experiment), `exo_slice_smoke.yml`
+and `kimi_arm_smoke.yml` (both arms soft-killed, [ADR-0015](../decisions/ADR-0015-soft-kill-convention.md)),
+and `macro_weekly_refit.yml` standalone, which is how a one-off refresh is done
+between Mondays. `docs.yml` triggers on pushes touching `docs/`, so it needs no
+schedule.
+
+**The rule this section exists to state: a new scheduled thing is a new stage,
+not a new cron entry.** The weekly refit was the counter-example. It had its own
+Sunday call at `0 22 * * 0`, deliberately *not* a pipeline stage, on the
+reasoning that it has no upstream dependency. When the cron was rebuilt to call
+only `pipeline.yml`, that made it the one scheduled thing nothing reached. The
+conditional table froze at **2026-08-31**; no run failed, no check went red, and
+the six-asset universe [WP-22.A](../record/roadmap.md) had already shipped simply
+never landed — the table kept serving three assets and the note kept printing
+"no conditional base rate" for the other three. It was found by reading commit
+dates, not from an alert.
+
+That is the same dropped-run failure that moved this project off GitHub's
+scheduler in the first place, arriving through a different door: not a late run
+or a red check, just a silent gap. "No upstream dependency" is an argument for
+being independently *runnable*, not for being independently *triggered* —
+[ADR-0013](../decisions/ADR-0013-one-pipeline-entry-point.md)'s point, which the
+refit was the exception to until it broke.
+
+The refit is stage 5 and **runs last on purpose.** It commits
+`conditional_distributions.json` and `regime_model.pkl` to `main`, while every
+stage's `actions/checkout` resolves to `github.sha` — the commit that triggered
+the run. A stage ordered after it would still hold the pre-refit working tree, so
+moving it first would look correct and change nothing. The fresh table therefore
+takes effect on the *next* pipeline run, a one-business-day lag on a weekly refit
+of slow macro series. That is point-in-time safe either way: a table fit at a
+prior date is exactly what `score_distributions.py` assumes it is reading.
 
 ### The backstop
 
@@ -193,8 +246,9 @@ correct, that is the day the run is for — and in the morning it resolves to th
 new day, which the primary call has usually already written, so it no-ops. Either
 way it cannot write the wrong day's note.
 
-`macro_weekly_refit.yml` gets no backstop: a missed refit leaves the models a
-week old and the next Sunday call refreshes them.
+The weekly stages need no backstop of their own: they are jobs in this same
+workflow, so whatever call arrives on a Monday brings them with it. A missed
+Monday leaves the models a week old and the next Monday refreshes them.
 
 ### The token
 

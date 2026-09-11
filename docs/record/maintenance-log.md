@@ -26,6 +26,41 @@ that follow-up specified.
 
 ---
 
+## 2026-09-11 — The orphaned refit, and a record started early
+
+Three changes, two of them repairs to things that were quietly already broken.
+
+**The weekly refit was unreachable.** It had its own external cron call at
+`0 22 * * 0` and was deliberately *not* a pipeline stage, on the reasoning that
+it has no upstream dependency. The cron infrastructure was then rebuilt to call
+only `pipeline.yml`, which made the refit the one scheduled thing nothing
+reached. The conditional table froze at **2026-08-31**: no run failed, no check
+went red, and the six-asset universe WP-22.A shipped on 2026-09-08 simply never
+landed — the table kept serving three assets while the note kept printing "no
+conditional base rate" for the other three. Found by reading commit dates.
+`macro_weekly_refit.yml` gained a `workflow_call` trigger and is now **stage 5**
+of `pipeline.yml`, Monday-gated. It runs *last* because it commits to `main`
+while every stage checks out `github.sha`, so a stage after it would still hold
+the pre-refit tree — the fresh table takes effect on the next run, which is
+point-in-time safe and is commented in both files against a well-meant reorder.
+
+**`docs/reference/operations.md` was describing the old trigger surface** — a
+three-slot cron table with a weekly refit call that could not fire. Replaced with
+what is actually true (two calls, one workflow, `needs:` graph as the schedule),
+plus a new *Everything rides one call* section listing what is dispatch-only and
+stating the rule the refit was the counter-example to: a new scheduled thing is a
+new stage, not a new cron entry.
+
+**The quant log now records p10/p90.** The distribution table has held them all
+along; only p25/p50/p75 were logged. The note still publishes p25/p75 and the
+sealed interval record still measures that band — this is not a product change —
+but the log is the scorer's point-in-time source, so the wider band's record now
+starts here rather than at zero if the note is ever revised. Starting the clock
+and changing the product are separable, and only the second is expensive. Narrows
+[todo.md](todo.md) open decision #8 to the part that is genuinely a product call.
+
+---
+
 ## 2026-09-11 — Cleanup pass: a coding-session reference, and one inbox
 
 The four-layer structure was sound; the weight was all in `docs/record/`, which

@@ -286,12 +286,28 @@ def collect_quant_raw(
                     # WP-21.D: p25/p75 are carried too — as of v1.6 this dict is
                     # not just a log record, it is the source for the note's
                     # published 5-Day Outlook column.
-                    cond_raw["distributions"][f"{asset}_{horizon}d"] = {
-                        "p25": round(dist.get("p25", float("nan")), 2),
-                        "p50": round(dist.get("p50", float("nan")), 2),
-                        "p75": round(dist.get("p75", float("nan")), 2),
-                        "n":   dist.get("n", 0),
-                    }
+                    #
+                    # p10/p90 are logged but NOT published (2026-09-11). The note
+                    # publishes p25/p75, so that is the band the sealed interval
+                    # record measures — roadmap Phase 22 → WP-22.C — and this is
+                    # deliberately not a change to the published product. What it
+                    # buys: the log is the scorer's point-in-time source, so if the
+                    # note is ever revised to publish the wider band (todo.md open
+                    # decision #8) its record already starts here rather than at
+                    # zero. Starting the clock and changing the product are
+                    # separable, and only the second one is expensive. Inert for
+                    # `score_distributions`, which scores the quantiles that were
+                    # *claimed* and ignores the rest.
+                    #
+                    # A quantile absent from the table is omitted rather than
+                    # written as NaN: `json.dumps` emits a bare `NaN`, which is not
+                    # valid JSON, and a missing claim must read as missing.
+                    entry: dict = {"n": dist.get("n", 0)}
+                    for _q in ("p10", "p25", "p50", "p75", "p90"):
+                        _v = dist.get(_q)
+                        if _v is not None:
+                            entry[_q] = round(_v, 2)
+                    cond_raw["distributions"][f"{asset}_{horizon}d"] = entry
             raw["conditional"] = cond_raw
     except Exception:
         pass

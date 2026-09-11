@@ -1,20 +1,40 @@
 name: Weekly Model Refit
 
-# TRIGGERED FROM OUTSIDE GITHUB, like `pipeline.yml`: Sundays at 22:00 UTC, so
-# Monday's pipeline picks up fresh models. It has no upstream dependency, which
-# is why it is its own call and not a stage of the pipeline. There is no
-# `schedule:` here on purpose — see README → "External cron trigger" for the
-# schedule table and the request; `trigger_pipeline.sh` is the reference caller:
+# STAGE 5 OF `pipeline.yml`, on Mondays. It is also still dispatchable on its own.
 #
-#   ./trigger_pipeline.sh --workflow macro_weekly_refit.yml --source cron-refit
+# History worth keeping, because the failure was instructive. This used to be its
+# own externally-cron'd call at `0 22 * * 0` — Sunday night, so Monday's pipeline
+# picked up fresh models — with no `schedule:` of its own and deliberately not a
+# pipeline stage, on the reasoning that it has no upstream dependency. Then the
+# cron infrastructure was rebuilt to call only `pipeline.yml`, and that reasoning
+# turned out to be exactly what made this orphanable: it was the one scheduled
+# thing not reachable from the one trigger that still fires. The conditional
+# table froze at 2026-08-31, nothing failed, no check went red, and the six-asset
+# universe WP-22.A had already shipped could never land. "No upstream dependency"
+# is an argument for being independently *runnable*, not for being independently
+# *triggered* — ADR-0013's point.
 #
-# A missed refit is not silent-but-fatal the way a missed daily note is: the
-# models simply stay a week old and the next Sunday call refreshes them. There
-# is deliberately no catch-up call for it.
+# So it is now a stage, and it runs LAST in the pipeline on purpose: it commits
+# model artifacts to `main`, while every stage checks out `github.sha`, the
+# commit that triggered the run. A stage ordered after it would still see the
+# pre-refit tree. See the comment on the `refit` job in `pipeline.yml` before
+# reordering anything.
+#
+# A missed refit is still not silent-but-fatal the way a missed daily note is:
+# the models stay a week old and the next Monday refreshes them. There is
+# deliberately no catch-up call.
 
 run-name: "Weekly Model Refit · ${{ inputs.source }}"
 
 on:
+  # Called as a stage of `pipeline.yml`; still dispatchable standalone, which is
+  # how a one-off refresh is done between Mondays.
+  workflow_call:
+    inputs:
+      source:
+        description: "Who asked for this run (labels the run; no effect on what runs)"
+        type: string
+        default: "pipeline"
   workflow_dispatch:
     inputs:
       source:

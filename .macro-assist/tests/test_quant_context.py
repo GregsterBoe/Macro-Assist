@@ -642,3 +642,70 @@ class TestBuildFragilitySnapshot:
         assert lines[header + 1] == "|---------|-------|"
         assert all(ln.startswith("|") and ln.endswith("|")
                    for ln in lines[header + 2: header + 5])
+
+
+# ---------------------------------------------------------------------------
+# What the quant log records about the conditional distribution
+#
+# The log is the scorer's point-in-time source: `score_distributions` reads the
+# exact numbers that were published, from a table fit at the prior refit. So the
+# log decides which bands can ever be scored, and it can start a band's record
+# without the note publishing it — the separation todo.md open decision #8 turns
+# on.
+# ---------------------------------------------------------------------------
+
+class TestConditionalLogRecord:
+    """`collect_quant_raw()`'s conditional block, as it reaches the JSONL."""
+
+    @staticmethod
+    def _table(dist: dict) -> dict:
+        from conditional import assign_bucket
+        # An empty snapshot falls back to a deterministic bucket, so the table
+        # can be keyed by whatever that is rather than hard-coding the label.
+        # The horizon key is an **int**: `lookup_distribution` does
+        # `table[bucket][asset].get(horizon)`, and `load_distribution_table`
+        # exists to restore int keys after JSON turns them into strings.
+        return {assign_bucket({}): {"SP500": {5: dist}}}
+
+    @staticmethod
+    def _logged(table: dict) -> dict:
+        from quant_context import collect_quant_raw
+        raw = collect_quant_raw({}, date(2026, 9, 11), distribution_table=table)
+        return raw["conditional"]["distributions"]["SP500_5d"]
+
+    def test_the_wider_band_is_logged_even_though_it_is_not_published(self):
+        """p10/p90 are in the table; the log must carry them (2026-09-11).
+
+        The note publishes p25/p75 and the sealed record measures that band.
+        Logging the wider pair changes no published product, but it means the
+        p10/p90 record starts now instead of at zero if the note is ever
+        revised — the clock and the product are separable.
+        """
+        d = self._logged(self._table({
+            "p10": -3.05, "p25": -1.02, "p50": 0.41,
+            "p75": 1.83, "p90": 3.94, "n": 300,
+        }))
+        assert sorted(d) == ["n", "p10", "p25", "p50", "p75", "p90"]
+        assert d["p10"] == -3.05 and d["p90"] == 3.94
+
+    def test_the_published_claim_is_unchanged(self):
+        """The three quantiles the note publishes keep their values and rounding."""
+        d = self._logged(self._table({
+            "p10": -3.0, "p25": -1.019, "p50": 0.414,
+            "p75": 1.826, "p90": 3.9, "n": 300,
+        }))
+        assert (d["p25"], d["p50"], d["p75"]) == (-1.02, 0.41, 1.83)
+        assert d["n"] == 300
+
+    def test_an_absent_quantile_is_omitted_not_written_as_nan(self):
+        """json.dumps emits a bare NaN, which is not valid JSON.
+
+        A pre-2026-09 table has no p10/p90, and a missing claim has to read as
+        missing — `score_distributions` scores the quantiles that were claimed.
+        """
+        import json
+        d = self._logged(self._table({
+            "p25": -1.0, "p50": 0.4, "p75": 1.8, "n": 300,
+        }))
+        assert sorted(d) == ["n", "p25", "p50", "p75"]
+        assert "NaN" not in json.dumps(d)

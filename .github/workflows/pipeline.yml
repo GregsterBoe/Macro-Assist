@@ -185,7 +185,7 @@ jobs:
             echo ""
             echo "Daily: data_check → daily"
             if [ "$WEEKLY" = "true" ]; then
-              echo "Weekly: + scoring, rebalance"
+              echo "Weekly: + scoring, rebalance, refit"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -248,4 +248,39 @@ jobs:
     with:
       date: ${{ needs.plan.outputs.asof }}
       reset: ${{ inputs.pf_reset || false }}
+    secrets: inherit
+
+  # ── Stage 5: the weekly model refit, folded in 2026-09-11. ───────────────────
+  # It used to be its own externally-cron'd workflow at `0 22 * * 0`, with no
+  # `schedule:` of its own by design. When the cron infrastructure was rebuilt to
+  # call only `pipeline.yml`, that left the refit unreachable: the conditional
+  # table froze at 2026-08-31 and could never thaw. Nothing failed and no check
+  # went red — the models simply stopped being rebuilt, which is the dropped-run
+  # failure mode the external cron was adopted to avoid, arriving by a different
+  # door. Making it a stage means ADR-0013 holds again: one entry point, one
+  # thing to check, and nothing to forget the next time the triggers move.
+  #
+  # IT RUNS LAST, AND THAT IS DELIBERATE — do not "fix" it by moving it first.
+  # The refit commits `conditional_distributions.json` and `regime_model.pkl` to
+  # `main`. Every stage's `actions/checkout` resolves to `github.sha`, the commit
+  # that triggered the run, so a stage running *after* the refit would still have
+  # the pre-refit working tree: moving this first would look right, change
+  # nothing, and quietly cost a week of debugging. The fresh table therefore
+  # takes effect on the NEXT pipeline run rather than the same Monday's note — a
+  # one-business-day lag on a weekly refit of slow macro series, and
+  # point-in-time safe either way, since a table fit at a prior date is exactly
+  # what the scorer assumes it is reading.
+  #
+  # Not gated on `scoring.result`: a model refresh has no dependency on the
+  # note, so a failed daily run must not also stop the models being rebuilt.
+  # ─────────────────────────────────────────────────────────────────────────────
+  refit:
+    name: 5 · weekly model refit
+    needs: [plan, scoring]
+    if: >-
+      ${{ !cancelled()
+          && needs.plan.outputs.weekly == 'true' }}
+    uses: ./.github/workflows/macro_weekly_refit.yml
+    with:
+      source: ${{ inputs.source || 'pipeline' }}
     secrets: inherit
