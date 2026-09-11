@@ -48,7 +48,7 @@ pip install -r .macro-assist/requirements.txt
 # generated output is a separate orphan branch, mounted as a worktree (ADR-0001)
 git fetch origin output && git worktree add results output
 
-pytest .macro-assist/tests/                 # ~750 tests, ~3.5 min
+pytest .macro-assist/tests/                 # 800 tests, ~3.7 min
 python .macro-assist/collect_and_analyze.py --fetch-only   # no LLM call, no writes
 python .macro-assist/collect_and_analyze.py  # full daily pipeline (costs API money)
 python .macro-assist/score_distributions.py  # the current scorer
