@@ -11,6 +11,8 @@ reference.
   the [Reference](../reference/index.md) layer, which is kept current with the code.
 - **Measured findings** (KB-###, negatives included) are in `knowledge-base.md`.
 - **What is running right now** is the board in `active-experiments.md`.
+- **Every open decision and carried finding** is in `todo.md`, the single
+  inbox; closed ones keep their reasoning in `resolved.md`.
 - **Closed phases and superseded detail** are in
   [roadmap-archive.md](roadmap-archive.md).
 

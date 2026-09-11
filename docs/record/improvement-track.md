@@ -8,6 +8,7 @@ apart from the main roadmap on purpose:
 |---|---|
 | `roadmap.md` | The main plan — phases, work packages, the forward roadmap. |
 | `knowledge-base.md` | **Measured findings** — falsifiable results with their caveats. |
+| `todo.md` | **The single inbox** — every open decision and carried finding. |
 | **`improvement-track.md`** (this) | **Improvement experiments** — the design, the staging, and the current status of attempts to make an existing piece better. |
 
 This doc holds the *plan and status* of an improvement. It does **not** hold

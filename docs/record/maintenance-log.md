@@ -3,16 +3,26 @@
 Running record of housekeeping / cleanup passes (code hygiene, refactors, doc
 pruning) — kept separate from `roadmap-archive.md` (closed roadmap
 phases) and `knowledge-base.md` (measured findings). Newest entry first. Append a
-new dated section per pass; carry any unfinished items into **Open follow-ups**.
+new dated section per pass; carry any unfinished items into [todo.md](todo.md),
+the single inbox — not into a second list here.
 
 ---
 
-## Open follow-ups
+## Open follow-ups → `todo.md`
 
-- **`point_in_time.py` runs network by default.** Its tests make real ALFRED/FRED calls (~113s of the default suite) but are *not* marked `integration`, so they run on every `pytest`. They're an important look-ahead-leakage guard — left in the default run deliberately. Decide whether to mark them `integration` (faster default; guard then only runs on explicit `-m integration`).
-- **Optional further split of `llm_analysis.py`** (1331 lines). One cohesive concern (the multi-agent LLM pipeline) but the largest remaining module and the least test-covered. Could later split into agents / synthesis / note-markdown if it keeps growing; kept as one module for now to minimise churn in untested code.
-- **GitHub Pages is still switched off.** The docs site cannot publish until a repo admin sets **Settings → Pages → Build and deployment → Source: "GitHub Actions"** once — or, when that settings page 404s, does the same with `POST /repos/GregsterBoe/Macro-Assist/pages -d '{"build_type":"workflow"}'` under a PAT that has admin on the repo. Storing that PAT as the `PAGES_ADMIN_TOKEN` secret lets the deploy preflight do it instead; the default Actions token still cannot (see 2026-09-10 below). Every push to `main` that touches `docs/` will keep failing at the deploy preflight until it is done.
-- **Archive Phase 19 build detail** (`roadmap.md`) once the exogenous arm resolves to keep-or-kill. Still open, and the trigger changed: KB-012 will never be written as specified — the arm's live gate became unreadable when v1.6 cut its comparator (WP-21.F). The resolution now comes from **WP-19.E** (the SPF anchor scored in the numeric harness) plus a decision on option (b) (re-cut the branch's output to the expectations gap). Archive the L0–L4 build detail then, keeping the integration-status + kill block inline.
+Open items from these passes now live in [todo.md](todo.md), the single inbox,
+rather than in a second list here. This log records **what a pass did**; what is
+still owed is tracked in one place.
+
+Carried over on 2026-09-11: `point_in_time.py` running network by default
+(#10), the optional `llm_analysis.py` split (#11), and GitHub Pages still being
+switched off (#12).
+
+**Closed by the 2026-09-11 pass:** *"Archive Phase 19 build detail once the
+exogenous arm resolves."* WP-19.E resolved negative on 2026-09-07 [KB-026], so
+the trigger fired; the L0–L4 build detail and the WP-19.E harness are in
+`roadmap-archive.md`, with the integration-status and kill block kept inline as
+that follow-up specified.
 
 ---
 

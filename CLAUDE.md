@@ -31,6 +31,7 @@ Inside `docs/record/`:
 | `active-experiments.md` | **The status board** — one row per live track | Detail (link to it) |
 | `improvement-track.md` | IMP-# experiments on components that exist | Results (→ KB) |
 | `todo.md` | **The single inbox** for open decisions & carried findings | Anything resolved |
+| `resolved.md` | Closed decisions, reasoning intact | Anything still open |
 | `maintenance-log.md` | Dated housekeeping passes | Open items (→ `todo.md`) |
 
 **When two docs disagree about status, `active-experiments.md` wins.** When a
@@ -124,7 +125,12 @@ a structural capability change — new data source, new agent pass, a change to
 what the note publishes — **not** for a bug fix or an output-identical refactor.
 See [Versioning](docs/reference/versions.md).
 
-**10. ADRs: number sequentially, never renumber, never delete.** Supersede and
+**10. A fixture that stands in for pipeline output must be copied from real
+output.** `test_rebalance.py` once asserted a note layout the pipeline has never
+emitted, so the suite stayed green while production parsed nothing. Copy a real
+line out of `results/` rather than composing a plausible one.
+
+**11. ADRs: number sequentially, never renumber, never delete.** Supersede and
 link both ways. See [the index](docs/decisions/index.md) for the page shape — a
 page with no costs listed has not been thought through.
 

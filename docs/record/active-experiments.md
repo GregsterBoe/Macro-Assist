@@ -9,6 +9,8 @@ detailed doc disagree, the detailed doc wins — fix the row.
 | `roadmap.md` | The main roadmap — phases & work packages (plans). |
 | `improvement-track.md` | Improvement experiments on existing components (plans/status). |
 | `knowledge-base.md` | **Measured findings** (KB-###), incl. negatives — the durable record. |
+| `todo.md` | **The single inbox** — every open decision and carried finding. |
+| `resolved.md` | Closed decisions, with the reasoning kept. |
 | **`active-experiments.md`** (this) | **Live status board** — the quick overview across all tracks. |
 | [`../decisions/`](../decisions/index.md) | **ADRs** — why the system has its current shape, and whether each choice still holds. |
 | [`../concepts/`](../concepts/index.md) | The background needed to read any of the above. |
