@@ -45,16 +45,14 @@ well) would be a more useful risk read, but it changes the published product
 mid-record and would restart the sealed interval clock that starts 2026-09-07.
 **Not a fix — a product decision with a cost.** Revisit only if the note format
 is being revised for another reason.
+
 ---
 
 ## Phase 20 — paper portfolio
 
-## Phase 20 — paper portfolio
-
 Context: the first live rebalance ran 2026-08-24 and produced two fully flat
-books out of three. Root causes below. `.macro-assist/portfolio/DESIGN.md` is
-the contract; §7 mandates a confirm-on-first-run eyeball, which is what surfaced
-all of this.
+books out of three. `.macro-assist/portfolio/DESIGN.md` is the contract; §7
+mandates a confirm-on-first-run eyeball, which is what surfaced all of this.
 
 Six items (#1, #2, #3, #6 and the two 2026-08-24 fixes) are closed — see
 [`resolved.md`](resolved.md). The caveats they carried forward are entries in
@@ -136,7 +134,6 @@ deliverable. Belongs with the §9 quarter read, not a mid-flight reporting tweak
 
 ## Pipeline / accuracy
 
-## Pipeline / accuracy
 
 ### Carried finding #7 — headline accuracy is below chance and horizon-decaying
 **Where:** `results/accuracy_report.md` (2026-08-24 run).

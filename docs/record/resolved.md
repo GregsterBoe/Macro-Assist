@@ -18,7 +18,6 @@ questions.
 ## Tooling
 
 ### RESOLVED 2026-09-09 — #9 `bump_version.py` cannot find its anchors (pre-existing)
-### RESOLVED 2026-09-09 — #9 `bump_version.py` cannot find its anchors (pre-existing)
 **Resolution: option 3 — generate the table.** The milestones table now lives at
 [Reference → Versioning](../reference/versions.md), rewritten wholesale from
 `VERSION_MILESTONES` between HTML markers on every bump, and
@@ -75,7 +74,6 @@ out of three. `.macro-assist/portfolio/DESIGN.md` is the contract; §7 mandates 
 confirm-on-first-run eyeball, which is what surfaced all of this.
 
 ### RESOLVED 2026-08-24 — #6 day-1 NAV comparison is now labelled
-### RESOLVED 2026-08-24 — #6 day-1 NAV comparison is now labelled
 `format_report`'s NAV line now checks whether the book holds any risk this period
 (`any(t["weight"] …)`); while it holds nothing it appends an explicit caveat —
 _"book flat — the gap is the benchmark's entry cost, not alpha; excess return is
@@ -86,7 +84,6 @@ series that *starts* at first exposure (DESIGN §5). The label prevents the
 misread; the clean IR-from-first-exposure series is the real §5 deliverable and
 belongs with the §9 quarter read, not a mid-flight reporting tweak.
 
-### RESOLVED 2026-08-24 — #2 all arms now run the same sizing rule
 ### RESOLVED 2026-08-24 — #2 all arms now run the same sizing rule
 Chosen option (a): `sizing_config_for` returns `require_distribution=False` for
 **every** arm, so all three size off direction + HAR-RV σ, with the conditional
@@ -109,7 +106,6 @@ always takes HAR-sized risk. The guard it replaced was meant to catch missing
 `require_distribution` knob survives for a deliberate per-arm revival.
 
 ### RESOLVED 2026-08-24 — #1 the prose-band dependency is no longer load-bearing
-### RESOLVED 2026-08-24 — #1 the prose-band dependency is no longer load-bearing
 **Subsumed by #2.** The acute failure #1 named was "a wording change silently
 zeroes the book." Under the uniform HAR rule (#2, `require_distribution=False`)
 that can no longer happen: HAR σ is the always-available risk input, so a
@@ -127,7 +123,6 @@ reactive change for a now-cosmetic gain. Revisit if/when a note-format revision 
 already on the table.
 
 ### DONE 2026-08-24 — two fixes from the same eyeball
-### DONE 2026-08-24
 - ~~Conditional band parser never matched the live note layout~~ — fixed;
   `conditional_sigma_annual` now parses both the interleaved
   `(P25 -0.8%/P75 +1.2%)` layout the pipeline emits and the paired
@@ -137,7 +132,6 @@ already on the table.
   now solves DESIGN §3 steps 6–7 jointly via `_capped_vol_target`, and reports
   `vol_ex_ante` / `vol_shortfall` / `capped` so a binding cap is visible.
 
-### RESOLVED 2026-08-21 — #3 the regime gate is dead → wired to fragility
 ### RESOLVED 2026-08-21 — #3 the regime gate is dead → wired to fragility
 Chosen option (a): the risk-off gate now reads the **fragility index**, not the
 retired HMM. `rebalance.live_fragility_gate(asof)` fetches ~1y yfinance history
