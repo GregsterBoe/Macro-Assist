@@ -113,6 +113,7 @@ nav:
       - Roadmap: record/roadmap.md
       - Improvement track: record/improvement-track.md
       - Open decisions (TODO): record/todo.md
+      - Resolved: record/resolved.md
       - Maintenance log: record/maintenance-log.md
       - Roadmap archive: record/roadmap-archive.md
 

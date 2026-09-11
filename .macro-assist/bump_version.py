@@ -18,7 +18,8 @@ What it does
 Steps 1-3 are the source of truth; step 4 is a derived view. The table is
 rewritten wholesale between HTML markers rather than patched row-by-row, so a
 row whose wording drifted cannot survive a bump, and there is no anchor to go
-missing the way the old roadmap-table regex did (Open decision #9).
+missing the way the old roadmap-table regex did (decision #9,
+docs/record/resolved.md).
 
 `--start` exists because a capability does not always go live the day it merges.
 The weekly refit runs Sunday night, so a change that only takes effect once the

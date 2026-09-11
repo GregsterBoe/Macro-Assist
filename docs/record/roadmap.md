@@ -11,6 +11,8 @@ reference.
   the [Reference](../reference/index.md) layer, which is kept current with the code.
 - **Measured findings** (KB-###, negatives included) are in `knowledge-base.md`.
 - **What is running right now** is the board in `active-experiments.md`.
+- **Every open decision and carried finding** is in `todo.md`, the single
+  inbox; closed ones keep their reasoning in `resolved.md`.
 - **Closed phases and superseded detail** are in
   [roadmap-archive.md](roadmap-archive.md).
 
@@ -172,39 +174,20 @@ The output of this branch is therefore **context — expectations-gaps, regime/t
 
 **Hard gate (inherited from Phases 16–18).** Every branch is judged by the **same Brier / commitment discipline** (WP-16.B.2 + the KB-011 commitment metric) and **A/B'd against the market-only arm** via the existing `profile` / run-config machinery. A branch that does not beat market-only on the scoreboard is unfalsifiable complexity and is cut. Standing rules carry over: **cheap screens before expensive LLM calls; one branch at a time; point-in-time discipline on every backtest** (no look-ahead — the Phase-17 rigor applies double to real-world *text*, which is easy to leak future knowledge into).
 
-**Information-source taxonomy** (judged first on lead / expectations-gap, then on cost):
-
-| Branch | Example sources | Signal type | Lead? | Access |
-|---|---|---|---|---|
-| Monetary / policy | Fed speeches, minutes, statements; econ calendar + **consensus** | expectations-gap, regime | medium | free text |
-| Macro nowcast | official releases (FRED) + consensus; freight/shipping, EIA energy, claims trend | expectations-gap, fundamentals | some | free/cheap |
-| Alt-data leading | Google Trends, job postings, electricity demand, retail/app proxies | fundamentals nowcast | **genuine** | mixed cost |
-| Corporate / sector | earnings-call transcripts, guidance tone, estimate revisions | relative, sector | medium | semi-free |
-| Positioning / sentiment | COT (have), fund flows, AAII / put-call, social | contrarian / regime | coincident | mixed |
-| Policy / geopolitical events | fiscal, regulatory, geopolitics | catalyst→exposure map | event | free text |
-| Expert synthesis | analyst notes, YouTube transcripts (have) | human reasoning | varies | free |
-
-**Compaction architecture — a map-reduce evidence pipeline** with a fixed contract at every level and a **per-branch token budget**, so branches scale without blowing the payload (total ≈ N branches × cap):
-- **L0 — Source adapters (deterministic):** pull each source on its own cadence, normalise, timestamp, dedup; enforce point-in-time. No LLM.
-- **L1 — Extractors (cheap model, Haiku-class):** raw text/data → a structured evidence schema `{claim, direction, magnitude, affected_assets, confidence, source, date}`. This is where the "dump" is prevented — nothing passes downstream as free prose.
-- **L2 — Branch analysts (the "narrowing"):** one bounded-budget agent per branch consumes its evidence and emits a **fixed-size structured brief** (~400–600 tokens): stance on the branch's domain, what *changed* vs last period, the expectations-gap read, confidence, citations. The hard cap is the scalability guarantee. Mirrors the existing MA-* / sector sub-agent pattern.
-- **L3 — Synthesiser (expensive model, Opus-class):** consumes the N capped briefs (total bounded) → the reframed output (gaps, regime/tail, scenario→exposure, optional scored lean).
-- **L4 — Scoring / feedback:** every brief and the synthesis carry falsifiable claims scored on **Brier / commitment**, reusing the Phase-18 input-value + `commitment_by_arm` machinery → measure *which branches earn their tokens*; prune the losers.
-
-Design commitments: structured contracts not prose; provenance + staleness on every claim; cheap-extract / expensive-synthesise (the Haiku/Opus split already in use); and **deliberate market-data independence** so the A/B measures the *marginal* value of real-world reasoning, not a leak of price information.
+**The source taxonomy and the L0–L4 compaction architecture** — the map-reduce
+evidence pipeline with a fixed contract at every level and a per-branch token
+budget, so branches scale without blowing the payload — are archived in
+[roadmap-archive.md](roadmap-archive.md). The built slice follows them;
+`exogenous/DESIGN.md` is the live contract.
 
 **Work packages / roadmap (cheap-first; do NOT build the framework before proving one slice):**
-1. **WP-19.A — Reframe & target lock (design only). ✅ Done** (2026-07-14 → `.macro-assist/exogenous/DESIGN.md`). Locked: **first slice = monetary / rates-expectations**; **primary success bar = a scored asset directional lean on {10Y, DXY, gold}** (three assets the market-only pipeline already forecasts), judged by Brier/commitment and A/B'd head-to-head against the market-only arm on the *same* assets. Defined the three data contracts (L1 `Evidence` → L2 bounded `BranchBrief` ≤~600 tok → L3 `ExoOutput`), the L4 arm-tag reuse of `calibration_by`/`commitment_by_arm`, and the go/no-go bar (BSS≥market-only at n≥30, or KB-011 net-edge≥ & wrong-rate≤ early; kill after slice + 1–2 branches if no parity → **KB-012** when scored). **Two honest constraints baked in:** (a) *market-light tension* — use survey/economist consensus, not fed-funds-futures (market-derived), as the core benchmark, or the A/B is contaminated; (b) *LLMs can't be cleanly backtested on dated public text* (trained on historical FOMC docs → leakage), so **validation is forward/live**, historical runs are pipeline-shakedown only. Cheap-extract/expensive-synthesise; refresh evidence weekly + cache (FOMC moves ~monthly). **Data sources LOCKED (researched 2026-07-14, zero paid deps):** Philly Fed **SPF** (economist consensus — TBOND/TBILL/UNEMP/CPI/RGDP, free Excel, point-in-time) + FRED **SEP dot-plot** (`FEDTARMD`, via the existing adapter) as two non-market consensus anchors whose *divergence* is itself a signal; FOMC statements/minutes/speeches as the evolving input. High-frequency day-of release consensus (Trading Economics/paid) deferred — the quarterly-cadence slice doesn't need it.
-2. **WP-19.B — One vertical slice (L0→L4, monetary/rates). ✅ DONE + INTEGRATED (2026-07-24, on `main`; modular, kill-list = DESIGN §9).** Built the full slice — L0 SPF+SEP consensus adapters + SPF-vs-SEP gap (with structural-nuance interpretation) → L1 Haiku FOMC-text extractor (`Evidence`) → L2 Opus analyst (bounded `BranchBrief`, asset biases matched to the scorer) → L3 arm-tagged `ExoOutput` + a note the existing scorer parses → L4 arm-keyed scoring + `calibration_by_arm` → **live/forward emission** (auto-fetch latest FOMC statement, weekly `exo_weekly_emit.yml`). ~119 tests. **Both confirm-on-first-run calibration smokes PASSED** (synthetic + the real June-17-2026 FOMC statement): L1 reads tone without template-matching, L2 dials conviction proportionally, gap-hardening confirmed. First live exogenous note emitted (2026-07-27, net hawkish; 10Y/DXY Bullish, Gold Bearish; resolves ~08-01). Forward-only validation → **KB-012 pending** (weeks-to-months; early tell = commitment metric). Live-run wiring detail in the **Phase-19 integration status** block below; per-file detail in the code + `DESIGN.md` + git.
-   - **Leakage-free early read (backtest, 2026-07-25 → record as KB-013):** `gap_backtest.py` tested the *deterministic* L0 signal historically (no LLM ⇒ no leakage). **Verdict: the SPF consensus rate-*level* forecast has NO positive directional skill on the 10Y** — 40% hit @ binom_p=0.028 at 1Q (mildly *contrarian*: SPF-implied-up precedes a ~7bp fall and vice-versa), washing to noise at 2Q; consistent with the literature that rate forecasts ≈ random walk. **The SPF-vs-SEP gap is NOT backtestable from FRED** — `FEDTARMD` exposes only the latest vintage (~3 pts), so the divergence would need ALFRED vintages (out of scope). Implication: the deterministic anchor is *not* an edge → **lowers the prior** the slice clears the bar; the engine's remaining hope is the (un-backtestable) LLM-tone read. Don't add branches; re-decide at the commitment read.
-   - *Build-log pruned 2026-08-20 (per its own "safe to prune" note). The layer-by-layer detail — L0 SPF/SEP adapters, L1 Haiku extractor, L2 Opus analyst, L3 synth, L4 arm-tagging, the FOMC auto-fetcher + weekly emitter, and the two passed calibration smokes — lives in the code (`exogenous/`), `exogenous/DESIGN.md`, and git history. The summary above + the integration-status block below are the doc-level record.*
+1. **WP-19.A — Reframe & target lock (design only) ✅** *(2026-07-14 → `exogenous/DESIGN.md`)*. Locked the first slice (monetary / rates-expectations), the three data contracts (L1 `Evidence` → L2 bounded `BranchBrief` → L3 `ExoOutput`), and the go/no-go bar. Two honest constraints are baked in: consensus must be **survey**-derived, not fed-funds-futures (market-derived), or the A/B is contaminated; and LLMs cannot be cleanly backtested on dated public text they were trained on, so **validation is forward-only**. Detail → [roadmap-archive.md](roadmap-archive.md).
+2. **WP-19.B — One vertical slice (L0→L4, monetary/rates) ✅ DONE + INTEGRATED** *(2026-07-24, on `main`; modular, kill-list = DESIGN §9)*. L0 SPF+SEP consensus adapters → L1 Haiku FOMC extractor → L2 Opus analyst (bounded brief) → L3 arm-tagged `ExoOutput` → L4 arm-keyed scoring, plus live emission. ~119 tests; both confirm-on-first-run calibration smokes passed. **Leakage-free early read (2026-07-25):** the SPF consensus rate-*level* forecast has no positive directional skill on the 10Y — 40% hit at binom_p=0.028 at 1Q, mildly contrarian, washing to noise at 2Q. WP-19.E later generalised that to six assets and three horizons [KB-026]. Detail → [roadmap-archive.md](roadmap-archive.md).
 3. **WP-19.C — Generalise the branch contract.** Only after B works, extract the L0–L2 skeleton + brief schema so branch #2/#3 are cheap to add and the payload stays bounded.
 4. **WP-19.D — Add branches by measured value.** One at a time, each gated on "does it improve the scored output vs without it" (Phase-18 ablation discipline). Prune losers immediately.
-5. **WP-19.E — Integrate or kill. ✅ RESOLVED (2026-09-07) — the anchor does not carry direction [KB-026].** As written, this A/B'd the exogenous arm against market-only on Brier/commitment. v1.6 cut market-only's directional calls [KB-024], so that comparator froze and the A/B became unreadable; option (a) from WP-21.F re-pointed the gate at the WP-21.A benchmark. **Both pre-registered questions closed negative** — the SPF anchor carries no direction alone, and added to the market panel it makes every calibration metric worse. **This closes Phase 19's directional route**; the untested expectations-gap mechanism and route (b) are unaffected — see the WP-19.E block at the end of this phase for the scope, which matters more than the verdict.
+5. **WP-19.E — Integrate or kill. ✅ RESOLVED (2026-09-07) — the anchor does not carry direction [KB-026].** This closes Phase 19's **directional** route. Route (b) — re-cutting the branch's output to the expectations gap — is untested and unaffected; the scope of the null matters more than the verdict, and it is set out in the WP-19.E section below.
 
 **Kill criteria (pre-committed).** Cut the whole branch if, after 2–3 branches, it does not beat market-only on Brier/commitment. Watch-items: cost blow-up (mitigate via cheap extraction, caching, cadence-appropriate refresh — policy monthly, news daily); alt-data access/reliability (start free/scrapeable, treat paid feeds as later bets gated on the free ones); look-ahead bias in text backtests (point-in-time from day one).
-
-**Branch strategy.** Develop on `feature/exogenous-engine` off `main`. Independent of the market-only pipeline; integrates only at WP-19.E via the existing `profile` / run-config A/B. Start with WP-19.A (design) then the WP-19.B single vertical slice.
 
 **Phase-19 integration status: INTEGRATED into `main` 2026-07-24 — modular / removable.**
 The user opted to integrate now (autonomous weekly run) rather than manually dispatch during a test phase, on the condition it stays cleanly excisable if it proves unvaluable.
@@ -216,144 +199,42 @@ The user opted to integrate now (autonomous weekly run) rather than manually dis
 
 ---
 
-### WP-19.E — The anchor, scored in the numeric harness ✅ *(harness 2026-09-04; the 2026-09-05 run was void [KB-025]; the valid run landed 2026-09-07 and closes negative — [KB-026])*
+### WP-19.E — The anchor, scored in the numeric harness ✅ RESOLVED negative *(2026-09-07)*
 
-**Why the work package changed shape.** WP-19.E was "A/B the exogenous arm vs
-market-only". v1.6 cut market-only's directional calls, so there is no live
-comparator left to A/B against — the gate did not fail, it became **unreadable**.
-WP-21.F named two ways back and this is **(a)**: re-point the gate at the WP-21.A
-benchmark, which [KB-024] shows is a genuinely hard bar rather than a formality.
-
-**What was built.** `numeric_baseline.py` now carries two more arms, and they ask
-two different questions:
-
-| arm | inputs | question |
-|---|---|---|
-| `exogenous_spf` | SPF consensus only — no price, no market input | does the non-market anchor carry direction on its own? |
-| `market_plus_exo` | the WP-21.A market panel **plus** those columns | does the anchor add anything on top of it? (read against `ridge`) |
-
-Seven features, all derived from the Philadelphia Fed SPF median-level workbooks
-already committed as `exogenous/example/` fixtures: the consensus curve
-(`spf_curve`), the consensus path at four quarters out (`spf_10y_path`,
-`spf_policy_path`), the survey-to-survey revisions (10Y / 3M / unemployment), and
-a staleness clock. Levels are deliberately excluded — over two decades a trending
-level is a date proxy, the same reason `macro_features` omits the 10Y level.
-
-**Why this is a real test and not a fifth arm for its own sake.** Everything the
-harness already guarantees now covers the anchor too: the embargo, the shared
-call set, the production readers, and the pre-committed `verdict()` bar. The
-exogenous features carry fewer NaNs than the market panel's 252-day lookbacks, so
-an exo-only arm can start predicting earlier — `shared_call_keys` intersects
-across feature sets, so it earns no hit-rate for starting sooner and
-`always_bullish` gets no free sample either. That is the [KB-023] error one level
-down, and it is asserted by test.
-
-**What is deliberately NOT in it — read this before reading a null.**
-- **The SEP dot plot.** FRED serves the *current* vintage of a projection path
-  that every SEP release rewrites, so a walk-forward reading it would see the
-  Fed's later revisions. `sep.py` says so in its own point-in-time note, and
-  WP-19.B's early read already found the SPF-vs-SEP gap un-backtestable for the
-  same reason. **The SPF-vs-SEP gap therefore stays a live-only signal** — and it
-  is half the two-layer bet. `EXCLUDED_EXOGENOUS_SERIES` holds the exclusion as a
-  checked fact rather than a comment.
-- **The LLM layers** (L1 extract / L2 analyst). DESIGN §6.2: those models were
-  trained on the dated FOMC text they would be reading, so a historical backtest
-  of them is leakage-prone by construction. Nothing in the harness reads a
-  document.
-
-**So what a null here would and would not close.** It would close *the SPF anchor
-as a directional input*, generalising WP-19.B's leakage-free early read (which
-found the SPF 10Y level forecast had no positive directional skill — 40% hit at
-1Q, mildly contrarian) from one asset and one quarterly horizon to six assets at
-t5/t10/t20, on the same sample and bar as every other arm. It would **not** close
-the expectations-gap mechanism, which lives in the SPF-vs-SEP divergence and in
-FOMC communication drifting from a fixed anchor — neither of which this can test.
-Say that plainly when the result is written up; the honest scope of a negative is
-the thing most easily lost between a report and a KB entry.
-
-**Cost.** Zero LLM spend, no new secret, no new network dependency — the
-workbooks are in the repo. Two ridge arms on the existing panel.
-
-**Status — closed.** Harness shipped 2026-09-04. The first attempt (2026-09-05)
-was **void [KB-025]**: the workflow built the CLI flag with
-`${{ inputs.exogenous && '' || '--no-exogenous' }}`, which returns the fallback
-whenever its truthy branch is the empty string, so every dispatch passed
-`--no-exogenous` and a valid **market-only** report went out under a WP-19.E
-heading. Fixed the same day — the workflow branches on the inputs in the shell,
-and `--require-exogenous` (passed whenever `exogenous: true`) turns "the panel
-cannot carry the anchor" into a failed run rather than that fallback.
-
-**The valid run landed 2026-09-07** (Actions `34104184917`, `origin/output`
-`2780cb4`), with the validity check passing first: `exogenous input: 'true' ->
---require-exogenous`, `Panel: 5656 business days, 18 columns`,
-`n_exo_features: 7`, `arms_skipped: {}`.
+**Why the work package changed shape.** As written, WP-19.E A/B'd the exogenous
+arm against market-only on Brier/commitment. v1.6 cut market-only's directional
+calls [KB-024], so the comparator froze and the gate became **unreadable** rather
+than failed. WP-21.F named two ways back; this is **(a)** — re-point the gate at
+the WP-21.A benchmark, which [KB-024] shows is a genuinely hard bar.
 
 **Both pre-registered questions close negative → [KB-026].** On the same 75,450
-calls: `exogenous_spf` (0.561 / Brier 0.254 / BSS −0.030 / ECE 0.078, separation
-`mixed`) fails the BSS-or-ordering clause and loses to `always_bullish` on Brier,
-BSS and ECE. `market_plus_exo` fails both increment clauses and is *worse than
-the panel it was added to* — BSS −0.087 → −0.124, ECE 0.118 → 0.141 — while
-getting a third more decisive. The pre-registered third outcome did **not** occur:
-the anchor is not inverted (bear−bull −0.038, CI [−0.135, +0.056]), so it does
-not replicate [KB-024]'s mechanism; instead it *dissolves* that mechanism when
-added to the market panel. On the per-input read the pre-registration demanded
-regardless: `spf_policy_path`, the branch's actual thesis column, carries the
-highest sign stability of the seven (0.952) and a permutation drop of −0.001, and
-`spf_staleness` shows nothing (+0.001).
+calls: `exogenous_spf` (SPF consensus only) scores 0.561 / BSS −0.030 / ECE 0.078
+and loses to the constant `always_bullish` on Brier, BSS and ECE. `market_plus_exo`
+is *worse than the panel it was added to* — BSS −0.087 → −0.124, ECE 0.118 → 0.141
+— while getting a third more decisive. The anchor is **not** inverted (bear−bull
+−0.038, CI [−0.135, +0.056]), so it does not replicate [KB-024]'s mechanism; it
+dissolves it. On the per-input read: `spf_policy_path`, the branch's actual thesis
+column, carries the highest sign stability of the seven (0.952) and a permutation
+drop of −0.001.
 
-The scope sentence this work package required, discharged in [KB-026]: this
-scored the branch's **deterministic, point-in-time half only**. The SEP dot plot
-and the L1/L2 LLM layers were excluded as leakage, so the SPF-vs-SEP gap and the
-FOMC-drift layer — both layers of the actual bet — remain untested. The null
-closes *the SPF anchor as a directional input*, not the expectations-gap
-mechanism.
+**The scope of that null — route (b) still depends on this.** It scored the
+branch's **deterministic, point-in-time half only**. The SEP dot plot was excluded
+(FRED serves only the *current* vintage of a path every SEP release rewrites) and
+the L1/L2 LLM layers were excluded (trained on the dated FOMC text they would
+read). So the null closes **the SPF anchor as a directional input** and leaves the
+**expectations-gap mechanism untested** — the SPF-vs-SEP divergence and FOMC
+communication drifting from a fixed anchor are both live-only signals this harness
+cannot reach.
 
-**To reproduce or re-run:** `Actions → Numeric Directional Baseline → Run
-workflow`, defaults (`exogenous: true`). Needs `FRED_API_KEY` and reachable
-yfinance/FRED, which is why it lives in CI; 1–3 hours depending on the runner
-(2h50m for the market arms alone on 09-05, 63m for all four on 09-07 — runner
-variance, not a truncated fit: `ridge` returns 0.530 / BSS −0.087 on all three
-panel builds). **Before reading a number, check the log line `exogenous input:
-'true' -> --require-exogenous` and `n_exo_features: 7`** — a market-only table is
-a valid report, which is exactly why the void run went unnoticed for two days.
+**One void run, worth remembering.** The 2026-09-05 attempt was void [KB-025]: the
+workflow built its CLI flag with `${{ inputs.exogenous && '' || '--no-exogenous' }}`,
+which returns the fallback whenever the truthy branch is an empty string, so every
+dispatch passed `--no-exogenous` and a valid **market-only** report went out under
+a WP-19.E heading. A market-only table is a valid report, which is why it went
+unnoticed for two days. `--require-exogenous` now turns that into a failed run.
 
-#### The read, pre-registered *(written 2026-09-04, before the run)*
-
-Same discipline as WP-21.A: the bar goes down before the numbers, so a marginal
-Δ cannot be talked into a finding afterwards.
-
-**Primary — does the anchor carry direction on its own?** `exogenous_spf` must
-clear the standing `verdict()` bar (n ≥ 30 decisive, decisive hit-rate > 0.52,
-and BSS > 0 **or** an `aligned` separation ordering) **and** beat
-`always_bullish` on the same sample. The second condition is not redundant:
-[KB-024]'s whole point is that the constant is the real bar and the nominal one
-is not.
-
-**Secondary — does it add anything?** `market_plus_exo` vs `ridge`, same model,
-same sample, seven extra columns. An increment counts only if `market_plus_exo`
-clears the bar **in absolute terms** *and* improves BSS over `ridge`. A Δ that
-leaves both arms below the constant is not a gain — it is two failures with a gap
-between them, and the report's increment table is there to be read that way.
-
-**Third outcome, and the one to watch for.** If `exogenous_spf` *inverts* on
-separation (bear − bull positive) the way both market arms did, that is a third
-independent replication of [KB-024]'s mechanism — stress reads bearish, stress
-mean-reverts at 10–20d — and it would mean the SPF anchor is riding the same
-contrarian relationship rather than carrying information of its own. Record it as
-a replication, not as a new finding.
-
-**Read regardless of the verdict** — the pooled per-input table, which is the
-only place this harness can say anything about the branch's actual thesis:
-`spf_policy_path` (does the consensus policy path pay at all?), `spf_staleness`
-(does a stale anchor behave differently from a fresh one — the closest observable
-proxy this harness has for the drift mechanism), and the sign stability of the
-three revision columns.
-
-**What the KB entry says either way.** It must carry the scope sentence: this
-scored the branch's deterministic, point-in-time half; the SPF-vs-SEP gap and the
-FOMC-drift layer were excluded as leakage, so a null closes *the SPF anchor as a
-directional input* and leaves the expectations-gap mechanism untested. Without
-that sentence the entry would read as a verdict on Phase 19, which it is not.
+Harness design, the seven features, the pre-registered read and reproduce
+instructions → [roadmap-archive.md](roadmap-archive.md).
 
 ---
 
@@ -442,40 +323,17 @@ direction on liquid macro assets is close to unlearnable from this payload by
 work package below is chosen so that a negative result is as informative as a
 positive one.
 
-### Why not a neural network (decided 2026-09-03 — recorded so it is not re-litigated)
+### Why not a neural network
 
-The instinct behind the proposal is right: this *is* a weighting and
-data-quality problem, and an LLM is structurally a poor weigher — it has no
-gradient, no memory of which input paid off, and its effective weights are
-whatever the prompt emphasised plus its priors. `load_accuracy_context()` is a
-very lossy substitute for an update step. The remedy, however, does not scale to
-a learned per-input model, for three reasons this project has already measured:
+Decided 2026-09-03 and written up once so it is not re-litigated →
+**[ADR-0008 — No neural network](../decisions/ADR-0008-no-neural-network.md)**.
 
-1. **Effective sample size, not row count.** Full-panel coverage is bounded by
-   the youngest inputs (reverse repo meaningful from ~2013, Bitcoin from 2014,
-   TIPS/breakeven from 2003, free-FRED HY OAS truncated to ~2023 — see the note
-   in `refit_models.py`). That is ~3,000 business days ⇒ **~150 non-overlapping
-   20-day windows**, across 6 assets that collapse to roughly 3 independent
-   factors [KB-009: the equity complex is ~one factor]. Low hundreds of
-   effective examples against 36+ inputs is where a network learns the sample.
-2. **The small version was already run, twice, and said "fewer weights."**
-   [KB-002]: a 6-scheme weight ablation over 18 years found `autocorr`'s weight
-   contributed nothing (identical to 3 d.p.), `correlation`'s weight was
-   *actively harmful*, and the winner tied a 2-parameter 50/50 blend within
-   noise — the data honestly supported about **two** weights. [KB-016]: the
-   equal-weight continuous blend *degraded* the validated flag; the correct
-   adoption form was a discrete **mode** (an OR), not a weight.
-3. **"An update step each time" is the worst case here.** At a 20-day horizon
-   each new day contributes ~1/20 of an independent observation, and macro is
-   non-stationary — so an online learner tracks the most recent regime. That is
-   precisely the mechanism [KB-023] just caught fooling a block-switched A/B.
-
-**What survives the objection** is the cheap version: a *regularised* model
-(ridge/logistic + a small GBM) fitted point-in-time in the harness that already
-exists. It answers the same question — what is each input worth, measured
-against outcomes — at a model complexity the sample can support, and it doubles
-as the missing benchmark. That is WP-21.A. A more expressive model is
-reconsidered **only if** WP-21.A shows an edge to be expressive about.
+The instinct behind the proposal is right — this *is* a weighting problem and an
+LLM is structurally a poor weigher. The remedy does not scale, for reasons the
+ADR sets out: effective sample size is ~150 non-overlapping 20-day windows across
+roughly 3 independent assets, and [KB-009] found only ~3 orthogonal factors in the
+payload. A more expressive model is reconsidered **only if** WP-21.A shows an edge
+to be expressive about. It did not — [KB-024].
 
 ### WP-21.A–D — the learnability test, and the cut *(detail archived 2026-09-04)*
 
@@ -528,34 +386,25 @@ the search closes for good.
 
 #### Family 1 — result: negative, twice over → [KB-027]
 
-**Run** Actions `34150561527` (1h 52m, green) on `11b0e93`; report on
-`origin/output` `e3bedc4`. The [KB-025] check passed first
-(`n_vix_term_features: 4`, `arms_skipped: {}`, `seal_start: 2018-01-01`).
-
-**Primary — fails.** On the sealed slice `vix_term` posts hit-rate 0.573 / Brier
-0.244 / BSS +0.003 / ECE 0.028 against `always_bullish`'s 0.567 / 0.246 /
-−0.001 / 0.017. The entire margin is **+0.006**, it goes **negative at t20**
-(−0.003), and on the explore slice the arm is **−0.009 behind** the same
-constant. It is tracking a bull tape: 41% Bullish, 56.5% Neutral, **2.5%
-Bearish**. Its largest coefficient sits on the column with a *negative*
-permutation drop.
-
-**Secondary — fails, with a negative sign.** `market_plus_vixterm` is worse than
-`ridge` on every metric (Brier 0.264→0.270, BSS −0.061→−0.083, ECE 0.104→0.126)
-while being **more decisive** (+1,970 calls). Four columns did to the panel what
-[KB-026]'s seven did — two independent families, same result. "Ablate before
-adding" is no longer a single observation.
-
-**The mechanism is [KB-024]'s, through a new instrument.** Bearish calls precede
-the *highest* forward returns of any bucket (+1.685% vs +0.951% Bullish); at t5
-the bearish-vs-bullish gap is +0.294, p=0.002, CI [+0.060, +0.629]. Curve inverts
-under stress → model reads bearish → stress mean-reverts → market rallies.
+**Both clauses fail → [KB-027].** Run Actions `34150561527` (1h 52m, green) on
+`11b0e93`, report on `origin/output` `e3bedc4`; the [KB-025] validity check
+passed first (`n_vix_term_features: 4`, `arms_skipped: {}`,
+`seal_start: 2018-01-01`). On the sealed slice `vix_term`'s entire
+margin over `always_bullish` is **+0.006** on hit-rate, it goes negative at t20,
+and on the explore slice it is 0.009 *behind* the same constant — it is tracking
+a bull tape (41% Bullish, 2.5% Bearish). `market_plus_vixterm` is worse than
+`ridge` on every metric while being more decisive: four columns did to the panel
+what [KB-026]'s seven did, so **"ablate before adding" is no longer a single
+observation**. The mechanism is [KB-024]'s through a new instrument — curve
+inverts under stress → model reads bearish → stress mean-reverts → market
+rallies.
 
 **And the bar was wrong.** `verdict()` returned **`edge`**. Its clause was
 `hit > 0.52 AND (BSS > 0 OR aligned)`, so a positive BSS satisfied the disjunct
 and the `inverted` ordering was never consulted — skipped in exactly the case it
-was written for, and unreachable until an arm finally posted BSS > 0. The
-pre-registration below had already said an inversion is not a pass. **The
+was written for, and unreachable until an arm finally posted BSS > 0. The pre-registration,
+committed before the run and now archived, had already said an inversion is not
+a pass. **The
 function did not implement its own pre-registration**, and it has been corrected:
 an `inverted` ordering now disqualifies before the pass clause and prints as its
 own verdict. This is not a goalpost that moved — the defence is entirely that the
@@ -566,69 +415,14 @@ floor of literally zero is not a skill threshold. +0.003 on heavily overlapping
 calls is not distinguishable from zero. Either a margin or a comparator-relative
 clause ("must beat the best comparator on Brier") is the principled bar.
 `EDGE_MIN_BSS` was deliberately left at 0.0 — raising it *is* a goalpost move and
-is not covered by the pre-registration, so it is a decision, not a fix.
+is not covered by the pre-registration, so it is a decision, not a fix. Held open
+as **[ADR-0017](../decisions/ADR-0017-bss-floor-left-open.md)**, which blocks
+families 2 and 3.
 
 **Scope, as the pre-registration required it be carried:** this closes the term
 structure as a *directional* input. [KB-001] scored it as a *stress* instrument
 (AUC 0.77/0.67) and that stands untouched; the two live fragility flags do not
 depend on this outcome and nothing in `fragility.py` changes.
-
-#### Family 1 — VIX term structure *(built 2026-09-07, harness on `main`)*
-
-**Why it is first, restated as a cost argument.** `vix_term` is the strongest
-single fragility component ([KB-001], AUC 0.77/0.67) and has never been tested
-for *direction*. It needs exactly one more input — FRED `VXVCLS`, the 3-month
-VIX — which is a published index close, printed once and never restated, so it
-satisfies `numeric_baseline.py`'s no-revision rule with no ALFRED call and no new
-secret. Everything else in the family is arithmetic on two columns the panel now
-carries.
-
-**The four columns.** `vix_term_ratio` (VIX/VIX3M; >1 = backwardation),
-`vix_term_persist_20` (fraction of the trailing 20 days in backwardation —
-literally `fragility.vix_term_backwardation`'s own statistic at its own default
-window, asserted equal by test, so this measures the thing [KB-001] scored and
-not a near-miss of it), `vix_term_chg_5` (is the curve inverting *now*) and
-`vix_term_pct_252` (the ratio against its own trailing year, so "inverted" is
-regime-relative rather than a fixed 1.0 for all time).
-
-**The [KB-009] objection, answered in the construction.** That screen found VIX
-and VIX3M correlate 0.98 *in levels* and put `vix3m` on the WP-18.4 prune queue.
-The family is not the level: the ratio of two series that collinear is what is
-left once the shared component is divided out.
-`test_the_family_is_not_a_second_copy_of_the_vix_level` builds a panel that
-reproduces the 0.98 and fails if the ratio tracks the level. The prune-queue item
-also concerned the *LLM payload*, which is a different question from whether a
-numeric arm can use the curve.
-
-**Two arms, the WP-19.E shape.** `vix_term` is ridge on the family alone — does
-the curve carry direction by itself? `market_plus_vixterm` is the same ridge on
-the market panel plus those four columns, read against `ridge`: identical model,
-identical sample, identical rows, one strictly larger column set. [KB-026] is why
-the second read is not a formality — seven plausible point-in-time columns added
-to this same panel made every calibration metric *worse* and the model a third
-more decisive.
-
-**The market panel does not move — but the shared *window* does.** Two separate
-claims, and conflating them would be a [KB-023]-shaped error:
-
-- **The columns are unchanged.** `vix3m` enters the panel; no market feature
-  reads it, so `ridge` and `gbm` fit exactly the columns they fit in [KB-024] and
-  [KB-026]. `test_market_feature_set_is_unchanged_by_the_vix_term_inputs` holds
-  that line rather than trusting a diff reader to notice.
-- **The sample is not.** `shared_call_keys` intersects across every arm, so the
-  feature set with the shortest input history sets the start date for *all* of
-  them, comparators included. VIX3M's FRED history begins **2007-12-04** against
-  the market panel's 2005 start, and once the 252-day percentile window and
-  `min_train` are paid the shared window starts roughly three years later than
-  [KB-024]'s. **So a run carrying family 1 does not reproduce [KB-024]'s headline
-  numbers, and must not be read as having tried to.** The reproduction path is
-  `--no-exogenous --no-vix-term`, which restores the original market-only sample.
-  The report prints the shared window on the sample line so a change in it is
-  visible rather than inferred.
-- **The bar is unaffected.** The sealed slice starts 2018-01-01, well after every
-  arm's first call under either configuration, so the arms are compared at full
-  width exactly where the verdict is read. This is a second reason the seal date
-  sits where it does.
 
 #### The seal — how condition 3 is actually enforced
 
@@ -657,65 +451,18 @@ earlier calls are the **explore** slice.
   third of what it looks like. The cap of three is what bounds it. This is on the
   report, not just here.
 
-#### Pre-registration — the read, written before the run
+**Where:** `.macro-assist/numeric_baseline.py` (`vix_term_features`, `SEAL_START`,
+`split_reports_by_seal`) · `.github/workflows/numeric_baseline.yml` · tests
+section 9. Family 1's build detail and its pre-registered read →
+[roadmap-archive.md](roadmap-archive.md).
 
-Same discipline as WP-19.E's ([KB-024], correctly applied): the interpretation
-is fixed while the numbers are still unknown.
-
-1. **Primary question — does the curve carry direction alone?** `vix_term` must
-   clear `verdict()` on the sealed slice: n ≥ 30 decisive, decisive hit-rate >
-   0.52, and BSS > 0 **or** an `aligned` separation ordering. Beating
-   `always_bullish` on hit-rate alone is not a pass — that is the clause
-   [KB-024] added after a drifting tape handed the constant arm free accuracy.
-2. **Secondary question — does it add to the market panel?**
-   `market_plus_vixterm` against `ridge` on the sealed slice, on the four
-   headline metrics. A Δ that does not move the pre-committed bar is a null, not
-   a small gain.
-3. **The third outcome, named in advance.** The family may come back
-   *inverted* — a stable relationship with the wrong sign, which is what
-   [KB-024] found for `drawdown` (stress → bearish, and stress mean-reverts at
-   10–20d). An inversion is **not** a pass and must not be re-labelled a
-   contrarian signal after the fact; it is a finding about the panel, recorded as
-   such.
-4. **What clearing would and would not license.** Not a restored product: an
-   argument for returning the directional column **with the conditional
-   distribution published underneath it**, which is what v1.6 made the product.
-   It would still need the live-emission decision separately.
-5. **What a null closes.** Family 1 only. Two of the three families the cap
-   allows would remain, and the honest prior on them drops.
-
-**Scope limit, to be carried into the write-up.** This scores the term structure
-as a *directional* input at 5/10/20 days on six assets. [KB-001] scored it as a
-*stress* instrument, and that result stands untouched either way — a null here
-says the curve does not predict direction, not that it does not predict trouble.
-The two live fragility flags do not depend on this outcome.
-
-**Where:** `.macro-assist/numeric_baseline.py` (`vix_term_features`,
-`SEAL_START`, `split_reports_by_seal`) · `.github/workflows/numeric_baseline.yml`
-(`vix_term`, `seal_start` inputs) · tests section 9.
-
-### Phase 21 — execution order and wind-down *(complete; detail archived 2026-09-04)*
+### Phase 21 — execution order and wind-down ✅ *(complete; detail archived)*
 
 A → D ran in that order and closed the phase. Two follow-ons shipped with it:
-
-- **WP-21.F ✅ — the two remaining directional arms stood down** (2026-09-04).
-  The kimi and exogenous stages came out of `pipeline.yml`; both keep
-  `workflow_dispatch` and **nothing was deleted**. The two closures are different
-  claims and the distinction matters: kimi's *target* disappeared (it calibrated
-  a `confidence_pct` that v1.6 cut), while the exogenous arm's *comparator*
-  disappeared — its mechanism was never actually tested. The two ways back are
-  recorded under Phase 19, and **(a) has since been taken → WP-19.E**.
-- **WP-21.G ✅ — the scoring loop wound down** (2026-09-04). The feedback loop
-  (`load_accuracy_context()`) is deleted, not disabled. The scorer keeps running
-  until the last v1.5 note's T+20 window resolves ~2026-10-02, printing a
-  `DIRECTIONAL RECORD CLOSED` banner when it does — then stage 3 comes out of
-  `pipeline.yml`. The readers stay: they hold the evidence base for
-  [KB-007]/[KB-011]/[KB-022], which has to stay reproducible.
-
-The archive carries the rest — why the version gate did *not* stop the arms
-(neither stamps an `agent_version`, and silently defunding a running experiment
-through a constant it never opted into would be the wrong mechanism), and why the
-Phase-20 stage is deliberately left running against a withdrawn input.
+**WP-21.F** (re-pointing the exogenous gate, → WP-19.E above) and **WP-21.G**
+(deleting the self-calibration loop the cut had orphaned). Execution order, the
+`LAST_DIRECTIONAL_VERSION` reasoning, and why the Phase-20 stage is deliberately
+left running against a withdrawn input → [roadmap-archive.md](roadmap-archive.md).
 
 ---
 
@@ -740,84 +487,32 @@ vol forecast is WP-17.5.
 
 ### WP-22.A — Six assets in the table ✅ *(2026-09-08)*
 
-The note published `— no conditional base rate` for the 10Y, DXY and Bitcoin, and
-the accompanying prose called it "thin-data terrain". That was **not true**:
-`refit_models._ASSETS` simply had three tickers in it. The gap was build-side.
+The universe went **3 → 6**. The note had been publishing `— no conditional base
+rate` for the 10Y, DXY and Bitcoin, with prose calling it "thin-data terrain" —
+which was not true: `refit_models._ASSETS` simply had three tickers in it. The gap
+was build-side. Shipped with `assets.py`, the canonical registry that made the
+same mistake impossible to repeat →
+[ADR-0011](../decisions/ADR-0011-canonical-asset-registry.md).
 
-Shipped: `.macro-assist/assets.py`, a canonical registry (key, ticker, note name,
-return convention) that `refit_models` (build), `quant_context` (render) and
-`score_distributions` (score) all import, replacing three separate hand-maintained
-asset lists. The universe goes 3 → 6.
-
-**The 10Y forced the registry rather than a fourth list.** `^TNX` quotes a yield
-*level*, so a percent return over it is a percent-of-a-percent — the ~13x
-threshold inflation `score_predictions.ABSOLUTE_DIFF_ASSETS` documents for the
-directional scorer. That correction now has to hold on the build side, the render
-side and the score side at once, so it is defined once as
-`assets.forward_change()` and imported. Stored numbers are in display units: **%
-for price assets, basis points for the 10Y**, with `Asset.unit` saying which, and
-`format_change()` as the matching renderer — so a 6bp yield move can no longer
-print as "+6.0%".
-
-`score_predictions.py` is deliberately **not** refactored onto the registry. It is
-frozen legacy whose job is to keep [KB-007]/[KB-011]/[KB-022] reproducible.
-
-*Note on reading the first months:* the three new assets carry no forward record
-until a weekly refit rebuilds the table with them, so their record starts ~5 months
-after the original three. `dist_scores_summary.json` reports
-`record_start_by_asset` rather than pooling the two.
+*Reading the first months:* the three new assets carry no forward record until a
+weekly refit rebuilds the table, so their record starts ~5 months after the
+original three. `dist_scores_summary.json` reports `record_start_by_asset` rather
+than pooling the two.
 
 ### WP-22.B — The distribution scorer ✅ *(2026-09-08)*
 
-`.macro-assist/score_distributions.py` — the successor to `score_predictions.py`.
-Reads `results/quant_context_log/*.jsonl`, writes `results/dist_scores/<date>.json`
-plus `results/dist_scores_summary.json`.
+`.macro-assist/score_distributions.py`, the successor to `score_predictions.py`:
+pinball loss at q25/50/75, IQR coverage, a 4-bin PIT, above-median sign, and
+block-bootstrap CIs on 21-date blocks, wired as its own step in
+`macro_weekly_scoring.yml`. **The benchmark is the test** — `unconditional`, the
+same asset's full-history quantiles with no macro bucket. [KB-024]/[KB-026]/[KB-027]
+each found a product scoring as skilled until a trivial rival was put next to it;
+if conditioning cannot beat this, the bucket layer is decoration. Also
+`trailing_250` and `har_gaussian`.
 
-**The input is already point-in-time, and that is why this was cheap.** The quant
-log carries the exact distribution the note published that day, drawn from a table
-fit at the *prior* weekly refit. A logged quantile is knowable at *t* by
-construction — no vintage to reconstruct, no look-ahead to argue about. This is
-the one place in the project where the honest version was also the easy one.
-
-**Metrics.** Pinball (quantile) loss at q=0.25/0.50/0.75 — the proper scoring rule
-for a quantile forecast, and the distribution product's Brier: minimised in
-expectation only at the true quantile, so it cannot be improved by shading the
-interval. Plus P25–P75 coverage against a nominal 0.50, a four-bin PIT histogram
-(the whole PIT that three published quantiles can honestly support), and
-above-median sign balance.
-
-**Comparators, because [KB-024]/[KB-026]/[KB-027] all say the same thing.** Three
-measurements have now found that a product without a trivial rival scores as
-skilled. So the benchmark is `unconditional` — the same asset's full-history
-forward-return quantiles, **no macro bucket at all**. The entire claim of the
-conditional layer is that conditioning on `NFCI|YC|HY` beats not conditioning; if
-it does not beat this, the bucket machinery is decoration and should be recorded
-as decoration. Also `trailing_250` (recent-regime rival, no macro state) and
-`har_gaussian` (zero-mean Normal on the logged HAR σ, √h-scaled).
-
-**Sample alignment (WP-21.A.2's lesson, applied).** An observation is emitted only
-when every required arm could quote a distribution for it, every arm quotes
-*exactly the quantiles the note claimed that day*, and any head-to-head skill
-score is computed on the shared subsample. `har_gaussian` is optional and scored
-on its own subsample — it declines the 10Y outright, because turning a
-percent-return vol into a basis-point yield move needs the yield level and would
-make it a different model. Better no comparator than a wrong one.
-
-**Units do not pool.** Mean pinball loss is in the asset's own unit, so a
-cross-asset mean would be adding bp to %. Per-asset is the primary read; the only
-pooled figure is an equal-weighted mean of per-asset *skill scores*, which are
-unit-free, and it is labelled as such. Coverage and PIT pool directly.
-
-**Overlap.** Daily notes at 5d overlap 80%; at 20d, 95%. Raw n is not evidence.
-Intervals come from a block bootstrap over whole 21-report-date blocks — the same
-`BLOCK_DAYS` `bias_separation.py` uses, asserted by a test, so two analyses of the
-same overlap cannot disagree about what is independent.
-
-**Controls, in the WP-21.A shape.** A negative control (stationary walk, where the
-unconditional benchmark *is* the truth) must report ~zero skill, and a positive
-control (published distribution knows a regime the benchmark cannot see) must
-detect it. Both are tests, not one-off checks: a null from a harness that has not
-demonstrated it can find a planted signal means nothing.
+How the scorer behaves today, including the controls and the units-do-not-pool
+rule → [Scoring](../reference/scoring.md). Build detail →
+[roadmap-archive.md](roadmap-archive.md).
 
 ### WP-22.C — The pre-registered bar *(written 2026-09-08, sealed; first read ~2027-05)*
 

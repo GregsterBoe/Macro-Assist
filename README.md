@@ -110,9 +110,14 @@ layer for revisiting a design choice without re-deriving it.
 | [Active experiments](docs/record/active-experiments.md) | Live status board — what is running, right now |
 | [Roadmap](docs/record/roadmap.md) | Phases and work packages (plans) |
 | [Improvement track](docs/record/improvement-track.md) | Improvement experiments on existing components |
-| [Open decisions](docs/record/todo.md) | Working memory: known, deliberately not done, and why |
+| [Open decisions](docs/record/todo.md) | **The single inbox** — known, deliberately not done, and why |
+| [Resolved](docs/record/resolved.md) | Closed decisions, with the reasoning kept |
 | [Maintenance log](docs/record/maintenance-log.md) | Housekeeping and doc-hygiene passes |
 | [Roadmap archive](docs/record/roadmap-archive.md) | Closed phases and superseded detail |
+
+**[CLAUDE.md](CLAUDE.md)** sits above all four: the repo map, the commands, and
+the eleven conventions that are binding when changing this code. It is pointers,
+not a copy — start there for a coding session, not here.
 
 The rule that keeps these from drifting: **a fact lives in exactly one layer.**
 Concepts explain and link. Reference describes today. The record is append-mostly

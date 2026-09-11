@@ -9,38 +9,27 @@ detailed doc disagree, the detailed doc wins — fix the row.
 | `roadmap.md` | The main roadmap — phases & work packages (plans). |
 | `improvement-track.md` | Improvement experiments on existing components (plans/status). |
 | `knowledge-base.md` | **Measured findings** (KB-###), incl. negatives — the durable record. |
+| `todo.md` | **The single inbox** — every open decision and carried finding. |
+| `resolved.md` | Closed decisions, with the reasoning kept. |
 | **`active-experiments.md`** (this) | **Live status board** — the quick overview across all tracks. |
 | [`../decisions/`](../decisions/index.md) | **ADRs** — why the system has its current shape, and whether each choice still holds. |
 | [`../concepts/`](../concepts/index.md) | The background needed to read any of the above. |
 
 **Status legend:** 🟢 running / on-track · 🟡 in progress, needs work · ⏳ forward-accumulating (waiting on live data) · ⏸ holding / queued · ✅ done · ❌ dropped
 
-_Last updated: 2026-09-09 — **Phase 22's shipment is stamped `v2.0`** (2026-09-09 →),
-and the major digit is the point: the 1.x line predicted direction, the 2.x line
-publishes measured distributions and makes no directional call at all. A 1.x note
-and a 2.x note are different products, not two versions of one. v1.6 keeps its
-number — the cut is where the approach changed, but notes on `output` already
-carry `agent_version: v1.6` and the record is not rewritten to match a later
-opinion; v1.6 is the demolition, v2.0 is where the replacement is complete and
-measurable. `LAST_DIRECTIONAL_VERSION` is still `v1.5` and gates unchanged.
-v1.6 now closes 2026-09-08. The
-milestone table has a maintained home again at
-[Reference → Versioning](../reference/versions.md), which also settles
-[open decision #9](todo.md) — it is generated from `versions.py` and pinned there
-by a test. Previously, 2026-09-08 (later) — **Phase 22 opened and shipped: the scoring
-system now follows the v1.6 product.** Since the cut, the pipeline had been
-publishing a conditional distribution that no scorer measured; `score_distributions.py`
-closes that, the asset universe went 3 → 6, and the bar was sealed while the
-interval record was still empty. Earlier the same day: Phase 21 resolved; the directional product is cut (v1.6),
-both remaining directional arms are stood down, and the scoring loop is winding down.
-WP-19.E is now resolved too: the Phase-19 SPF anchor does not carry direction, alone
-or added to the market panel [KB-026], so Phase 19's directional route is closed and
-only its non-directional route (b) survives. **WP-21.E family 1 ran and closes
-negative** (2026-09-08, [KB-027]): the VIX term structure is the drift benchmark,
-adding it to the market panel makes the panel worse, and the run exposed a defect
-in the pre-committed `verdict()` — which said "edge" for an arm its own
-pre-registration had disqualified. Two of the three capped families remain. What
-is left running is the fragility track and the numeric/quant work._
+**Right now:** the fragility track and the numeric/quant work are what is
+running. Everything directional is closed.
+
+### Changelog — newest first
+
+| Date | What changed |
+|---|---|
+| **2026-09-11** | Doc cleanup pass. Shipped detail archived out of `roadmap.md`; `todo.md` split into open (`todo.md`) + closed (`resolved.md`) and made the single inbox; `CLAUDE.md` added as the coding-session reference. |
+| **2026-09-09** | **Phase 22's shipment is stamped `v2.0`**, and the major digit is the point — the 1.x line predicted direction, the 2.x line publishes measured distributions and makes no directional call at all. A 1.x note and a 2.x note are different products, not two versions of one. **v1.6 keeps its number**: the cut is where the approach changed, but notes on `output` already carry `agent_version: v1.6` and the record is not rewritten to match a later opinion — v1.6 is the demolition, v2.0 is where the replacement is complete and measurable. `LAST_DIRECTIONAL_VERSION` is still `v1.5` and gates unchanged; v1.6 closes 2026-09-08. The milestone table has a maintained home again at [Reference → Versioning](../reference/versions.md), generated from `versions.py` and pinned by a test — which settled [decision #9](resolved.md). |
+| **2026-09-08** *(later)* | **Phase 22 opened and shipped: the scoring system now follows the v1.6 product.** Since the cut, the pipeline had been publishing a conditional distribution that no scorer measured. `score_distributions.py` closes that, the asset universe went 3 → 6, and the bar was sealed while the interval record was still empty. |
+| **2026-09-08** | **WP-21.E family 1 closes negative** [KB-027]: the VIX term structure is the drift benchmark, adding it to the market panel makes the panel worse, and the run exposed a defect in the pre-committed `verdict()` — it said "edge" for an arm its own pre-registration had disqualified. Two of the three capped families remain, blocked on [ADR-0017](../decisions/ADR-0017-bss-floor-left-open.md). |
+| **2026-09-08** | **WP-19.E resolved** [KB-026]: the Phase-19 SPF anchor does not carry direction, alone or added to the market panel. Phase 19's directional route is closed; only its non-directional route (b) survives. |
+| **2026-09-04** | **Phase 21 resolved — the directional product is cut (v1.6)** [KB-024]. Both remaining directional arms stood down; the scoring loop winding down. |
 
 ---
 

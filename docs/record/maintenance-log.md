@@ -3,16 +3,73 @@
 Running record of housekeeping / cleanup passes (code hygiene, refactors, doc
 pruning) — kept separate from `roadmap-archive.md` (closed roadmap
 phases) and `knowledge-base.md` (measured findings). Newest entry first. Append a
-new dated section per pass; carry any unfinished items into **Open follow-ups**.
+new dated section per pass; carry any unfinished items into [todo.md](todo.md),
+the single inbox — not into a second list here.
 
 ---
 
-## Open follow-ups
+## Open follow-ups → `todo.md`
 
-- **`point_in_time.py` runs network by default.** Its tests make real ALFRED/FRED calls (~113s of the default suite) but are *not* marked `integration`, so they run on every `pytest`. They're an important look-ahead-leakage guard — left in the default run deliberately. Decide whether to mark them `integration` (faster default; guard then only runs on explicit `-m integration`).
-- **Optional further split of `llm_analysis.py`** (1331 lines). One cohesive concern (the multi-agent LLM pipeline) but the largest remaining module and the least test-covered. Could later split into agents / synthesis / note-markdown if it keeps growing; kept as one module for now to minimise churn in untested code.
-- **GitHub Pages is still switched off.** The docs site cannot publish until a repo admin sets **Settings → Pages → Build and deployment → Source: "GitHub Actions"** once — or, when that settings page 404s, does the same with `POST /repos/GregsterBoe/Macro-Assist/pages -d '{"build_type":"workflow"}'` under a PAT that has admin on the repo. Storing that PAT as the `PAGES_ADMIN_TOKEN` secret lets the deploy preflight do it instead; the default Actions token still cannot (see 2026-09-10 below). Every push to `main` that touches `docs/` will keep failing at the deploy preflight until it is done.
-- **Archive Phase 19 build detail** (`roadmap.md`) once the exogenous arm resolves to keep-or-kill. Still open, and the trigger changed: KB-012 will never be written as specified — the arm's live gate became unreadable when v1.6 cut its comparator (WP-21.F). The resolution now comes from **WP-19.E** (the SPF anchor scored in the numeric harness) plus a decision on option (b) (re-cut the branch's output to the expectations gap). Archive the L0–L4 build detail then, keeping the integration-status + kill block inline.
+Open items from these passes now live in [todo.md](todo.md), the single inbox,
+rather than in a second list here. This log records **what a pass did**; what is
+still owed is tracked in one place.
+
+Carried over on 2026-09-11: `point_in_time.py` running network by default
+(#10), the optional `llm_analysis.py` split (#11), and GitHub Pages still being
+switched off (#12).
+
+**Closed by the 2026-09-11 pass:** *"Archive Phase 19 build detail once the
+exogenous arm resolves."* WP-19.E resolved negative on 2026-09-07 [KB-026], so
+the trigger fired; the L0–L4 build detail and the WP-19.E harness are in
+`roadmap-archive.md`, with the integration-status and kill block kept inline as
+that follow-up specified.
+
+---
+
+## 2026-09-11 — Cleanup pass: a coding-session reference, and one inbox
+
+The four-layer structure was sound; the weight was all in `docs/record/`, which
+ran to ~5,500 lines across six files. Four of them carried *status* for the same
+work items, which is why this board already needed a written tie-break rule
+("if a row and a detailed doc disagree, the detailed doc wins"). A rule like that
+exists because drift is expected.
+
+**`CLAUDE.md` added.** There was no coding-session reference, so the rules that
+actually constrain a change had to be found across ~5,500 lines: the
+archive-on-completion convention lived in `roadmap.md`, "negatives MUST be
+logged" in `improvement-track.md`, and the rest across 19 ADRs. It collects them
+as **pointers, not copies** — eleven binding conventions each linking to its
+source, plus the commands and the gotchas that cost time. Nothing in it is a
+second copy of a doc layer; the current-state table explicitly defers to
+`active-experiments.md`.
+
+**`roadmap.md` 935 → 628 lines**, by applying the archive-on-completion
+convention it already states. Phase 19's L0–L4 build detail and the WP-19.E
+harness (the follow-up above, whose trigger fired when WP-19.E resolved), Phase
+21's execution order, WP-21.E family 1's build detail and pre-registered read,
+and WP-22.A/B's build detail all moved to `roadmap-archive.md`. "Why not a
+neural network" was duplicating ADR-0008 and is now a pointer.
+
+What was deliberately **kept inline** is the part worth recording: the scope of
+the WP-19.E null (route (b) depends on exactly what it did and did not close),
+the WP-21.E seal mechanism (families 2 and 3 face the same holdout), the open
+`EDGE_MIN_BSS` decision, and WP-22.C's sealed bar, which is not yet readable.
+
+**`todo.md` split.** 141 of its 252 lines were `DONE`/`RESOLVED`; six of nine
+numbered items were closed. Open work stays in `todo.md`, closed work moves to
+the new `resolved.md` with reasoning intact. The part that mattered: four
+resolved items had closed *with a trade-off attached*, carried in the body text
+of entries marked RESOLVED, where an archive pass would have buried them. Those
+are now their own `todo.md` entries (#2b, #3b, #5b, #1b, #6b).
+
+**Three inboxes became one.** This log's own "Open follow-ups" list is gone; its
+items are #10, #11 and #12 in `todo.md`. A log records what a pass did; what is
+still owed is tracked in one place.
+
+**This board's header** was a 25-line prose changelog on a doc that describes
+itself as "one glance". It is a dated table now.
+
+Nothing was deleted in any of this. `mkdocs build --strict` passes.
 
 ---
 
@@ -45,7 +102,7 @@ but reading from a branch — naming the setting to change in each case.
 
 This does not make `main` green. It makes the red legible: until an admin flips
 the setting, the run fails at a step that says exactly what to do, instead of at
-a 404 that says nothing. Carried in **Open follow-ups** above.
+a 404 that says nothing. Carried in [todo.md](todo.md) (#12).
 
 **Correction, same day: "in the browser" was too strong.** The admin-rights
 finding holds; the conclusion drawn from it did not. What `POST /repos/.../pages`
@@ -172,7 +229,7 @@ Suite baseline before: 435 passed / 4 failed / 1 xfailed → after: **442 passed
 
 **Test-suite health** — the 3 drifting yfinance asserts (`test_r_squared_in_range`, regime `historical_alignment` / `switch_count_reasonable`) were already `@pytest.mark.integration`; added `addopts = -m "not integration"` to `pytest.ini` so the default run excludes them (run with `pytest -m integration`). Fixed an isolation leak in `test_empty_on_no_data` (monkeypatch `DEFAULT_TABLE_PATH`).
 
-**Doc pruning** (`roadmap.md` 96.7 KB → 85.3 KB) — pruned the self-flagged WP-19.B build-log to a pointer; trimmed completed WP-16.A.1/2/3 to status+verdict+KB-pointer (kept A.4's `FRAGILITY_MODE` ladder — open A.5 depends on it). Phase-17 WPs already at target granularity (no-op). Phase archiving (5d) deferred — see Open follow-ups.
+**Doc pruning** (`roadmap.md` 96.7 KB → 85.3 KB) — pruned the self-flagged WP-19.B build-log to a pointer; trimmed completed WP-16.A.1/2/3 to status+verdict+KB-pointer (kept A.4's `FRAGILITY_MODE` ladder — open A.5 depends on it). Phase-17 WPs already at target granularity (no-op). Phase archiving (5d) deferred — done in the 2026-09-11 pass.
 
 **HMM regime retired (kept for revival)** — single switch `regime_enabled()` in `regime.py` (grep `REGIME-RETIRED`), **default OFF**, `REGIME_ENABLED=1` revives. Gated all three execution sites: portfolio gate (`rebalance.live_regime` → gate 1.0), weekly refit (`refit_models` → skips HMM fit, keeps the feature matrix the non-retired conditional table needs), payload preview (`quant_context.build_nonlive_signals_block` → omits block). Code (`regime*.py`, `conditional.py`) untouched.
 
