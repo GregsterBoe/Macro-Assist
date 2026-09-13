@@ -27,7 +27,8 @@ generated from `VERSION_MILESTONES` by
 | v1.4 | 2026-05-29 – 2026-06-26 | + Phase 12: quant context block; Phase 14: weekly refit + monitoring |
 | v1.5 | 2026-06-27 – 2026-09-04 | + WP-16: run profiles (control/loosened), conviction-floor flag, Brier calibration |
 | v1.6 | 2026-09-05 – 2026-09-08 | WP-21.D: directional product CUT — Bias/Confidence removed [KB-024]; conditional distribution published instead; fragility promoted to headline |
-| **v2.0** | **2026-09-09 – present** | Phase 22 — the measured product is complete: canonical asset registry; conditional table 3 → 6 assets; distribution scorer live against a sealed pre-registered bar. Major: 1.x predicted direction, 2.x measures |
+| v2.0 | 2026-09-09 – 2026-09-12 | Phase 22 — the measured product is complete: canonical asset registry; conditional table 3 → 6 assets; distribution scorer live against a sealed pre-registered bar. Major: 1.x predicted direction, 2.x measures |
+| **v2.1** | **2026-09-13 – present** | WP-17.5: conditional table rebuilt on 26y of history (2000-08 →) with the credit tertile on BAA10Y instead of the 3y-rolling HY OAS; bucket label HY → CREDIT; a date missing an input is dropped, not labelled mid |
 
 <!-- END VERSION MILESTONES -->
 
@@ -106,7 +107,7 @@ Every `*-macro.md` carries `agent_version` in its YAML frontmatter, inserted aft
 date: YYYY-MM-DD
 day: Monday
 type: macro-intelligence
-agent_version: v2.0
+agent_version: v2.1
 tags: [macro, daily-note, economics]
 ---
 ```
@@ -117,7 +118,7 @@ after `report_date`:
 ```json
 {
   "report_date": "2026-09-09",
-  "agent_version": "v2.0",
+  "agent_version": "v2.1",
   "scored_at": "2026-09-15",
   "windows": { ... }
 }

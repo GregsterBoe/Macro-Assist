@@ -56,7 +56,7 @@ class Milestone(NamedTuple):
 # ---------------------------------------------------------------------------
 # Current pipeline version — stamped into every generated note's YAML frontmatter.
 # ---------------------------------------------------------------------------
-PIPELINE_VERSION: str = "v2.0"
+PIPELINE_VERSION: str = "v2.1"
 
 # ---------------------------------------------------------------------------
 # Minimum version included in the accuracy feedback loop.
@@ -85,7 +85,8 @@ VERSION_MILESTONES: list[Milestone] = [
     Milestone("v1.4", date(2026, 5, 29), date(2026, 6, 26), "+ Phase 12: quant context block; Phase 14: weekly refit + monitoring"),
     Milestone("v1.5", date(2026, 6, 27), date(2026, 9,  4), "+ WP-16: run profiles (control/loosened), conviction-floor flag, Brier calibration"),
     Milestone("v1.6", date(2026, 9,  5), date(2026,  9,  8), "WP-21.D: directional product CUT — Bias/Confidence removed [KB-024]; conditional distribution published instead; fragility promoted to headline"),
-    Milestone("v2.0", date(2026,  9,  9), date(2099, 12, 31), "Phase 22 — the measured product is complete: canonical asset registry; conditional table 3 → 6 assets; distribution scorer live against a sealed pre-registered bar. Major: 1.x predicted direction, 2.x measures"),
+    Milestone("v2.0", date(2026,  9,  9), date(2026,  9, 12), "Phase 22 — the measured product is complete: canonical asset registry; conditional table 3 → 6 assets; distribution scorer live against a sealed pre-registered bar. Major: 1.x predicted direction, 2.x measures"),
+    Milestone("v2.1", date(2026,  9, 13), date(2099, 12, 31), "WP-17.5: conditional table rebuilt on 26y of history (2000-08 →) with the credit tertile on BAA10Y instead of the 3y-rolling HY OAS; bucket label HY → CREDIT; a date missing an input is dropped, not labelled mid"),
 ]
 
 # ---------------------------------------------------------------------------

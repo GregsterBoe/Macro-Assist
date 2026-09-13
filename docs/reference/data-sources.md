@@ -20,7 +20,7 @@ Fetched via `fredapi`. 5-year history pulled per series to enable historical con
 | `m2` | M2SL | Monthly | YoY % and 5yr mean YoY computed |
 | `treasury_10y` | DGS10 | Daily | |
 | `treasury_2y` | DGS2 | Daily | |
-| `hy_spread` | BAMLH0A0HYM2 | Daily | ICE BofA HY OAS; 5yr mean computed |
+| `hy_spread` | BAMLH0A0HYM2 | Daily | ICE BofA HY OAS; 5yr mean computed — **free FRED serves only a ~3y rolling window**, so the "5yr" mean is a ≤3y mean ([KB-021](../record/knowledge-base.md)) |
 | `philly_fed_mfg` | GACDFSA066MSFRBPHI | Monthly | Philly Fed diffusion index; 5yr mean computed |
 | `real_yield_10y` | DFII10 | Daily | 10Y TIPS real yield; 5yr mean computed |
 | `breakeven_10y` | T10YIE | Daily | 10Y inflation breakeven; 5yr mean computed |
@@ -86,13 +86,24 @@ States are labeled by their posterior probability. The state with the highest av
 
 **Conditional Return Distributions** — `conditional.py`
 
-Return distributions bucketed by a 3-dimension macro snapshot: NFCI tier × yield curve sign × HY spread tier. Each bucket shows the empirical P50 (median) forward return over T+5 and T+20 trading days, with sample count `n`.
+Return distributions bucketed by a 3-dimension macro snapshot — NFCI tertile ×
+yield-curve sign × **credit-spread tertile on BAA10Y** — label
+`NFCI:mid|YC:positive|CREDIT:tight`. Each bucket holds P10/P25/P50/P75/P90 of
+the forward change over T+5 / T+10 / T+20 trading days for every registry asset
+(`assets.py`, six since v2.0), with sample count `n`; the note publishes
+P25/P50/P75 at T+5 and T+20. Buckets with `n < 10` collapse to their parent
+(drop credit → drop curve → `all`).
 
-| Asset | Windows |
-|-------|---------|
-| S&P 500 | T+5, T+20 |
-| Gold | T+5, T+20 |
-| WTI Oil | T+5, T+20 |
+Tertile cut-points are computed once on the build sample (business days from
+`conditional.TABLE_START = 2000-08-01`) and fixed as constants: NFCI −0.57 /
+−0.40; BAA10Y 2.03 / 2.72 pp. **The credit input is BAA10Y, not the HY OAS in
+the payload table above:** free FRED serves `BAMLH0A0HYM2` as a ~3-year rolling
+window, which until 2026-09-13 capped the whole table at ~780 dates of one
+regime ([KB-028](../record/knowledge-base.md)). `baa_spread` is fetched by
+`fred_data.fetch_quant_inputs()` and merged into the quant layer's snapshot
+only — it is not in the model's message (removed from the payload 2026-06-27,
+0/78 citations). Live, a missing input falls back to the middle tier so a note
+still renders; at build time it drops the date (`assign_bucket(strict=True)`).
 
 **Fragility Monitor** — `fragility.py` (+ `fragility_or.py`)
 

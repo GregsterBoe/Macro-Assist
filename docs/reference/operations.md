@@ -83,7 +83,7 @@ just stay a week old and the next Sunday call refreshes them — so it has no
 catch-up call.
 
 1. Checkout Macro-Assist
-2. Run `refit_models.py` (5yr FRED + market data fetch, HMM refit, distribution rebuild)
+2. Run `refit_models.py` (FRED + market data from 2000-08, distribution rebuild; HMM refit only if re-enabled)
 3. Commit `data/regime_model.pkl` + `data/conditional_distributions.json`
 
 ### docs.yml — the documentation site

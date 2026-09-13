@@ -82,8 +82,8 @@ diagnosed, archived and written up — see the
 
 | | |
 |---|---|
-| **Pipeline version** | v1.6 (2026-09-05 →) |
-| **Published product** | Empirical conditional return distribution (median, P25/P75, n) across 6 assets, plus the Fragility Monitor as the headline risk read |
+| **Pipeline version** | v2.1 (2026-09-13 →; first note 2026-09-14) — [milestones](reference/versions.md) |
+| **Published product** | Empirical conditional return distribution (median, P25/P75, n) across 6 assets, bucketed on NFCI × curve × BAA10Y over 26 years of history since v2.1, plus the Fragility Monitor as the headline risk read |
 | **Not published** | Any directional call. Removed in v1.6 — [KB-024](record/knowledge-base.md) |
 | **Live experiment** | Phase 22 — the distribution scorer. Bar sealed 2026-09-08, first honest read ~2027-05 |
 | **Winding down** | The directional scorer, once the last open T+20 window resolves ~2026-10-02 |

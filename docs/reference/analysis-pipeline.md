@@ -95,15 +95,22 @@ nothing reads it back into the prompt.
 
 ## Quantitative Model Refit
 
-`refit_models.py` + `macro_weekly_refit.yml` rebuild the HMM and conditional distributions every Sunday on fresh data, so the regime model doesn't drift as macro conditions evolve.
+`refit_models.py` rebuilds the conditional distribution table weekly — stage 5 of
+`pipeline.yml` since 2026-09-11 (`macro_weekly_refit.yml` is the reusable job).
 
-1. Fetch 5yr history: NFCI, DGS10, DGS2, BAMLH0A0HYM2 from FRED; SP500, Gold, WTI Oil prices from yfinance
-2. Build (n\_days × 4) feature matrix aligned to business days; drop NaN rows
-3. Refit `GaussianHMM(n_components=4)` via `regime.py`
-4. Compute forward returns (T+5, T+10, T+20) per asset using integer-index offset over aligned prices
-5. Classify each historical date into a macro bucket via `assign_bucket()` (NFCI × yield curve × HY spread)
+1. Fetch NFCI, DGS10, DGS2, **BAA10Y** from FRED and the six registry assets'
+   prices from yfinance, all from `conditional.TABLE_START` (2000-08-01)
+2. *(retired, [KB-006])* the 4-feature matrix and `GaussianHMM` refit run only
+   under `REGIME_ENABLED=1`; `regime_model.pkl` is otherwise left untouched
+3. Business days from `TABLE_START` to the last close; a date missing any bucket
+   input is **dropped** (`assign_bucket(strict=True)`), never labelled `mid`
+4. Compute forward changes (T+5, T+10, T+20) per asset via `assets.forward_change`
+5. Classify each date into its bucket (NFCI × yield curve × BAA10Y credit tertile)
 6. Rebuild `conditional_distributions.json` via `conditional.py`
 7. Commit `data/regime_model.pkl` + `data/conditional_distributions.json`
+
+Until 2026-09-13 step 3 borrowed the HMM feature matrix's valid rows on a
+5-year fetch, which capped the table at ~3 years ([KB-028](../record/knowledge-base.md)).
 
 **First-time activation:** trigger `macro_weekly_refit` via `workflow_dispatch`, or run locally:
 ```bash

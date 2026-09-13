@@ -24,10 +24,13 @@ FRED_SERIES = {
     "m2":                "M2SL",
     "treasury_10y":      "DGS10",
     "treasury_2y":       "DGS2",
-    "hy_spread":         "BAMLH0A0HYM2",        # HY corporate bond OAS spread (%)
-    # baa_spread (BAA10Y) removed 2026-06-27 (WP-18.4 cleanup): its only consumer was the
-    # retired HMM regime credit feature (KB-006); 0/78 model citations (KB-010). refit_models.py
-    # keeps its own BAA10Y fetch for any future regime revival.
+    "hy_spread":         "BAMLH0A0HYM2",        # HY corporate bond OAS spread (%) — free FRED
+                                                 # serves only a ~3y rolling window (KB-021)
+    # baa_spread (BAA10Y) removed from the PAYLOAD 2026-06-27 (WP-18.4 cleanup): its only
+    # consumer was the retired HMM regime credit feature (KB-006); 0/78 model citations
+    # (KB-010). Since 2026-09-13 it is the conditional bucket's credit input again
+    # (WP-17.5) — fetched by fetch_quant_inputs() below, merged into the quant layer's
+    # snapshot only, never into the model's message.
     "philly_fed_mfg":    "GACDFSA066MSFRBPHI",  # Philly Fed diffusion index; >0 expanding
     "real_yield_10y":    "DFII10",              # 10Y TIPS real yield (daily)
     "breakeven_10y":     "T10YIE",              # 10Y inflation breakeven rate (daily)
@@ -41,6 +44,13 @@ FRED_SERIES = {
 
 # Keys whose raw Series are retained after the fetch loop for net-liquidity calculation
 _NET_LIQ_KEYS = {"fed_total_assets", "treasury_gen_acct", "reverse_repo"}
+
+# Series the quant layer needs that are deliberately NOT in the LLM payload.
+# `conditional.assign_bucket` reads `baa_spread` (conditional.CREDIT_SERIES_KEY)
+# for its credit tertile; the payload keeps `hy_spread`, which the model cites.
+QUANT_FRED_SERIES = {
+    "baa_spread": "BAA10Y",   # Moody's Baa − 10Y Treasury (pp), daily, 1986+
+}
 
 # Release frequency per series — injected as metadata so Claude applies the right staleness threshold
 FRED_SERIES_FREQUENCY = {
@@ -144,6 +154,43 @@ def _fred_get_with_retry(fred: Fred, series_id: str, observation_start: str,
                 time.sleep(wait)
                 continue
             raise
+
+
+def fetch_quant_inputs(fred: Fred) -> dict:
+    """
+    Fetch QUANT_FRED_SERIES in the fetch_fred_data() entry shape.
+
+    Returned separately so the caller merges it into the snapshot handed to
+    `quant_context.build_quant_context` and nowhere else — the LLM payload is
+    `json.dumps(fred_data)`, so adding a key to that dict adds it to the model's
+    message. A failed series is logged and omitted; `assign_bucket` then falls
+    back and the note still renders.
+    """
+    today_date = datetime.now(timezone.utc).date()
+    data: dict = {}
+    for name, series_id in QUANT_FRED_SERIES.items():
+        try:
+            observation_start = (today_date - timedelta(days=365 * 5)).isoformat()
+            series = _fred_get_with_retry(fred, series_id, observation_start)
+            time.sleep(_FRED_INTER_REQUEST_DELAY)
+        except Exception as e:
+            _log("FRED", "WARN", f"quant input {series_id} ({name}) unavailable: {e}")
+            continue
+        latest      = series.iloc[-1]
+        prev        = series.iloc[-2] if len(series) > 1 else latest
+        latest_date = series.index[-1].date()
+        data[name] = {
+            "value":        round(float(latest), 3),
+            "prev":         round(float(prev), 3),
+            "date":         latest_date.strftime("%Y-%m-%d"),
+            "days_stale":   (today_date - latest_date).days,
+            "frequency":    "daily",
+            "five_yr_mean": round(float(series.mean()), 3),
+            "vs_mean":      round(float(latest) - float(series.mean()), 3),
+        }
+    _log("FRED", "OK" if len(data) == len(QUANT_FRED_SERIES) else "WARN",
+         f"{len(data)}/{len(QUANT_FRED_SERIES)} quant-only series")
+    return data
 
 
 def fetch_fred_data(fred: Fred) -> dict:

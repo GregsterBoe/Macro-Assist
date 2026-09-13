@@ -2345,3 +2345,89 @@ for a,ev in d['scoped_evaluations']['sealed'].items():
 
 Per-asset breakdown and the raw calls are in `scores.json.gz` on CI artifact
 `10031564717` — **expires 2026-10-07**, the same day as [KB-026]'s `10013945071`.
+
+---
+
+## KB-028 — The published conditional table was built on ~3 years of one regime, and two of its three dimensions contributed nothing to the published numbers (WP-17.5)
+
+**Date:** 2026-09-13 · **Branch:** `main` · **Version:** v2.1 from the
+2026-09-14 note · **Table before:** `data/conditional_distributions.json` at
+`3f53f68` (the 2026-09-11 refit) · **Table after:** the same file at the commit
+that carries this entry, rebuilt locally by `refit_models.py` on 2026-09-13.
+
+**What we looked at.** WP-17.5 carried a note from [KB-003] that the conditional
+layer's credit input was the FRED HY OAS (`BAMLH0A0HYM2`), which free FRED serves
+with only ~3 years of history. Since v1.6 that table is the note's published
+product, so the question became: what is the table actually built on?
+
+### Headline — one regime, and a bucket that equals its own grandparent
+
+- **The free `BAMLH0A0HYM2` window is rolling, not fixed.** It started
+  2023-08-28 when [KB-021] measured it (June 2026) and 2023-09-12 on 2026-09-13
+  (`n=787`). Every day the earliest observation drops off.
+- **The table's date range was set by the retired HMM, not by the data.**
+  `refit_models` built the table over the feature matrix's valid rows: a 5-year
+  fetch minus a 252-business-day start offset, a 60-day vol window and a
+  252-day percentile window — ≈ today − 3 years, by construction. On
+  2026-09-11 that was **780 dates**, 2023-09 → 2026-09.
+- **The HY window opened ~10 days before the table's first date.** So no date
+  was mislabelled — by coincidence. `assign_bucket` maps a missing input to
+  `mid`; widening the fetch by one year would have labelled ~250 dates
+  `HY:mid` whatever spreads did. This is the [KB-003] bug shape, one layer down.
+- **Two of the three dimensions did nothing.** In three years of one regime the
+  table held 11 of the 18+6+3+1 possible buckets. No `NFCI:high` bucket
+  existed, no `HY:wide`. The live bucket on 2026-09-11,
+  `NFCI:low|YC:positive|HY:tight`, had **n = 351 — the same 351 dates as its
+  grandparent `NFCI:low`**. Every number the note published as "conditional on
+  NFCI × curve × credit" was conditional on NFCI alone.
+
+### What was changed
+
+The credit dimension is now **BAA10Y** (Moody's Baa − 10Y, daily, 1986+,
+unrevised — the series the regime feature and the IMP-2 gate already use), the
+label reads `CREDIT:` instead of `HY:` because it is a different spread (IG vs
+HY; level correlation 0.54 on the overlap), the table is built from
+`TABLE_START = 2000-08-01` (where GC=F and CL=F begin), and a date missing any
+bucket input is **dropped, not labelled** (`assign_bucket(strict=True)`; 3 of
+6,814 dropped). Cut-points are BAA10Y's and NFCI's p33/p67 on that sample
+(2.03 / 2.72 pp; −0.57 / −0.40), computed once and fixed. `baa_spread` is
+fetched by `fred_data.fetch_quant_inputs` and merged into the quant layer's
+snapshot only — it stays out of the LLM payload it was removed from on
+2026-06-27 (0/78 citations, [KB-010]).
+
+| | 2026-09-11 table | 2026-09-13 table |
+|---|---|---|
+| dates | 780 (2023-09 → 2026-09) | **6,811** (2000-08 → 2026-09) |
+| buckets with n ≥ 10 | 11 | **24** — 14 of 18 full 3D |
+| `NFCI:high` buckets | 0 | 9 |
+| widest-credit buckets | 0 | 4 |
+| live bucket (SP500 5d) | `…\|HY:tight` n=351, P25/P50/P75 −0.74 / +0.34 / +1.19 | `NFCI:mid\|YC:positive\|CREDIT:tight` n=940, **−0.83 / +0.37 / +1.31** |
+
+The live bucket changed name because the NFCI cut-points moved (today's −0.56
+is `mid` on the 26-year sample, `low` on the old one) — not because credit
+conditions did.
+
+**Nuance that is easy to forget.** (a) This is a *more* conditional table, not
+a *validated* one — whether conditioning beats not conditioning is exactly
+Phase 22's sealed question, and nothing here answers it. (b) 26 years is not
+26 independent years; a 21-day block is still the honest unit, and the
+`n=940` in the note is 940 overlapping windows. (c) The old table's numbers are
+not wrong, they are unconditional-on-two-dimensions; the published P25/P75
+changed by ~0.1pp for the S&P, more for the 10Y and Bitcoin whose short
+records the new buckets now populate. (d) `hy_spread` is still in the payload
+with a `five_yr_mean` computed on whatever ≤3-year window FRED serves that day;
+the model reads "vs 5-yr mean" for a number that is not that. Not changed here.
+
+**What it changes.**
+- **Phase 22's sealed record has two conditioners** — the v2.0 table for the
+  five report dates 2026-09-07 → 2026-09-11, the v2.1 table from 2026-09-14.
+  Zero interval observations had resolved when the change landed; the quant log
+  dates the switch itself (`HY:` → `CREDIT:` in the bucket label; `n` roughly
+  triples). Named in `roadmap.md` → WP-22.C. The bar, `SEAL_START` and the
+  thresholds are untouched.
+- **WP-17.5's truncation half closes.** The other half — a walk-forward skill
+  read of HAR-RV and of this table — stays queued; for the table it is now
+  Phase 22 by another name and should not be built twice.
+- **The reference layer's description of the bucket was three edits behind**
+  (three assets, P50 only, HY spread). Corrected in `data-sources.md` and
+  `analysis-pipeline.md` with this entry.

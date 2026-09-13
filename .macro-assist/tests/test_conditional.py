@@ -23,12 +23,12 @@ from conditional import (
     build_distribution_table_for_backtest,
     load_distribution_table,
     lookup_distribution,
-    _bucket_drop_hy,
+    _bucket_drop_credit,
     _bucket_drop_yc,
     _NFCI_LOW_MID,
     _NFCI_MID_HIGH,
-    _HY_LOW_MID,
-    _HY_MID_HIGH,
+    _CREDIT_LOW_MID,
+    _CREDIT_MID_HIGH,
 )
 
 
@@ -46,7 +46,7 @@ def _make_snapshot(nfci: float | None, yield_10y: float | None, yield_2y: float 
         snap["treasury_2y"]  = {"value": yield_2y}
         snap["yield_curve_spread"] = yield_10y - yield_2y
     if hy is not None:
-        snap["hy_spread"] = {"value": hy}
+        snap["baa_spread"] = {"value": hy}
     return snap
 
 
@@ -86,90 +86,90 @@ def _make_snapshots_in_bucket(
 class TestAssignBucket:
 
     def test_format(self):
-        snap = _make_snapshot(-0.6, 4.0, 2.0, 3.0)
+        snap = _make_snapshot(-0.6, 4.0, 2.0, 1.5)
         label = assign_bucket(snap)
         parts = label.split("|")
         assert len(parts) == 3
         assert parts[0].startswith("NFCI:")
         assert parts[1].startswith("YC:")
-        assert parts[2].startswith("HY:")
+        assert parts[2].startswith("CREDIT:")
 
     def test_nfci_low(self):
-        snap = _make_snapshot(_NFCI_LOW_MID - 0.1, 4.0, 2.0, 3.0)
+        snap = _make_snapshot(_NFCI_LOW_MID - 0.1, 4.0, 2.0, 1.5)
         assert assign_bucket(snap).startswith("NFCI:low|")
 
     def test_nfci_mid(self):
         mid = (_NFCI_LOW_MID + _NFCI_MID_HIGH) / 2
-        snap = _make_snapshot(mid, 4.0, 2.0, 3.0)
+        snap = _make_snapshot(mid, 4.0, 2.0, 1.5)
         assert assign_bucket(snap).startswith("NFCI:mid|")
 
     def test_nfci_high(self):
-        snap = _make_snapshot(_NFCI_MID_HIGH + 0.1, 4.0, 2.0, 3.0)
+        snap = _make_snapshot(_NFCI_MID_HIGH + 0.1, 4.0, 2.0, 1.5)
         assert assign_bucket(snap).startswith("NFCI:high|")
 
     def test_nfci_boundary_low_mid(self):
         # Exactly at boundary → mid (not low)
-        snap = _make_snapshot(_NFCI_LOW_MID, 4.0, 2.0, 3.0)
+        snap = _make_snapshot(_NFCI_LOW_MID, 4.0, 2.0, 1.5)
         assert assign_bucket(snap).startswith("NFCI:mid|")
 
     def test_yield_curve_positive(self):
-        snap = _make_snapshot(-0.5, 4.5, 2.0, 3.0)  # 10Y > 2Y
+        snap = _make_snapshot(-0.5, 4.5, 2.0, 1.5)  # 10Y > 2Y
         assert "|YC:positive|" in assign_bucket(snap)
 
     def test_yield_curve_inverted(self):
-        snap = _make_snapshot(-0.5, 2.0, 4.5, 3.0)  # 10Y < 2Y
+        snap = _make_snapshot(-0.5, 2.0, 4.5, 1.5)  # 10Y < 2Y
         assert "|YC:inverted|" in assign_bucket(snap)
 
     def test_yield_curve_from_spread_field(self):
         snap = {"yield_curve_spread": -0.5, "nfci": {"value": -0.5},
-                "hy_spread": {"value": 3.0}}
+                "baa_spread": {"value": 2.0}}
         assert "|YC:inverted|" in assign_bucket(snap)
 
-    def test_hy_tight(self):
-        snap = _make_snapshot(-0.5, 4.0, 2.0, _HY_LOW_MID - 0.1)
-        assert assign_bucket(snap).endswith("|HY:tight")
+    def test_credit_tight(self):
+        snap = _make_snapshot(-0.5, 4.0, 2.0, _CREDIT_LOW_MID - 0.1)
+        assert assign_bucket(snap).endswith("|CREDIT:tight")
 
-    def test_hy_mid(self):
-        mid = (_HY_LOW_MID + _HY_MID_HIGH) / 2
+    def test_credit_mid(self):
+        mid = (_CREDIT_LOW_MID + _CREDIT_MID_HIGH) / 2
         snap = _make_snapshot(-0.5, 4.0, 2.0, mid)
-        assert assign_bucket(snap).endswith("|HY:mid")
+        assert assign_bucket(snap).endswith("|CREDIT:mid")
 
-    def test_hy_wide(self):
-        snap = _make_snapshot(-0.5, 4.0, 2.0, _HY_MID_HIGH + 0.1)
-        assert assign_bucket(snap).endswith("|HY:wide")
+    def test_credit_wide(self):
+        snap = _make_snapshot(-0.5, 4.0, 2.0, _CREDIT_MID_HIGH + 0.1)
+        assert assign_bucket(snap).endswith("|CREDIT:wide")
 
     def test_full_benign_bucket(self):
         # low NFCI (loose), positive curve, tight spreads → benign
-        snap = _make_snapshot(-0.6, 4.5, 2.0, 3.0)
-        assert assign_bucket(snap) == "NFCI:low|YC:positive|HY:tight"
+        snap = _make_snapshot(-0.6, 4.5, 2.0, 1.5)
+        assert assign_bucket(snap) == "NFCI:low|YC:positive|CREDIT:tight"
 
     def test_full_stress_bucket(self):
         # high NFCI (tight), inverted curve, wide spreads → stress
         snap = _make_snapshot(0.5, 2.0, 4.5, 6.0)
-        assert assign_bucket(snap) == "NFCI:high|YC:inverted|HY:wide"
+        assert assign_bucket(snap) == "NFCI:high|YC:inverted|CREDIT:wide"
 
     def test_missing_nfci_defaults_to_mid(self):
-        snap = _make_snapshot(None, 4.0, 2.0, 3.0)
+        snap = _make_snapshot(None, 4.0, 2.0, 1.5)
         assert assign_bucket(snap).startswith("NFCI:mid|")
 
     def test_missing_yield_curve_defaults_to_positive(self):
-        snap = {"nfci": {"value": -0.5}, "hy_spread": {"value": 3.0}}
+        snap = {"nfci": {"value": -0.5}, "baa_spread": {"value": 2.0}}
         assert "|YC:positive|" in assign_bucket(snap)
 
-    def test_missing_hy_defaults_to_mid(self):
+    def test_missing_credit_defaults_to_mid(self):
         snap = _make_snapshot(-0.5, 4.0, 2.0, None)
-        assert assign_bucket(snap).endswith("|HY:mid")
+        assert assign_bucket(snap).endswith("|CREDIT:mid")
 
     def test_empty_snapshot_returns_default(self):
         # All defaults: mid, positive, mid
         label = assign_bucket({})
-        assert label == "NFCI:mid|YC:positive|HY:mid"
+        assert label == "NFCI:mid|YC:positive|CREDIT:mid"
 
     def test_18_distinct_buckets_exist(self):
         # Every combination of (3 × 2 × 3) should be reachable
         nfci_vals = [_NFCI_LOW_MID - 0.1, (_NFCI_LOW_MID + _NFCI_MID_HIGH) / 2, _NFCI_MID_HIGH + 0.1]
         yc_vals   = [(4.0, 2.0), (2.0, 4.0)]
-        hy_vals   = [_HY_LOW_MID - 0.1, (_HY_LOW_MID + _HY_MID_HIGH) / 2, _HY_MID_HIGH + 0.1]
+        hy_vals   = [_CREDIT_LOW_MID - 0.1, (_CREDIT_LOW_MID + _CREDIT_MID_HIGH) / 2, _CREDIT_MID_HIGH + 0.1]
         seen: set[str] = set()
         for n in nfci_vals:
             for y10, y2 in yc_vals:
@@ -186,30 +186,30 @@ class TestBuildBucketIndex:
 
     def test_inverted_index_keys(self):
         snaps = [
-            (date(2024, 1, 2), _make_snapshot(-0.6, 4.5, 2.0, 3.0)),  # benign
+            (date(2024, 1, 2), _make_snapshot(-0.6, 4.5, 2.0, 1.5)),  # benign
             (date(2024, 1, 3), _make_snapshot(0.5,  2.0, 4.5, 6.0)),  # stress
-            (date(2024, 1, 4), _make_snapshot(-0.6, 4.5, 2.0, 3.0)),  # benign again
+            (date(2024, 1, 4), _make_snapshot(-0.6, 4.5, 2.0, 1.5)),  # benign again
         ]
         idx = build_bucket_index(snaps)
-        assert "NFCI:low|YC:positive|HY:tight" in idx
-        assert "NFCI:high|YC:inverted|HY:wide" in idx
-        assert len(idx["NFCI:low|YC:positive|HY:tight"]) == 2
-        assert len(idx["NFCI:high|YC:inverted|HY:wide"]) == 1
+        assert "NFCI:low|YC:positive|CREDIT:tight" in idx
+        assert "NFCI:high|YC:inverted|CREDIT:wide" in idx
+        assert len(idx["NFCI:low|YC:positive|CREDIT:tight"]) == 2
+        assert len(idx["NFCI:high|YC:inverted|CREDIT:wide"]) == 1
 
     def test_dates_are_sorted(self):
         snaps = [
-            (date(2024, 1, 5), _make_snapshot(-0.6, 4.5, 2.0, 3.0)),
-            (date(2024, 1, 2), _make_snapshot(-0.6, 4.5, 2.0, 3.0)),
+            (date(2024, 1, 5), _make_snapshot(-0.6, 4.5, 2.0, 1.5)),
+            (date(2024, 1, 2), _make_snapshot(-0.6, 4.5, 2.0, 1.5)),
         ]
         idx = build_bucket_index(snaps)
-        dates = idx["NFCI:low|YC:positive|HY:tight"]
+        dates = idx["NFCI:low|YC:positive|CREDIT:tight"]
         assert dates == sorted(dates)
 
     def test_empty_input(self):
         assert build_bucket_index([]) == {}
 
     def test_single_snapshot(self):
-        snap = _make_snapshot(-0.6, 4.5, 2.0, 3.0)
+        snap = _make_snapshot(-0.6, 4.5, 2.0, 1.5)
         idx = build_bucket_index([(date(2024, 1, 2), snap)])
         assert len(idx) == 1
         bucket = list(idx.keys())[0]
@@ -222,11 +222,11 @@ class TestBuildBucketIndex:
 
 class TestBucketHelpers:
 
-    def test_drop_hy(self):
-        assert _bucket_drop_hy("NFCI:low|YC:positive|HY:tight") == "NFCI:low|YC:positive"
+    def test_drop_credit(self):
+        assert _bucket_drop_credit("NFCI:low|YC:positive|CREDIT:tight") == "NFCI:low|YC:positive"
 
-    def test_drop_hy_no_hy_dim(self):
-        assert _bucket_drop_hy("NFCI:low|YC:positive") is None
+    def test_drop_credit_no_credit_dim(self):
+        assert _bucket_drop_credit("NFCI:low|YC:positive") is None
 
     def test_drop_yc(self):
         assert _bucket_drop_yc("NFCI:low|YC:positive") == "NFCI:low"
@@ -242,7 +242,7 @@ class TestBucketHelpers:
 class TestBuildDistributionTable:
 
     def _benign_snapshots(self, n: int = 25) -> list[tuple[date, dict]]:
-        snap = _make_snapshot(-0.6, 4.5, 2.0, 3.0)
+        snap = _make_snapshot(-0.6, 4.5, 2.0, 1.5)
         return [(date(2020, 1, 2) + timedelta(days=i), snap) for i in range(n)]
 
     def _stress_snapshots(self, n: int = 25) -> list[tuple[date, dict]]:
@@ -297,7 +297,7 @@ class TestBuildDistributionTable:
         fr = self._forward_returns(snaps)
         table = build_distribution_table(snaps, fr, min_n=10)
         # Full bucket should not appear (n=5 < 10), but parent might not either
-        benign_full = "NFCI:low|YC:positive|HY:tight"
+        benign_full = "NFCI:low|YC:positive|CREDIT:tight"
         if benign_full in table:
             for asset in table[benign_full].values():
                 for stats in asset.values():
@@ -340,8 +340,8 @@ class TestDistinctDistributions:
 
     def test_benign_vs_stress_median_differs(self):
         """
-        Median 5d SP500 return in 'NFCI:low|YC:positive|HY:tight' should be
-        higher than in 'NFCI:high|YC:inverted|HY:wide' (by construction here).
+        Median 5d SP500 return in 'NFCI:low|YC:positive|CREDIT:tight' should be
+        higher than in 'NFCI:high|YC:inverted|CREDIT:wide' (by construction here).
         """
         rng = np.random.default_rng(42)
         n = 40
@@ -349,7 +349,7 @@ class TestDistinctDistributions:
         benign_dates = [date(2010, 1, 4) + timedelta(days=i) for i in range(n)]
         stress_dates = [date(2012, 1, 2) + timedelta(days=i) for i in range(n)]
 
-        benign_snap = _make_snapshot(-0.6, 4.5, 2.0, 3.0)
+        benign_snap = _make_snapshot(-0.6, 4.5, 2.0, 1.5)
         stress_snap = _make_snapshot(0.5, 2.0, 4.5, 6.0)
 
         snaps = [(d, benign_snap) for d in benign_dates] + [(d, stress_snap) for d in stress_dates]
@@ -363,8 +363,8 @@ class TestDistinctDistributions:
 
         table = build_distribution_table(snaps, fr, min_n=10)
 
-        benign_bucket = "NFCI:low|YC:positive|HY:tight"
-        stress_bucket = "NFCI:high|YC:inverted|HY:wide"
+        benign_bucket = "NFCI:low|YC:positive|CREDIT:tight"
+        stress_bucket = "NFCI:high|YC:inverted|CREDIT:wide"
 
         assert benign_bucket in table, "Benign bucket not in table"
         assert stress_bucket in table, "Stress bucket not in table"
@@ -389,14 +389,14 @@ class TestLookupDistribution:
         """Build a table with one benign full bucket and a parent."""
         n = 20
         benign_dates = [date(2020, 1, 2) + timedelta(days=i) for i in range(n)]
-        benign_snap  = _make_snapshot(-0.6, 4.5, 2.0, 3.0)
+        benign_snap  = _make_snapshot(-0.6, 4.5, 2.0, 1.5)
         snaps = [(d, benign_snap) for d in benign_dates]
         fr    = _make_forward_returns(benign_dates, ["S&P 500"])
         return build_distribution_table(snaps, fr, min_n=10)
 
     def test_exact_match(self):
         table = self._build_simple_table()
-        result = lookup_distribution("NFCI:low|YC:positive|HY:tight", "S&P 500", 5, table)
+        result = lookup_distribution("NFCI:low|YC:positive|CREDIT:tight", "S&P 500", 5, table)
         assert result is not None
         assert "p50" in result
         assert result["n"] >= 10
@@ -404,31 +404,31 @@ class TestLookupDistribution:
     def test_parent_fallback(self):
         table = self._build_simple_table()
         # A bucket that doesn't exist directly but has a parent that does
-        non_existent_full = "NFCI:low|YC:positive|HY:wide"
+        non_existent_full = "NFCI:low|YC:positive|CREDIT:wide"
         result = lookup_distribution(non_existent_full, "S&P 500", 5, table)
         # Should fall back to "NFCI:low|YC:positive" parent
         assert result is not None
 
     def test_none_when_no_data(self):
         table: dict = {}
-        result = lookup_distribution("NFCI:low|YC:positive|HY:tight", "S&P 500", 5, table)
+        result = lookup_distribution("NFCI:low|YC:positive|CREDIT:tight", "S&P 500", 5, table)
         assert result is None
 
     def test_none_for_missing_asset(self):
         table = self._build_simple_table()
-        result = lookup_distribution("NFCI:low|YC:positive|HY:tight", "WTI Oil", 5, table)
+        result = lookup_distribution("NFCI:low|YC:positive|CREDIT:tight", "WTI Oil", 5, table)
         assert result is None
 
     def test_none_for_missing_horizon(self):
         table = self._build_simple_table()
-        result = lookup_distribution("NFCI:low|YC:positive|HY:tight", "S&P 500", 999, table)
+        result = lookup_distribution("NFCI:low|YC:positive|CREDIT:tight", "S&P 500", 999, table)
         assert result is None
 
     def test_global_fallback(self):
         """When full + parent + grandparent all miss, fall back to 'all' bucket."""
         n = 20
         dates = [date(2020, 1, 2) + timedelta(days=i) for i in range(n)]
-        snap = _make_snapshot(-0.6, 4.5, 2.0, 3.0)
+        snap = _make_snapshot(-0.6, 4.5, 2.0, 1.5)
         snaps = [(d, snap) for d in dates]
         fr = _make_forward_returns(dates, ["S&P 500"])
         # Build with low min_n to ensure 'all' bucket gets included
@@ -436,7 +436,7 @@ class TestLookupDistribution:
 
         # Query a bucket whose NFCI part ("high") differs from what was put in ("low")
         # so full + parent + grandparent won't match, but 'all' will
-        result = lookup_distribution("NFCI:high|YC:inverted|HY:wide", "S&P 500", 5, table)
+        result = lookup_distribution("NFCI:high|YC:inverted|CREDIT:wide", "S&P 500", 5, table)
         # 'all' bucket should have the data
         assert result is not None
 
@@ -462,7 +462,7 @@ class TestFullCoverage:
         idx = 0
         for nfci_v in [-0.6, -0.25, 0.2]:
             for yc10, yc2 in [(4.5, 2.0), (2.0, 4.5)]:
-                for hy_v in [3.0, 4.3, 6.0]:
+                for hy_v in [1.5, 2.4, 3.5]:
                     snap = _make_snapshot(nfci_v, yc10, yc2, hy_v)
                     for _ in range(n_per_bucket):
                         d = start + timedelta(days=idx)
@@ -491,7 +491,7 @@ class TestBuildDistributionTableForBacktest:
         n: int = 60,
         base_return: float = 0.5,
     ) -> tuple[list[tuple[date, dict]], dict]:
-        snap = _make_snapshot(-0.6, 4.5, 2.0, 3.0)
+        snap = _make_snapshot(-0.6, 4.5, 2.0, 1.5)
         snaps = [(date(2020, 1, 2) + timedelta(days=i), snap) for i in range(n)]
         fr    = _make_forward_returns([d for d, _ in snaps], ["S&P 500"], base_return=base_return)
         return snaps, fr
@@ -570,3 +570,153 @@ class TestBuildDistributionTableForBacktest:
         table_pit  = build_distribution_table_for_backtest(snaps, fr, as_of, max_horizon=20, min_n=5)
         # Should produce identical tables
         assert set(table_full.keys()) == set(table_pit.keys())
+
+
+# ---------------------------------------------------------------------------
+# WP-17.5 — the credit dimension is BAA10Y, and the build drops what it
+# cannot label
+# ---------------------------------------------------------------------------
+
+class TestCreditInputIsBAA10Y:
+    """
+    Until 2026-09-13 the credit tertile read `hy_spread` (ICE BofA HY OAS), which
+    free FRED serves as a ~3-year rolling window; the table was capped at ~780
+    dates of one regime and a date with no reading fell back to "mid". These pin
+    the replacement: the key, the cut-points as written down, and the strict
+    mode the build side uses so an unknown date is dropped rather than labelled.
+    """
+
+    def test_the_credit_key_is_baa_spread_and_hy_spread_is_ignored(self):
+        from conditional import CREDIT_SERIES_KEY
+        assert CREDIT_SERIES_KEY == "baa_spread"
+        # An old-style snapshot carrying only hy_spread has NO credit reading.
+        snap = _make_snapshot(-0.6, 4.5, 2.0, None)
+        snap["hy_spread"] = {"value": 3.0}
+        assert assign_bucket(snap).endswith("|CREDIT:mid")
+        with pytest.raises(ValueError, match="baa_spread"):
+            assign_bucket(snap, strict=True)
+
+    def test_cut_points_are_the_written_down_baa10y_tertiles(self):
+        # p33/p67 of BAA10Y and NFCI on business days 2000-08-01 → 2026-09-11,
+        # computed once and fixed (conditional.py header). A drift here is a
+        # relabelling of every date in the table and must be deliberate.
+        assert (_CREDIT_LOW_MID, _CREDIT_MID_HIGH) == (2.03, 2.72)
+        assert (_NFCI_LOW_MID, _NFCI_MID_HIGH) == (-0.57, -0.40)
+        from conditional import TABLE_START
+        assert TABLE_START == date(2000, 8, 1)
+
+    def test_strict_mode_names_every_missing_input(self):
+        with pytest.raises(ValueError) as exc:
+            assign_bucket({}, strict=True)
+        msg = str(exc.value)
+        assert "nfci" in msg and "yield_curve" in msg and "baa_spread" in msg
+
+    def test_strict_mode_passes_a_complete_snapshot_through_unchanged(self):
+        snap = _make_snapshot(-0.6, 4.5, 2.0, 1.5)
+        assert assign_bucket(snap, strict=True) == assign_bucket(snap)
+
+    def test_live_fallback_is_unchanged(self):
+        # The note must still render on a partial fetch; only the build is strict.
+        assert assign_bucket({}) == "NFCI:mid|YC:positive|CREDIT:mid"
+
+
+class TestBuildDropsUnlabelledDates:
+    """`refit_models._build_snapshot_stubs` — the drop-the-date rule at the source."""
+
+    @staticmethod
+    def _series(start: str, periods: int, value: float):
+        import pandas as pd
+        idx = pd.bdate_range(start, periods=periods)
+        return pd.Series(value, index=idx)
+
+    def test_dates_before_the_credit_series_starts_are_dropped_not_mid(self):
+        import pandas as pd
+        from refit_models import _build_snapshot_stubs
+        dates = pd.bdate_range("2024-01-01", periods=20)
+        fred = {
+            "nfci":         self._series("2023-12-01", 60, -0.6),
+            "treasury_10y": self._series("2023-12-01", 60, 4.5),
+            "treasury_2y":  self._series("2023-12-01", 60, 2.0),
+            # credit starts ten business days into the window — the old code
+            # would have labelled those ten days CREDIT:mid
+            "baa_spread":   self._series(str(dates[10].date()), 30, 1.5),
+        }
+        stubs, dropped = _build_snapshot_stubs(fred, dates)
+        assert dropped == 10
+        assert len(stubs) == 10
+        assert stubs[0][0] == dates[10].date()
+        assert all(assign_bucket(s) == "NFCI:low|YC:positive|CREDIT:tight" for _, s in stubs)
+        assert all("hy_spread" not in s for _, s in stubs)
+
+    def test_a_series_that_is_entirely_missing_drops_every_date(self):
+        import pandas as pd
+        from refit_models import _build_snapshot_stubs
+        dates = pd.bdate_range("2024-01-01", periods=5)
+        fred = {
+            "nfci":         self._series("2023-12-01", 60, -0.6),
+            "treasury_10y": self._series("2023-12-01", 60, 4.5),
+            "treasury_2y":  self._series("2023-12-01", 60, 2.0),
+        }
+        stubs, dropped = _build_snapshot_stubs(fred, dates)
+        assert stubs == [] and dropped == 5
+
+    def test_table_dates_run_from_table_start_to_the_last_close(self):
+        import pandas as pd
+        from refit_models import _table_dates
+        from conditional import TABLE_START
+        sp = self._series("2026-08-03", 10, 100.0)
+        dates = _table_dates({}, {"SP500": sp})
+        assert dates[0] == pd.Timestamp(TABLE_START)
+        assert dates[-1] == sp.index[-1]
+        assert len(_table_dates({}, {})) == 0
+
+    def test_refit_fetches_the_credit_key_the_bucket_reads(self):
+        from refit_models import _FRED_SERIES
+        from conditional import CREDIT_SERIES_KEY
+        assert _FRED_SERIES[CREDIT_SERIES_KEY] == "BAA10Y"
+        assert "hy_spread" not in _FRED_SERIES
+
+
+class TestLiveCreditInputStaysOutOfThePayload:
+    """
+    `baa_spread` was removed from the LLM payload on 2026-06-27 (0/78 citations,
+    KB-010). Re-adding it for the bucket must not re-add it to the model's
+    message: it is fetched by `fetch_quant_inputs` and merged into the quant
+    layer's snapshot only.
+    """
+
+    def test_quant_series_are_disjoint_from_the_payload_series(self):
+        from fred_data import FRED_SERIES, QUANT_FRED_SERIES
+        from conditional import CREDIT_SERIES_KEY
+        assert CREDIT_SERIES_KEY in QUANT_FRED_SERIES
+        assert QUANT_FRED_SERIES[CREDIT_SERIES_KEY] == "BAA10Y"
+        assert not set(QUANT_FRED_SERIES) & set(FRED_SERIES)
+
+    def test_fetch_quant_inputs_returns_the_snapshot_entry_shape(self):
+        import pandas as pd
+        from fred_data import fetch_quant_inputs
+
+        class _Fred:
+            def get_series(self, sid, observation_start=None):
+                idx = pd.bdate_range("2026-08-03", periods=30)
+                return pd.Series([1.4 + 0.01 * i for i in range(30)], index=idx)
+
+        import fred_data as fd
+        fd.time.sleep = lambda *_: None
+        out = fetch_quant_inputs(_Fred())
+        entry = out["baa_spread"]
+        assert set(entry) >= {"value", "prev", "date", "days_stale", "frequency", "five_yr_mean"}
+        assert entry["frequency"] == "daily"
+        assert assign_bucket({"nfci": {"value": -0.6}, "yield_curve_spread": 0.5, **out},
+                             strict=True) == "NFCI:low|YC:positive|CREDIT:tight"
+
+    def test_collect_and_analyze_merges_quant_inputs_into_the_quant_snapshot_only(self):
+        import re
+        src = (Path(__file__).resolve().parent.parent / "collect_and_analyze.py").read_text()
+        # every quant-layer call sees the merged dict …
+        quant_calls = re.findall(r"(build_quant_context|collect_quant_raw)\(\s*\n\s*(.+?), today", src)
+        assert len(quant_calls) == 3, quant_calls
+        for fn, first_arg in quant_calls:
+            assert first_arg == "{**fred_data, **quant_inputs}", f"{fn}: {first_arg!r}"
+        # … and the model's message is built from fred_data alone
+        assert "analyze_with_claude(fred_data," in src

@@ -8,19 +8,21 @@ state, returns the historical distribution of forward returns per asset.
 Bucket dimensions (18 total = 3 × 2 × 3):
     NFCI tertile          : low / mid / high
     Yield curve sign      : positive / inverted
-    HY spread tertile     : tight / mid / wide
+    Credit-spread tertile : tight / mid / wide   (BAA10Y — see below)
 
-Bucket label format: 'NFCI:low|YC:positive|HY:tight'
+Bucket label format: 'NFCI:low|YC:positive|CREDIT:tight'
 
 Collapse hierarchy (when n < min_n):
-    Full 3D  → drop HY tertile (6 parent buckets)
-             → drop YC sign   (3 grandparent buckets)
+    Full 3D  → drop credit tertile (6 parent buckets)
+             → drop YC sign       (3 grandparent buckets)
              → global fallback ('all')
 
 Functions
 ---------
-assign_bucket(snapshot) -> str
-    Map a macro snapshot to its bucket label.
+assign_bucket(snapshot, strict=False) -> str
+    Map a macro snapshot to its bucket label. `strict=True` raises on a
+    missing input instead of falling back — the build side uses it so an
+    absent series drops the date rather than mislabelling it.
 
 build_bucket_index(historical_snapshots) -> dict[str, list[date]]
     Inverted index: bucket label -> list of snapshot dates.
@@ -55,24 +57,41 @@ DATA_DIR = _HERE / "data"
 DEFAULT_TABLE_PATH = DATA_DIR / "conditional_distributions.json"
 
 # ---------------------------------------------------------------------------
-# Empirical tertile cut-points (NFCI and HY spread, 2010–2025 sample)
+# The credit dimension is BAA10Y, not HY OAS  (WP-17.5, 2026-09-13)
 #
-# NFCI (weekly, Federal Reserve Chicago NFCI):
-#   0 = neutral; negative = loose (accommodative); positive = tight
-#   2010–2025 distribution: mostly -0.7 to +0.5, crisis spikes to +1.5
-#   p33 ≈ -0.48,  p67 ≈ -0.10
+# The bucket's credit tertile was keyed on the ICE BofA HY OAS (BAMLH0A0HYM2)
+# from Phase 11 until 2026-09-13. Free FRED serves that series as a ~3-year
+# ROLLING window (2023-08-28 when KB-021 measured it; 2023-09-12 today), which
+# capped the whole table at ~780 dates of one regime and — because a missing
+# input fell back to "mid" — would have silently mislabelled every earlier date
+# had the fetch been widened. BAA10Y (Moody's Baa − 10Y, daily, 1986+, unrevised)
+# is the deep substitute the regime feature and the fragility gate already use
+# (KB-003, KB-021). The two are not the same spread (IG vs HY; daily-level
+# correlation 0.54 on the overlap), so the tertile is renamed CREDIT and the
+# cut-points below are BAA10Y's, not a rescaling of the old HY ones.
 #
-# HY Spread (ICE BofA US HY OAS, BAMLH0A0HYM2, percentage points):
-#   2010–2025 range: ~2.9% (2021 tights) to ~10.7% (2020 COVID peak)
-#   p33 ≈ 3.70,  p67 ≈ 5.10
+# Empirical tertile cut-points, computed ONCE on the build sample and fixed:
 #
-# To refresh: compute np.percentile(series, [33, 67]) on 2010-present data
-# and update the four constants below.
+#   sample: business days from TABLE_START (2000-08-01, where GC=F and CL=F
+#           begin) to 2026-09-11, FRED series forward-filled to the bday index
+#   NFCI   (weekly, Chicago Fed):  p33 = -0.57   p67 = -0.40
+#   BAA10Y (daily, pp):            p33 =  2.03   p67 =  2.72
+#
+# To refresh: np.percentile(series.reindex(bdays, method="ffill").dropna(),
+# [33, 67]) on the same sample, then update the four constants. Do not move
+# them with the sample's end date — the label a date received must not change
+# because time passed.
 # ---------------------------------------------------------------------------
-_NFCI_LOW_MID: float  = -0.48   # p33 of NFCI 2010–present
-_NFCI_MID_HIGH: float = -0.10   # p67 of NFCI 2010–present
-_HY_LOW_MID: float    =  3.70   # p33 of HY OAS 2010–present (pp)
-_HY_MID_HIGH: float   =  5.10   # p67 of HY OAS 2010–present (pp)
+TABLE_START: date = date(2000, 8, 1)
+
+_NFCI_LOW_MID: float     = -0.57   # p33 of NFCI,   2000-08 → 2026-09
+_NFCI_MID_HIGH: float    = -0.40   # p67 of NFCI,   2000-08 → 2026-09
+_CREDIT_LOW_MID: float   =  2.03   # p33 of BAA10Y, 2000-08 → 2026-09 (pp)
+_CREDIT_MID_HIGH: float  =  2.72   # p67 of BAA10Y, 2000-08 → 2026-09 (pp)
+
+# The snapshot key the credit tertile reads. Live: fred_data.fetch_quant_inputs;
+# build: refit_models._FRED_SERIES. Named once so the two cannot drift.
+CREDIT_SERIES_KEY: str = "baa_spread"
 
 # Buckets flagged as sparse from historical analysis (n < 20 on 2010-2025 data).
 # These are automatically collapsed to their parent in lookup_distribution.
@@ -86,21 +105,30 @@ _HORIZONS: tuple[int, ...] = (5, 10, 20)
 # Phase 11.1 — State bucketing
 # ---------------------------------------------------------------------------
 
-def assign_bucket(snapshot: dict) -> str:
+def assign_bucket(snapshot: dict, strict: bool = False) -> str:
     """
     Return the bucket label for a macro snapshot.
 
-    Returns a string like 'NFCI:low|YC:inverted|HY:wide'.
-    Falls back to 'mid', 'positive', 'mid' when data is absent.
+    Returns a string like 'NFCI:low|YC:inverted|CREDIT:wide'.
 
     Parameters
     ----------
-    snapshot : output of fetch_fred_data() or historical_snapshot()
+    snapshot : output of fetch_fred_data() merged with fetch_quant_inputs(),
+               or a refit_models snapshot stub
+    strict   : False (live) — a missing input falls back to 'mid' / 'positive'
+               / 'mid' so a note can still render.
+               True (build) — a missing input raises ValueError naming it, so
+               the caller drops the date. Building a table on the fallback was
+               the WP-17.1 bug shape: a date with no credit reading is not a
+               'mid' date, it is an unknown one.
     """
+    missing: list[str] = []
+
     # --- NFCI tertile ---
     nfci_entry = snapshot.get("nfci", {})
     nfci_val   = nfci_entry.get("value")
     if nfci_val is None:
+        missing.append("nfci")
         nfci_tier = "mid"
     else:
         v = float(nfci_val)
@@ -121,22 +149,27 @@ def assign_bucket(snapshot: dict) -> str:
     if yc is not None:
         yc_label = "positive" if float(yc) >= 0 else "inverted"
     else:
+        missing.append("yield_curve")
         yc_label = "positive"
 
-    # --- HY spread tertile ---
-    hy_val = snapshot.get("hy_spread", {}).get("value")
-    if hy_val is None:
-        hy_tier = "mid"
+    # --- Credit-spread tertile (BAA10Y) ---
+    credit_val = snapshot.get(CREDIT_SERIES_KEY, {}).get("value")
+    if credit_val is None:
+        missing.append(CREDIT_SERIES_KEY)
+        credit_tier = "mid"
     else:
-        v = float(hy_val)
-        if v < _HY_LOW_MID:
-            hy_tier = "tight"
-        elif v < _HY_MID_HIGH:
-            hy_tier = "mid"
+        v = float(credit_val)
+        if v < _CREDIT_LOW_MID:
+            credit_tier = "tight"
+        elif v < _CREDIT_MID_HIGH:
+            credit_tier = "mid"
         else:
-            hy_tier = "wide"
+            credit_tier = "wide"
 
-    return f"NFCI:{nfci_tier}|YC:{yc_label}|HY:{hy_tier}"
+    if strict and missing:
+        raise ValueError(f"bucket input(s) missing: {', '.join(missing)}")
+
+    return f"NFCI:{nfci_tier}|YC:{yc_label}|CREDIT:{credit_tier}"
 
 
 def build_bucket_index(
@@ -166,10 +199,10 @@ def build_bucket_index(
 # Phase 11.2 — Lookup engine
 # ---------------------------------------------------------------------------
 
-def _bucket_drop_hy(bucket: str) -> str | None:
-    """Drop HY dimension: 'NFCI:X|YC:Y|HY:Z' -> 'NFCI:X|YC:Y'."""
+def _bucket_drop_credit(bucket: str) -> str | None:
+    """Drop the credit dimension: 'NFCI:X|YC:Y|CREDIT:Z' -> 'NFCI:X|YC:Y'."""
     parts     = bucket.split("|")
-    filtered  = [p for p in parts if not p.startswith("HY:")]
+    filtered  = [p for p in parts if not p.startswith("CREDIT:")]
     if len(filtered) < len(parts) and filtered:
         return "|".join(filtered)
     return None
@@ -226,7 +259,7 @@ def build_distribution_table(
     Schema example::
 
         {
-          "NFCI:low|YC:positive|HY:tight": {
+          "NFCI:low|YC:positive|CREDIT:tight": {
             "S&P 500": {
               5: {"p10": -1.2, "p25": -0.3, "p50": 0.8, "p75": 1.9, "p90": 3.1, "n": 42}
             }
@@ -241,7 +274,7 @@ def build_distribution_table(
         full = assign_bucket(snapshot)
         level_dates.setdefault(full, []).append(snap_date)
 
-        parent = _bucket_drop_hy(full)
+        parent = _bucket_drop_credit(full)
         if parent:
             level_dates.setdefault(parent, []).append(snap_date)
             grandparent = _bucket_drop_yc(parent)
@@ -334,8 +367,8 @@ def lookup_distribution(
     Return the distribution dict for (bucket, asset, horizon) with fallback.
 
     Fallback order:
-      1. Exact bucket: 'NFCI:X|YC:Y|HY:Z'
-      2. Drop HY:      'NFCI:X|YC:Y'
+      1. Exact bucket: 'NFCI:X|YC:Y|CREDIT:Z'
+      2. Drop CREDIT:  'NFCI:X|YC:Y'
       3. Drop YC:      'NFCI:X'
       4. Global:       'all'
 
@@ -357,7 +390,7 @@ def lookup_distribution(
     if result is not None:
         return result
 
-    parent = _bucket_drop_hy(current_bucket)
+    parent = _bucket_drop_credit(current_bucket)
     if parent:
         result = _try(parent)
         if result is not None:
@@ -381,8 +414,8 @@ def _identify_sparse_buckets(table: dict, min_n: int = 20) -> frozenset[str]:
     all_full_buckets: set[str] = set()
     for nfci in ("low", "mid", "high"):
         for yc in ("positive", "inverted"):
-            for hy in ("tight", "mid", "wide"):
-                all_full_buckets.add(f"NFCI:{nfci}|YC:{yc}|HY:{hy}")
+            for credit in ("tight", "mid", "wide"):
+                all_full_buckets.add(f"NFCI:{nfci}|YC:{yc}|CREDIT:{credit}")
 
     sparse: set[str] = set()
     for bucket in all_full_buckets:

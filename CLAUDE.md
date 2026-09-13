@@ -140,7 +140,7 @@ page with no costs listed has not been thought through.
 
 | | |
 |---|---|
-| **Version** | **v2.0** — the measured line; 1.x predicted direction |
+| **Version** | **v2.1** (2026-09-13; first note 2026-09-14) — the measured line; 1.x predicted direction |
 | **Live product** | Conditional return distribution across 6 assets + Fragility Monitor |
 | **Live experiment** | Phase 22 distribution scorer — bar sealed, first honest read ~2027-05 |
 | **Winding down** | The directional scorer, once the last T+20 window resolves ~2026-10-02 |

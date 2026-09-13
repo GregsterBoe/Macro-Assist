@@ -29,8 +29,8 @@ from pipeline_common import (
     _STRUCTURED_OUTPUT_AVAILABLE,
 )
 from fred_data import (
-    FRED_SERIES, FRED_SERIES_FREQUENCY, _NET_LIQ_KEYS,
-    _compute_net_liquidity, _fred_get_with_retry, fetch_fred_data,
+    FRED_SERIES, FRED_SERIES_FREQUENCY, _NET_LIQ_KEYS, QUANT_FRED_SERIES,
+    _compute_net_liquidity, _fred_get_with_retry, fetch_fred_data, fetch_quant_inputs,
 )
 from market_data import (
     MARKET_TICKERS, MARKET_LABELS, SECTOR_TICKERS, SECTOR_LABELS,
@@ -57,8 +57,8 @@ __all__ = [
     "AnalysisOutput", "AssetPrediction", "PortfolioRiskOutput", "SectorOpportunityOutput",
     "_STRUCTURED_OUTPUT_AVAILABLE",
     # FRED
-    "FRED_SERIES", "FRED_SERIES_FREQUENCY", "_NET_LIQ_KEYS",
-    "_compute_net_liquidity", "_fred_get_with_retry", "fetch_fred_data",
+    "FRED_SERIES", "FRED_SERIES_FREQUENCY", "_NET_LIQ_KEYS", "QUANT_FRED_SERIES",
+    "_compute_net_liquidity", "_fred_get_with_retry", "fetch_fred_data", "fetch_quant_inputs",
     # market / sector / technicals / COT
     "MARKET_TICKERS", "MARKET_LABELS", "SECTOR_TICKERS", "SECTOR_LABELS",
     "SECTOR_PE_REFERENCE", "SECTOR_HOLDINGS", "_TECHNICAL_ASSETS",
@@ -291,15 +291,16 @@ def _run_fetch_check() -> int:
 
     # --- FRED ---
     try:
-        fred      = Fred(api_key=os.environ["FRED_API_KEY"])
-        fred_data = fetch_fred_data(fred)
+        fred         = Fred(api_key=os.environ["FRED_API_KEY"])
+        fred_data    = fetch_fred_data(fred)
+        quant_inputs = fetch_quant_inputs(fred)
         stale     = [k for k, v in fred_data.items() if isinstance(v, dict) and v.get("days_stale", 0) > 90]
         _log("CHECK", "WARN" if stale else "OK",
              f"FRED: {len(fred_data)} series" + (f" | stale>90d: {stale}" if stale else ""))
     except Exception as e:
         _log("CHECK", "FAIL", f"FRED: {e}")
         failures.append("FRED")
-        fred_data, histories = {}, {}
+        fred_data, quant_inputs, histories = {}, {}, {}
 
     # --- Market data ---
     try:
@@ -375,7 +376,7 @@ def _run_fetch_check() -> int:
         try:
             from quant_context import build_quant_context
             qc = build_quant_context(
-                fred_data, today.date(),
+                {**fred_data, **quant_inputs}, today.date(),
                 market_data=market_data,
                 histories=histories,
             )
@@ -443,6 +444,10 @@ def main():
 
     fred      = Fred(api_key=os.environ["FRED_API_KEY"])
     fred_data = fetch_fred_data(fred)
+    # Quant-only FRED inputs (the bucket's BAA10Y): merged into the snapshot the
+    # quant layer sees, kept out of `fred_data` because that dict IS the
+    # model's "FRED Macro Indicators" section.
+    quant_inputs = fetch_quant_inputs(fred)
 
     market_data, histories = fetch_market_data()
 
@@ -470,7 +475,7 @@ def main():
     try:
         from quant_context import build_quant_context
         quant_context = build_quant_context(
-            fred_data, today.date(),
+            {**fred_data, **quant_inputs}, today.date(),
             market_data=market_data,
             histories=histories,
         )
@@ -490,7 +495,7 @@ def main():
             import json as _json
             from quant_context import collect_quant_raw
             _raw = collect_quant_raw(
-                fred_data, today.date(),
+                {**fred_data, **quant_inputs}, today.date(),
                 market_data=market_data,
                 histories=histories,
             )

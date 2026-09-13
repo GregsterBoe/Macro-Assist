@@ -124,7 +124,7 @@ whichever way it goes — is what Phases 17, 19 and 21 all ran on afterwards.
 
 **Branch.** `feature/regime-validation`. **Method.** Reuse the fragility harness patterns (`fragility_backtest.py`): pull-once-and-slice for prices, walk-forward look-ahead-safety, Mann-Whitney AUC, de-overlapped episode scoring, and record results in `knowledge-base.md` (KB-003+), kept separate from this plan.
 
-1. **WP-17.1 — Look-ahead audit of the regime pipeline. ✅ Done** (→ KB-003). Built `regime_backtest.py` (walk-forward vs full-sample, look-ahead-safe). Findings: live labeling is safe; validation must use walk-forward, never the persisted full-sample model; inference is single-point so the HMM's transition matrix is unused live. Caught a **shipped bug** — the HY-OAS credit feature (`BAMLH0A0HYM2`, only ~3y of FRED history) truncated training to ~2y; fixed by switching the regime credit feature to **`BAA10Y`** in both training + live (`baa_spread`, model regenerated via `refit_models.py`). Walk-forward vs full-sample labels disagree 70.5%; the full-sample model collapses to one label (startprob-dominated). *(Conditional layer still on truncated HY-OAS → WP-17.5.)*
+1. **WP-17.1 — Look-ahead audit of the regime pipeline. ✅ Done** (→ KB-003). Built `regime_backtest.py` (walk-forward vs full-sample, look-ahead-safe). Findings: live labeling is safe; validation must use walk-forward, never the persisted full-sample model; inference is single-point so the HMM's transition matrix is unused live. Caught a **shipped bug** — the HY-OAS credit feature (`BAMLH0A0HYM2`, only ~3y of FRED history) truncated training to ~2y; fixed by switching the regime credit feature to **`BAA10Y`** in both training + live (`baa_spread`, model regenerated via `refit_models.py`). Walk-forward vs full-sample labels disagree 70.5%; the full-sample model collapses to one label (startprob-dominated). *(Conditional layer's HY-OAS input fixed 2026-09-13 → WP-17.5, KB-028.)*
 
 2. **WP-17.2 — Regime skill gate (the WP-16.A.2 analog). ✅ Done — verdict NO SKILL** (→ KB-004). Walk-forward (18y, 3,922 readings): Risk-Off→drawdown AUC ~0.47–0.49, High-Vol→fwd-vol ~0.50 despite vol-percentile being a direct input; ~all days falsely ≥0.8 posterior. No predictive information as wired; scorer sound (planted-signal test passes). Decision deferred to 17.3 (inference vs concept). Harness: `--skill`.
 
@@ -134,7 +134,9 @@ whichever way it goes — is what Phases 17, 19 and 21 all ran on afterwards.
 
 5. **WP-17.4 — Incremental value over the simpler bucket (keep/cut gate). ✅ Done — verdict REDUNDANT → drop the HMM** (→ KB-006). A 4-feature equal-weight rule-based stress score gets drawdown AUC 0.697 vs the HMM's 0.553, and within stress terciles the regime adds nothing (mean 0.507; redundancy Spearman 0.336). Regime block removed from the daily note (its macro-stress dimension is already covered by the Phase-16 fragility monitor). Harness: `--bucket`.
 
-6. **WP-17.5 *(later)* — Extend to vol_forecast + conditional layers.** Same look-ahead-safe walk-forward + skill scoring for HAR-RV (Phase 9) and the conditional-distribution table (Phase 11). Also fix the conditional layer's truncated HY-OAS input (the `assign_bucket` series only has ~3y — same FRED limit found in WP-17.1).
+6. **WP-17.5 — Vol / conditional layers.** Two halves, now split:
+   - **The conditional table's input — ✅ Done 2026-09-13** (→ KB-028, shipped as v2.1). The finding was worse than the note above said: the free HY OAS window is *rolling* (~3y), the table's date range was set by the retired HMM's warm-ups rather than by the data, and in 780 dates of one regime the live bucket had the same n as its grandparent — two of three dimensions contributed nothing to the published numbers. Credit tertile now on **BAA10Y** (`CREDIT:` label), table built from `conditional.TABLE_START = 2000-08-01` (6,811 dates, 24 buckets), a date missing an input dropped rather than labelled `mid`. Named against the Phase 22 seal in WP-22.C.
+   - **Walk-forward skill read of HAR-RV — ⏸ later.** Same look-ahead-safe harness as WP-17.1–17.4 pointed at `vol_forecast.py`. The table's own skill read is *not* queued here any more: since WP-22.C that is Phase 22's sealed question, and building a second harness for it would be measuring one thing twice.
 
 ---
 
@@ -602,6 +604,35 @@ the bar is frozen. On the exploratory backfill the pooled number reproduces the
 figures already recorded below (t5 −0.009, CI [−0.055, +0.019] on 4 blocks; t20
 −0.065, CI [−0.149, +0.054] on 3), now with a block-bootstrap interval the
 previous equal-weight field did not carry.
+
+**The conditioner changed once, on 2026-09-14 — amended 2026-09-13, zero
+interval observations resolved.** WP-17.5 found the table the seal was written
+over was built on ~780 dates of one regime with its credit dimension on a
+3-year rolling FRED window, and that the live bucket had the same n as its
+grandparent — the note's "conditional" numbers were conditional on NFCI alone
+([KB-028]). The table is rebuilt from 2000-08 with the credit tertile on BAA10Y
+(v2.1). What that does to this record, stated so it cannot be re-argued later:
+
+- **The sealed question is unchanged** — does *this* conditioning beat not
+  conditioning — and so are `SEAL_START`, `MIN_SKILL`, `MIN_BLOCKS` and the
+  disqualifier order. A change to what "conditioning" *is* is not a change to
+  the bar; it is a change to the thing the bar measures, and it is the same
+  kind of change the weekly refit makes every Sunday, only larger and once.
+- **The five report dates 2026-09-07 → 2026-09-11 were published from the old
+  table.** They stay in the sealed record: nothing was resolved when the
+  switch landed, the quant log dates it by itself (`HY:` → `CREDIT:` in the
+  bucket label; `n` roughly triples), and dropping them would be a second
+  post-hoc edit to defend the first. Five dates of one 21-day block cannot move
+  an 8-block read; if the first sealed read is within a hair of a threshold,
+  say so and read it both ways.
+- **The exploratory backfill above was scored against the old table** and is
+  not re-run. It was already exploratory.
+- **Why now and not at the read:** because the alternative was letting the
+  first sealed read judge a table whose YC and credit dimensions were inert,
+  and then arguing about whether the null was about conditioning or about the
+  data window. Fixing that after the read would be the goalpost move; fixing
+  it at zero observations is the last honest moment, the same one WP-22.C's
+  own amendment used.
 
 **The honest prior.** Low, and it should be said out loud before the data arrives.
 [KB-024]'s mechanism — stress → bearish → mean-reversion — was about direction,

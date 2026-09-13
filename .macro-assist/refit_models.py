@@ -4,12 +4,17 @@ refit_models.py — Weekly model refit for the quantitative context layer.
 Called by macro_weekly_refit.yml every Sunday 22:00 UTC.
 
 Steps:
-    1. Fetch 5yr FRED data (one API call per series via fredapi)
-    2. Fetch 5yr yfinance price history (SP500, Gold, WTI Oil)
-    3. Build daily 4-feature matrix for the HMM
-    4. Refit GaussianHMM → data/regime_model.pkl
-    5. Build forward-return dict and rebuild conditional distribution table
+    1. Fetch FRED data from conditional.TABLE_START (one call per series)
+    2. Fetch yfinance price history from TABLE_START for the six registry assets
+    3. (retired, KB-006) Build the 4-feature matrix and refit the HMM — only
+       when REGIME_ENABLED=1
+    4. Build forward-return dict and rebuild the conditional distribution table
        → data/conditional_distributions.json
+
+The table's date range is every business day from TABLE_START on which all
+three bucket inputs (NFCI, 10Y−2Y, BAA10Y) have a reading. Until 2026-09-13 it
+was the HMM feature matrix's valid rows on a 5-year fetch, which capped it at
+~3 years (WP-17.5).
 
 Idempotent: re-running in the same week with the same market data produces
 identical artifacts (same random_state, same training window).
@@ -18,7 +23,7 @@ from __future__ import annotations
 
 import os
 import sys
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 
 import numpy as np
@@ -31,7 +36,10 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 from regime import fit_regime_model, DEFAULT_MODEL_PATH, regime_enabled
-from conditional import build_distribution_table, DEFAULT_TABLE_PATH
+from conditional import (
+    assign_bucket, build_distribution_table, DEFAULT_TABLE_PATH, TABLE_START,
+    CREDIT_SERIES_KEY,
+)
 from assets import ASSETS, BY_KEY, HORIZONS, forward_change
 
 # ---------------------------------------------------------------------------
@@ -52,12 +60,13 @@ _FRED_SERIES: dict[str, str] = {
     "nfci":         "NFCI",
     "treasury_10y": "DGS10",
     "treasury_2y":  "DGS2",
-    "hy_spread":    "BAMLH0A0HYM2",   # kept for the conditional-bucket stubs only
-    # Regime credit feature. FRED serves the ICE BofA HY OAS (BAMLH0A0HYM2) with
-    # only ~3y of history, which truncated the feature matrix to ~2y (WP-17.1).
-    # BAA10Y (Moody's Baa − 10Y, daily since 1986) is the long-history credit-
-    # stress substitute used for the HMM's z-score feature [2].
-    "baa_spread":   "BAA10Y",
+    # Credit spread, for both the bucket's credit tertile and the (retired) HMM
+    # z-score feature. FRED serves the ICE BofA HY OAS (BAMLH0A0HYM2) as a
+    # ~3-year rolling window — it truncated the HMM fit (WP-17.1) and then the
+    # conditional table itself (WP-17.5). BAA10Y (Moody's Baa − 10Y, daily since
+    # 1986) is the long-history credit-stress series; CREDIT_SERIES_KEY names
+    # the snapshot key so conditional.assign_bucket reads the same one.
+    CREDIT_SERIES_KEY: "BAA10Y",
 }
 
 # NFCI clipping bounds (long-run historical range, matching regime_features.py)
@@ -71,7 +80,7 @@ _BAA_STD: float = 0.5
 # Minimum valid history days required before fitting
 _MIN_FIT_DAYS: int = 252
 
-# Rolling window for HY 5yr mean (252 bdays/yr × 5)
+# Rolling window for the credit-spread 5yr mean (252 bdays/yr × 5), HMM feature [2]
 _HY_MEAN_WINDOW: int = 1260
 
 
@@ -87,9 +96,9 @@ def _log(section: str, msg: str) -> None:
 # Data fetching
 # ---------------------------------------------------------------------------
 
-def _fetch_fred_series(fred: Fred, years: int = 5) -> dict[str, pd.Series]:
-    """Return FRED series needed for feature computation (5yr history)."""
-    start = (date.today() - timedelta(days=365 * years + 60)).isoformat()
+def _fetch_fred_series(fred: Fred, start: date = TABLE_START) -> dict[str, pd.Series]:
+    """Return the bucket-input FRED series from `start` (default TABLE_START)."""
+    start = start.isoformat()
     series: dict[str, pd.Series] = {}
     for key, sid in _FRED_SERIES.items():
         try:
@@ -104,10 +113,14 @@ def _fetch_fred_series(fred: Fred, years: int = 5) -> dict[str, pd.Series]:
     return series
 
 
-def _fetch_price_history(years: int = 5) -> dict[str, pd.Series]:
-    """Return daily Close price series from yfinance for all assets."""
-    # Extra 60 days so the last date in the feature window has full horizon data
-    start = (date.today() - timedelta(days=365 * years + 60)).isoformat()
+def _fetch_price_history(start: date = TABLE_START) -> dict[str, pd.Series]:
+    """Return daily Close price series from yfinance for all registry assets.
+
+    Assets whose history begins after `start` (Bitcoin, 2014-09) simply
+    contribute fewer forward-return observations; the bucket dates are the
+    same for every asset.
+    """
+    start = start.isoformat()
     prices: dict[str, pd.Series] = {}
     for name, ticker in _ASSETS.items():
         try:
@@ -245,54 +258,73 @@ def _build_forward_returns(
     return forward_returns
 
 
+def _table_dates(
+    fred_series: dict[str, pd.Series],
+    prices: dict[str, pd.Series],
+) -> pd.DatetimeIndex:
+    """
+    Business days the table is built over: TABLE_START → last SP500 close.
+
+    Decoupled from the HMM feature matrix (whose 252-day warm-ups, not the data,
+    set the old ~3-year range). Dates missing a bucket input are dropped by
+    `_build_snapshot_stubs`, not here.
+    """
+    sp = prices.get("SP500")
+    if sp is None or sp.empty:
+        return pd.DatetimeIndex([])
+    return pd.bdate_range(start=pd.Timestamp(TABLE_START), end=sp.index[-1])
+
+
 def _build_snapshot_stubs(
     fred_series: dict[str, pd.Series],
     dates: pd.DatetimeIndex,
-) -> list[tuple[date, dict]]:
+) -> tuple[list[tuple[date, dict]], int]:
     """
-    Build minimal snapshot dicts for assign_bucket().
+    Build minimal snapshot dicts for assign_bucket(); returns (stubs, dropped).
 
-    Only three FRED fields are needed: nfci.value, treasury_10y.value,
-    treasury_2y.value, hy_spread.value + five_yr_mean.
+    A date on which any bucket input has no forward-filled reading is
+    **dropped**, not labelled: `assign_bucket(strict=True)` raises and the date
+    is counted in `dropped`. The live-side fallback to 'mid' is fine for
+    rendering one note; a table built on it would label the unknown as the
+    middle tertile, which is the WP-17.1 bug shape (KB-003).
     """
-    nfci_d  = fred_series.get("nfci", pd.Series(dtype=float)).reindex(
-        dates, method="ffill"
-    )
-    t10_d   = fred_series.get("treasury_10y", pd.Series(dtype=float)).reindex(
-        dates, method="ffill"
-    )
-    t2_d    = fred_series.get("treasury_2y", pd.Series(dtype=float)).reindex(
-        dates, method="ffill"
-    )
-    hy_d    = fred_series.get("hy_spread", pd.Series(dtype=float)).reindex(
-        dates, method="ffill"
-    )
-    hy_mean = hy_d.rolling(_HY_MEAN_WINDOW, min_periods=_MIN_FIT_DAYS).mean()
+    def _ffill_to(key: str) -> pd.Series:
+        s = fred_series.get(key)
+        if s is None or s.empty:
+            return pd.Series(np.nan, index=dates)
+        return s.reindex(dates, method="ffill")
+
+    nfci_d = _ffill_to("nfci")
+    t10_d  = _ffill_to("treasury_10y")
+    t2_d   = _ffill_to("treasury_2y")
+    cr_d   = _ffill_to(CREDIT_SERIES_KEY)
 
     snapshots: list[tuple[date, dict]] = []
+    dropped = 0
     for ts in dates:
         snap: dict = {}
-        nv = nfci_d[ts] if ts in nfci_d.index else np.nan
+        nv = nfci_d.get(ts, np.nan)
         if not np.isnan(nv):
             snap["nfci"] = {"value": float(nv)}
 
-        t10v = t10_d[ts] if ts in t10_d.index else np.nan
-        t2v  = t2_d[ts]  if ts in t2_d.index  else np.nan
+        t10v = t10_d.get(ts, np.nan)
+        t2v  = t2_d.get(ts, np.nan)
         if not np.isnan(t10v) and not np.isnan(t2v):
             snap["treasury_10y"] = {"value": float(t10v)}
             snap["treasury_2y"]  = {"value": float(t2v)}
 
-        hyv  = hy_d[ts]   if ts in hy_d.index   else np.nan
-        hmv  = hy_mean[ts] if ts in hy_mean.index else np.nan
-        if not np.isnan(hyv):
-            snap["hy_spread"] = {
-                "value":       float(hyv),
-                "five_yr_mean": float(hmv) if not np.isnan(hmv) else float(hyv),
-            }
+        crv = cr_d.get(ts, np.nan)
+        if not np.isnan(crv):
+            snap[CREDIT_SERIES_KEY] = {"value": float(crv)}
 
+        try:
+            assign_bucket(snap, strict=True)
+        except ValueError:
+            dropped += 1
+            continue
         snapshots.append((ts.date(), snap))
 
-    return snapshots
+    return snapshots, dropped
 
 
 # ---------------------------------------------------------------------------
@@ -322,28 +354,34 @@ def main() -> None:
         _log("ABORT", f"SP500 price history too short ({len(sp500_close) if sp500_close is not None else 0} days)")
         sys.exit(1)
 
-    # NOTE: the feature matrix + valid_dates are still built here because the
-    # conditional-distribution table (STEP 4, NOT retired) needs valid_dates.
-    _log("STEP", "3/4  Building regime feature matrix ...")
-    feature_matrix, valid_dates = _build_feature_matrix(fred_series, sp500_close)
-
-    if len(feature_matrix) < _MIN_FIT_DAYS:
-        _log("ABORT", f"Only {len(feature_matrix)} valid days — need ≥{_MIN_FIT_DAYS}")
-        sys.exit(1)
-
-    # REGIME-RETIRED (KB-006): skip the HMM fit unless explicitly re-enabled. The
-    # stale regime_model.pkl is simply left untouched (the gate is off too).
+    # REGIME-RETIRED (KB-006): the feature matrix and HMM fit only run when
+    # explicitly re-enabled. The stale regime_model.pkl is left untouched (the
+    # gate is off too). The conditional table no longer borrows the matrix's
+    # valid rows for its date range — see _table_dates.
     if regime_enabled():
+        _log("STEP", "3/4  Building regime feature matrix ...")
+        feature_matrix, _ = _build_feature_matrix(fred_series, sp500_close)
+        if len(feature_matrix) < _MIN_FIT_DAYS:
+            _log("ABORT", f"Only {len(feature_matrix)} valid days — need ≥{_MIN_FIT_DAYS}")
+            sys.exit(1)
         fit_regime_model(feature_matrix, model_path=DEFAULT_MODEL_PATH)
         _log("REGIME", f"HMM fitted on {len(feature_matrix)} days → {DEFAULT_MODEL_PATH.name}")
     else:
+        _log("STEP", "3/4  Regime feature matrix ...")
         _log("REGIME", "HMM regime retired (KB-006) — skipping fit (set REGIME_ENABLED=1 to revive)")
 
     _log("STEP", "4/4  Building conditional distribution table ...")
-    forward_returns = _build_forward_returns(prices, valid_dates)
-    snapshot_stubs  = _build_snapshot_stubs(fred_series, valid_dates)
+    table_dates              = _table_dates(fred_series, prices)
+    snapshot_stubs, dropped  = _build_snapshot_stubs(fred_series, table_dates)
+    if not snapshot_stubs:
+        _log("ABORT", "no business day has all three bucket inputs — table not rebuilt")
+        sys.exit(1)
+    stub_dates = pd.DatetimeIndex([pd.Timestamp(d) for d, _ in snapshot_stubs])
+    forward_returns = _build_forward_returns(prices, stub_dates)
 
     n_returns = sum(len(v) for v in forward_returns.values())
+    _log("COND", f"{len(snapshot_stubs)} bucket dates {snapshot_stubs[0][0]} → "
+                 f"{snapshot_stubs[-1][0]} ({dropped} dropped for a missing input)")
     _log("COND", f"{n_returns} forward-return observations across {len(_ASSETS)} assets")
 
     table = build_distribution_table(
