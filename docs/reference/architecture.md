@@ -98,6 +98,7 @@ Macro-Assist/
 │   ├── numeric_baseline.py          # the learnability harness (measures the task)
 │   ├── input_ledger.py              # input provenance ledger
 │   ├── input_testing.py             # improvement-track harness (IMP-1/IMP-4)
+│   ├── aggregator_testing.py        # OR-flag aggregator gate (IMP-6, closed negative)
 │   ├── citation_screen.py           # which inputs the model actually cites
 │   ├── backtest.py                  # point-in-time backtesting harness
 │   ├── regime_backtest.py           # walk-forward regime validation

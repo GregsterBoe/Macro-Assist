@@ -2619,3 +2619,139 @@ up and takes years to come down.
   `run_pit_cut_check` stay in the code as the reproducible record; the live
   label does not consult them. Not a version bump: the note publishes nothing
   new.
+
+---
+
+## KB-031 — The OR flag's aggregation stays a plain OR: persistence, severity tiers and a fitted logistic all lose crises without buying precision (IMP-6)
+
+**Date:** 2026-09-13 · **Branch:** `main` · **Harness:**
+`.macro-assist/aggregator_testing.py` (`run_aggregator_gate`, **zero LLM/API
+cost**, yfinance + CBOE). Reproduce: `python aggregator_testing.py` (~3 min;
+the composite walk dominates). Bar written in `improvement-track.md` IMP-6 on
+2026-09-13, before any variant ran; the verdict function and its
+disqualifier-first tests were written and passing before the run. Closes IMP-6.
+
+**What we tested.** The live OR recall mode ([KB-021]) fires when ANY of
+{composite, absorption ratio, turbulence} is at/above its own point-in-time
+top decile. Its operating point is high recall at precision ~0.3: two alarms
+in three are false. Every "add a channel" route is closed ([KB-018],
+[KB-019], IMP-3), so this asked the one question left about the trio — can
+precision rise **without paying recall** by changing only how the three are
+combined? Three pre-registered variants, one run, on the [KB-021] live window
+(`comp ∩ ETF`, 916 readings 2008-07-08 → 2026-09-11; 664 evaluable after the
+252-reading warm-up, 2013-07-10 →), both horizons, fixed config, no sweeps:
+
+1. **persist** — the OR flag on two consecutive readings (the anchor grid is
+   strided, so ~a week apart).
+2. **tiers** — `alert` = two of three channels ≥ their PIT p90, or any one ≥
+   its PIT p97 (`watch` = today's flag, unchanged).
+3. **logit** — a logistic on the three channels' percentiles (three slopes +
+   intercept, C=100), refit at every reading on the labels that had *resolved*
+   by then (PIT) or on every reading outside the held-out crisis (LOCO); its
+   threshold set so it fires on the **same fraction of training readings as
+   the OR** (equal alarm budget — the only rule that does not choose the cut
+   by looking at the outcome it is scored on).
+
+Each variant was scored beside the OR flag **on its own evaluable window**
+(persist drops one reading; logit needs 100 resolved readings), so
+window-shrink is never read as skill — the [KB-030] discipline. Disqualifiers
+first: `underpowered` (<10 alarms), `too_late` (median lead to trough <2
+days at 5d), `recall_lost` (>1 crisis lost vs OR under LOCO at either
+horizon); then pass = PIT precision +0.05 at both horizons at recall within
+1 crisis, or LOCO recall +2 at both horizons at precision within −0.02.
+
+**Headline — all three disqualified on `recall_lost`, and none raised precision
+at either horizon.**
+
+| variant | PIT 5d: caught / alarms / prec (OR on same window) | PIT 10d (OR) | LOCO 5d caught, 21 folds (OR) | LOCO 10d, 31 folds (OR) | verdict |
+|---|---|---|---|---|---|
+| **persist** | 6/17 · 17 · **0.235** (10/17 · 18 · 0.333) | 9/21 · 17 · 0.412 (11/21 · 18 · 0.444) | 8 (9) | **10 (14)** | `recall_lost` |
+| **tiers** | 5/17 · 17 · **0.235** (10/17 · 18 · 0.333) | 5/21 · 17 · 0.235 (11/21 · 18 · 0.444) | **4 (9)** | 7 (14) | `recall_lost` |
+| **logit** | 7/16 · 19 · **0.316** (10/16 · 14 · 0.429) | 7/19 · 19 · 0.316 (11/19 · 14 · 0.571) | 9 (9) | **10 (14)** | `recall_lost` |
+
+Median lead among surviving true positives was unchanged for every variant
+(5d: 5.0 / 5.0 / 4.0 vs OR 5.0) — `too_late` never fired, and that is the
+first thing to understand about the result (nuance (a)).
+
+**The mechanism — the OR's catches are one reading wide, and every filter moves
+or thins the alarm past them.** On the strided grid (median 7 calendar days
+between readings) a 5-day drawdown label episode contains **one reading** in
+15 of 17 cases. The OR catches several of those not with a reading *inside*
+the episode but by an alarm reading just before the drop and one just after,
+which `episode_scoring`'s merge gap joins into one alarm that spans it — the
+"lead" is real, but it is a single reading.
+
+- **persist** removes only one of 18 alarm episodes, yet loses 4 of 10 crises
+  at 5d: it shifts the *start* of every alarm run one reading (~a week) later,
+  and the alarm no longer spans the one-reading label episode (2015-08,
+  2022-01, 2022-04, 2025-04 all lost this way). The lead-time cost the plan
+  predicted is real; it just surfaces as recall lost, not as a shorter median
+  lead among survivors.
+- **tiers** fires on 68 readings vs the OR's 161 and its alerts land **7–46
+  days after** the label window — or, for 2022-08/09, whose six AR-only
+  firings never reach 2-of-3 or p97, not until 2024-08 (2015-08's alert comes
+  on 09-08). Severity is
+  coincident-to-lagging: the one-channel p90 crossing *is* the lead; the p97
+  crossing and the second channel come at the trough. And the "any one ≥ p97"
+  leg lets the single-channel spikes through, so precision does not rise either
+  (17 alarms, 0.235).
+- **logit** ties the OR under LOCO at 5d (9 = 9, swapping 2009-02/2022-01 for
+  2018-02/2022-09) and loses 4 at 10d. Under PIT, at the *same* firing budget
+  it produces **more** alarms (19 vs 14): fitted probabilities near the cut
+  flicker, splitting runs. What it learned is legible — full-sample slopes
+  comp/AR/TURB = 0.94/1.55/0.24 at 5d and 1.59/0.63/0.65 at 10d — but a
+  weighting cannot help a flag whose catches are single p90 crossings of
+  whichever channel moved first.
+
+**The nuance that is easy to forget.**
+(a) **The `too_late` disqualifier measured lead only among the true positives
+that survived**, so persistence read 5.0 days — identical to OR — while
+losing 40% of the crises to lead time. A lead-time bar should be stated as
+"crises still caught with lead ≥ k", not as the median lead of survivors;
+`recall_lost` caught it here, but only because it was also pre-registered.
+Harness lesson, recorded so the next bar is written the other way.
+(b) **Seen after the fact, not a result:** of the OR's 18 PIT alarms at 5d,
+all 6 true ones have ≥2 channels firing somewhere in the run; **10 of the
+12 false ones are turbulence-only** (2014-01, -04, -08, 2016-01, -11,
+2017-06, -10, 2024-07, -11, 2025-01) and the other two (2014-10→2015-02,
+2026-01→08) are turbulence runs with a few composite readings inside. The PIT-p90 turbulence
+flag fires on 13.6% of readings (its history trends up, so the expanding cut
+lags) and on label days only 1.4× as often as on non-label days at 5d
+(composite 3.3×, absorption 2.8×). A rule such as "turbulence alone is not an
+alarm" would have raised 5d precision on *this* window — and it was not
+pre-registered, the window is the one it was read off, and [KB-020] measured
+ETF-turbulence as the *best* standalone channel by non-overlapping AUC
+(0.713). This is exactly the observation CLAUDE.md #7 says not to act on; it
+is carried in `todo.md` (#15) as an open decision, with the only honest test
+being the forward live record, not this window.
+(c) **The OR reference row has moved since [KB-021]** — same recall (10/17,
+11/21), precision 0.333/0.444 vs 0.273/0.364, four fewer alarms: IMP-5.2's
+CBOE splice repaired the 2026-07/08 `vix_term` leg ([KB-029]), so the
+composite reads ~30 there, not 59–62, and the comp channel no longer fires;
+the ETF panel was refreshed. `fragility_or._pit_backtest` reproduces today's
+row exactly, so the harness and the live engine agree.
+(d) The stated prior (one `no_edge`, two disqualifications; persistence fails
+`too_late`) was wrong in the details — no variant reached the pass clause and
+none bought precision anywhere — and right in its conclusion.
+(e) Small-n as always: 17–21 crises at 5d, 21–31 at 10d; the evidence is the
+*direction* on every variant, horizon and protocol (twelve cells, twelve
+non-improvements), not any single count.
+
+**What it changes.**
+- **The OR flag's aggregation stays a plain OR** — the live mode, its
+  `FRAGILITY_OR_MODE` ladder and its stated limit (precision ≈0.3, a "not a
+  normal tape" warning, never a forecast) are unchanged. No version bump.
+- **IMP-6 is CLOSED (negative). The tree-model / learned-weighting question is
+  closed with it**: the three-parameter logistic — the honest floor for
+  "learn the weighting" — cannot hold the OR's recall out of sample; nothing
+  with more parameters on ~20 crises will.
+- **Persistence and severity tiers are closed as aggregators for this flag.** A
+  `watch`/`alert` *display* tier would be harmless but would carry no
+  measured precision, and would be read as one; not built.
+- **The bar-writing lesson (a)** goes into the next pre-registration: measure
+  lead as crises-caught-with-lead, not survivor median.
+- Observation (b) is an open decision in `todo.md` #15, not a change.
+- Precision at held recall now has one route left: the forward live record.
+  The OR flag has rendered in the note since 2026-09-04 (`show`) and has not
+  fired; when it does, that episode is the first out-of-sample precision
+  observation the flag has ever had.

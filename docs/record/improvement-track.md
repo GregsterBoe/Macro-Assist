@@ -220,7 +220,7 @@ before any of it was scheduled — most of it had already been measured here:
 
 | Proposed | Record | Outcome |
 |---|---|---|
-| Tree models learning conditional thresholds | 12–28 crisis episodes, ~7 macro events; [KB-017]/[KB-018]/[KB-019] refused even parameter sweeps on this n. The worked example (AND-gate on composite ≥ p80) *lowers* recall | Reduced to its honest floor: a 3-parameter logistic under LOCO (IMP-6.3). If that cannot beat OR, trees will not |
+| Tree models learning conditional thresholds | 12–28 crisis episodes, ~7 macro events; [KB-017]/[KB-018]/[KB-019] refused even parameter sweeps on this n. The worked example (AND-gate on composite ≥ p80) *lowers* recall | Reduced to its honest floor: a 3-parameter logistic under LOCO (IMP-6.3). **Run: it could not beat OR** — loses 4 crises at 10d under LOCO at the same alarm budget ([KB-031]). **Closed**, trees with it |
 | HMM regime-switching | Tested four times and retired: [KB-004] no skill, [KB-005] sequence inference reaches 0.55–0.65, [KB-006] loses to a 4-feature linear rule and adds nothing within stress terciles | **Closed.** Re-proposing it argues against KB-006 |
 | Rolling / dynamic thresholds | The OR flag already uses expanding-PIT deciles; [KB-017] showed static cuts leaked negligibly. A trailing-252 percentile fires at a fixed rate by construction and discards level | Half done. The remaining half — the composite *label* cut is static — is IMP-5.3 |
 | ΔCoVaR | Needs an institution cross-section and quantile regression; the published measure is contemporaneous and its forward form needs quarterly balance-sheet data. [KB-019]: everything financial co-moves in a ≥5% equity drawdown | Not planned |
@@ -274,11 +274,14 @@ Detail and the counterfactual in [KB-029].
 
 ## IMP-6 — Precision at held recall: the aggregator question, asked honestly
 
-**Status:** ⏸ **queued — unblocked 2026-09-13** (IMP-5 closed; the precondition,
-a composite on its calibrated distribution, is [KB-029]'s fix). Bar written
-2026-09-13, before any variant was run. Caveat inherited from [KB-030]: the
-composite's PIT *percentile* is GFC-anchored in 2009–2016, so variant 3's
-logistic input carries that; read the early LOCO folds with it in mind.
+**Status:** ✅ **CLOSED 2026-09-13 — negative → [KB-031].** All three variants
+disqualified on `recall_lost`; none raised precision at either horizon. The
+aggregation stays a plain OR; the tree-model / learned-weighting question is
+closed with the logistic. Harness `.macro-assist/aggregator_testing.py`
+(`python aggregator_testing.py`). Bar written 2026-09-13 before any variant
+ran, and kept as written. Caveat inherited from [KB-030] (the composite's PIT
+percentile is GFC-anchored in 2009–2016) applied to variant 3 and did not
+decide anything — its losses are 2018–2026 folds.
 
 **Question.** The OR mode's operating point is recall ~0.6–0.8 / precision ~0.32
 at 5d ([KB-017]/[KB-021]) — roughly two alarms in three are false. Can precision
@@ -319,6 +322,18 @@ lead-time cost and probably fails `too_late` at 5d; tiers reshuffle the same
 alarms; the logistic reproduces OR. Honest expectation is one `no_edge` and two
 disqualifications — which would close the aggregator question and is worth having
 in the KB for exactly that reason.
+
+**Result (2026-09-13, [KB-031]):** three `recall_lost`, zero `no_edge`, and —
+against the prior — **no variant bought precision anywhere** (5d: persist
+0.235, tiers 0.235, logit 0.316 vs OR 0.333 / 0.429 on their windows).
+Mechanism: on the strided grid a 5-day label episode is one reading wide in 15
+of 17 cases, and the OR's catch is that single first-channel p90 crossing;
+persistence shifts every alarm a reading later past it, tiers' severity comes
+at the trough, the logistic splits the same budget into more alarms.
+`too_late` never fired because it measured the median lead of *surviving* true
+positives — the next lead-time bar is written as crises-caught-with-lead. A
+hindsight observation (10 of 12 false 5d alarms are turbulence-only) is in
+`todo.md` #15 as an open decision, not a change.
 
 ## IMP-7 — The companion measures IMP-1 listed and never ran
 

@@ -16,3 +16,6 @@ hmmlearn>=0.3.0
 # pulls scikit-learn in transitively; naming it here makes the dependency explicit
 # so a future hmmlearn removal does not silently break the baseline.
 scikit-learn>=1.3.0
+# Docs site. CI installs docs/requirements.txt on its own; including it here
+# means a dev install can also run `mkdocs build --strict` (what CI runs).
+-r ../docs/requirements.txt

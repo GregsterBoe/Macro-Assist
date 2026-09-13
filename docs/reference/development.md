@@ -2,7 +2,8 @@
 
 Running the pipeline locally, the test suite, and version management.
 
-Install dependencies:
+Install dependencies (includes `docs/requirements.txt`, so `mkdocs build --strict`
+runs locally on the same pinned MkDocs as CI):
 ```bash
 pip install -r .macro-assist/requirements.txt
 ```

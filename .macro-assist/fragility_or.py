@@ -27,6 +27,15 @@ The cross-section feed is the live daily SPDR sector-ETF panel
 (`fragility_backtest.fetch_sector_etfs`), the daily-fresh drop-in KB-020 proved
 reproduces the Fama-French backtest feed at this operating point.
 
+THE AGGREGATION STAYS A PLAIN OR (IMP-6, KB-031). Persistence (two consecutive
+readings), severity tiers (2-of-3 at p90 or any at p97) and a three-parameter
+logistic at the OR's own alarm budget were each scored under PIT + LOCO against
+a pre-registered bar (`aggregator_testing.py`): all three lose crises out of
+sample and none raises precision at either horizon. On the strided grid a 5-day
+label episode is one reading wide and the OR's catch is the first channel's p90
+crossing; every filter moves or thins the alarm past it. Precision ≈0.3 is the
+operating point of a recall mode, not a defect awaiting an aggregator.
+
 This module is COMPUTED-ONLY here; wiring into the daily note is governed by the
 `FRAGILITY_OR_MODE` ladder in quant_context.py (default off), mirroring the
 existing FRAGILITY_MODE shadow pattern. Run `python fragility_or.py` for today's

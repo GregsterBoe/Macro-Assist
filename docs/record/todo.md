@@ -14,7 +14,8 @@ Conventions:
   reasoning intact, and pull any "carry forward" caveat back up into this file
   as its own entry. A resolved item left here is noise; a lost caveat is worse.
 
-Last reviewed: 2026-09-13 (#13 `hy_spread` mean-window caveat from [KB-028]; #14
+Last reviewed: 2026-09-13 (#15 the turbulence-only hindsight read from [KB-031],
+open decision; #13 `hy_spread` mean-window caveat from [KB-028]; #14
 IMP-5.3 added from [KB-029] and closed the same day → `resolved.md`, [KB-030]).
 Prior: 2026-09-12 (#12 GitHub Pages closed → `resolved.md`);
 2026-09-11: resolved items split out to `resolved.md`; the maintenance log's open
@@ -206,6 +207,24 @@ CBOE-confirmed) and are kept; the five `Elevated` rows 2026-08-13 → 08-19 are
 artifacts and stay in the log as written, superseded by the KB entry. Anyone
 reading the composite's live record across that window must know this. (#14
 itself — the label cut's method — closed negative → `resolved.md`, [KB-030].)
+
+### Open decision #15 — "turbulence alone is not an alarm": a hindsight read, not a result
+**Where:** `.macro-assist/fragility_or.py` (the OR over `_CH_KEYS`) ·
+**Source:** [KB-031] nuance (b), seen *after* the IMP-6 run on the window it was
+read off. Of the OR flag's 18 PIT alarms at 5d, all 6 true ones have a second
+channel firing in the run and 10 of the 12 false ones are turbulence-only; the
+PIT-p90 turbulence flag fires on 13.6% of readings and discriminates label days
+only 1.4× at 5d (composite 3.3×, absorption 2.8×). Requiring a non-turbulence
+channel would have lifted 5d precision on *this* window — and that is exactly
+the observation CLAUDE.md #7 says not to act on: it was not pre-registered, any
+re-test on 2013–2026 is in-sample for it, and [KB-020] measured ETF-turbulence
+as the best standalone channel by non-overlapping AUC (0.713), so the flag's
+looseness and the channel's information are different things. **The call:**
+either leave it (the OR's stated limit is precision ≈0.3, and it is a recall
+mode by design), or pre-register it as a *forward* test — a second shadow flag
+`or_no_turb_alone` logged beside the OR from a stated date, judged only on live
+alarms after that date, with the bar written first. Nothing on the backtest
+window can settle it. Not scheduled; IMP-7 is next on the track regardless.
 
 ---
 

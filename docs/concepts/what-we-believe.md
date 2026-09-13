@@ -70,6 +70,13 @@ the live code path ([KB-021]).
 degrades the validated flag ([KB-016],
 [ADR-0006](../decisions/ADR-0006-or-mode-not-weight.md)).
 
+**And the OR stays a plain OR.** Persistence, severity tiers and a fitted
+three-parameter weighting each lose crises out of sample without raising
+precision ([KB-031]): the flag's catches are single first-channel crossings
+on a strided grid, and every filter moves or thins the alarm past them. The
+tree-model question is closed with the logistic. Its precision (≈0.3) is the
+operating point, not a defect awaiting an aggregator.
+
 **Absorption needs a homogeneous cross-section.** It had no skill on the ~5
 heterogeneous live assets ([KB-012]) and real skill on Fama-French industries
 ([KB-013]) — a reversal caused entirely by the cross-section, not the measure.
