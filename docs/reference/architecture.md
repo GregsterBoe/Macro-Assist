@@ -103,6 +103,7 @@ Macro-Assist/
 │   ├── citation_screen.py           # which inputs the model actually cites
 │   ├── backtest.py                  # point-in-time backtesting harness
 │   ├── regime_backtest.py           # walk-forward regime validation
+│   ├── har_backtest.py              # walk-forward HAR-RV skill read (WP-17.5, degenerate as wired)
 │   ├── fragility_backtest.py        # de-overlapped fragility backtest
 │   ├── point_in_time.py             # ALFRED-vintage reconstruction
 │   ├── synthetic.py                 # synthetic data generator for tests

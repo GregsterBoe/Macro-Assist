@@ -2881,3 +2881,187 @@ table is a single crisis.
   expanding-PIT protocol (nuance b) — a *shift* form (as AR uses) would be a
   new candidate with its own pre-registration, and [KB-019]'s tail-comovement
   argument gives it a low prior.
+
+---
+
+## KB-033 — The HAR-RV vol forecast as wired is a 4-parameter OLS on a few dozen rows: degenerate on every asset, worse than trailing 22-day realized vol at every horizon, and it has published `0.0% ann-vol` on 9 % of S&P and 13 % of Bitcoin note dates (WP-17.5)
+
+**Date:** 2026-09-13 · **Branch:** `main` · **Harness:** `har_backtest.py`
+(`python har_backtest.py [cache.pkl]`, ~3 min; 19 tests in
+`tests/test_har_backtest.py`) · **Bar:** pre-registered in `roadmap.md` WP-17.5
+before the run, reproduced below · **Live evidence:** `results/quant_context_log/`,
+76 note dates 2026-05-29 → 2026-09-11.
+
+**What we tested.** `vol_forecast.har_rv_forecast` exactly as shipped — its design
+matrix, its `max(0, ·)` clip, its annualisation — called walk-forward at every
+date on a window of the length the live caller hands it. `market_data` fetches
+`period="90d"` and `quant_context` passes the whole thing to the function, whose
+design matrix starts at lag 21. What `period="90d"` returns is **not pinned**: on
+2026-09-13 under yfinance 1.4.1 it is 90 closes for `^GSPC` and `BTC-USD` and 74
+for `GC=F`, i.e. an OLS of **four parameters on ~50–70 rows**.
+`portfolio/rebalance.fetch_prices_and_har` uses 130 calendar days — ~90 closes
+for the equity-hours instruments, ~130 for Bitcoin. The read covers 62 / 90 /
+130 (the wired range) and 252 / 1000 as the counterfactual, on the four
+published assets (SP500, Gold, WTI, Bitcoin) and IEF (the sizer's bond proxy),
+daily from 2007 (Bitcoin 2014), 3,400–4,900 readings each.
+
+*Target:* realized daily variance over the next `h` days, `h ∈ {1, 5, 20}` — 1
+is what the OLS fits, 5 the sizer's week and the table's first horizon, 20 the
+table's last. *Benchmark for the verdict:* trailing 22-day realized variance
+(`rv22`), the model's own monthly regressor and what a sizing rule would fall
+back to; `rv5`, `rv60` and RiskMetrics `ewma94` reported as context. *Loss:*
+QLIKE (proper, robust to the noisy r² proxy); skill `= 1 − QLIKE(har)/QLIKE(rv22)`
+with a 21-day block-bootstrap 95 % interval. *Bar, disqualifier first:*
+`degenerate` if > 1 % of readings are a zero forecast or > 10× `rv22`; then
+`skill` (> 0.02, interval above 0) / `worse` (< −0.02, interval below 0) /
+`parity`. *Two secondary reads with thresholds fixed in advance:* the fetch
+period is a **wiring defect** if the 1000-day window is `skill` where the wired
+window is not on ≥ 3 of 4 published assets; and the consumers' IID scaling is
+*calibrated at horizon* if `mean(RV_h)/mean(σ̂²) ∈ [0.75, 1.33]` and the zero-mean
+Gaussian 50 % / 90 % bands cover within `[0.45, 0.55]` / `[0.86, 0.94]`. *Prior
+as written:* `parity` or `worse` for the wired window at `h=5`, `skill` at `h=1`
+for 1000 days, 90 % band under-covers everywhere.
+
+### Headline — every wired window is `degenerate`, and the trailing month beats it
+
+QLIKE skill vs `rv22` at `h=5` with the 95 % interval, zero-forecast share of
+readings, verdict. The full table (`h ∈ {1, 5, 20}`, all windows, all four
+benchmarks, MSE, calibration) is the harness output.
+
+| Asset | W = 62 | **W = 90 (note, as wired)** | W = 130 (sizer, BTC) | W = 252 | W = 1000 |
+|---|---|---|---|---|---|
+| SP500 | −1.42 [−2.26, −0.79] · 4.8 % zero · `degenerate` | **−0.49** [−0.82, −0.23] · 2.6 % · `degenerate` | −0.43 [−0.93, −0.09] · 1.2 % · `degenerate` | +0.03 [−0.19, +0.18] · `parity` | **+0.18** [+0.07, +0.26] · `skill` |
+| Gold | −2.15 [−4.98, −0.54] · 4.9 % · `degenerate` | **−0.61** [−1.20, −0.20] · 2.1 % · `degenerate` | −0.07 [−0.18, +0.03] · 1.0 % · `degenerate` | −0.13 [−0.31, +0.01] · `parity` | **+0.08** [+0.005, +0.14] · `skill` |
+| WTI Oil | −2.99 [−6.05, −0.96] · 4.2 % · `degenerate` | **−1.04** [−2.11, −0.39] · 1.7 % · `degenerate` | −0.31 [−0.53, −0.11] · 0.5 % · `worse` | −0.34 [−0.81, +0.01] · `parity` | −0.02 [−0.15, +0.09] · `parity` |
+| Bitcoin | −1.81 [−3.04, −0.84] · 7.4 % · `degenerate` | **−0.77** [−1.65, −0.14] · 3.7 % · `degenerate` | −2.52 [−7.25, −0.01] · 1.2 % · `degenerate` | +0.11 [−0.17, +0.29] · 0.8 % wild · `degenerate` | **+0.31** [+0.17, +0.43] · `skill` |
+| IEF | −2.46 [−4.80, −1.05] · 3.1 % · `degenerate` | −0.64 [−1.30, −0.27] · 1.5 % · `degenerate` | −0.24 [−0.45, −0.05] · 0.7 % · `worse` | +0.04 [−0.05, +0.11] · `parity` | −0.01 [−0.11, +0.08] · `parity` |
+
+- **The disqualifier fires on every instrument at 62 and 90 days, and on three
+  of five at 130; the two that clear it at 130 are `worse`.** At 62 days 4–7 %
+  of readings are a zero forecast (the clip on a negative OLS prediction); at 90
+  days 1.5–3.7 %; at 130, 0.5–1.2 %. The zeros are not a stress artefact —
+  they land in the calm, middle and stressed terciles of `rv22` at 5.2 / 5.2 /
+  4.0 % (SP500, 62 days).
+- **Excluding the zeros, the wired forecast still loses to the trailing month
+  by a wide margin.** QLIKE skill of −0.5 to −1.0 at 90 days and −1.4 to −3.0
+  at 62, at `h=5`; the intervals exclude zero on every asset at both. At `h=1`,
+  the horizon the OLS actually fits, −0.10 to −0.28 at 90 days. `rv22`, `rv60`
+  and `ewma94` sit within a few percent of each other; the wired HAR is 1.5–4×
+  their loss. MSE skill is worse still (−2 to −80) because the wild readings
+  dominate a squared loss — Bitcoin's 130-day QLIKE at `h=1` is 12.1 against
+  `rv22`'s 2.2.
+- **The mechanism is coefficient signs that are essentially random.** On 62-day
+  SP500 fits the monthly β is negative on **70 %** of dates, the daily on 61 %,
+  the weekly on 45 %; at 90 days 62 / 61 / 31 %. Three near-collinear regressors
+  on a few dozen rows. At 1000 days the weekly and monthly β are never negative
+  and the forecast/`rv22` ratio has a p10–p90 of 0.68–2.39 with a max of 4; at
+  62 days the max is 42.
+- **The forecast is a function of the window boundary.** For the 2026-06-10
+  note (last close 06-09) the SP500 forecast is **0.0 %** with 58–61 closes in
+  the window, **3.4 %** with 62, **9–19 %** with 66–90. For Bitcoin on
+  2026-08-31 it is 0.0 % at every window from 62 to 90 and 16 % at 100; `rv22`
+  was 42 % and the 1000-day fit 35 %.
+- **It reached the note.** Of 76 logged dates since 2026-05-29, **SP500
+  published `0.0% ann-vol (60d pct 0)` on 7** and **Bitcoin on 10** (`06-03/04`,
+  then `08-20` → `09-03`, eight of eleven dates). The SP500 line carries the
+  VRP with it: `VIX 15.2% → VRP +15.2 (Normal)` — the "premium" is the whole
+  VIX, labelled Normal, handed to the model as context. Six of the seven SP500
+  zeros do **not** reproduce from a re-fetch at any window between 58 and 130
+  closes, so the history CI's yfinance handed the pipeline on those mornings
+  differed from today's — the fetch is not pinned and the live zero rate (9 % /
+  13 %) sits above the backtest's at any wired window.
+  `score_distributions.logged_har_sigma` skips those dates (no `har_gaussian`
+  arm). The sizer would floor a zero σ at `min_sigma_annual = 0.02` and size
+  the asset as a 2 %-vol instrument up to the 35 % cap; the 2026-08-31 book
+  carried a Bitcoin σ of **15.6 %** against a trailing month of 42 %.
+
+### The two secondary reads
+
+- **Wiring read: defect, by the rule as written.** The 1000-day window is
+  `skill` where the wired window is not on **SP500, Gold and Bitcoin** — three
+  of four. The model is not the problem: fit on four years of squared daily
+  returns, HAR beats the trailing month by 8–31 % of QLIKE at `h=5` and 19–54 %
+  at `h=20` on those three, and is `parity` on WTI and IEF. It is the fetch
+  period. The existing `test_vol_forecast.py` fits on 1,500 observations and
+  beats "yesterday's r²" — it validated the function at a length it never sees
+  live, against a rival nobody would use. 252 days is not enough either:
+  `parity` at best, and still `degenerate` on Bitcoin (34 wild readings).
+- **Horizon read: the IID scaling is right in variance and wrong in shape,
+  which is what fat tails look like.** At 1000 days `mean(RV_h)/mean(σ̂²)` is
+  0.86–0.97 at `h=5` and `h=20` (a 3–14 % over-forecast, inside the band). The
+  Gaussian 50 % band **over**-covers at `h=5` (0.55–0.60; too many small days)
+  and the 90 % band is inside its band on SP500/Gold/WTI (0.91–0.93) but not
+  Bitcoin (0.897); at `h=20` the 20-day sum is Gaussian enough that SP500, Gold
+  and WTI pass both bands and only Bitcoin fails (0.548 / 0.868). At the wired
+  90-day window the variance ratio is **0.73–0.82** — the published number
+  overstates variance by a quarter on average, because the wild readings
+  dominate the mean — and SP500, WTI and Bitcoin are `biased at horizon` (Gold
+  passes on the bands, at a ratio of 0.82).
+
+### Nuances that are easy to forget
+
+- (a) **The verdict benchmark was `rv22`, pre-named, not the best of four.**
+  `ewma94` is the best trailing estimator on every asset; against it the
+  1000-day HAR's `h=5` skill is +0.05 (SP500), −0.01 (Gold), −0.08 (WTI),
+  +0.14 (Bitcoin). A rule that judged against the best rival would have called
+  Gold `parity`. The `skill` verdicts are real but modest, and `ewma94` is the
+  honest "no model" rival if HAR is ever dropped rather than re-windowed.
+- (b) **The pre-registration described the note window as ≈ 62 closes; it is
+  74–90 today and unpinned.** The wiring was read as "90 calendar days ≈ 62
+  trading days"; yfinance returns 90 *bars* for the two 7-day and 5-day tickers
+  alike and 74 for gold futures. Both 62 and 90 were in the pre-registered
+  window set and both are `degenerate` on every instrument, so the verdict is
+  unchanged; the headline is reported at 90 and the correction is recorded
+  here rather than edited into the bar.
+- (c) **This is the third input-window finding in the same shape.** [KB-003]:
+  the regime model's credit feature was a 3-year FRED series and training
+  truncated to 2y. [KB-028]: the conditional table's date range was set by the
+  retired HMM's warm-ups, its credit input a rolling 3-year window. Here: a
+  volatility model's fit window set by a `period="90d"` chosen for RSI and a
+  50-day MA (`market_data.py`, "90d needed for RSI/50dMA/Z-score"). The
+  history a component is fit on was, each time, whatever the fetch happened to
+  return — never a number the method asked for.
+- (d) **The Phase 22 `har_gaussian` comparator on the sealed record is built
+  from the wired forecast.** It reads the logged `forecast_daily_vol`, so every
+  sealed observation from 2026-09-07 compares the published quantiles against a
+  Gaussian whose σ this entry has just measured as degenerate. Fixing the window
+  changes that comparator from the fix date on — the same shape as [KB-028]'s
+  conditioner change and, like it, to be named against the seal rather than
+  slipped in. The exploratory backfill note in `roadmap.md` (WP-22.C, "a
+  constant beat the model") stands: `har_gaussian`'s median is zero by
+  construction and that read was about drift, not σ.
+- (e) **Zero is published as a number, not as an absence.** `quant_context`
+  prints `0.0% ann-vol (60d pct 0)` and computes `VRP = VIX − 0`; only the
+  scorer treats `≤ 0` as "no forecast". A guard that drops a non-positive
+  forecast from the note and the sizer is required whichever window is chosen —
+  the clip in `har_rv_forecast` documents that the OLS can go negative, and
+  nothing downstream honours it.
+- (f) **Stride 1 and overlapping targets.** 4,900 daily readings at `h=20` are
+  ~245 independent windows; the block bootstrap (21-day blocks) is what makes
+  the intervals honest, and the wired-window intervals are wide for exactly
+  that reason. None of them touch zero at 62 or 90 days.
+- (g) **The prior was right about the direction and wrong about the size.** It
+  said `parity` or `worse` for the wired window; the disqualifier fired first on
+  every instrument, which the prior did not anticipate, and the skill number
+  behind it is −0.5 to −3.0, not a few hundredths. It said `skill` at `h=1` for
+  1000 days and `parity` at `h=5`; the 1000-day skill *grows* with horizon
+  (SP500 +0.05 / +0.18 / +0.25 at 1 / 5 / 20) because the monthly regressor is
+  doing the work and `rv22` cannot mean-revert.
+
+**What it changes.**
+- **WP-17.5 closes.** Both halves measured; Phase 17's numerical-layer audit is
+  complete (regime cut → [KB-006]; conditional input rebuilt → [KB-028]; vol
+  forecast → this entry).
+- **The note's vol forecast has negative skill as wired and no consumer should
+  read it as a measured σ** until the window is fixed. The fix — fetch ≥ 1000
+  returns for `har_rv_forecast` in both callers, and drop a non-positive
+  forecast rather than print it — changes published numbers, the sizer's σ and
+  the sealed `har_gaussian` comparator, so it is **an open decision, not a
+  silent fix → `todo.md` #17**, per the pre-registration. Not a version bump on
+  its own (a fit-window correction, not a capability change); the seal note is
+  the cost.
+- **`test_vol_forecast.py`'s "outperforms naive" tests are not a skill claim
+  about the live number** and should not be cited as one. The walk-forward
+  read is `har_backtest.py`.
+- **`what-we-believe.md`'s open-questions table** loses its "WP-17.5 — not
+  started" row; the answer is here.

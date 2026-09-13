@@ -59,12 +59,13 @@ Measured results live in `knowledge-base.md`.
 | MA-2 | Analysis / calibration split | ✅ 2026-05-25 |
 | MA-3 | Risk agent (Haiku) + Synthesis agent | ✅ 2026-05-26 |
 | 8 | Validation infrastructure (backtest harness) | ✅ 2026-05-26 |
-| 9 | Volatility forecasting (HAR-RV + VRP) | ✅ 2026-05-26 |
+| 9 | Volatility forecasting (HAR-RV + VRP) | ✅ 2026-05-26 · ⚠ degenerate as wired — WP-17.5 / KB-033, `todo.md` #17 |
 | 10 | Regime classification (HMM) | ✅ 2026-05-26 · ⚠ retired from note — WP-17.4 / KB-006 |
 | 11 | Conditional distribution layer | ✅ 2026-05-29 |
 | 12 | Quant context integration | ✅ 2026-05-29 |
 | 13 | End-to-end validation | ⏸ Backlog (optional) |
 | 14 | Production hardening (weekly refit, monitoring) | ✅ 2026-05-29 |
+| 17 | Numerical-layer validation — regime cut, conditional input rebuilt, HAR-RV read | ✅ Closed 2026-09-13 — [KB-003]–[KB-006], [KB-028], [KB-033]; detail archived |
 | 16 | Fragility monitor + design-by-emergence prompt levers | ✅ Closed 2026-09-04 — 16.A shipped and alive (→ IMP-4), 16.B/C closed by Phase 21; detail archived |
 | 21 | Directional product validation → **the cut (v1.6)** | ✅ Closed 2026-09-04 — [KB-024]. WP-21.E bounded search: family 1 (VIX term structure) resolved **negative** 2026-09-08 → [KB-027]; 2 of 3 families remain, bar for them written 2026-09-13 ([ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md)) |
 | 22 | Scoring the distribution product | 🟢 Open 2026-09-08 — the scorer follows the v1.6 cut. A/B shipped; the bar is sealed, first read ~2027-05 |
@@ -118,25 +119,30 @@ whichever way it goes — is what Phases 17, 19 and 21 all ran on afterwards.
 
 ---
 
-## Numerical-Layer Validation & Rigor (Phase 17) — *Goal 2*
+## Numerical-Layer Validation & Rigor (Phase 17) ✅ CLOSED 2026-09-13
 
-**Why.** The fragility index earned its place via a rigorous, look-ahead-safe backtest before we trusted it (Phase 16.A). The **HMM regime layer (Phase 10) never got the same scrutiny**: it is fit and feeds the quant context, but we have not shown (a) that it is computed look-ahead-safe in the daily pipeline, (b) that its state labels actually separate forward returns / volatility out-of-sample, or (c) that 4 states is the right choice rather than an arbitrary one. This track applies the fragility discipline to the existing numerical layers, **starting with regime**. Pure-numerical, **zero LLM/API cost**, on its own branch in parallel with the fragility shadow.
+*Detail archived 2026-09-13 → [roadmap-archive.md](roadmap-archive.md).*
 
-**Branch.** `feature/regime-validation`. **Method.** Reuse the fragility harness patterns (`fragility_backtest.py`): pull-once-and-slice for prices, walk-forward look-ahead-safety, Mann-Whitney AUC, de-overlapped episode scoring, and record results in `knowledge-base.md` (KB-003+), kept separate from this plan.
+The fragility index had earned its place through a look-ahead-safe backtest
+(Phase 16.A); nothing else in the numerical layer had. Phase 17 applied the same
+discipline to each layer in turn — pure-numerical, zero LLM cost — and every one
+of the three came back with a finding that changed the product.
 
-1. **WP-17.1 — Look-ahead audit of the regime pipeline. ✅ Done** (→ KB-003). Built `regime_backtest.py` (walk-forward vs full-sample, look-ahead-safe). Findings: live labeling is safe; validation must use walk-forward, never the persisted full-sample model; inference is single-point so the HMM's transition matrix is unused live. Caught a **shipped bug** — the HY-OAS credit feature (`BAMLH0A0HYM2`, only ~3y of FRED history) truncated training to ~2y; fixed by switching the regime credit feature to **`BAA10Y`** in both training + live (`baa_spread`, model regenerated via `refit_models.py`). Walk-forward vs full-sample labels disagree 70.5%; the full-sample model collapses to one label (startprob-dominated). *(Conditional layer's HY-OAS input fixed 2026-09-13 → WP-17.5, KB-028.)*
+| WP | Verdict |
+|---|---|
+| **17.1 — Regime look-ahead audit** | ✅ → [KB-003]. Live labelling safe; validation must be walk-forward. Caught a shipped bug: the credit feature was a 3-year FRED series, training truncated to 2y → switched to `BAA10Y`. |
+| **17.2 — Regime skill gate** | ✅ NO SKILL → [KB-004]. Risk-Off→drawdown AUC ~0.47–0.49 as wired. |
+| **17.3 — Inference vs concept** | ✅ INFERENCE was the bug → [KB-005]. Sequence inference lifts AUC to 0.55–0.65; concept salvageable but modest. |
+| **17.3b — Fix live inference** | ❌ cancelled → [KB-006]; no point fixing a layer 17.4 then dropped. |
+| **17.4 — Incremental value over a simple bucket** | ✅ REDUNDANT → [KB-006]. A 4-feature rule beats the HMM (0.697 vs 0.553); regime removed from the note ([ADR-0004](../decisions/ADR-0004-retire-hmm-from-the-note.md)). |
+| **17.5a — Conditional table's input** | ✅ → [KB-028], shipped v2.1. The table was ~3 years of one regime and two of three dimensions contributed nothing; rebuilt from 2000-08 on BAA10Y. |
+| **17.5b — HAR-RV walk-forward read** | ✅ DEGENERATE as wired → [KB-033]. A 4-parameter OLS on ~50–70 rows; zero forecasts published on 9 % / 13 % of S&P / Bitcoin dates; `skill` at 1000 days → the fetch is the defect → `todo.md` #17. |
 
-2. **WP-17.2 — Regime skill gate (the WP-16.A.2 analog). ✅ Done — verdict NO SKILL** (→ KB-004). Walk-forward (18y, 3,922 readings): Risk-Off→drawdown AUC ~0.47–0.49, High-Vol→fwd-vol ~0.50 despite vol-percentile being a direct input; ~all days falsely ≥0.8 posterior. No predictive information as wired; scorer sound (planted-signal test passes). Decision deferred to 17.3 (inference vs concept). Harness: `--skill`.
-
-3. **WP-17.3 — Inference path vs. concept. ✅ Done — verdict INFERENCE was the bug** (→ KB-005). Switching single-point → **sequence (Viterbi/smoothed) inference** lifts High-Vol→fwd-vol AUC 0.495→0.646 and Risk-Off→drawdown 0.465→0.553; HMM-sequence beats GMM on drawdown (0.553 vs 0.499). The concept is salvageable but modest (0.55 = weak band). Harness: `--infer`.
-
-4. **WP-17.3b — Fix the live inference path (sequence, not single point). *(CANCELLED — KB-006)*.** Was the payoff of KB-005 (sequence inference recovers the regime to AUC 0.55), but WP-17.4 then showed even the salvaged regime loses to a 4-feature rule and adds nothing within stress strata. No point fixing a layer we're dropping.
-
-5. **WP-17.4 — Incremental value over the simpler bucket (keep/cut gate). ✅ Done — verdict REDUNDANT → drop the HMM** (→ KB-006). A 4-feature equal-weight rule-based stress score gets drawdown AUC 0.697 vs the HMM's 0.553, and within stress terciles the regime adds nothing (mean 0.507; redundancy Spearman 0.336). Regime block removed from the daily note (its macro-stress dimension is already covered by the Phase-16 fragility monitor). Harness: `--bucket`.
-
-6. **WP-17.5 — Vol / conditional layers.** Two halves, now split:
-   - **The conditional table's input — ✅ Done 2026-09-13** (→ KB-028, shipped as v2.1). The finding was worse than the note above said: the free HY OAS window is *rolling* (~3y), the table's date range was set by the retired HMM's warm-ups rather than by the data, and in 780 dates of one regime the live bucket had the same n as its grandparent — two of three dimensions contributed nothing to the published numbers. Credit tertile now on **BAA10Y** (`CREDIT:` label), table built from `conditional.TABLE_START = 2000-08-01` (6,811 dates, 24 buckets), a date missing an input dropped rather than labelled `mid`. Named against the Phase 22 seal in WP-22.C.
-   - **Walk-forward skill read of HAR-RV — ⏸ later.** Same look-ahead-safe harness as WP-17.1–17.4 pointed at `vol_forecast.py`. The table's own skill read is *not* queued here any more: since WP-22.C that is Phase 22's sealed question, and building a second harness for it would be measuring one thing twice.
+**The phase's recurring finding is the same one three times** ([KB-033] nuance
+(c)): the history a component was fit on was whatever the fetch returned, never a
+number the method asked for. What is still live from the phase: `BAA10Y` as the
+credit input everywhere, the v2.1 conditional table, `regime_backtest.py` /
+`har_backtest.py` as the harnesses, and open decision #17.
 
 ---
 
@@ -144,19 +150,19 @@ whichever way it goes — is what Phases 17, 19 and 21 all ran on afterwards.
 
 **Premise.** Phase 17 asked, layer by layer, whether each *numerical component* earns its place (and cut the HMM regime when it didn't). Phase 18 points the **same discipline at the LLM input payload**: the daily user message is now ~6.5k chars across 7 sections (FRED ~3.1k, Sector ~1k, Market ~0.9k, Quant ~0.65k, Technicals ~0.45k, COT ~0.37k) plus a ~13k-char system prompt — and **none of it has ever been tested for whether it actually improves the macro assessment.** Unhelpful inputs aren't free: they cost tokens and dilute attention. This is the **input-side complement to WP-16.B.3** (emergent signal weights): same substrate (per-prediction logging + Brier), one level up (whole input sections/series, not just dashboard signals). Point-1 ("is this quality information?") and point-2 ("weight the inputs") converge here.
 
-**Hard gate — read before starting.** Every verdict in this phase is measured by **WP-16.B.2 (Brier / reliability)**, which **does not yet exist**. B.2 is therefore the prerequisite for the outcome-grounded parts of Phase 18 *and* for all of Goal 1's loosening/weighting — build it first, or these experiments are unfalsifiable (accuracy alone rewards overconfidence). Two standing rules, inherited from Phases 16–17: **(a) cheap proxies before expensive ablation** (zero-cost screens narrow what we pay the LLM to test); **(b) one lever at a time** against the B.2 baseline (don't loosen + reweight + prune in the same window, or the Brier delta is unattributable).
+**Hard gate — read before starting.** As written, every verdict here was to be measured by WP-16.B.2's Brier/reliability on the directional calls. B.2 was built ([KB-007]) and then v1.6 cut the calls it scored ([KB-024], [ADR-0009](../decisions/ADR-0009-cut-the-directional-product.md)). **WP-18.4 therefore has no outcome metric until it is re-pointed** — the candidate is Phase 22's pinball skill vs `unconditional` on the published distribution, but the LLM no longer authors that distribution, so an input ablation would be measuring the model's prose, not a scored number. That is a decision to write down before 18.4 is paid for, not a detail. The two standing rules survive unchanged: **(a)** cheap proxies before expensive ablation; **(b)** one lever at a time.
 
-1. **WP-18.1 — Payload observability. *(Done — on `main`)*.** `MACRO_PREVIEW=1` writes `results/llm_payload_preview/<date>.md`: a section-size index + the verbatim user message the model receives + the **withheld** signals (shadow fragility forced to `show`, retired HMM regime). Built `build_payload_preview` (`collect_and_analyze.py`) + `build_nonlive_signals_block` (`quant_context.py`); the daily Action sets the flag and prints the file to its log; the old `MACRO_DEBUG` stdout dump was retired. This is the inspection substrate the rest of Phase 18 builds on — the section-size index is already the first crude "density" view (e.g. FRED is ~half the payload).
+1. **WP-18.1 — Payload observability ✅** (on `main`): `MACRO_PREVIEW=1` writes `results/llm_payload_preview/<date>.md` — section-size index, the verbatim user message, the withheld signals. Build detail → [roadmap-archive.md](roadmap-archive.md).
 
-2. **WP-18.2 — Cheap input-quality proxies (zero-cost, no LLM). ✅ Built** (2026-06-27, on `main`; awaiting first real-data run for KB-009). `input_ledger.py` builds an aligned FRED+market+sector level panel and computes, per input series: **staleness** (days past a cadence-appropriate freshness limit → STALE flag), **entropy** (normalised Shannon entropy of the clipped level distribution, [0,1]; <0.15 → DEAD), **robust σ** (MAD-scaled, outlier-proof, human-readable units), and **cross-input redundancy** (max \|corr\| with any other input, computed on **first differences** — levels are non-stationary and correlate spuriously; ≥0.80 → REDUNDANT, e.g. the 10y/2y/real-yield/breakeven and SPY/sector-ETF clusters). Ranks by a transparent `info_score = entropy·(1−max\|corr\|)` (lowest = most prunable); optional payload-section token-cost table from a `--preview` file. Pure math is unit-tested (22 tests, synthetic series — constant→DEAD, collinear-changes→REDUNDANT, level-trend-but-independent-changes→not flagged); the IO shell needs FRED_API_KEY (`python .macro-assist/input_ledger.py`, user-run like `regime_backtest.py`), writes `results/input_ledger/<date>.{md,json}`. **A screen, not a verdict** — low-density/flagged inputs are *candidates* for the WP-18.4 ablation; a fully-redundant input scores 0 like a dead one (no marginal info), so 18.4 picks the cleaner of each redundant pair. **Two methodology fixes after the first real run (2026-06-27, 36 inputs × 1367 days):** (a) **staleness** must come from each series' *true* last-print date (`last_obs_map`), not the ffilled panel index — the ffill made every series read "1d stale" (gdp/cpi too); (b) **redundancy is only assessed among daily-active series** (non-zero change fraction ≥0.6) — a ffilled monthly/weekly FRED series has a mostly-zero change vector that manufactures artifact correlations, so sub-daily series are flagged `redund-n/a` and ranked by entropy alone. **Findings recorded → KB-009** (corrected re-run, 36 inputs × 1367 days): the daily market/sector block is highly collinear (VIX≈VIX3M 0.98, SP500≈Nasdaq≈XLK 0.93–0.96, most sector ETFs≈SP500, 10y≈real_yield 0.86) while the FRED macro series carry the orthogonal information. WP-18.4 ablation queue: (1) drop vix3m (redundant+stale+single-use), (2) collapse the sector block to SP500 + differentiated sectors (XLE/XLU/XLRE/XLV), (3) nasdaq-vs-sp500, (4) real_yield-vs-10y (keep breakeven). Also surfaced: the `monthly` freshness limit (45d) is too tight for FRED's month-start dating (cpi/m2 routinely 57d without being abandoned) — only vix3m's 9d is a real staleness signal. Next observability step before paying for 18.4 = **WP-18.3 citation screen**.
+2. **WP-18.2 — Cheap input-quality proxies ✅ → [KB-009]** (`input_ledger.py`, 22 tests; 2026-06-27). Staleness / entropy / robust σ / first-difference redundancy per input series. Headline: the daily market/sector block is highly collinear, the FRED macro series carry the orthogonal information. A screen, not a verdict.
 
-3. **WP-18.3 — Model-attention / citation screen (low-cost). ✅ Built + run** (2026-06-27, on `main`; → KB-010). `citation_screen.py` (+ `tests/test_citation_screen.py`, 13 tests) scans the **free-prose** rationale (Exec Summary, asset/theme sections, Key Risks, Primary Driver cells) of every scored note for per-input alias mentions, **excluding** the templated Macro Dashboard table + raw Data Snapshot, and reports each input's citation rate (fraction of notes naming it); joins the latest input-ledger so redundant-AND-rarely-cited inputs surface (`prune_priority` high/watch/keep). Pure (no network/LLM) — runs locally over `results/**/*-macro.md`, writes `results/citation_screen/<date>.{md,json}`. **KB-010 headline: citation and redundancy are nearly anti-correlated — the two screens nominate *different* prune candidates, so the 18.4 queue is their union.** Refined queue: (1) drop `baa_spread` (0/78 cited + correlated w/ cited `hy_spread` + its only consumer the retired HMM regime), (2) drop the 3 raw net-liquidity components (model uses synthesised `net_liquidity` 54%; orthogonal so 18.2 couldn't see this), (3) collapse the sector block to SP500+XLE(±XLK), (4) lower-priority vix3m/nasdaq/real_yield (redundant but heavily cited). **Caveat:** the 6 forecast assets are named by construction in the predictions table (~100% structural, not free attention) and are forecast targets anyway. **Screening proxy, not a verdict** — flags candidates for 18.4; does not decide.
+3. **WP-18.3 — Citation screen ✅ → [KB-010]** (`citation_screen.py`, 13 tests; 2026-06-27). Per-input citation rate in the note's free prose. Headline: citation and redundancy are nearly anti-correlated, so the 18.4 queue is the union of the two screens.
 
 4. **WP-18.4 — Outcome-grounded input ablation (the decision gate; gated on B.2 + sample).** Drop-one-section (and add-one) A/B over the live LLM, re-scoring **Brier**/accuracy on the resulting calls. Expensive (N× LLM cost; outcomes resolve in 5–20d), so run **only on the candidates flagged by 18.2/18.3, one lever at a time, n≥30 per arm.** Verdict: a section that doesn't move Brier past a threshold ⇒ **trim from the payload** (token + attention savings, the prompt-economy payoff); a section that helps ⇒ feed its weight into B.3.
 
 5. **WP-18.5 — Feed results into weighting (closes the loop with WP-16.B.3).** The input-value ranking becomes a **prior for the emergent signal-weight table**: down-weight or drop low-value inputs, up-weight high-value ones, and eventually reorder/prune the prompt itself. This is the explicit join between point-1 (quality test) and point-2 (weighting) — Phase 18 produces the evidence, [WP-16.B.3](#) consumes it.
 
-**Suggested order:** B.2 (build first, it gates everything) → 18.2 + 18.3 (cheap screens, in parallel, zero/low cost) → 18.4 (ablate only the flagged candidates) → 18.5 / B.3 (let weights emerge from the evidence). Branch off `main`; shares `feature/loosen-control`'s B.2 work, so sequence after B.2 lands there.
+**Order, as it stands.** 18.1–18.3 ran (the cheap screens are done and in the KB). 18.4 is the paid decision gate and is queued on the board; before it runs, its metric has to be re-pointed (see the gate paragraph). 18.5 follows 18.4.
 
 ---
 
@@ -184,20 +190,19 @@ budget, so branches scale without blowing the payload — are archived in
 
 **Work packages / roadmap (cheap-first; do NOT build the framework before proving one slice):**
 1. **WP-19.A — Reframe & target lock (design only) ✅** *(2026-07-14 → `exogenous/DESIGN.md`)*. Locked the first slice (monetary / rates-expectations), the three data contracts (L1 `Evidence` → L2 bounded `BranchBrief` → L3 `ExoOutput`), and the go/no-go bar. Two honest constraints are baked in: consensus must be **survey**-derived, not fed-funds-futures (market-derived), or the A/B is contaminated; and LLMs cannot be cleanly backtested on dated public text they were trained on, so **validation is forward-only**. Detail → [roadmap-archive.md](roadmap-archive.md).
-2. **WP-19.B — One vertical slice (L0→L4, monetary/rates) ✅ DONE + INTEGRATED** *(2026-07-24, on `main`; modular, kill-list = DESIGN §9)*. L0 SPF+SEP consensus adapters → L1 Haiku FOMC extractor → L2 Opus analyst (bounded brief) → L3 arm-tagged `ExoOutput` → L4 arm-keyed scoring, plus live emission. ~119 tests; both confirm-on-first-run calibration smokes passed. **Leakage-free early read (2026-07-25):** the SPF consensus rate-*level* forecast has no positive directional skill on the 10Y — 40% hit at binom_p=0.028 at 1Q, mildly contrarian, washing to noise at 2Q. WP-19.E later generalised that to six assets and three horizons [KB-026]. Detail → [roadmap-archive.md](roadmap-archive.md).
+2. **WP-19.B — One vertical slice (L0→L4, monetary/rates) ✅ DONE + INTEGRATED** *(2026-07-24, on `main`)*. SPF+SEP consensus → Haiku FOMC extractor → Opus bounded brief → arm-tagged `ExoOutput` → arm-keyed scoring, ~119 tests, leakage-free early tell. Build detail → [roadmap-archive.md](roadmap-archive.md); `exogenous/DESIGN.md` is the contract.
 3. **WP-19.C — Generalise the branch contract.** Only after B works, extract the L0–L2 skeleton + brief schema so branch #2/#3 are cheap to add and the payload stays bounded.
 4. **WP-19.D — Add branches by measured value.** One at a time, each gated on "does it improve the scored output vs without it" (Phase-18 ablation discipline). Prune losers immediately.
 5. **WP-19.E — Integrate or kill. ✅ RESOLVED (2026-09-07) — the anchor does not carry direction [KB-026].** This closes Phase 19's **directional** route. Route (b) — re-cutting the branch's output to the expectations gap — is untested and unaffected; the scope of the null matters more than the verdict, and it is set out in the WP-19.E section below.
 
 **Kill criteria (pre-committed).** Cut the whole branch if, after 2–3 branches, it does not beat market-only on Brier/commitment. Watch-items: cost blow-up (mitigate via cheap extraction, caching, cadence-appropriate refresh — policy monthly, news daily); alt-data access/reliability (start free/scrapeable, treat paid feeds as later bets gated on the free ones); look-ahead bias in text backtests (point-in-time from day one).
 
-**Phase-19 integration status: INTEGRATED into `main` 2026-07-24 — modular / removable.**
-The user opted to integrate now (autonomous weekly run) rather than manually dispatch during a test phase, on the condition it stays cleanly excisable if it proves unvaluable.
-- **Runs autonomously:** `exo_weekly_emit.yml` cron (Mon 06:45 UTC) fetches the latest FOMC statement, runs L0→L3, commits `results/<month>/<date>-exogenous-macro.md`; the existing *Weekly Prediction Scoring* (07:15) scores it when the window closes; `summarize_accuracy` shows the exogenous-vs-market A/B once ≥2 arms have data. Cost ≈ 1 Haiku + 1 Opus call/week.
-- **Isolation guarantees (why it's safe to leave running):** the engine is one directory (`exogenous/`); the emission is its own workflow (never touches the market pipeline); the two shared hooks (`score_predictions` arm-keying, `summarize_accuracy.calibration_by_arm`) are **inert without exogenous data** (all notes default to `arm:"market"`, which keeps the bare `{date}.json` score name). Exogenous scores live in separate `{date}__exogenous.json` files.
-- **KILL PROCEDURE documented in `exogenous/DESIGN.md` §9.** Soft-kill = disable/delete `exo_weekly_emit.yml` (arm freezes, zero risk). Hard-kill = delete `exogenous/` + its 7 tests + both exo workflows + emitted `*-exogenous-macro.md` / `*__exogenous.json` + `grep -rn PHASE-19-EXO` the two inert hooks + drop `beautifulsoup4`. None of it alters the `market` arm.
-- **Validation still forward-only** (DESIGN §6.2): the go/no-go read (KB-012, DESIGN §5 bar) is weeks-to-months out; the early tell is the KB-011 commitment metric. If it doesn't clear the bar → hard-kill.
-- **SUPERSEDED 2026-09-04 — the arm is soft-killed and the weekly cron is gone.** `exo_weekly_emit.yml` is `workflow_dispatch`-only and the emission stage was removed from `pipeline.yml` (WP-21.F). Nothing above was deleted; what changed is that the branch no longer emits on a schedule, so "runs autonomously" and "weeks-to-months out" describe a clock that has stopped. The live scoring contract is paused; the branch's current test is WP-19.E below.
+**Integration status.** Integrated on `main` 2026-07-24 as a modular, removable
+directory (`exogenous/`) with its own workflow and two inert hooks; **soft-killed
+2026-09-04** (WP-21.F): `exo_weekly_emit.yml` is `workflow_dispatch`-only and the
+emission stage is out of `pipeline.yml`, nothing deleted. Kill procedure is
+DESIGN §9. The isolation guarantees and the original "runs autonomously" block
+→ [roadmap-archive.md](roadmap-archive.md).
 
 ---
 
@@ -254,45 +259,30 @@ instructions → [roadmap-archive.md](roadmap-archive.md).
 - **No benchmark ⇒ the number is vanity.** P&L is meaningless without a comparator. Benchmarks: **buy-and-hold ACWI** (which is literally the user's real-world TR core — apples-to-apples) and **60/40**. Report *excess* return and information ratio, not raw NAV.
 - **"Some risk to it" = an explicit risk budget, not vibes.** A **volatility target** sets the risk level deliberately; position sizing expresses confidence honestly (size *is* confidence made consequential — directly attacks the clamped-confidence problem, KB-007).
 
-**Reuse the arm machinery — one book per prediction arm.** The pipeline already tags predictions `arm ∈ {market, exogenous, kimi}`. Give **each arm its own paper book** (plus the benchmarks) → P&L becomes a new axis of the existing A/B: *whose predictions actually make money*, not just who is best-calibrated. This is nearly free — it's the same `calibration_by_arm` pattern applied to a ledger.
-
-**Architecture (mechanical v1 — deterministic, no new LLM calls).**
-```
-Existing dated predictions  (results/**/<date>-*-macro.md, per arm)
-        + conditional.py     (per-asset p10/25/50/75/90 forward-return dist by macro bucket)
-        + regime.py          (4-state HMM posterior → risk-on/off gate)
-        + confidence         (Kimi ensemble-agreement → size scalar)
-                │
-        sizing.py  (FIXED rule):  expected return + dispersion per asset
-                                  → vol-targeted / fractional-Kelly target weights
-                                  → clamp to risk limits (max weight, gross cap, vol target)
-                │
-        book.py    (ledger):  positions, cash, NAV in EUR; yfinance close fills;
-                              transaction-cost model (bps); decision log per rebalance
-                │
-        rebalance.py (weekly, matches note cadence):  targets → trades → new NAV
-                              benchmark NAV (ACWI, 60/40) computed alongside
-                │
-        report:  NAV curve, CAGR, vol, Sharpe/Sortino, max DD, turnover, hit-rate,
-                 excess-return + information ratio vs benchmark, per-arm comparison
-```
-
-**Universe (small + fixed) — the book trades what the pipeline *predicts*, not the TR sleeves.** Corrected in `portfolio/DESIGN.md` §2: the pipeline emits biases for {S&P 500, Gold, Bitcoin, 10Y yield, WTI, DXY}, so the book must trade *those* or the P&L isn't testing the signal. **v1 tradeable universe = {S&P 500, Gold, Bitcoin, 10Y-via-bond-proxy (IEF, sign-inverted)}**; WTI and DXY excluded from v1 (poor fits for a cash book — futures roll / FX). Base currency **USD** (removes FX noise from the edge measurement; EUR is a WP-20.E realism concern).
-
-**Sizing input is already built.** `conditional.py` emits per-asset percentile forward-return distributions per macro bucket — i.e. **expected return *and* dispersion**, exactly a vol-target / fractional-Kelly input. The regime posterior gates gross exposure (risk-on/off); ensemble-agreement confidence scales size. v1 is mostly *wiring existing outputs into a sizing rule and a ledger* — estimated ~1 week, no new model calls.
+**Design detail** — the one-book-per-arm reuse of the arm machinery, the
+mechanical v1 architecture sketch, the universe correction (the book trades what
+the pipeline *predicts*, not the TR sleeves) and the sizing-input argument — is
+in `portfolio/DESIGN.md` (the live contract) and, as first written,
+[roadmap-archive.md](roadmap-archive.md).
 
 **Work packages (cheap-first; prove the slice before generalising).**
-1. **WP-20.A — Design & scope lock (design only). ✅ Done** (2026-08-19 → `.macro-assist/portfolio/DESIGN.md`). Locked: **vol-target inverse-vol sizing** (Kelly rejected — too sensitive to our weak point estimates, KB-007/013); **v1 universe = {S&P 500, Gold, Bitcoin, 10Y-via-IEF}** in **USD** (corrects the sketch's TR-sleeve universe — the book trades what the pipeline predicts); the seven-step deterministic sizing rule (§3), the ledger contract (§4), benchmarks = buy-and-hold equal-vol basket + 60/40 + ACWI with **information ratio** the headline metric (§5), per-arm books reusing the arm machinery (§6), forward-only + shakedown-backtest-only discipline (§7), weekly cadence (§8), and the pre-committed go/no-go bar + kill (§9). Four open constants deferred to WP-20.B/C (§10: vol estimator, bond proxy, cash rate, Neutral handling — leans stated).
-2. **WP-20.B — The book (deterministic, no LLM). ✅ Done** (2026-08-19 → `.macro-assist/portfolio/book.py` + `__init__.py`, 13 tests in `test_book.py`, all green; 407 total collected). **Instrument-agnostic, sleeve-tagged ledger** (deliberate design choice — corrects nothing but *enables* the sector/materials-ETF option the user asked to keep open: any instrument registers with `{ticker, asset_class, currency, cost_bps}`, positions carry a `sleeve` tag, and `exposure_by_sleeve` attributes value per sleeve — so a future sector sleeve is additive and independently A/B'd, never contaminating the macro-signal measurement). The book **executes** target weights and enforces **no** risk limits (that is `sizing.py`'s job — clean separation). Covers valuation (NAV / gross / net / per-sleeve), long+short, close-out of omitted instruments, per-instrument bps costs, leverage-as-negative-cash, daily marking, JSON round-trip, and a `buy_and_hold` benchmark helper (a Book rebalanced once then marked forward). No network — prices are passed in `{name: price}`; yfinance fetching is deferred to WP-20.D. **Sector-ETF verdict (design note):** trading finer instruments off the *same* index read would conflate signal-edge with a hand-coded macro→sector heuristic (unattributable); the honest path is a separate, independently-scored sector *sleeve* added under WP-20.D, which the ledger now supports for free.
-3. **WP-20.C — Sizing rule (deterministic, no LLM). ✅ Done** (2026-08-19 → `.macro-assist/portfolio/sizing.py`, 17 tests in `test_sizing.py`, all green; 424 total collected). Implements the DESIGN §3 seven-step vol-target rule as a **pure function of already-extracted pipeline numbers** (no model objects, no network — point-in-time by construction; `rebalance.py`/WP-20.D does the extraction). `AssetSignal` (bias, confidence, HAR-RV σ, conditional-dist σ, `invert_sign`) + `RegimeState` → `size_positions()` → `SizingResult` (weights that feed straight into `book.rebalance`, plus a per-asset `AssetTarget` audit trail for the decision log). Direction from bias with **10Y sign-inversion** (Bullish yield ⇒ short the bond proxy); confidence clamped to [0,1]; **risk σ = HAR-RV cross-checked against conditional-dist spread** (default `risk_blend="max"` — respect the larger dispersion); **missing distribution after fallback ⇒ abstain** (DESIGN §3 step 3); inverse-vol pre-weight `d·c/σ`; **regime gate** `g = 1 − P(High-Vol states)`; **exact ex-ante vol targeting** to `vol_target·g`; hard clamps (per-asset `MAX_WEIGHT=0.35`, `GROSS_CAP=1.5`). Every knob in one `SizingConfig`. **Locked §10 open decisions:** vol estimator = conservative `Σ|w|σ` (no diversification credit); Neutral = **flat** (honest abstention); bond-proxy/cash-rate are `rebalance.py` wiring choices (lean IEF / 0%), not sizing-internal. **One deliberate deviation from the DESIGN *numbering* (documented in the module):** the regime gate is folded into the vol-target rescale as an effective target `vol_target·g` rather than applied as a separate pre-rescale step — applying it before an exact rescale-to-target would mathematically cancel it (num + denom both scale with g). Same intent, correct behaviour. Per-arm book instantiation ({market, exogenous, kimi} + benchmarks) is deferred to WP-20.D wiring (it needs the note-extraction path, not sizing math).
-4. **WP-20.D — Weekly driver (rebalance.py). ✅ Done** (2026-08-19 → `.macro-assist/portfolio/rebalance.py`, 10 tests in `test_rebalance.py`, all green; 434 total collected). The wiring layer: committed note → `AssetSignal`s → `size_positions` → `book.rebalance` + equal-vol buy-and-hold benchmark → persisted ledger + markdown report. Same testability split as book/sizing: the risky logic (note parsing, instrument mapping, signal assembly, benchmark weighting, `advance_books` orchestration) is **pure and injected with prices/regime** (fully offline-tested); the network/model bits (`fetch_prices_and_har`, `live_regime`, `run`) are **lazy-imported** and isolated. **Extraction (point-in-time):** bias/confidence from the predictions table; **conditional σ parsed from the driver prose's "P25–P75 x%/y%" band** (IQR→σ annualized — exactly the distribution the note author saw, no table reload; a band-less row ⇒ σ=None ⇒ honest abstention); **HAR-RV σ recomputed from yfinance history ≤ t** (loosened notes carry no structured vol block); **regime gate = full point-in-time** — `live_regime` reconstructs the regime the pipeline's way (ALFRED-vintage `historical_snapshot(t)` → `regime_features` → the fitted HMM `predict_regime`), builds a `RegimeState` from the posterior + `label_states`, and gates on High-Vol mass; guarded so a missing model artifact / `FRED_API_KEY` / network failure degrades to gate 1.0 (logged in the decision record), never crashes the run. Locally (no FRED key) it degrades as designed; in CI (key present, `data/regime_model.pkl` resolves) the full path engages. **v1 universe wired** = {S&P 500 `^GSPC`, Gold `GC=F`, Bitcoin `BTC-USD` (30 bps), 10Y→`IEF` sign-inverted}; WTI/DXY excluded. **Live smoke test on the 2026-08-19 note passed** end-to-end (real yfinance prices): Gold the sole actionable name (Bullish + band) → sized to the 0.35 clamp; S&P/BTC Neutral and 10Y band-less → abstain; benchmark = equal-vol basket of all four; report + ledger JSON emitted. **Workflow shipped:** `.github/workflows/portfolio_rebalance.yml` — weekly (Mon 07:45 UTC, after the daily note + scoring job), loops `python -m portfolio.rebalance --arm {market,exogenous,kimi}` (each skips gracefully with no note), passes `FRED_API_KEY` for the gate, commits `results/portfolio/*`; `workflow_dispatch` accepts a `date` input for manual/backfill runs. Entry point verified end-to-end (`python -m portfolio.rebalance` resolves all imports from `.macro-assist/` cwd; clean no-op + exit 0 on a dateless future run). **Go/no-go after ≈1 quarter:** does any arm's book beat the buy-and-hold basket on information ratio at acceptable drawdown? **Only WP-20.E (live broker) remains — deferred, gated on this forward run showing edge.**
-5. **WP-20.E — Live broker integration (DEFERRED, gated on WP-20.D showing edge).** Only once a book demonstrably beats the benchmark: adapt `book.py`'s trade interface to a real API. **Broker research (2026-08-19):** paper-first on simulated fills; when live, **IBKR** (mature REST/Python API, widest asset universe, free paper account to build against; caveat — IBKR Ireland ⇒ manual `Anlage KAP`, no auto-Abgeltungsteuer) or **Smartbroker+** (German-domiciled/BaFin, auto-tax, REST API ~29.90 €/mo, younger). Keep **Trade Republic as the general deposit** (no official trading API); open the API-capable account separately. *This is the reason v1 is broker-agnostic paper — a real broker is a later bet, not a v1 dependency, so a v1→v2 sizing change is a code edit, never a broker migration.*
+1. **WP-20.A — Design & scope lock ✅** (2026-08-19 → `portfolio/DESIGN.md`): vol-target inverse-vol sizing (Kelly rejected), v1 universe {S&P 500, Gold, Bitcoin, 10Y-via-IEF} in USD, seven-step rule, benchmarks.
+2. **WP-20.B — The book ✅** (2026-08-19 → `portfolio/book.py`, 13 tests): instrument-agnostic sleeve-tagged ledger, bps cost model, decision log.
+3. **WP-20.C — Sizing rule ✅** (2026-08-19 → `portfolio/sizing.py`, 17 tests): the DESIGN §3 rule as a pure function of extracted numbers; regime gate folded into the vol target; `MAX_WEIGHT` 0.35 / `GROSS_CAP` 1.5.
+4. **WP-20.D — Weekly driver ✅** (2026-08-19 → `portfolio/rebalance.py`, 10 tests; `portfolio_rebalance.yml` Mon 07:45 UTC): note → signals → sizing → ledger + equal-vol benchmark; HAR-RV σ recomputed point-in-time. Go/no-go after ≈ 1 quarter: any arm's book beats the buy-and-hold basket on information ratio?
+5. **WP-20.E — Live broker integration ⏸ DEFERRED**, gated on 20.D showing edge (IBKR, paper-first; research in the archive).
 
 **Kill criteria (pre-committed).** v1 is measurement on a virtual book → near-zero risk; the failure mode is *building without a benchmark* or *tuning a backtest*, both explicitly out of scope. Cut the phase if, after ~1–2 quarters forward, **no arm's book beats buy-and-hold ACWI on risk-adjusted return.** A calibrated-but-unprofitable result is itself a valuable KB finding (it would confirm edge < costs). Modular/removable like Phase 19: one `portfolio/` directory + one workflow + a ledger file; the prediction pipeline is untouched.
 
-**Branch strategy.** Develop on `feature/paper-portfolio` off `main`. Purely downstream of the prediction arms — it *reads* their notes and never alters them; integrates only at WP-20.D via its own workflow. Start with WP-20.A (design), then the WP-20.B accounting core in isolation before any sizing logic.
 
-**Experimental model arm — Kimi K2.6 ensemble (INTEGRATED into `main`, modular).** A second use of the arm A/B machinery, aimed at the **confidence** problem (KB-007: the market arm's self-reported `confidence_pct` is clamped 50–80 and non-discriminative). `.macro-assist/kimi_arm.py` reads the *same* daily payload the market model sees (`results/llm_payload_preview/<date>.md`), runs **Kimi K2.6** (Moonshot Anthropic-compatible endpoint, thinking disabled — it defaults ON and both breaks forced tool_choice and eats the token budget) **N times**, and derives confidence from **agreement across samples** (self-consistency): unanimous → high & *un-clamped* (33–100%), split → **Neutral** (honest abstention). Emits an `arm: kimi` note that rides the generic arm hooks → `calibration_by_arm` shows **market vs exogenous vs kimi**. First manual run (2026-07-31, n=8): 4/6 Neutral, Gold Bull 62%, **10Y Bull 88%** (converges with the market + exogenous arms' best asset). Runs daily via `kimi_arm_daily.yml` (Mon–Fri 07:05 UTC, after the market run commits the preview); needs `MOONSHOT_API_KEY`. **Modular/removable (grep `KIMI-ARM`):** soft-kill = disable `kimi_arm_daily.yml`; hard-kill = delete `kimi_arm.py` + its test + both kimi workflows + `*-kimi-macro.md`/`*__kimi.json`. **What it proves vs not:** the mechanism (discriminative, grounded, abstaining confidence) is demonstrated; whether that confidence is *calibrated* (does 88%-agreement out-hit 62%?) is the forward question the daily accumulation + `calibration_by_arm` will answer.
+**Status (board wins):** dormant since v1.6 — the sizer's input (bias +
+confidence) was withdrawn with the cut, so `rebalance.run()` declines to advance
+the books and says why; left scheduled so the stopped input stays visible. A v2
+that sizes off the conditional distribution needs its own pre-registered test.
+The Kimi ensemble arm that fed the `confidence` scalar was deactivated 2026-09-04
+(`kimi_arm.py` stays, stage removed). The HAR-RV σ every position is sized off
+is measured degenerate as wired → [KB-033], `todo.md` #17. Kimi-arm write-up,
+broker research and the branch strategy → [roadmap-archive.md](roadmap-archive.md).
 ---
 
 ## Directional Product Validation (Phase 21) — *is this task learnable at all?* ✅ COMPLETE
@@ -393,46 +383,19 @@ the search closes for good.
 
 #### Family 1 — result: negative, twice over → [KB-027]
 
-**Both clauses fail → [KB-027].** Run Actions `34150561527` (1h 52m, green) on
-`11b0e93`, report on `origin/output` `e3bedc4`; the [KB-025] validity check
-passed first (`n_vix_term_features: 4`, `arms_skipped: {}`,
-`seal_start: 2018-01-01`). On the sealed slice `vix_term`'s entire
-margin over `always_bullish` is **+0.006** on hit-rate, it goes negative at t20,
-and on the explore slice it is 0.009 *behind* the same constant — it is tracking
-a bull tape (41% Bullish, 2.5% Bearish). `market_plus_vixterm` is worse than
-`ridge` on every metric while being more decisive: four columns did to the panel
-what [KB-026]'s seven did, so **"ablate before adding" is no longer a single
-observation**. The mechanism is [KB-024]'s through a new instrument — curve
-inverts under stress → model reads bearish → stress mean-reverts → market
-rallies.
-
-**And the bar was wrong.** `verdict()` returned **`edge`**. Its clause was
-`hit > 0.52 AND (BSS > 0 OR aligned)`, so a positive BSS satisfied the disjunct
-and the `inverted` ordering was never consulted — skipped in exactly the case it
-was written for, and unreachable until an arm finally posted BSS > 0. The pre-registration,
-committed before the run and now archived, had already said an inversion is not
-a pass. **The
-function did not implement its own pre-registration**, and it has been corrected:
-an `inverted` ordering now disqualifies before the pass clause and prints as its
-own verdict. This is not a goalpost that moved — the defence is entirely that the
-read was committed before the run — and the full argument is in [KB-027].
-
-**The floor, settled 2026-09-13 → [ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md).**
-A BSS floor of literally zero is not a skill threshold, and `EDGE_MIN_BSS` was
-deliberately left at 0.0 in the correction above — raising it with +0.003 in
-view would have been a goalpost move ([ADR-0017](../decisions/ADR-0017-bss-floor-left-open.md)).
-It was decided once no candidate family existed: **`EDGE_MIN_BSS = 0.02`** (the
-same number as Phase 22's `MIN_SKILL`) **and** the BSS block-bootstrap interval
-must clear zero. The comparator-relative Brier clause was checked against the
-[KB-027] table and would have *passed* `vix_term` (Brier 0.244 vs 0.246, on
-different call subsets), which is why it was not taken. Applied to every arm in
-the record the new bar relabels nothing — a test pins that. Families 2 and 3 are
-unblocked; none has been chosen.
-
-**Scope, as the pre-registration required it be carried:** this closes the term
-structure as a *directional* input. [KB-001] scored it as a *stress* instrument
-(AUC 0.77/0.67) and that stands untouched; the two live fragility flags do not
-depend on this outcome and nothing in `fragility.py` changes.
+Run 2026-09-08 on the sealed slice: `vix_term`'s whole margin over
+`always_bullish` is +0.006 on hit-rate and it is 0.009 *behind* the constant on
+the explore slice; `market_plus_vixterm` is worse than `ridge` on every metric
+while being more decisive. The mechanism is [KB-024]'s inversion through a new
+instrument. **And the bar was wrong:** `verdict()` returned `edge` because its
+`BSS > 0 OR aligned` disjunct never consulted the `inverted` ordering; the
+pre-registration had said an inversion is not a pass, so the function was
+corrected to disqualify first — a defect fix, not a goalpost move. The floor
+itself was settled afterwards, with no candidate in view →
+[ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md)
+(`EDGE_MIN_BSS = 0.02` and the interval must clear zero). Scope: closes the
+term structure as a *directional* input only; [KB-001]'s stress read stands.
+Full result text → [roadmap-archive.md](roadmap-archive.md).
 
 #### The seal — how condition 3 is actually enforced
 

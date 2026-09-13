@@ -71,6 +71,16 @@ Heterogeneous AutoRegressive model for Realized Volatility. Uses daily/weekly/mo
 
 Output per asset: annualized daily vol forecast + 60d percentile.
 
+**Fit window and its measured consequence.** The forecast is fit on the same
+`period="90d"` history `market_data.py` fetches for RSI and the 50d MA — 74–90
+closes, ~50–70 OLS rows after lagging, and not pinned across yfinance versions.
+[KB-033] measured it walk-forward: `degenerate` on every asset (the clip
+returns a zero forecast on 1.5–7 % of readings, and the note prints it as
+`0.0% ann-vol` with `VRP = VIX − 0`), and worse than trailing 22-day realized
+vol at every horizon; fit on 1000 days it beats the trailing month on SP500,
+Gold and Bitcoin. Until `todo.md` #17 is decided the published number is not a
+measured σ. `har_backtest.py` is the read.
+
 **HMM Regime Detection** — `regime.py`
 
 4-state Gaussian HMM fitted on four macro features (weekly, 5yr history):

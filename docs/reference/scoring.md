@@ -78,6 +78,10 @@ skilled** ([KB-024], [KB-026], [KB-027]):
   it **declines the 10Y outright**: converting a percent-return vol into a
   basis-point yield move needs the yield level and would make it a different
   model. Better no comparator than a wrong one.
+  Its σ is the logged `forecast_daily_vol`, which [KB-033] measured as
+  `degenerate` at the wired fit window; the sealed record's comparator is built
+  from that number until `todo.md` #17 changes the window, and a change is to be
+  named against the seal like [KB-028]'s.
 
 **Sample alignment** ([The method](../concepts/the-method.md) §5). An observation
 is emitted only when every required arm could quote a distribution for it, every

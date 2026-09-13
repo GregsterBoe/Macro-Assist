@@ -111,13 +111,19 @@ macro series are the orthogonal core** ([KB-009]). And **redundancy analysis and
 model-attention point at different prune candidates** ([KB-010]) — so an ablation
 has to be run, not inferred.
 
+**The HAR-RV vol forecast, as wired, is worse than the trailing month it is
+built from** ([KB-033]). A four-parameter OLS on the ~50–70 rows a `period="90d"`
+fetch leaves after lagging; coefficient signs random, zero forecasts on 1.5–7 %
+of readings, and `0.0% ann-vol` published on 9 % of S&P and 13 % of Bitcoin
+note dates. The model is fine at four years of history — the fetch is the
+defect, and fixing it is an open decision because it touches the sealed record.
+
 ## Open — being measured now
 
 | Question | Instrument | Earliest honest read |
 |---|---|---|
 | Does the conditional distribution beat not conditioning at all? | `score_distributions.py`, sealed bar, `MIN_SKILL = 0.02`, `MIN_BLOCKS = 8` | ~2027-05 |
 | Does the fragility flag fire correctly on a live episode? | The shadow clock at `FRAGILITY_MODE=log` | Whenever the tape provides one |
-| Is the HAR-RV vol forecast any good? | Logged daily, unpublished, unscored | WP-17.5 — not started |
 | Is the LLM's Target Range calibrated? | Nothing. It is the last LLM-authored falsifiable claim in the note and it is **unscored** | Blocked on two decisions — open decision #7 |
 
 The exploratory median-only backfill shows skill vs unconditional of −0.009 at t5
