@@ -14,7 +14,7 @@ Conventions:
   reasoning intact, and pull any "carry forward" caveat back up into this file
   as its own entry. A resolved item left here is noise; a lost caveat is worse.
 
-Last reviewed: 2026-09-13 (#15 the turbulence-only hindsight read from [KB-031],
+Last reviewed: 2026-09-13 (#16 the CORR shadow flag IMP-7 admitted and did not wire, [KB-032]; #15 the turbulence-only hindsight read from [KB-031],
 open decision; #13 `hy_spread` mean-window caveat from [KB-028]; #14
 IMP-5.3 added from [KB-029] and closed the same day → `resolved.md`, [KB-030]).
 Prior: 2026-09-12 (#12 GitHub Pages closed → `resolved.md`);
@@ -224,7 +224,26 @@ either leave it (the OR's stated limit is precision ≈0.3, and it is a recall
 mode by design), or pre-register it as a *forward* test — a second shadow flag
 `or_no_turb_alone` logged beside the OR from a stated date, judged only on live
 alarms after that date, with the bar written first. Nothing on the backtest
-window can settle it. Not scheduled; IMP-7 is next on the track regardless.
+window can settle it. Not scheduled; IMP-7 ran next and is closed ([KB-032]).
+
+### Open decision #16 — CORR was admitted by the letter of the IMP-7 bar; the shadow flag it earned is not wired
+**Where:** `.macro-assist/fragility_or.py` (`build_channels`, `_CH_KEYS`) ·
+`companion_testing.py` · **Source:** [KB-032] mechanism and nuance (c). The IMP-7
+pre-registration committed an admitted companion to the shadow ladder as a
+separate flag. Average pairwise correlation (CORR, 60-day, sector panel) met the
+admit clause — PIT recall +1 crisis at both horizons at the trio's own 18 alarms
+and precision, LOCO recall held. The diagnostic shows what met it: under its
+expanding PIT p90 CORR fires on 14 of 664 readings and on **two** where the trio
+is silent (2020-06-01, 2020-06-08), which extend the COVID alarm into the
+2020-06-08 aftershock episode. An `or_corr` shadow flag would agree with the
+live OR on 662 of 664 readings; it cannot produce a decidable live record.
+**The call (made 2026-09-13, recorded here so it is a choice and not a quiet
+drop):** not wired. Not a re-reading of the bar — the bar was met — but a
+judgement that the record it would build is worth nothing. Re-open only if the
+next OR-admission bar (with its lead clause, [KB-032] "what it changes") is run
+on a shift-form correlation measure and that admits on a crisis with lead. Cost
+of wiring if ever wanted: a CORR channel in `build_channels`, an `or_corr`
+boolean in the OR reading's JSONL log, tests; no prompt exposure, no bump.
 
 ---
 

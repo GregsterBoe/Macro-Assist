@@ -2755,3 +2755,129 @@ non-improvements), not any single count.
   The OR flag has rendered in the note since 2026-09-04 (`show`) and has not
   fired; when it does, that episode is the first out-of-sample precision
   observation the flag has ever had.
+
+## KB-032 — The four companion measures all have standalone skill and none adds a crisis the trio catches with lead: dispersion costs precision, correlation "admits" on one post-crash aftershock, breadth and eigen-concentration are redundant (IMP-7)
+
+**Date:** 2026-09-13 · **Branch:** `main` · **Harness:**
+`.macro-assist/companion_testing.py` (`run_companion_gate`, **zero LLM/API
+cost**, yfinance cache). Reproduce: `python companion_testing.py` (~3 min; the
+composite walk dominates; pass a pickled `build_channels()` dict to skip it).
+Bar written in `improvement-track.md` IMP-7 on 2026-09-13 before any companion
+was computed — definitions, windows and signs included; the verdict function and
+its disqualifier-first tests were written and passing before the run. Closes
+IMP-7 and with it the candidate list IMP-1 opened.
+
+**What we tested.** IMP-1 named cross-sectional **dispersion**, **average
+pairwise correlation** and **breadth** as cheap companions computable from the
+same panel as the absorption ratio and turbulence, and never ran them;
+**eigenvector loading concentration** rode along from the 2026-09 review. All
+four on the nine-sector SPDR panel, walked on the [KB-021] live anchor grid
+(916 readings 2008-07-08 → 2026-09-11) through the same look-ahead-safe walker
+the live AR/TURB channels use, each with a sign fixed in advance (higher = more
+fragile): **DISP** = cross-sectional std of daily log returns, 20-day mean;
+**CORR** = mean signed pairwise correlation over 60 days; **BREADTH** = fraction
+of sectors below their 50-day SMA, 20-day mean; **EIGC** = participation ratio
+`1/Σvᵢ⁴` of the 120-day correlation matrix's top eigenvector (effective number
+of sectors the dominant factor loads on). Two gates in order, the [KB-019]
+protocol: (1) **standalone** — `evaluate_signal` on the grid readings,
+`no_standalone_skill` if 5d non-overlap AUC ≤ 0.60; (2) **OR admission** — the
+trio versus the trio-plus-companion, each channel against its own expanding-PIT
+p90 (warm-up 252, 664 evaluable readings 2013-07-10 →), on the shared window,
+`underpowered` (<10 episodes), `precision_lost` (4-ch PIT precision below the
+trio's by >0.02 at either horizon), then **admit** = PIT recall +1 crisis at
+both horizons and LOCO recall not below the trio's; else `redundant`. The
+trio row reproduces `fragility_or._pit_backtest` exactly (regression guard).
+
+**Headline — every companion has standalone skill; none earns a place.**
+
+| companion | 5d / 10d nov-AUC (standalone, n=916) | PIT 5d: caught / alarms / prec (trio 10/17 · 18 · 0.333) | PIT 10d (trio 11/21 · 18 · 0.444) | LOCO 5d / 10d caught (trio 9 / 14) | fires under PIT p90 | verdict |
+|---|---|---|---|---|---|---|
+| **DISP** | 0.725 / 0.945 | 11/17 · 19 · **0.316** | 12/21 · 19 · **0.421** | 11 / 15 | 51 readings (7.7%) | `precision_lost` |
+| **CORR** | 0.786 / 0.647 | **11/17 · 18 · 0.333** | **12/21 · 18 · 0.444** | 10 / 16 | **14 (2.1%)** | **`admit`** — see mechanism |
+| **BREADTH** | 0.701 / 0.708 | 10/17 · 19 · 0.316 | 12/21 · 19 · 0.474 | 10 / 15 | 45 (6.8%) | `redundant` |
+| **EIGC** | 0.722 / 0.595 | 10/17 · 18 · 0.333 | 11/21 · 18 · 0.444 | 11 / 15 | **0 (0.0%)** | `redundant` |
+
+Standalone, all four clear the [KB-002] bar comfortably — dispersion's 10d
+non-overlap AUC of 0.945 is the highest single number this harness has
+produced (on ~92 de-overlapped readings with ~8 positives; its overlapping
+AUC is 0.722, the more populated figure). As with credit ([KB-019]), ranking
+skill across all days is not the same as flagging days the trio misses.
+
+**The mechanism — what each companion actually added, reading by reading.**
+- **CORR "admits" on exactly two readings.** Under its expanding PIT p90 it
+  fires on 14 of 664 readings, and on only **two where the trio is silent:
+  2020-06-01 and 2020-06-08.** Those extend the COVID alarm (trio: 2020-02-05
+  → 05-22) to 06-08, and the extended alarm spans the 2020-06-08 label
+  episode — the −5.9% day of June 11 — which is the *one* crisis gained, at
+  both horizons, hence the unchanged 18 alarms and unchanged precision. That
+  is post-crash correlation level persisting after an alarm that was already
+  sounding: the aftershock of a caught crisis, not a lead. Under LOCO it also
+  picks up 2010-04-28..05-12 (the flash crash) at 10d. The bar as written was
+  met; what it was met *by* is a channel that would differ from the live OR
+  on two readings in thirteen years.
+- **DISP** fires on 51 readings, 15 trio-silent, in six runs; it catches the
+  same 2020-06-08 aftershock (its run 2020-06-01 → 06-29) and adds a false
+  alarm 2020-11-11 → 12-03 (the vaccine rotation — high dispersion, no
+  drawdown), plus 2022-04 and 2026-04/07/08 singletons that fold into
+  existing alarms. One crisis, one false alarm: precision falls at both
+  horizons.
+- **BREADTH** fires on 45 readings, 7 trio-silent, all in one run 2023-10-02
+  → 11-13: the October 2023 pullback, a 10d-label episode the trio missed.
+  Nothing at 5d, so it fails the both-horizons clause — and it is a single
+  run, one alarm, one crisis: the case the bar's "both horizons" was written
+  for.
+- **EIGC fires on zero readings.** Its history includes 2008–2012, when the
+  dominant factor loaded on all nine sectors nearly evenly (participation
+  ≈9, the maximum), so its expanding p90 sits at a level the post-2013 panel
+  never reaches. The 4-channel rows are identical to the trio's.
+
+**The nuance that is easy to forget.**
+(a) **The bar had a hole the run walked through, and it is the hole [KB-031]
+had already named.** IMP-6's conclusion (a) was that the next lead-time bar
+should be written as "crises caught *with lead*", not survivor median lead —
+and this bar carried no lead clause at all. A companion that extends an
+alarm already sounding into the aftershock of the crisis it was sounding for
+counts as +1 recall under `episode_scoring` because the merged alarm spans a
+later label episode. Admission was pre-registered as recall at held
+precision, so CORR admits by the letter; the correction belongs to the *next*
+bar (a gained crisis must be one on which the trio's alarm was not already
+active), not to this verdict.
+(b) **GFC anchoring, third instance** ([KB-030] the composite, [KB-031] nuance (b)
+turbulence's opposite drift, now CORR and EIGC): an expanding p90 on a level
+measure whose 2008–2012 values were extreme flags 0–2% of later readings, not
+10%. That is why CORR's admission rests on two readings and EIGC's row is
+empty — and why their high standalone AUCs (rank-based over the whole
+sample) never became flags. The PIT protocol is the live protocol, so this
+is the honest read of what these channels would have done; it also means
+a level channel from the sector panel cannot be OR-admitted on this history
+whatever its ranking skill.
+(c) **Deployment was decided separately from the verdict.** The
+pre-registration committed an admitted companion to the shadow ladder. The
+diagnostic shows such a flag would agree with the live OR on 662 of 664
+readings, so it cannot produce a decidable live record in the project's
+lifetime; wiring it was judged uninformative and is recorded as an open
+decision (`todo.md` #16) rather than done or silently dropped. Not wiring is
+a choice about the *value of the record*, not a re-reading of the bar.
+(d) The stated prior — zero admits, one or two with standalone skill, all
+redundant — was wrong on both counts in the details (four standalone passes,
+one letter-of-the-bar admit, one `precision_lost`) and right in its
+conclusion: nothing here adds a crisis the trio catches with lead.
+(e) Small-n as always: 17–21 crises at 5d, 21–31 at 10d; every gain in the
+table is a single crisis.
+
+**What it changes.**
+- **IMP-7 is CLOSED. The candidate list IMP-1 opened is exhausted** —
+  absorption ([KB-013]), turbulence ([KB-014]), credit ([KB-019]),
+  downside variance ([KB-018]), and now dispersion, correlation, breadth and
+  eigen-concentration have all been measured. The fragility track has no
+  queued experiment; it is forward observation only.
+- **The live OR trio is unchanged.** No fourth channel, no version bump. The
+  `or_corr` shadow flag the pre-registration would have wired is `todo.md`
+  #16, with the two-readings-in-664 number attached.
+- **The next OR-admission bar gets a lead clause:** a gained crisis counts
+  only if the trio's alarm was not already active when the companion's
+  firing began. Written here so it is not re-derived.
+- **Level measures on the sector panel are closed as OR channels** under the
+  expanding-PIT protocol (nuance b) — a *shift* form (as AR uses) would be a
+  new candidate with its own pre-registration, and [KB-019]'s tail-comovement
+  argument gives it a low prior.

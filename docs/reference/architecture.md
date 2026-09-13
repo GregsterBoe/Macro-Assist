@@ -99,6 +99,7 @@ Macro-Assist/
 │   ├── input_ledger.py              # input provenance ledger
 │   ├── input_testing.py             # improvement-track harness (IMP-1/IMP-4)
 │   ├── aggregator_testing.py        # OR-flag aggregator gate (IMP-6, closed negative)
+│   ├── companion_testing.py         # OR-channel companion gate (IMP-7, closed negative)
 │   ├── citation_screen.py           # which inputs the model actually cites
 │   ├── backtest.py                  # point-in-time backtesting harness
 │   ├── regime_backtest.py           # walk-forward regime validation

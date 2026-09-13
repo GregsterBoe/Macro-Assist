@@ -77,6 +77,14 @@ on a strided grid, and every filter moves or thins the alarm past them. The
 tree-model question is closed with the logistic. Its precision (≈0.3) is the
 operating point, not a defect awaiting an aggregator.
 
+**And the trio is the trio.** Every cheap companion the same panel offers —
+dispersion, average pairwise correlation, breadth, eigenvector participation —
+has standalone skill and adds no crisis the trio catches with lead ([KB-032]);
+credit did the same ([KB-019]). Orthogonal in calm is not orthogonal in a
+≥5% drawdown, and a level measure whose 2008–2012 values were extreme never
+reaches its own expanding top decile again. The candidate list IMP-1 opened
+is exhausted; what is left for the fragility monitor is its live record.
+
 **Absorption needs a homogeneous cross-section.** It had no skill on the ~5
 heterogeneous live assets ([KB-012]) and real skill on Fama-French industries
 ([KB-013]) — a reversal caused entirely by the cross-section, not the measure.

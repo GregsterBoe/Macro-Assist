@@ -225,7 +225,7 @@ before any of it was scheduled — most of it had already been measured here:
 | Rolling / dynamic thresholds | The OR flag already uses expanding-PIT deciles; [KB-017] showed static cuts leaked negligibly. A trailing-252 percentile fires at a fixed rate by construction and discards level | Half done. The remaining half — the composite *label* cut is static — is IMP-5.3 |
 | ΔCoVaR | Needs an institution cross-section and quantile regression; the published measure is contemporaneous and its forward form needs quarterly balance-sheet data. [KB-019]: everything financial co-moves in a ≥5% equity drawdown | Not planned |
 | SRISK | Slow capital-shortfall measure for financial-system crises; needs leverage data; no free daily feed; horizon mismatch with a 5/10-day label | Not planned |
-| Eigenvector centrality | The absorption ratio *is* the dominant-eigenvalue read, live since IMP-4; 9 sector ETFs carry ~2 meaningful eigenvectors | Rides along in IMP-7 as a fourth companion; expected redundant |
+| Eigenvector centrality | The absorption ratio *is* the dominant-eigenvalue read, live since IMP-4; 9 sector ETFs carry ~2 meaningful eigenvectors | Ran in IMP-7 as the participation ratio of the top eigenvector: standalone AUC 0.72, but under its own expanding PIT p90 it fires on **zero** readings post-2013 (GFC-anchored, like the composite in [KB-030]). **Closed**, redundant ([KB-032]) |
 | Critical slowing down (lag-1 AR) | **Falsified here**: AUC 0.44/0.50 [KB-001], weight 0 since [KB-002], "exactly as the literature predicted for equities". The "coupled with variance expansion" half *is* the live leading component | **Closed** |
 | Shannon entropy | On returns, entropy ≈ ½·log(2πeσ²): variance in disguise, and an entropy *drop* means falling variance — the opposite of [KB-001]. Permutation/sample entropy measures ordering = predictability = the autocorrelation negative again | Not planned; reasoning recorded so it is not re-proposed |
 
@@ -337,16 +337,84 @@ hindsight observation (10 of 12 false 5d alarms are turbulence-only) is in
 
 ## IMP-7 — The companion measures IMP-1 listed and never ran
 
-**Status:** ⏸ **queued; expected negative; costs an afternoon.**
+**Status:** ✅ **CLOSED 2026-09-13 — negative → [KB-032].** All four have
+standalone skill; DISP `precision_lost`, BREADTH and EIGC `redundant`, CORR
+`admit` by the letter of the bar — on one post-crash aftershock crisis, via two
+readings in 664 where the trio was silent. Not wired; the deployment call is
+`todo.md` #16. Bar written 2026-09-13 before any companion was computed, kept
+as written. Harness `.macro-assist/companion_testing.py`.
 
 IMP-1's candidate list named cross-sectional **dispersion**, **average pairwise
 correlation** and **breadth** as "cheap companions computable from the same
 panel". They were never run — the arc went AR → turbulence → OR and stopped.
 **Eigenvector loading concentration** (from the review) rides along as a fourth.
 
-- Same panel (nine sector ETFs), same standalone gate (`walk_forward_signal` →
-  `evaluate_signal`, GO ≈ nov-AUC > 0.60), then the [KB-017] OR-admission gate
-  (PIT recall must rise at precision within −0.02).
-- **Prior after [KB-019]:** redundant in the tail — orthogonal in calm ≠ orthogonal
-  in a ≥5% drawdown. Run so the next session does not have to; one KB entry for
-  all four.
+**The four measures, defined here so the run cannot choose them.** All on the
+nine-sector SPDR panel, walked on the [KB-021] live anchor grid (the same strided
+`comp ∩ ETF` dates the AR and turbulence channels sit on), from the panel's
+history up to the anchor date only. Each has a **fixed sign** — higher = more
+fragile — chosen from the hypothesis that motivated it, not from the data:
+
+1. **DISP** — cross-sectional dispersion: the standard deviation across the nine
+   sectors' daily log returns, averaged over the trailing **20** days.
+   Hypothesis: sector returns fan out before and into stress.
+2. **CORR** — average pairwise correlation: the mean of the upper triangle of
+   the **60**-day correlation matrix of daily log returns (signed, not absolute —
+   sectors are positively correlated; `correlation_tightening`'s window). The
+   *level* form of what the absorption ratio reads as a standardised shift.
+3. **BREADTH** — narrowing participation: the fraction of the nine sectors
+   closing **below** their own **50**-day simple moving average, averaged over
+   the trailing 20 days (so nine names do not leave a ten-valued signal).
+   Hypothesis: the index is carried by fewer sectors before it falls.
+4. **EIGC** — eigenvector loading concentration: the participation ratio
+   `1 / Σ vᵢ⁴` of the unit-norm top eigenvector of the **120**-day correlation
+   matrix (the AR window), i.e. the effective number of sectors the dominant
+   factor loads on (range 1–9). Hypothesis: a systemic factor that loads on
+   everything is the one a shock propagates through. Expected redundant with AR.
+
+A 5d non-overlap AUC clearly **below 0.5** means the sign hypothesis was wrong;
+that is logged as the negative it is. Flipping the sign and re-running would be a
+second look at the same data and is not done.
+
+**The bar — per companion, evaluated independently, fixed config, no sweeps:**
+
+1. **Standalone gate** (`evaluate_signal` on the anchor-grid readings, the
+   [KB-002] bar as IMP-1/IMP-2 applied it): `no_standalone_skill` if the **5d
+   non-overlap AUC ≤ 0.60**. The 10d AUC and the top-decile recall/precision are
+   reported, not gated. A companion failing here is still run through step 2 so
+   the KB carries the number, but cannot be admitted.
+2. **OR-admission gate** (the [KB-017] protocol on the [KB-021] live window):
+   the trio OR versus the trio-plus-companion OR, each channel against its own
+   expanding-PIT p90 (warm-up 252), scored on the **shared** evaluable window
+   (a companion with fewer finite readings shrinks the window for both rows —
+   the IMP-5.3 discipline). Disqualifiers first, each its own verdict:
+   `underpowered` — fewer than 10 drawdown episodes at 5d on the shared PIT
+   window; `precision_lost` — 4-channel PIT precision below the 3-channel's by
+   more than 0.02 at either horizon. **Admit** = PIT recall **up by at least one
+   crisis at both horizons** at that held precision, **and** LOCO recall not
+   below the trio's at either horizon. Anything else is `redundant` — the
+   [KB-019] outcome, logged as such.
+
+An admitted companion goes to the shadow ladder as a fourth channel of a
+*separate* flag, not into the live OR — the [KB-021] operating point keeps its
+record regardless.
+
+**Prior, stated so it can be checked later:** CORR and EIGC are the absorption
+ratio's level and loading views and re-flag its crises; DISP is turbulence's
+cross-sectional cousin; BREADTH is a trend measure that fires during the fall,
+not before it. Honest expectation: zero admits, one or two with standalone skill
+(as credit had, [KB-019]), all `redundant`. Harness
+`.macro-assist/companion_testing.py` (`python companion_testing.py`).
+
+**Result (2026-09-13, [KB-032]):** four standalone passes (5d nov-AUC 0.70–0.79;
+DISP 0.945 at 10d), zero crises gained *with lead*. CORR met the admit clause —
++1 crisis at both horizons at the same 18 alarms — but the crisis is the
+2020-06-08 aftershock of the COVID alarm, caught by extending an alarm already
+sounding by two readings; EIGC never reaches its GFC-anchored PIT p90 at all.
+The bar had no lead clause, the hole [KB-031] nuance (a) had already named; the
+correction is written into the next OR-admission bar (a gained crisis counts
+only if the trio's alarm was not already active), not into this verdict.
+Wiring the admitted flag was judged uninformative (it would agree with the live
+OR on 662 of 664 readings) and is `todo.md` #16, not done silently. **The
+candidate list IMP-1 opened is exhausted; the fragility track is forward
+observation only.**
