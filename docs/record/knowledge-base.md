@@ -2527,3 +2527,95 @@ so the walk has **0 degraded days** in 4,574 readings and KB-002 stands.
   expanding-PIT form the OR flag already uses, which is planned, not done.
 - Not a version bump: a bug fix plus a fallback for an existing series; the
   note publishes nothing new.
+
+## KB-030 — The composite's label cut stays static: the expanding-PIT form loses two crises per horizon because its warm-up year is the GFC (IMP-5.3)
+
+**Date:** 2026-09-13 · **Branch:** `main` · **Harness:**
+`.macro-assist/fragility_backtest.py` (`run_pit_cut_check`, **zero LLM/API
+cost**). Reproduce: `python fragility_backtest.py pit-cut` (~2 min, yfinance +
+CBOE). Bar written in `improvement-track.md` IMP-5.3 before the run.
+
+**What we tested.** The note carries two fragility flags on two threshold
+methods: the composite's `Elevated` label is a **static 56.5** — the 90th
+percentile of the whole 2008–2026 composite ([KB-002]) — while the OR flag's
+three channels each fire against the 90th percentile of their **own prior
+readings** (expanding-PIT, warm-up 252, [KB-017]). IMP-5.3 asked whether the
+label can move onto the OR flag's method. The pre-registered gate: re-walk
+2008–2026 with the PIT cut and the episode recall must reproduce the static
+cut **within ±1 crisis per horizon** on the same evaluable window — the
+[KB-017] [2]-vs-[3] comparison, which for the OR flag showed leakage was
+negligible. If not, the static cut stays.
+
+**Headline — FAIL at both horizons, by the same margin.** 4,574 readings
+2008-07-08 → 2026-09-11 (0 degraded); PIT window 4,322 readings from
+2009-07-08.
+
+| h | static cut, full window (the [KB-002] reference) | static cut, PIT window | **PIT cut, PIT window** | Δ caught |
+|---|---|---|---|---|
+| 5d | **14/46** caught · 16 alarms · prec 0.50 | 9/37 · 13 alarms · prec 0.462 | **7/37** · 11 alarms · prec 0.455 | **−2** |
+| 10d | **17/58** caught · 16 alarms · prec 0.69 | 13/50 · 13 alarms · prec 0.692 | **11/50** · 11 alarms · prec 0.727 | **−2** |
+
+Median lead is unchanged (4d / 8d, 87–94% ≥3d). Day-level label agreement is
+97.9% (static fires 364 days, PIT 280); the PIT cut **today is 56.5** — it has
+converged on the static number, as an expanding percentile must. The
+full-window row reproduces [KB-002]'s caught counts exactly (14/46, 17/58);
+its precision is one alarm lower than recorded there (16 alarms vs ~15) — the
+backtest's vol legs are CBOE-sourced since IMP-5.2 and three months of data
+were added, neither of which changed a caught count.
+
+**The mechanism — the cut is anchored by the crisis it warmed up on.** The
+composite's first 252 readings are 2008-07 → 2009-07: the GFC. The expanding
+90th percentile therefore *starts* at **89–94** and decays slowly — mean cut
+80.6 in 2010, 71.9 in 2011, 66.5 in 2013, 61.8 in 2014 — reaching the static
+56.5 only around **2017**. For eight years the composite had to out-read the
+GFC to be called Elevated. What was lost, by horizon:
+
+- **June 2010** (flash-crash aftermath) at both horizons — composite peaked at
+  63.7 (5d window) / 74.1 (10d) against a PIT cut near **80**. A crisis the
+  static cut catches by a wide margin.
+- **Dec 2018** at 5d: composite 58.0 vs cut 58.1. **Mar 2022** at 10d: 57.3 vs
+  58.3. Hairline misses on a cut still ~2 points above 56.5 a decade after the
+  warm-up.
+- **Nothing was gained**: no crisis is caught by the PIT cut and missed by the
+  static one, at either horizon.
+
+**The nuance that is easy to forget.** (a) This is the *opposite* of the
+[KB-017] nuance. There, the PIT window shrinking the denominator from 15 to
+12 episodes made PIT recall look *higher* than in-sample; here the warm-up
+does not just drop 2008–09 from the denominator, it *poisons the threshold*
+for everything after it. [KB-017] had already seen the same thing on its
+`comp` channel — composite-alone PIT recall 0.25 vs in-sample 0.333 at 5d —
+and did not chase it, because the OR was the object there and the OR's
+recall held at 0.833 — the other two channels carried what the composite's
+cut could not. (b) The
+static cut is *also*
+fitted on the GFC, but on the GFC diluted by seventeen calmer years; the
+expanding cut is fitted on the GFC alone for its first year and on a
+GFC-heavy mixture for a decade. "Percentile of own history" is only the
+same rule for two channels when their histories are on comparable footing.
+(c) A rolling window (e.g. trailing 252) would avoid the anchoring but fires
+at a fixed 10% of days by construction and forgets the level — the
+`improvement-track.md` review already declined it for that reason; the
+tested form was the expanding one *because* it is what the OR flag uses.
+(d) By 2026 the two cuts coincide, so **the live label would read the same
+either way today** — the cost is entirely in the historical record and in
+what the method would do after the *next* crisis: an Elevated cut that steps
+up and takes years to come down.
+
+**What it changes.**
+- **`_LABEL_ELEVATED = 56.5` stays.** The static cut is the validated
+  top-decile flag ([KB-002]) and the PIT form does not reproduce it. Two
+  threshold methods in one note is now a *documented* asymmetry with a
+  measured reason, not an inconsistency to fix.
+- **IMP-5 is closed** (5.1, 5.2 shipped → [KB-029]; 5.3 negative → this
+  entry). **IMP-6 is unblocked** — its precondition was a composite on its
+  calibrated distribution, which [KB-029] restored; nothing in IMP-6 depends
+  on the label cut's method.
+- **The IMP-6 logistic variant inherits this caveat**: it fits on the three
+  channels' PIT *percentiles*, and the composite's percentile carries the
+  same GFC anchoring in 2009–2016. LOCO evaluation is the protection; note it
+  when reading the 2010–2012 folds.
+- `fragility.pit_label_cuts` and `fragility_backtest.pit_elevated_flag` /
+  `run_pit_cut_check` stay in the code as the reproducible record; the live
+  label does not consult them. Not a version bump: the note publishes nothing
+  new.

@@ -239,7 +239,8 @@ none of the proposals would have found — IMP-5.
 
 ## IMP-5 — Composite degradation: the calibrated cut only applies to the calibrated composite
 
-**Status:** 🟡 **IMP-5.1–5.2 shipped 2026-09-13 → [KB-029]; IMP-5.3 open.**
+**Status:** ✅ **CLOSED 2026-09-13.** IMP-5.1–5.2 shipped → [KB-029]; IMP-5.3
+**negative** → [KB-030] — the static cut stays.
 
 **Finding.** The composite's first-ever live Elevated (2026-08-13 → 08-19, five
 days, 59–62 vs the 56.5 cut) was a data-feed artifact: yfinance's `^VIX3M`
@@ -258,19 +259,26 @@ Detail and the counterfactual in [KB-029].
 - [x] **IMP-5.2 — Issuer fallback for the vol legs.** `freshen_vol_indices` splices
   CBOE's own `VIX_History.csv` / `VIX3M_History.csv` under a missing or stale leg
   in both the live and the backtest fetch; a no-op when yfinance is fresh.
-- [ ] **IMP-5.3 — Align the composite label cut to expanding-PIT.** The OR flag's
-  thresholds are the 90th percentile of each channel's *own prior* readings; the
-  composite's Elevated cut is a static 56.5 fitted over 2008–2026. Bring the
-  label onto the same footing so the two flags in the note are on one method.
-  **Gate:** re-walk 2008–2026 with the PIT cut (warm-up 252); the episode
-  recall/precision must reproduce [KB-002] within ±1 crisis per horizon, as
-  [KB-017] found for the OR flag. If it does not, the static cut stays and the
-  discrepancy is a KB entry.
+- [x] **IMP-5.3 — Align the composite label cut to expanding-PIT → NO, [KB-030].**
+  The OR flag's thresholds are the 90th percentile of each channel's *own prior*
+  readings; the composite's Elevated cut is a static 56.5 fitted over 2008–2026.
+  **Gate (written before the run):** re-walk 2008–2026 with the PIT cut (warm-up
+  252); episode recall must reproduce the static cut within ±1 crisis per
+  horizon on the same window, as [KB-017] found for the OR flag.
+  **Result: −2 crises at both horizons** (7/37 vs 9/37 at 5d; 11/50 vs 13/50 at
+  10d), nothing gained. The composite's warm-up year is the GFC, so the
+  expanding cut starts near 92 and does not reach 56.5 until ~2017; June 2010 is
+  lost outright, Dec 2018 / Mar 2022 by a hair. The static cut stays; the two
+  flags in the note are on two methods **for a measured reason**. Harness:
+  `python fragility_backtest.py pit-cut`.
 
 ## IMP-6 — Precision at held recall: the aggregator question, asked honestly
 
-**Status:** ⏸ **queued behind IMP-5.3.** Bar written 2026-09-13, before any variant
-was run.
+**Status:** ⏸ **queued — unblocked 2026-09-13** (IMP-5 closed; the precondition,
+a composite on its calibrated distribution, is [KB-029]'s fix). Bar written
+2026-09-13, before any variant was run. Caveat inherited from [KB-030]: the
+composite's PIT *percentile* is GFC-anchored in 2009–2016, so variant 3's
+logistic input carries that; read the early LOCO folds with it in mind.
 
 **Question.** The OR mode's operating point is recall ~0.6–0.8 / precision ~0.32
 at 5d ([KB-017]/[KB-021]) — roughly two alarms in three are false. Can precision

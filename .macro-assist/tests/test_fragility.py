@@ -19,6 +19,7 @@ from fragility import (
     level_acceleration,
     lag1_autocorrelation,
     fragility_index,
+    pit_label_cuts,
 )
 
 
@@ -331,3 +332,27 @@ def test_stale_vix3m_degrades_rather_than_freezing():
 def test_index_deterministic():
     h = _make_histories(seed=42)
     assert fragility_index(h)["composite"] == fragility_index(h)["composite"]
+
+
+# ---------------------------------------------------------------------------
+# IMP-5.3 — expanding-PIT label cuts (tested and NOT adopted, KB-030; the
+# function stays because the gate harness is the reproducible record)
+# ---------------------------------------------------------------------------
+
+def test_pit_label_cuts_none_below_warmup():
+    assert pit_label_cuts(np.arange(251), warmup=252) is None
+    assert pit_label_cuts([], warmup=252) is None
+
+
+def test_pit_label_cuts_are_quantiles_of_the_prior_history():
+    cuts = pit_label_cuts(np.arange(1001), warmup=252)
+    assert cuts["n_prior"] == 1001
+    assert cuts["elevated"] == pytest.approx(900.0)
+    assert cuts["resilient"] == pytest.approx(400.0)
+
+
+def test_pit_label_cuts_ignore_nan_readings():
+    prior = np.r_[np.arange(300.0), [np.nan] * 50]
+    cuts = pit_label_cuts(prior, warmup=252)
+    assert cuts["n_prior"] == 300           # NaN (degraded) days are not history
+    assert pit_label_cuts(np.r_[np.arange(200.0), [np.nan] * 100], warmup=252) is None

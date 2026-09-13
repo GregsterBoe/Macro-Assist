@@ -15,7 +15,8 @@ Conventions:
   as its own entry. A resolved item left here is noise; a lost caveat is worse.
 
 Last reviewed: 2026-09-13 (#13 `hy_spread` mean-window caveat from [KB-028]; #14
-IMP-5.3 from [KB-029]). Prior: 2026-09-12 (#12 GitHub Pages closed → `resolved.md`);
+IMP-5.3 added from [KB-029] and closed the same day → `resolved.md`, [KB-030]).
+Prior: 2026-09-12 (#12 GitHub Pages closed → `resolved.md`);
 2026-09-11: resolved items split out to `resolved.md`; the maintenance log's open
 follow-ups folded in below.
 
@@ -199,15 +200,12 @@ bear-share into the first risk-off. Revisit at the DESIGN §9 quarter mark.
 
 ## Fragility monitor
 
-### Carried finding #14 — IMP-5.3: the composite's label cut is static; the OR flag's is PIT
-**Where:** `fragility._LABEL_ELEVATED = 56.5` (a 2008–2026 full-sample percentile) vs
-`fragility_or` (expanding-PIT top decile per channel).
-**Source:** [KB-029] / `improvement-track.md` IMP-5.3. Two flags in one note on two
-threshold methods. Planned, with its gate written (reproduce [KB-002] within ±1
-crisis per horizon); not an open decision, listed here so the inbox is complete.
-Also carried from [KB-029]: the live record 2026-07-18 → 09-11 has a frozen
-`vix_term` (correct by coincidence); the five `Elevated` rows 2026-08-13 → 08-19
-are artifacts and stay in the log, superseded by the KB entry.
+### Carried finding #14b — the live fragility record 2026-07-18 → 09-11 carries a frozen `vix_term`
+**Source:** [KB-029]. The readings are correct by coincidence (contango throughout,
+CBOE-confirmed) and are kept; the five `Elevated` rows 2026-08-13 → 08-19 are
+artifacts and stay in the log as written, superseded by the KB entry. Anyone
+reading the composite's live record across that window must know this. (#14
+itself — the label cut's method — closed negative → `resolved.md`, [KB-030].)
 
 ---
 

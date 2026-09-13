@@ -37,6 +37,14 @@ So a composite missing a required component now carries the label
 `Unavailable` and names what is missing in `degraded`; the number is still
 returned for the record, but no calibrated label is claimed for it.
 
+THE CUT STAYS STATIC (IMP-5.3, KB-030): the expanding-PIT form of the label
+cut — the rule the OR flag applies to each channel — was walked 2008-2026 and
+LOST two crises at both horizons against the static 56.5 on the same window,
+outside the pre-registered ±1. The composite's warm-up year is the GFC, so
+the expanding 90th percentile starts near 92 and does not converge on 56.5
+until ~2017; nothing is gained in exchange. `pit_label_cuts` and the gate
+(`fragility_backtest.run_pit_cut_check`) stay as the reproducible record.
+
 Public functions
 ----------------
 realized_variance_trend(close)          -> dict   primary
@@ -100,6 +108,16 @@ _LABEL_REQUIRES: tuple[str, ...] = ("variance_trend", "vix_term")
 # the term structure did weeks ago (the live path did exactly this from
 # 2026-07-17 when yfinance's ^VIX3M stopped updating — see KB-029).
 _VIX3M_MAX_STALE = 5
+
+# IMP-5.3 — the expanding-PIT form of the label cuts, TESTED AND NOT ADOPTED
+# (KB-030). The OR flag's channels each fire against the q-quantile of their
+# OWN readings strictly before today (fragility_or.or_mode_reading); these
+# constants define the same rule for the composite label so the gate can be
+# re-run (`python fragility_backtest.py pit-cut`). They are not consulted by
+# the live label — `_label` uses the static cuts above.
+_PIT_Q_ELEVATED = 0.90
+_PIT_Q_RESILIENT = 0.40
+_PIT_WARMUP = 252
 
 
 def _to_log_returns(close: pd.Series) -> pd.Series:
@@ -461,12 +479,35 @@ def lag1_autocorrelation(close: pd.Series, window: int = 60) -> Optional[dict]:
 # Composite
 # ---------------------------------------------------------------------------
 
-def _label(composite: float) -> str:
-    if composite >= _LABEL_ELEVATED:
+def _label(composite: float,
+           elevated: float = _LABEL_ELEVATED,
+           resilient: float = _LABEL_RESILIENT) -> str:
+    if composite >= elevated:
         return "Elevated"
-    if composite < _LABEL_RESILIENT:
+    if composite < resilient:
         return "Resilient"
     return "Normal"
+
+
+def pit_label_cuts(prior, warmup: int = _PIT_WARMUP) -> Optional[dict]:
+    """Label cut-points from the composite's OWN prior readings (IMP-5.3).
+
+    `prior` is every composite reading strictly before the one being labelled
+    (degraded readings must already be excluded — they sit on a different
+    distribution, KB-029). Returns None until `warmup` finite readings exist,
+    otherwise {elevated, resilient, n_prior}: the 90th / 40th percentiles of
+    that history, i.e. the same expanding-window rule the OR flag applies to
+    each of its channels.
+    """
+    arr = np.asarray(prior, dtype=float)
+    arr = arr[np.isfinite(arr)]
+    if len(arr) < warmup:
+        return None
+    return {
+        "elevated":  float(np.quantile(arr, _PIT_Q_ELEVATED)),
+        "resilient": float(np.quantile(arr, _PIT_Q_RESILIENT)),
+        "n_prior":   int(len(arr)),
+    }
 
 
 def fragility_index(

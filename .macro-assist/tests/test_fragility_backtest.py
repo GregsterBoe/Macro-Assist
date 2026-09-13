@@ -21,6 +21,8 @@ from fragility_backtest import (
     collapse_episodes,
     episode_scoring,
     subsample_auc,
+    pit_elevated_flag,
+    run_pit_cut_check,
 )
 
 
@@ -284,3 +286,76 @@ def test_freshen_leaves_a_stale_leg_alone_when_cboe_fails():
          "vix3m": pd.Series(21.0, index=idx[:60])}
     out = freshen_vol_indices(h, fetch=lambda sym: None)
     assert out["vix3m"].equals(h["vix3m"])         # stale -> fragility_index treats as missing
+
+
+# ---------------------------------------------------------------------------
+# IMP-5.3 — the PIT Elevated cut and its gate (result: FAIL, KB-030; the static
+# cut stays; this harness is the reproducible record of why)
+# ---------------------------------------------------------------------------
+
+def test_pit_elevated_flag_uses_strictly_prior_readings():
+    idx = pd.date_range("2020-01-01", periods=300, freq="B")
+    comp = pd.Series(np.linspace(0.0, 50.0, 300), index=idx)
+    out = pit_elevated_flag(comp, min_warmup=252)
+    # Days 0..251 warm the cut; the first labelled day has exactly 252 priors.
+    assert len(out) == 48 and out.index[0] == idx[252]
+    # A monotone series is always above the 90th pct of what came before it,
+    # and the cut never sees today's value.
+    assert out["elevated"].all()
+    assert (out["cut"] < comp.reindex(out.index)).all()
+
+
+def test_pit_elevated_flag_masks_degraded_days_out_of_label_and_history():
+    idx = pd.date_range("2020-01-01", periods=300, freq="B")
+    vals = np.linspace(0.0, 50.0, 300)
+    vals[100:120] = np.nan          # degraded stretch inside the warm-up
+    vals[260] = np.nan              # a degraded day inside the evaluable window
+    comp = pd.Series(vals, index=idx)
+    out = pit_elevated_flag(comp, min_warmup=252)
+    # 21 NaN priors -> warm-up completes 21 readings later; the NaN day is not labelled.
+    assert out.index[0] == idx[273]
+    assert idx[260] not in out.index
+    assert len(out) == 300 - 273
+
+
+def test_pit_elevated_flag_empty_below_warmup():
+    idx = pd.date_range("2020-01-01", periods=100, freq="B")
+    out = pit_elevated_flag(pd.Series(np.arange(100.0), index=idx), min_warmup=252)
+    assert out.empty and list(out.columns) == ["cut", "elevated"]
+
+
+def _gate_histories(n: int = 700) -> dict:
+    # Calm tape with two planted vol explosions so both cuts have something to
+    # fire on after the 252-reading warm-up (walk needs _MIN_HISTORY first).
+    rng = np.random.default_rng(7)
+    out = {}
+    for i, name in enumerate(["sp500", "nasdaq", "gold", "wti_oil"]):
+        r = rng.normal(0, 0.006, n)
+        r[400:440] *= 5.0
+        r[600:640] *= 5.0
+        out[name] = _returns_to_close(r + (0.0 if i else -0.002 * (np.arange(n) >= 410) * (np.arange(n) < 425)))
+    idx = out["sp500"].index
+    out["vix"] = pd.Series(18.0, index=idx)
+    out["vix3m"] = pd.Series(19.0, index=idx)
+    return out
+
+
+def test_run_pit_cut_check_reports_the_gate_per_horizon(capsys):
+    report = run_pit_cut_check(_gate_histories(), horizons=(5,), min_warmup=252, tolerance=1)
+    assert set(report) >= {"n_readings", "n_pit_window", "pit_cut_today", "static_cut",
+                           "label_agreement", "horizons", "pass"}
+    h = report["horizons"][5]
+    assert set(h["episodes"]) == {"static_full", "static_window", "pit_window"}
+    # The gate is exactly |delta_caught| <= tolerance — nothing else decides it.
+    assert h["pass"] == (abs(h["delta_caught"]) <= 1)
+    assert report["pass"] == h["pass"]
+    assert "IMP-5.3 GATE" in capsys.readouterr().out
+
+
+def test_run_pit_cut_check_tolerance_is_the_only_knob():
+    # tolerance=0 can only make the gate stricter, never looser.
+    hist = _gate_histories()
+    loose = run_pit_cut_check(hist, horizons=(5,), tolerance=10)
+    strict = run_pit_cut_check(hist, horizons=(5,), tolerance=0)
+    assert loose["pass"] is True
+    assert strict["pass"] == (strict["horizons"][5]["delta_caught"] == 0)

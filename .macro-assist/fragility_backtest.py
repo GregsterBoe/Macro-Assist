@@ -35,6 +35,8 @@ walk_forward_fragility(histories, ...)       -> DataFrame
 auc(scores, labels)                          -> float
 evaluate(frag_df, labels, ...)               -> dict
 run_backtest(...)                            -> dict   (fetches yfinance, prints)
+pit_elevated_flag(composite)                -> DataFrame  (IMP-5.3 PIT Elevated cut)
+run_pit_cut_check(...)                      -> dict   (IMP-5.3 gate; `python fragility_backtest.py pit-cut`)
 """
 from __future__ import annotations
 
@@ -45,7 +47,7 @@ from typing import Callable, Optional
 import numpy as np
 import pandas as pd
 
-from fragility import fragility_index, _VOL_KEYS
+from fragility import fragility_index, pit_label_cuts, _VOL_KEYS, _LABEL_ELEVATED, _PIT_WARMUP
 
 # Trailing window passed to fragility_index each step. Was 180 (correlation's
 # 2*window=120 + buffer). Raised to 300 for WP-16.A.6: the absorption_ratio
@@ -751,6 +753,150 @@ def run_weight_ablation(
     return out
 
 
+# ---------------------------------------------------------------------------
+# IMP-5.3 — the composite label cut in expanding-PIT form.
+# The Elevated label is a static 56.5 (the 90th pct of the whole 2008-2026
+# composite, KB-002); the OR flag's channels each fire against the 90th pct of
+# their OWN prior readings (fragility_or). Two flags in one note on two
+# threshold methods. The gate, written before the run: re-walk 2008-2026 with
+# the PIT cut (warm-up 252) and the episode recall/precision must reproduce the
+# static cut within ±1 crisis per horizon on the same evaluable window — the
+# KB-017 [2]-vs-[3] comparison, applied to the composite label. If it does not,
+# the static cut stays and the discrepancy is a KB entry.
+# ---------------------------------------------------------------------------
+
+def pit_elevated_flag(
+    composite: pd.Series,
+    min_warmup: int = _PIT_WARMUP,
+) -> pd.DataFrame:
+    """Expanding-PIT Elevated flag on a walked composite series.
+
+    Day i fires if its reading is at/above `fragility.pit_label_cuts` fitted on
+    all finite readings strictly before i. NaN readings (degraded days) are
+    neither labelled nor admitted to the history. Returns a DataFrame on the
+    evaluable window only (days with >= `min_warmup` prior readings) with
+    columns `cut` (that day's PIT Elevated threshold) and `elevated` (bool).
+    """
+    comp = pd.Series(composite).astype(float)
+    arr = comp.to_numpy(dtype=float)
+    rows: list[tuple] = []
+    for i in range(len(arr)):
+        if not np.isfinite(arr[i]):
+            continue
+        cuts = pit_label_cuts(arr[:i], warmup=min_warmup)
+        if cuts is None:
+            continue
+        rows.append((comp.index[i], cuts["elevated"], bool(arr[i] >= cuts["elevated"])))
+    if not rows:
+        return pd.DataFrame(columns=["cut", "elevated"])
+    out = pd.DataFrame(rows, columns=["date", "cut", "elevated"]).set_index("date")
+    out["elevated"] = out["elevated"].astype(bool)
+    return out
+
+
+def run_pit_cut_check(
+    histories: Optional[dict] = None,
+    threshold: float = 0.05,
+    horizons: tuple[int, ...] = (5, 10),
+    start: str | None = "2008-01-01",
+    min_warmup: int = _PIT_WARMUP,
+    tolerance: int = 1,
+) -> dict:
+    """IMP-5.3 gate: does the expanding-PIT Elevated cut reproduce the static
+    (KB-002) cut's episode recall/precision? Three rows per horizon:
+
+      [1] static cut, full window      — the KB-002 reference (14/46, 17/58 as run 2026-06)
+      [2] static cut, PIT window       — same cut, restricted to the days the PIT
+                                          protocol can label (isolates window-shrink)
+      [3] PIT cut,    PIT window       — the candidate
+
+    The gate compares [2] and [3]: `pass` iff |caught[3] - caught[2]| <= `tolerance`
+    at every horizon. Also reports label agreement day-by-day and where the PIT
+    cut sits today against the static 56.5. Returns the full report dict.
+    """
+    if histories is None:
+        print(f"Fetching daily history from yfinance (start={start}, no API cost)...")
+        histories = fetch_histories(start=start)
+
+    print("Walking fragility index forward (pure compute, no LLM)...")
+    walk = walk_forward_fragility(histories)
+    if walk.empty:
+        print("No fragility readings could be computed — insufficient history.")
+        return {}
+    comp = walk["composite"].astype(float)
+    if "degraded" in walk.columns:
+        comp = comp.where(~walk["degraded"].astype(bool))
+    n_degraded = int(walk["degraded"].astype(bool).sum()) if "degraded" in walk.columns else 0
+
+    pit = pit_elevated_flag(comp, min_warmup=min_warmup)
+    if pit.empty:
+        print("PIT window is empty — not enough readings to warm the cut.")
+        return {}
+    static_full = (walk["label"] == "Elevated")
+    static_win = static_full.reindex(pit.index).fillna(False).astype(bool)
+    pit_win = pit["elevated"]
+
+    agree = float((static_win == pit_win).mean())
+    print(f"  {len(walk)} readings {walk.index[0].date()}..{walk.index[-1].date()} "
+          f"({n_degraded} degraded, masked)")
+    print(f"  PIT evaluable window: {len(pit)} readings from {pit.index[0].date()} "
+          f"(first {min_warmup} warm the cut)")
+    print(f"  PIT Elevated cut today: {pit['cut'].iloc[-1]:.1f}  "
+          f"(range {pit['cut'].min():.1f}..{pit['cut'].max():.1f}; static {_LABEL_ELEVATED})")
+    print(f"  Day-level label agreement (static vs PIT, Elevated or not): {agree:.1%}  "
+          f"static fires {int(static_win.sum())} days, PIT fires {int(pit_win.sum())} days\n")
+
+    sp500 = pd.Series(histories["sp500"]).astype(float)
+    report: dict = {
+        "n_readings": int(len(walk)), "n_degraded": n_degraded,
+        "n_pit_window": int(len(pit)), "pit_window_start": str(pit.index[0].date()),
+        "pit_cut_today": float(pit["cut"].iloc[-1]),
+        "pit_cut_min": float(pit["cut"].min()), "pit_cut_max": float(pit["cut"].max()),
+        "static_cut": _LABEL_ELEVATED, "label_agreement": round(agree, 4),
+        "horizons": {}, "tolerance": tolerance,
+    }
+    all_pass = True
+    for h in horizons:
+        labels = drawdown_label(sp500, threshold=threshold, horizon=h)
+        rows = {
+            "static_full":   episode_scoring(static_full, labels),
+            "static_window": episode_scoring(static_win, labels),
+            "pit_window":    episode_scoring(pit_win, labels),
+        }
+        pit_df = walk.reindex(pit.index).copy()
+        pit_df["label"] = np.where(pit_win.to_numpy(), "Elevated", "Normal")
+        leads = {
+            "static_window": lead_time_stats(sp500, walk.reindex(pit.index), threshold, h),
+            "pit_window":    lead_time_stats(sp500, pit_df, threshold, h),
+        }
+        d_caught = rows["pit_window"]["n_caught"] - rows["static_window"]["n_caught"]
+        ok = abs(d_caught) <= tolerance
+        all_pass = all_pass and ok
+        report["horizons"][h] = {"episodes": rows, "lead_time": leads,
+                                 "delta_caught": int(d_caught), "pass": bool(ok)}
+
+        print(f"=== Horizon {h} trading days, drawdown >= {threshold:.0%} ===")
+        for tag, es in rows.items():
+            lt = leads.get(tag)
+            lead_s = ""
+            if lt and lt["n_true_pos"]:
+                lead_s = f"  median lead {lt['median_lead']:.0f}d ({lt['pct_lead_ge_3']:.0%} >=3d)"
+            print(f"  {tag:<14} caught {es['n_caught']:>2}/{es['n_episodes']:<2} "
+                  f"recall={es['episode_recall']}  alarms={es['n_alarms']:<3} "
+                  f"precision={es['alarm_precision']}{lead_s}")
+        print(f"  -> PIT vs static on the same window: {d_caught:+d} crises "
+              f"({'within' if ok else 'OUTSIDE'} ±{tolerance})\n")
+
+    report["pass"] = bool(all_pass)
+    print("------------------------------------------------------------")
+    print("IMP-5.3 GATE: " + ("PASS — the PIT cut reproduces the static cut; the label "
+                              "can move to the OR flag's method."
+                              if all_pass else
+                              "FAIL — the static cut stays; log the discrepancy as a KB entry."))
+    print("------------------------------------------------------------")
+    return report
+
+
 def _print_verdict(results: dict) -> None:
     """Plain-English go/no-go based on composite AUC and best flag lift."""
     aucs = [r["auc"]["composite"] for r in results.values() if r.get("auc", {}).get("composite") is not None]
@@ -781,4 +927,8 @@ def _print_verdict(results: dict) -> None:
 
 
 if __name__ == "__main__":
-    run_backtest()
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "pit-cut":
+        run_pit_cut_check()
+    else:
+        run_backtest()

@@ -11,9 +11,26 @@ questions.
 
 > **Carried-forward caveats stay in `todo.md`.** Several items below closed *with*
 > a trade-off attached. Those trade-offs are live entries in `todo.md` (#2b, #3b,
-> #5b, #1b, #6b) — resolving an item never silently absorbs its cost.
+> #5b, #1b, #6b, #14b) — resolving an item never silently absorbs its cost.
 
 ---
+
+## Fragility monitor
+
+### RESOLVED 2026-09-13 — #14 the composite's label cut stays static (IMP-5.3, negative)
+**Resolution: measured, and the answer is no → [KB-030].** The question was
+whether the composite's `Elevated` cut (static 56.5, the full-sample 90th pct
+from [KB-002]) should move to the expanding-PIT rule the OR flag applies to each
+of its channels, so the note's two fragility flags share one method. The gate
+was pre-registered: re-walk 2008–2026 with the PIT cut (warm-up 252) and
+reproduce the static cut's episode recall within ±1 crisis per horizon on the
+same window. It lost **2 crises at both horizons** and gained none. The reason is
+structural, not noise: the composite's first 252 readings *are* the GFC, so the
+expanding 90th percentile starts near 92 and takes until ~2017 to fall to 56.5 —
+June 2010 sits at 64–74 against a cut near 80. Two threshold methods in one note
+is now a documented asymmetry with a measured reason. The harness stays
+(`python fragility_backtest.py pit-cut`); the live label does not consult it.
+The frozen-`vix_term` caveat that rode along with #14 stays in `todo.md` as #14b.
 
 ## Tooling
 
