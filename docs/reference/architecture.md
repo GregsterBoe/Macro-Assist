@@ -16,6 +16,7 @@ Macro Pipeline · stage 2 (Mon–Fri, one run per external cron call)
   │
   ├── fetch FRED macro indicators (16 series, 5yr history each)
   ├── fetch market prices + technicals (yfinance, 90d history)
+  ├── fetch 5y close history for the HAR-RV assets (yfinance; KB-033)
   ├── fetch sector ETF fundamentals (11 ETFs + holdings P/E)
   ├── fetch COT positioning (CFTC direct download, no API key)
   ├── fetch economic calendar (BLS + hardcoded FOMC dates)

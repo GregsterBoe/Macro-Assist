@@ -14,7 +14,7 @@ Conventions:
   reasoning intact, and pull any "carry forward" caveat back up into this file
   as its own entry. A resolved item left here is noise; a lost caveat is worse.
 
-Last reviewed: 2026-09-13 (#18 WP-18.4's missing metric, from the archive pass; #17 the HAR-RV fit window from [KB-033]; #16 the CORR shadow flag IMP-7 admitted and did not wire, [KB-032]; #15 the turbulence-only hindsight read from [KB-031],
+Last reviewed: 2026-09-13 (#17 the HAR-RV fit window landed → `resolved.md`; #18 WP-18.4's missing metric, from the archive pass; #16 the CORR shadow flag IMP-7 admitted and did not wire, [KB-032]; #15 the turbulence-only hindsight read from [KB-031],
 open decision; #13 `hy_spread` mean-window caveat from [KB-028]; #14
 IMP-5.3 added from [KB-029] and closed the same day → `resolved.md`, [KB-030]).
 Prior: 2026-09-12 (#12 GitHub Pages closed → `resolved.md`);
@@ -244,33 +244,6 @@ next OR-admission bar (with its lead clause, [KB-032] "what it changes") is run
 on a shift-form correlation measure and that admits on a crisis with lead. Cost
 of wiring if ever wanted: a CORR channel in `build_channels`, an `or_corr`
 boolean in the OR reading's JSONL log, tests; no prompt exposure, no bump.
-
-### Open decision #17 — The HAR-RV fit window is a measured wiring defect; fixing it touches the note, the sizer and the sealed `har_gaussian` comparator
-**Where:** `.macro-assist/market_data.py` (`fetch_market_data`, `period="90d"`),
-`quant_context.py` (`_VOL_ASSETS` loop, both the note block and the JSONL raw
-block), `portfolio/rebalance.py` (`fetch_prices_and_har`, `lookback_days=130`),
-`vol_forecast.py` (`max(0, ·)` clip) · **Source:** [KB-033]. The note's vol
-forecast is an OLS of four parameters on the ~50–70 rows a `period="90d"` fetch
-leaves after lagging. Walk-forward it is `degenerate` on every asset at every
-wired window (zero forecasts on 1.5–7 % of readings; QLIKE 1.5–4× the trailing
-month's), and the note has printed `0.0% ann-vol` — with `VRP = VIX − 0
-(Normal)` attached — on 7 of 76 S&P and 10 of 76 Bitcoin dates. Fit on 1000
-returns the same function is `skill` on SP500, Gold and Bitcoin, so the
-pre-registered wiring rule fired. **The fix is two lines and one guard:** fetch
-≥ 1000 returns (`period="5y"`) for the vol-forecast history in `market_data` —
-keep the 90d history for RSI/MA, or slice it — and `lookback_days≈1500` in
-`rebalance`; and treat a non-positive forecast as *no forecast* (omit the line,
-skip the VRP, `None` to the sizer) rather than printing it. **Why it is a
-decision, not a fix:** it changes the published number from the day it lands,
-the σ every position is sized off, and the Phase 22 `har_gaussian` comparator
-on the sealed record ([KB-033] nuance (d)) — the same shape as [KB-028]'s
-conditioner change, which was named against the seal in WP-22.C rather than
-slipped in. Landing it means a dated line in WP-22.C and the board, the JSONL
-log dating the switch itself (the number roughly stops being zero), no version
-bump (a fit-window correction, not a capability change). Not landing it means
-the note keeps publishing a number with measured negative skill. Recommended:
-land it, dated, before the 2026-10-02 wind-down touches `pipeline.yml`, so the
-two changes are not confounded in the log.
 
 ### Open decision #18 — WP-18.4 (input ablation) has had no outcome metric since v1.6
 **Where:** `roadmap.md` Phase 18 (hard-gate paragraph, rewritten on the

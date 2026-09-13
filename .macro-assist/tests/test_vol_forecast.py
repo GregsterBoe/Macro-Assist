@@ -14,7 +14,9 @@ import pandas as pd
 import pytest
 
 from synthetic import synthetic_garch
-from vol_forecast import har_rv_forecast, variance_risk_premium
+from vol_forecast import (
+    HAR_MIN_RETURNS, har_forecast_or_none, har_rv_forecast, variance_risk_premium,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -52,6 +54,75 @@ def test_har_rv_reproducible():
     r2 = har_rv_forecast(r)
     assert r1["forecast_daily_vol"] == r2["forecast_daily_vol"]
     assert r1["r_squared"] == r2["r_squared"]
+
+
+# ---------------------------------------------------------------------------
+# The live-consumer gate (KB-033 → todo #17): window length and the zero clip
+# ---------------------------------------------------------------------------
+
+def test_har_min_returns_is_the_window_kb033_found_skilled():
+    """1000 is the counterfactual window [KB-033] read as `skill` on SP500 /
+    Gold / Bitcoin; 62–252 were `degenerate` or `parity`. Moving this number
+    is a re-read of the harness, not an edit."""
+    assert HAR_MIN_RETURNS == 1000
+
+
+def test_gate_refuses_every_old_wired_window():
+    rng = np.random.default_rng(3)
+    for n in (62, 90, 130, 252, HAR_MIN_RETURNS - 1):
+        assert har_forecast_or_none(pd.Series(rng.normal(0, 0.01, n))) is None
+    assert har_forecast_or_none(None) is None
+
+
+def test_gate_passes_a_long_positive_forecast_through_unchanged():
+    rng = np.random.default_rng(4)
+    r = pd.Series(rng.normal(0, 0.01, HAR_MIN_RETURNS))
+    fc = har_forecast_or_none(r)
+    assert fc is not None
+    assert fc == har_rv_forecast(r)
+    assert fc["forecast_daily_vol"] > 0
+
+
+def test_gate_turns_a_clipped_zero_forecast_into_none(monkeypatch):
+    """The `max(0, ·)` clip inside `har_rv_forecast` is documented; nothing
+    downstream honoured it. The gate is where it becomes an absence."""
+    import vol_forecast as _vf
+    real = _vf.har_rv_forecast
+    monkeypatch.setattr(
+        _vf, "har_rv_forecast",
+        lambda r, horizon=5: {**real(r, horizon), "forecast_daily_vol": 0.0},
+    )
+    rng = np.random.default_rng(6)
+    assert har_forecast_or_none(pd.Series(rng.normal(0, 0.01, 1200))) is None
+
+
+def test_fetch_vol_histories_uses_the_long_period_and_omits_failures(monkeypatch):
+    """`market_data.fetch_vol_histories` fetches `VOL_HISTORY_PERIOD` for the
+    four published vol assets only, and a failed ticker is *absent* — never
+    substituted by a shorter window."""
+    import market_data as md
+    seen: list[tuple[str, str]] = []
+
+    def fake_snapshot(ticker, period):
+        seen.append((ticker, period))
+        if ticker == "CL=F":
+            return None, None
+        return {"price": 1.0}, pd.Series(np.linspace(1, 2, 1300))
+    monkeypatch.setattr(md, "_ticker_snapshot", fake_snapshot)
+
+    out = md.fetch_vol_histories()
+    assert set(out) == {"sp500", "gold", "bitcoin"}
+    assert md.VOL_HISTORY_ASSETS == ("sp500", "gold", "wti_oil", "bitcoin")
+    assert {p for _, p in seen} == {md.VOL_HISTORY_PERIOD}
+    assert {t for t, _ in seen} == {md.MARKET_TICKERS[k] for k in md.VOL_HISTORY_ASSETS}
+    assert all(len(v) >= HAR_MIN_RETURNS + 1 for v in out.values())
+
+
+def test_vol_history_assets_match_the_published_block():
+    """The fetch list and the note's `_VOL_ASSETS` must not drift apart."""
+    import market_data as md
+    from quant_context import _VOL_ASSETS
+    assert tuple(k for k, _ in _VOL_ASSETS) == md.VOL_HISTORY_ASSETS
 
 
 def test_vrp_no_history_neutral():

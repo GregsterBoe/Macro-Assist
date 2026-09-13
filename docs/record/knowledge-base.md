@@ -3059,7 +3059,11 @@ benchmarks, MSE, calibration) is the harness output.
   the sealed `har_gaussian` comparator, so it is **an open decision, not a
   silent fix → `todo.md` #17**, per the pre-registration. Not a version bump on
   its own (a fit-window correction, not a capability change); the seal note is
-  the cost.
+  the cost. *Landed 2026-09-13 → `resolved.md` #17:* separate 5y fetch
+  (`market_data.fetch_vol_histories`), sizer lookback 130 → 1600 calendar days,
+  and `vol_forecast.har_forecast_or_none` gates every live consumer at
+  `HAR_MIN_RETURNS = 1000` and `forecast > 0`. First note on the new window
+  2026-09-14; named against the seal in WP-22.C.
 - **`test_vol_forecast.py`'s "outperforms naive" tests are not a skill claim
   about the live number** and should not be cited as one. The walk-forward
   read is `har_backtest.py`.

@@ -2,6 +2,14 @@
 har_backtest.py — WP-17.5 (second half): walk-forward skill read of the HAR-RV
 vol forecast as it is wired into the note and the sizer.
 
+The wiring described below is the one this read measured ([KB-033]) and is
+kept verbatim as its record. It was changed on 2026-09-13 (`todo.md` #17 →
+`resolved.md`): the note fits on a separate 5y fetch
+(`market_data.fetch_vol_histories`), the sizer on 1600 calendar days
+(`rebalance.HAR_LOOKBACK_DAYS`), and `vol_forecast.har_forecast_or_none`
+refuses fewer than `HAR_MIN_RETURNS` = 1000 returns or a non-positive forecast.
+The `FIT_WINDOWS` here still cover the old wired range so the read reproduces.
+
 Why this exists
 ---------------
 `vol_forecast.har_rv_forecast` has been in the note since Phase 9, became the
@@ -40,8 +48,10 @@ disqualifier, the two secondary reads and the prior — is in `roadmap.md`
 
 Result → [KB-033] (2026-09-13): `degenerate` on every instrument at every wired
 window; the 1000-day fit is `skill` on SP500 / Gold / Bitcoin, so the fetch
-period is a wiring defect → `todo.md` #17. Not fixed here: it changes published
-numbers, the sizer's σ and Phase 22's sealed `har_gaussian` comparator.
+period is a wiring defect → `todo.md` #17, landed 2026-09-13 (see the note at
+the top; `resolved.md` #17). Not fixed *here*: it changed published numbers,
+the sizer's σ and Phase 22's sealed `har_gaussian` comparator, and was dated
+against the seal in WP-22.C.
 
 Public functions
 ----------------

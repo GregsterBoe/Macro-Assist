@@ -131,6 +131,37 @@ def test_build_asset_signals_maps_universe_and_inverts_10y():
     assert by["Bitcoin"].cond_sigma_annual is None
 
 
+def test_har_sigma_from_returns_applies_the_kb033_gate(monkeypatch):
+    """Short history → None; clipped-zero forecast → None (the sizer then falls
+    back to the conditional σ instead of flooring a 2 %-vol instrument)."""
+    import numpy as np
+    import pandas as pd
+    import vol_forecast as _vf
+    from portfolio.rebalance import har_sigma_from_returns
+
+    rng = np.random.default_rng(0)
+    assert har_sigma_from_returns(pd.Series(rng.normal(0, 0.01, 90))) is None
+    long = pd.Series(rng.normal(0, 0.01, 1200))
+    s = har_sigma_from_returns(long)
+    assert s is not None and 0.0 < s < 1.0
+    real = _vf.har_rv_forecast
+    monkeypatch.setattr(
+        _vf, "har_rv_forecast",
+        lambda r, horizon=5: {**real(r, horizon), "forecast_daily_vol": 0.0},
+    )
+    assert har_sigma_from_returns(long) is None
+
+
+def test_sizer_lookback_delivers_har_min_returns_with_margin():
+    """1600 calendar days must yield ≥ HAR_MIN_RETURNS closes on a 5-day
+    instrument even in a heavy-holiday stretch (≈ 250 sessions / year)."""
+    from portfolio.rebalance import HAR_LOOKBACK_DAYS, fetch_prices_and_har
+    import inspect
+    from vol_forecast import HAR_MIN_RETURNS
+    assert inspect.signature(fetch_prices_and_har).parameters["lookback_days"].default == HAR_LOOKBACK_DAYS
+    assert HAR_LOOKBACK_DAYS * 250 / 365.25 >= HAR_MIN_RETURNS + 50
+
+
 def test_equal_vol_weights_are_inverse_vol_and_sum_to_one():
     w = equal_vol_weights({"A": 0.10, "B": 0.20})
     assert w["A"] == pytest.approx(2 / 3)   # lower vol -> larger weight

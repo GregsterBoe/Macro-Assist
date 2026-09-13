@@ -36,6 +36,7 @@ from market_data import (
     MARKET_TICKERS, MARKET_LABELS, SECTOR_TICKERS, SECTOR_LABELS,
     SECTOR_PE_REFERENCE, SECTOR_HOLDINGS, _TECHNICAL_ASSETS,
     fetch_equity_momentum, fetch_market_data, fetch_sector_data, fetch_sector_fundamentals,
+    fetch_vol_histories,
     detect_notable_moves, compute_technicals, format_technicals_block, fetch_cot_data,
 )
 from calendar_events import fetch_upcoming_events, _check_fomc_dates_expiry
@@ -63,7 +64,7 @@ __all__ = [
     "MARKET_TICKERS", "MARKET_LABELS", "SECTOR_TICKERS", "SECTOR_LABELS",
     "SECTOR_PE_REFERENCE", "SECTOR_HOLDINGS", "_TECHNICAL_ASSETS",
     "fetch_equity_momentum", "fetch_market_data", "fetch_sector_data", "fetch_sector_fundamentals",
-    "detect_notable_moves", "compute_technicals", "format_technicals_block", "fetch_cot_data",
+    "fetch_vol_histories", "detect_notable_moves", "compute_technicals", "format_technicals_block", "fetch_cot_data",
     # calendar
     "fetch_upcoming_events", "_check_fomc_dates_expiry",
     # config
@@ -311,6 +312,14 @@ def _run_fetch_check() -> int:
         failures.append("Market")
         market_data, histories = {}, {}
 
+    # --- Long history for the HAR-RV fit (KB-033) ---
+    try:
+        vol_histories = fetch_vol_histories()
+        _log("CHECK", "OK", f"Vol history: {len(vol_histories)} tickers")
+    except Exception as e:
+        _log("CHECK", "WARN", f"Vol history: {e}")
+        vol_histories = {}
+
     # --- Validation ---
     try:
         validate_data(fred_data, market_data)
@@ -379,6 +388,7 @@ def _run_fetch_check() -> int:
                 {**fred_data, **quant_inputs}, today.date(),
                 market_data=market_data,
                 histories=histories,
+                vol_histories=vol_histories,
             )
             if qc:
                 _log("CHECK", "OK", "Quant context: vol forecasts + regime + conditionals built")
@@ -450,6 +460,14 @@ def main():
     quant_inputs = fetch_quant_inputs(fred)
 
     market_data, histories = fetch_market_data()
+    # Long (5y) history for the HAR-RV fit — separate from the 90d `histories`
+    # the technicals and fragility consumers see (KB-033). Best-effort: a failed
+    # fetch drops the vol line rather than fitting on the short window.
+    try:
+        vol_histories = fetch_vol_histories()
+    except Exception as _vh_exc:
+        _log("VOLHIST", "WARN", f"vol history skipped: {type(_vh_exc).__name__}: {_vh_exc}")
+        vol_histories = {}
 
     validate_data(fred_data, market_data)
 
@@ -478,6 +496,7 @@ def main():
             {**fred_data, **quant_inputs}, today.date(),
             market_data=market_data,
             histories=histories,
+            vol_histories=vol_histories,
         )
         if quant_context:
             _log("QUANT", "OK", "quantitative context block built")
@@ -498,6 +517,7 @@ def main():
                 {**fred_data, **quant_inputs}, today.date(),
                 market_data=market_data,
                 histories=histories,
+                vol_histories=vol_histories,
             )
             if _raw:
                 quant_raw = _raw

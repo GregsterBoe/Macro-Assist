@@ -15,6 +15,68 @@ questions.
 
 ---
 
+## Pipeline / accuracy
+
+### RESOLVED 2026-09-13 — #17 the HAR-RV fit window is fixed, dated against the seal
+**Resolution: landed, as recommended — the same day it was opened, with zero
+Phase 22 interval observations resolved.** [KB-033] measured the note's vol
+forecast walk-forward at the window the live callers handed it (`period="90d"`
+→ 74–90 closes; the sizer 130 calendar days): a four-parameter OLS on ~50–70
+rows, `degenerate` on every asset, coefficient signs random, and `0.0% ann-vol`
+published on 7 of 76 S&P and 10 of 76 Bitcoin dates with `VRP = VIX − 0
+(Normal)` attached. Fit on 1000 returns the same function is `skill` on SP500,
+Gold and Bitcoin, so the pre-registered wiring rule fired: the fetch was the
+defect, not the model.
+
+**What landed** (`.macro-assist/`):
+- `vol_forecast.HAR_MIN_RETURNS = 1000` and `har_forecast_or_none(returns)` —
+  the one gate every live consumer goes through: fewer than 1000 returns, or a
+  non-positive OLS forecast (the `max(0, ·)` clip fired), is *no forecast*.
+  `har_rv_forecast` itself keeps its 30-return floor so `har_backtest.py`
+  still reproduces the short windows.
+- `market_data.fetch_vol_histories()` — a separate `period="5y"` fetch for the
+  four published vol assets (≈ 1,255 closes on the equity-hours tickers,
+  ≈ 1,830 on Bitcoin). The 90d `histories` the technicals, notable-moves and
+  fragility consumers see is **unchanged**, so nothing else in the note moved.
+- `quant_context.build_quant_context` / `collect_quant_raw` take
+  `vol_histories`; `collect_and_analyze` passes it in both the check and the
+  main path. A gated asset gets no note line (SP500: no VRP either) and no
+  `vol_forecasts` entry in the quant log — which is what
+  `score_distributions.logged_har_sigma` already read a zero as.
+- `portfolio/rebalance.HAR_LOOKBACK_DAYS = 1600` (was 130) and
+  `har_sigma_from_returns` returns `None` through the gate, so the sizer falls
+  back to the conditional σ rather than flooring a zero to a 2 %-vol
+  instrument. Inert while the sizer is dormant (v1.6 withdrew its input);
+  correct when it is revived.
+- 12 tests: the gate refuses 62/90/130/252/999 and passes 1000; a clipped zero
+  drops the line, the VRP and the log entry; the 90d `histories` alone can
+  never produce a vol block; the fetch list and `_VOL_ASSETS` cannot drift; the
+  sizer's lookback clears 1000 closes with a holiday margin.
+
+**Why it was a decision and how the cost was paid.** It changes the published
+number from 2026-09-14, the σ every position would be sized off, and the Phase
+22 `har_gaussian` comparator on the sealed record. That is the shape of
+[KB-028]'s conditioner change and it was handled the same way: a dated
+paragraph in WP-22.C, the board row, the five sealed dates 2026-09-07 → 09-11
+kept with their old-window σ, and the quant log dating the switch by itself
+(the zeros stop). It is a comparator's input, not the bar or the published arm
+— a better rival makes the table's job harder, so it cannot be read as a move
+in the product's favour. No version bump: a fit-window correction, not a
+capability change. Landed before the 2026-10-02 wind-down touches
+`pipeline.yml` so the two are not confounded in the log.
+
+**What the number did on the day.** On 2026-09-13's tape the 90d fit said
+12.3 / 27.0 / 62.0 / 26.8 % (SP500 / Gold / WTI / Bitcoin); the 5y fit says
+13.0 / 19.8 / 45.1 / 35.3 %, against a trailing month of 8.8 / 22.7 / 39.3 /
+25.8 %. That is one reading, not a result — the skill number is [KB-033]'s.
+
+**Not done, deliberately.** `har_rv_forecast`'s clip and 30-return floor are
+untouched (the harness depends on them); `ewma94`, the best trailing rival in
+[KB-033] nuance (a), is not wired as a fallback — a gated asset publishes
+nothing rather than a different model under the same label. The horizon read
+(IID scaling right in variance, wrong in shape at 5d) is unchanged by the
+window and is not acted on here.
+
 ## Fragility monitor
 
 ### RESOLVED 2026-09-13 — #14 the composite's label cut stays static (IMP-5.3, negative)

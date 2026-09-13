@@ -115,8 +115,11 @@ has to be run, not inferred.
 built from** ([KB-033]). A four-parameter OLS on the ~50–70 rows a `period="90d"`
 fetch leaves after lagging; coefficient signs random, zero forecasts on 1.5–7 %
 of readings, and `0.0% ann-vol` published on 9 % of S&P and 13 % of Bitcoin
-note dates. The model is fine at four years of history — the fetch is the
-defect, and fixing it is an open decision because it touches the sealed record.
+note dates. The model is fine at four years of history — the fetch was the
+defect. Fixed 2026-09-13 (first note 2026-09-14): a separate 5y fetch, a 1000-return
+floor, and a non-positive forecast is now an absence rather than a printed zero.
+The change touches the sealed `har_gaussian` comparator and is dated against
+the seal in WP-22.C.
 
 ## Open — being measured now
 

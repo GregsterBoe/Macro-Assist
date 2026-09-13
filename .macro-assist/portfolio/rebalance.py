@@ -298,14 +298,19 @@ def equal_vol_weights(sigmas: dict[str, float]) -> dict[str, float]:
 # HAR-RV σ from a return series (thin wrapper; lazy import)
 # ---------------------------------------------------------------------------
 def har_sigma_from_returns(returns) -> Optional[float]:
-    """Annualized HAR-RV σ (fraction) from a daily log-return series, or None
-    if there isn't enough history (needs ≥30 returns)."""
-    from vol_forecast import har_rv_forecast
+    """Annualized HAR-RV σ (fraction) from a daily log-return series, or None.
+
+    None when the series is shorter than `vol_forecast.HAR_MIN_RETURNS` or the
+    OLS forecast is non-positive — the sizer then leans on the conditional σ
+    ([KB-033]: at the old 130-day window the 2026-08-31 book sized Bitcoin off a
+    σ of 15.6 % against a trailing month of 42 %, and a zero forecast was floored
+    to a 2 %-vol instrument).
+    """
+    from vol_forecast import har_forecast_or_none
     from portfolio.sizing import har_sigma_annual_from_forecast
 
-    try:
-        fc = har_rv_forecast(returns)
-    except ValueError:
+    fc = har_forecast_or_none(returns)
+    if fc is None:
         return None
     return har_sigma_annual_from_forecast(fc)
 
@@ -490,7 +495,14 @@ def find_note(asof: date, arm: str, results_dir: Path = RESULTS_DIR) -> Optional
     return None
 
 
-def fetch_prices_and_har(asof: date, lookback_days: int = 130) -> tuple[dict[str, float], dict[str, float]]:
+# Calendar days of history the HAR-RV fit is handed. 1600 calendar days ≈ 1,100
+# closes on the equity-hours instruments — ≥ `vol_forecast.HAR_MIN_RETURNS`
+# (1000) with a holiday margin. Was 130 (≈ 90 closes), the window [KB-033]
+# measured as `degenerate` on every instrument in the book.
+HAR_LOOKBACK_DAYS = 1600
+
+
+def fetch_prices_and_har(asof: date, lookback_days: int = HAR_LOOKBACK_DAYS) -> tuple[dict[str, float], dict[str, float]]:
     """Fetch close prices at `asof` and HAR-RV σ per book instrument (yfinance)."""
     import numpy as np
     import pandas as pd
@@ -513,7 +525,7 @@ def fetch_prices_and_har(asof: date, lookback_days: int = 130) -> tuple[dict[str
             if col.empty:
                 continue
             prices[m.book_name] = float(col.iloc[-1])
-            if len(col) >= 32:
+            if len(col) >= 2:
                 returns = pd.Series(np.log(col.values[1:] / col.values[:-1]))
                 s = har_sigma_from_returns(returns)
                 if s is not None:

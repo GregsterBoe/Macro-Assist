@@ -40,8 +40,13 @@ from conditional import build_distribution_table, assign_bucket
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_histories(n: int = 200, seed: int = 0) -> dict:
-    """Synthetic Close price series for each tracked asset."""
+def _make_histories(n: int = 1100, seed: int = 0) -> dict:
+    """Synthetic Close price series for each tracked asset.
+
+    Default length clears `vol_forecast.HAR_MIN_RETURNS` (1000 returns) — the
+    shape `fetch_vol_histories()` hands the vol block since KB-033. Pass a
+    smaller `n` to stand in for the ~90d `fetch_market_data()` histories.
+    """
     rng = np.random.default_rng(seed)
     result = {}
     for key in ("sp500", "gold", "wti_oil", "bitcoin"):
@@ -123,9 +128,10 @@ class TestBuildQuantContext:
         output = build_quant_context(
             snap, date(2023, 1, 4),
             market_data=mdata,
-            histories=hist,
+            histories=_make_histories(n=90),
             regime_model=model,
             distribution_table=table,
+            vol_histories=hist,
         )
 
         assert "## Quantitative Context" in output
@@ -138,7 +144,8 @@ class TestBuildQuantContext:
         snap  = _make_snapshot()
         output = build_quant_context(
             snap, date(2023, 1, 4),
-            histories=hist,
+            histories=_make_histories(n=90),
+            vol_histories=hist,
         )
         assert isinstance(output, str)
 
@@ -163,11 +170,25 @@ class TestBuildQuantContext:
         output = build_quant_context(
             snap, date(2023, 1, 4),
             market_data=mdata,
-            histories=hist,
+            histories=_make_histories(n=90),
+            vol_histories=hist,
         )
         # Vol block should be present; regime and conditional may be absent
         if output:
             assert "**Volatility" in output
+
+    def test_pipeline_length_histories_alone_publish_no_vol_line(self, monkeypatch, tmp_path):
+        """KB-033: the ~90d `histories` the pipeline passes must never reach the
+        HAR fit — a caller that forgets `vol_histories` gets no vol block, not a
+        degenerate one. (Table isolated so only the vol block could render.)"""
+        import quant_context as _qc
+        monkeypatch.setattr(_qc, "DEFAULT_TABLE_PATH", tmp_path / "absent.json")
+        output = build_quant_context(
+            _make_snapshot(), date(2023, 1, 4),
+            market_data=_make_market_data(),
+            histories=_make_histories(n=90),
+        )
+        assert "**Volatility" not in output
 
     def test_no_histories_no_vol_block(self):
         """With no histories, the Volatility block is omitted."""
@@ -231,6 +252,80 @@ class TestBuildVolBlock:
         assert len(vals) > 0
         for v in vals:
             assert float(v) > 0
+
+    def test_empty_below_har_min_returns(self):
+        """KB-033: 999 returns is not enough; the block refuses the old wired
+        lengths (62–130 closes) by the same rule."""
+        from vol_forecast import HAR_MIN_RETURNS
+        snap = _make_snapshot()
+        assert _build_vol_block(snap, None, _make_histories(n=HAR_MIN_RETURNS)) == ""
+        assert _build_vol_block(snap, None, _make_histories(n=130)) == ""
+        assert "**Volatility" in _build_vol_block(snap, None, _make_histories(n=HAR_MIN_RETURNS + 1))
+
+    def test_zero_forecast_drops_line_and_vrp(self, monkeypatch):
+        """KB-033 nuance (e): a clipped-to-zero OLS forecast is an absence. The
+        asset gets no line and SP500 gets no `VRP = VIX − 0`; the other assets
+        still publish."""
+        import quant_context as _qc
+        import vol_forecast as _vf
+        real = _vf.har_rv_forecast
+        calls = {"n": 0}
+
+        def fake(returns, horizon=5):
+            calls["n"] += 1
+            fc = real(returns, horizon)
+            if calls["n"] == 1:              # first asset in _VOL_ASSETS is sp500
+                fc = {**fc, "forecast_daily_vol": 0.0, "forecast_horizon_vol": 0.0}
+            return fc
+        monkeypatch.setattr(_vf, "har_rv_forecast", fake)
+
+        block = _qc._build_vol_block(_make_snapshot(), _make_market_data(vix=20.0), _make_histories())
+        assert "SP500" not in block
+        assert "VRP" not in block
+        assert "0.0% ann-vol" not in block
+        assert "Gold" in block and "Bitcoin" in block
+
+    def test_zero_forecast_absent_from_raw_log(self, monkeypatch):
+        """Same rule on the JSONL side: `vol_forecasts` carries no entry for the
+        asset, which is what `score_distributions.logged_har_sigma` reads as
+        'no har_gaussian arm'."""
+        import vol_forecast as _vf
+        from quant_context import collect_quant_raw
+        real = _vf.har_rv_forecast
+        monkeypatch.setattr(
+            _vf, "har_rv_forecast",
+            lambda r, horizon=5: {**real(r, horizon), "forecast_daily_vol": 0.0},
+        )
+        raw = collect_quant_raw(
+            _make_snapshot(), date(2023, 1, 4),
+            market_data=_make_market_data(vix=20.0),
+            histories=_make_histories(n=90),
+            vol_histories=_make_histories(),
+            distribution_table={},
+        )
+        assert "vol_forecasts" not in raw
+
+    def test_raw_log_reads_vol_histories_not_histories(self):
+        """The JSONL block fits on the long series and ignores the 90d one."""
+        from quant_context import collect_quant_raw
+        raw = collect_quant_raw(
+            _make_snapshot(), date(2023, 1, 4),
+            market_data=_make_market_data(vix=20.0),
+            histories=_make_histories(n=90),
+            vol_histories=_make_histories(),
+            distribution_table={},
+        )
+        assert set(raw["vol_forecasts"]) == {"SP500", "Gold", "WTI Oil", "Bitcoin"}
+        assert raw["vol_forecasts"]["SP500"]["forecast_daily_vol"] > 0
+        assert "vrp" in raw["vol_forecasts"]["SP500"]
+        raw_short = collect_quant_raw(
+            _make_snapshot(), date(2023, 1, 4),
+            market_data=_make_market_data(vix=20.0),
+            histories=_make_histories(n=90),
+            vol_histories={},
+            distribution_table={},
+        )
+        assert "vol_forecasts" not in raw_short
 
 
 class TestBuildRegimeBlock:

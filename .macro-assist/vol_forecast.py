@@ -17,6 +17,16 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
+# Minimum returns a live consumer may fit HAR-RV on. [KB-033] read the function
+# walk-forward: `degenerate` on every asset at 62/90/130 returns (a four-parameter
+# OLS on a few dozen rows; zero forecasts on 1.5–7 % of readings), `parity` at
+# best at 252, `skill` on SP500 / Gold / Bitcoin at 1000. This is the number the
+# method asks for; the fetch periods in `market_data` and `portfolio/rebalance`
+# are sized to deliver it, and `har_forecast_or_none` refuses anything shorter.
+# `har_rv_forecast` itself keeps its 30-return floor so `har_backtest.py` can
+# still read the short windows.
+HAR_MIN_RETURNS = 1000
+
 
 def har_rv_forecast(returns: pd.Series, horizon: int = 5) -> dict:
     """
@@ -102,6 +112,26 @@ def har_rv_forecast(returns: pd.Series, horizon: int = 5) -> dict:
             "beta_m": float(params[3]),
         },
     }
+
+
+def har_forecast_or_none(returns: pd.Series) -> Optional[dict]:
+    """`har_rv_forecast` under the live-consumer gates, or None.
+
+    None when the history is shorter than `HAR_MIN_RETURNS` or when the OLS
+    forecast is non-positive (the `max(0, ·)` clip inside `har_rv_forecast`
+    fired). A zero forecast is an absence, not a number: before this guard the
+    note printed `0.0% ann-vol` with `VRP = VIX − 0` attached, and the sizer
+    floored it to a 2 %-vol instrument ([KB-033] nuance (e)). Every live caller
+    — the note block, the JSONL raw block, the paper-portfolio sizer — goes
+    through here; `score_distributions.logged_har_sigma` applies the same
+    `≤ 0 → no forecast` rule on the logged side.
+    """
+    if returns is None or len(returns) < HAR_MIN_RETURNS:
+        return None
+    fc = har_rv_forecast(returns)
+    if not fc["forecast_daily_vol"] > 0:
+        return None
+    return fc
 
 
 def variance_risk_premium(

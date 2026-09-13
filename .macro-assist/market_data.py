@@ -112,6 +112,15 @@ _TECHNICAL_ASSETS = {"sp500", "nasdaq", "gold", "wti_oil", "dxy", "bitcoin"}
 # sp500 50dMA already computed from 1y history in fetch_equity_momentum — skip recompute from 90d
 _SKIP_MA50 = {"sp500"}
 
+# Assets the HAR-RV vol forecast is published for (quant_context._VOL_ASSETS), and
+# the history it is fit on. Fetched separately from the 90d `histories` the
+# technicals / notable-move / fragility consumers see, so that window is
+# unchanged. [KB-033]: the forecast was fit on the 90d fetch and was `degenerate`
+# on every asset; 5y ≈ 1,250 closes clears `vol_forecast.HAR_MIN_RETURNS` (1000)
+# with margin on every ticker here.
+VOL_HISTORY_ASSETS: tuple[str, ...] = ("sp500", "gold", "wti_oil", "bitcoin")
+VOL_HISTORY_PERIOD = "5y"
+
 
 def _ticker_snapshot(ticker: str, period: str) -> tuple[dict | None, object]:
     """
@@ -187,6 +196,27 @@ def fetch_market_data() -> tuple[dict, dict]:
         data["sp500"]["momentum"] = momentum
 
     return data, histories
+
+
+def fetch_vol_histories() -> dict:
+    """Return {name → Close Series} over `VOL_HISTORY_PERIOD` for the HAR-RV assets.
+
+    Best-effort per ticker: a failed fetch omits that asset (the vol block then
+    publishes no line for it) rather than falling back to a shorter window.
+    """
+    histories: dict = {}
+    for name in VOL_HISTORY_ASSETS:
+        ticker = MARKET_TICKERS.get(name)
+        if ticker is None:
+            continue
+        _snapshot, close = _ticker_snapshot(ticker, VOL_HISTORY_PERIOD)
+        if close is not None:
+            histories[name] = close
+    _missing = [k for k in VOL_HISTORY_ASSETS if k not in histories]
+    _log("VOLHIST", "WARN" if _missing else "OK",
+         f"{len(histories)}/{len(VOL_HISTORY_ASSETS)} tickers @ {VOL_HISTORY_PERIOD}"
+         + (f" | missing: {', '.join(_missing)}" if _missing else ""))
+    return histories
 
 
 def fetch_sector_data() -> dict:

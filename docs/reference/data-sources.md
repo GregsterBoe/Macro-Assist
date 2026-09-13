@@ -34,7 +34,7 @@ Fetched via `fredapi`. 5-year history pulled per series to enable historical con
 
 ## Market Data
 
-90-day history fetched via `yfinance` to support technical indicators. 1-year history fetched separately for S&P 500 (200dMA). A `vix_term_ratio` (VIX / VIX3M) is computed to distinguish acute stress (backwardation) from anticipated volatility (contango).
+90-day history fetched via `yfinance` to support technical indicators. 1-year history fetched separately for S&P 500 (200dMA). A separate 5-year history (`fetch_vol_histories`, `VOL_HISTORY_PERIOD`) is fetched for the four HAR-RV assets — the vol forecast is fit on that, never on the 90d series. A `vix_term_ratio` (VIX / VIX3M) is computed to distinguish acute stress (backwardation) from anticipated volatility (contango).
 
 | Key | Ticker | Notes |
 |-----|--------|-------|
@@ -71,15 +71,24 @@ Heterogeneous AutoRegressive model for Realized Volatility. Uses daily/weekly/mo
 
 Output per asset: annualized daily vol forecast + 60d percentile.
 
-**Fit window and its measured consequence.** The forecast is fit on the same
-`period="90d"` history `market_data.py` fetches for RSI and the 50d MA — 74–90
-closes, ~50–70 OLS rows after lagging, and not pinned across yfinance versions.
-[KB-033] measured it walk-forward: `degenerate` on every asset (the clip
-returns a zero forecast on 1.5–7 % of readings, and the note prints it as
-`0.0% ann-vol` with `VRP = VIX − 0`), and worse than trailing 22-day realized
-vol at every horizon; fit on 1000 days it beats the trailing month on SP500,
-Gold and Bitcoin. Until `todo.md` #17 is decided the published number is not a
-measured σ. `har_backtest.py` is the read.
+**Fit window.** Fit on the separate `period="5y"` history
+`market_data.fetch_vol_histories()` returns (≈ 1,255 closes for the
+equity-hours tickers, ≈ 1,830 for Bitcoin) — **not** the 90d series the
+technicals use. `vol_forecast.har_forecast_or_none` is the gate every live
+consumer (note block, JSONL raw block, paper-portfolio sizer) goes through: it
+returns no forecast for fewer than `HAR_MIN_RETURNS = 1000` returns, or when
+the OLS forecast is non-positive. An asset with no forecast gets **no line**
+(and SP500 no VRP) and no `vol_forecasts` entry in the quant log.
+
+*Why, dated.* Until the 2026-09-13 run the forecast was fit on the 90d fetch
+(74–90 closes, ~50–70 OLS rows) and [KB-033] measured it walk-forward as
+`degenerate` on every asset — zero forecasts on 1.5–7 % of readings, printed as
+`0.0% ann-vol` with `VRP = VIX − 0` on 7 of 76 S&P and 10 of 76 Bitcoin note
+dates, and worse than trailing 22-day realized vol at every horizon. At 1000
+returns the same function is `skill` on SP500, Gold and Bitcoin, `parity` on
+WTI. The window change landed as `todo.md` #17 → `resolved.md`; first note on
+the new window is 2026-09-14, and the quant log dates the switch by itself
+(the zeros stop). `har_backtest.py` is the read.
 
 **HMM Regime Detection** — `regime.py`
 

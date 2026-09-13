@@ -33,7 +33,7 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from vol_forecast import har_rv_forecast, variance_risk_premium
+from vol_forecast import har_forecast_or_none, variance_risk_premium
 from regime import predict_regime, load_regime_model, label_states, DEFAULT_MODEL_PATH, regime_enabled
 from regime_features import regime_features
 from conditional import (
@@ -206,7 +206,10 @@ def _compute_or_mode() -> Optional[dict]:
     _OR_MODE_CACHE["reading"] = reading
     return reading
 
-# Asset mapping: histories key → display name for the Volatility block
+# Asset mapping: histories key → display name for the Volatility block.
+# Keep in step with `market_data.VOL_HISTORY_ASSETS`, which fetches the 5y
+# history these are fit on ([KB-033]; the 90d `histories` is not long enough
+# and `har_forecast_or_none` refuses it).
 _VOL_ASSETS: list[tuple[str, str]] = [
     ("sp500",   "SP500"),
     ("gold",    "Gold"),
@@ -230,17 +233,28 @@ def collect_quant_raw(
     histories: Optional[dict] = None,
     regime_model=None,
     distribution_table: Optional[dict] = None,
+    vol_histories: Optional[dict] = None,
 ) -> dict:
     """
     Return raw subsection outputs as a plain dict for JSONL logging (Phase 14.3).
 
     Mirrors build_quant_context() but emits a structured dict instead of markdown.
     Keys present only when the corresponding module succeeds.
+
+    `vol_histories` is the long (5y) Close history the HAR-RV forecast is fit on
+    (`market_data.fetch_vol_histories`). If None the block falls back to
+    `histories`, which the `HAR_MIN_RETURNS` gate rejects at the pipeline's 90d
+    length — so the fallback only ever produces a forecast for a caller that
+    hands in a long series under the old name. An asset with no usable forecast
+    (short history, or a non-positive OLS forecast) is simply absent from
+    `vol_forecasts`, which is what `score_distributions.logged_har_sigma`
+    already treats as "no `har_gaussian` arm".
     """
     raw: dict = {}
 
     # --- Vol forecasts ---
-    if histories:
+    vol_source = vol_histories if vol_histories is not None else histories
+    if vol_source:
         vix_value: Optional[float] = None
         if market_data:
             try:
@@ -250,12 +264,14 @@ def collect_quant_raw(
 
         vol_raw: dict = {}
         for key, display in _VOL_ASSETS:
-            close = histories.get(key)
-            if close is None or len(close) < 32:
+            close = vol_source.get(key)
+            if close is None or len(close) < 2:
                 continue
             try:
                 returns = pd.Series(np.log(close.values[1:] / close.values[:-1]))
-                fc      = har_rv_forecast(returns)
+                fc      = har_forecast_or_none(returns)
+                if fc is None:
+                    continue
                 entry: dict = {
                     "forecast_daily_vol": round(fc["forecast_daily_vol"], 2),
                     "percentile_60d":     round(fc["percentile_60d"], 1),
@@ -374,6 +390,7 @@ def build_quant_context(
     histories: Optional[dict] = None,
     regime_model=None,
     distribution_table: Optional[dict] = None,
+    vol_histories: Optional[dict] = None,
 ) -> str:
     """
     Build the ## Quantitative Context markdown block.
@@ -385,9 +402,13 @@ def build_quant_context(
     market_data       : market price dict (output of fetch_market_data()[0])
                         Used for VIX level in the VRP calculation.
     histories         : close price series dict (output of fetch_market_data()[1])
-                        Used for HAR-RV log-return computation.
+                        ~90d; feeds the fragility block's length check.
     regime_model      : pre-loaded GaussianHMM model; if None, loaded from disk.
     distribution_table: pre-loaded conditional distribution table; if None, loaded from disk.
+    vol_histories     : long close history for the HAR-RV fit
+                        (output of fetch_vol_histories(), 5y). If None the vol
+                        block reads `histories`, which the HAR_MIN_RETURNS gate
+                        rejects at the pipeline's 90d length — see collect_quant_raw.
 
     Returns
     -------
@@ -396,7 +417,10 @@ def build_quant_context(
     """
     sections: list[str] = []
 
-    vol_block = _build_vol_block(snapshot, market_data, histories)
+    vol_block = _build_vol_block(
+        snapshot, market_data,
+        vol_histories if vol_histories is not None else histories,
+    )
     if vol_block:
         sections.append(vol_block)
 
@@ -429,7 +453,12 @@ def _build_vol_block(
     market_data: Optional[dict],
     histories: Optional[dict],
 ) -> str:
-    """Build the Volatility (HAR-RV) subsection."""
+    """Build the Volatility (HAR-RV) subsection.
+
+    `histories` here is the *long* series (`fetch_vol_histories`). An asset whose
+    forecast fails the `har_forecast_or_none` gate gets no line — and for SP500
+    no VRP either — rather than a `0.0% ann-vol` line ([KB-033] nuance (e)).
+    """
     if not histories:
         return ""
 
@@ -443,11 +472,13 @@ def _build_vol_block(
     lines: list[str] = []
     for key, display in _VOL_ASSETS:
         close = histories.get(key)
-        if close is None or len(close) < 32:
+        if close is None or len(close) < 2:
             continue
         try:
             returns = pd.Series(np.log(close.values[1:] / close.values[:-1]))
-            fc      = har_rv_forecast(returns)
+            fc      = har_forecast_or_none(returns)
+            if fc is None:
+                continue
             vol     = fc["forecast_daily_vol"]
             pct     = fc["percentile_60d"]
             line    = f"- {display}: {vol:.1f}% ann-vol (60d pct {pct:.0f})"

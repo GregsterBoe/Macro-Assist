@@ -136,13 +136,14 @@ of the three came back with a finding that changed the product.
 | **17.3b — Fix live inference** | ❌ cancelled → [KB-006]; no point fixing a layer 17.4 then dropped. |
 | **17.4 — Incremental value over a simple bucket** | ✅ REDUNDANT → [KB-006]. A 4-feature rule beats the HMM (0.697 vs 0.553); regime removed from the note ([ADR-0004](../decisions/ADR-0004-retire-hmm-from-the-note.md)). |
 | **17.5a — Conditional table's input** | ✅ → [KB-028], shipped v2.1. The table was ~3 years of one regime and two of three dimensions contributed nothing; rebuilt from 2000-08 on BAA10Y. |
-| **17.5b — HAR-RV walk-forward read** | ✅ DEGENERATE as wired → [KB-033]. A 4-parameter OLS on ~50–70 rows; zero forecasts published on 9 % / 13 % of S&P / Bitcoin dates; `skill` at 1000 days → the fetch is the defect → `todo.md` #17. |
+| **17.5b — HAR-RV walk-forward read** | ✅ DEGENERATE as wired → [KB-033]. A 4-parameter OLS on ~50–70 rows; zero forecasts published on 9 % / 13 % of S&P / Bitcoin dates; `skill` at 1000 days → the fetch is the defect → fixed 2026-09-13, `resolved.md` #17 (5y fetch, 1000-return floor, zero = no forecast). |
 
 **The phase's recurring finding is the same one three times** ([KB-033] nuance
 (c)): the history a component was fit on was whatever the fetch returned, never a
 number the method asked for. What is still live from the phase: `BAA10Y` as the
 credit input everywhere, the v2.1 conditional table, `regime_backtest.py` /
-`har_backtest.py` as the harnesses, and open decision #17.
+`har_backtest.py` as the harnesses, and the HAR fit window the phase's last
+finding corrected (`resolved.md` #17; `vol_forecast.HAR_MIN_RETURNS`).
 
 ---
 
@@ -281,7 +282,10 @@ the books and says why; left scheduled so the stopped input stays visible. A v2
 that sizes off the conditional distribution needs its own pre-registered test.
 The Kimi ensemble arm that fed the `confidence` scalar was deactivated 2026-09-04
 (`kimi_arm.py` stays, stage removed). The HAR-RV σ every position is sized off
-is measured degenerate as wired → [KB-033], `todo.md` #17. Kimi-arm write-up,
+was measured degenerate at the 130-day window → [KB-033]; `fetch_prices_and_har`
+now fits on 1600 calendar days and a gated forecast falls back to the
+conditional σ (`resolved.md` #17, 2026-09-13; inert while the sizer is dormant,
+so no ledger before/after to record). Kimi-arm write-up,
 broker research and the branch strategy → [roadmap-archive.md](roadmap-archive.md).
 ---
 
@@ -596,6 +600,36 @@ grandparent — the note's "conditional" numbers were conditional on NFCI alone
   data window. Fixing that after the read would be the goalpost move; fixing
   it at zero observations is the last honest moment, the same one WP-22.C's
   own amendment used.
+
+**The `har_gaussian` comparator's σ changed once, from the 2026-09-14 note —
+amended 2026-09-13, zero interval observations resolved** (`todo.md` #17 →
+`resolved.md`, [KB-033]). The comparator reads the logged `forecast_daily_vol`,
+and WP-17.5 measured that number as a four-parameter OLS on the ~50–70 rows a
+`period="90d"` fetch leaves: `degenerate` on every asset, a printed
+`0.0% ann-vol` on 7 / 76 S&P and 10 / 76 Bitcoin dates. From 2026-09-14 the
+note fits on a separate 5y fetch (`market_data.fetch_vol_histories`), refuses
+fewer than `HAR_MIN_RETURNS = 1000` returns, and drops a non-positive forecast
+instead of logging it. Stated against the seal so it cannot be re-argued:
+
+- **This is a comparator's input, not the bar and not the published arm.**
+  `SEAL_START`, `MIN_SKILL`, `MIN_BLOCKS`, the disqualifier order and the
+  `unconditional` benchmark — the test — are untouched. `har_gaussian` is an
+  optional rival; a better rival makes the published table's job harder, not
+  easier, so this cannot be read as a move in the product's favour.
+- **The five report dates 2026-09-07 → 09-11 were logged from the 90d fit and
+  stay in the sealed record.** Nothing was resolved when the switch landed;
+  the quant log dates it by itself (the zeros stop, and the number moves —
+  on 2026-09-13's tape the 90d fit said 12.3 / 27.0 / 62.0 / 26.8 % for
+  SP500 / Gold / WTI / Bitcoin and the 5y fit says 13.0 / 19.8 / 45.1 / 35.3 %,
+  against a trailing month of 8.8 / 22.7 / 39.3 / 25.8 %). A date the gate
+  drops has no `har_gaussian` arm, exactly as a logged zero had none before.
+- **The exploratory "a constant beat the model" observation above was scored
+  against the old σ** and stands as written: `har_gaussian`'s median is zero by
+  construction and that read was about drift, not σ. It is not re-run.
+- **Why now:** the same reason as the conditioner — zero observations is the
+  last honest moment, and landing it before the 2026-10-02 wind-down touches
+  `pipeline.yml` keeps the two changes apart in the log. No version bump: a
+  fit-window correction, not a capability change.
 
 **The honest prior.** Low, and it should be said out loud before the data arrives.
 [KB-024]'s mechanism — stress → bearish → mean-reversion — was about direction,
