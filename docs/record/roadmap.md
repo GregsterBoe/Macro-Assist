@@ -664,3 +664,72 @@ comes out of `pipeline.yml`. What changes is that stage 3 is no longer left empt
 — `score_distributions.py` takes its place, so the pipeline never has a published
 product with no scorer again.
 
+
+## Exploration Tier (Phase 23) — *the generation side of the method* ⏸ DRAFT 2026-09-13
+
+**Why it exists.** The method ([the method](../concepts/the-method.md)) is a
+refutation engine, and on 2026-09-13 it ran out of its kind of question: the
+IMP-1 candidate list is exhausted ([KB-032]), WP-21.E families 2–3 are unblocked
+but unchosen with an honestly low prior, and WP-18.4 is gated on a metric that no
+longer exists. Every queued item is another input to a question closed three
+times ([KB-024], [KB-026], [KB-027]). Meanwhile the most robust empirical
+statement in the repo — the stress-reversion mechanism, found independently in
+three runs — is filed as an explanation of a negative and has never been asked
+as a question. The reasoning, and the rules, are in
+[How we explore](../concepts/how-we-explore.md); the candidates are in the
+[hypothesis register](hypotheses.md). This phase builds the harness they need.
+
+**What it is not.** Not a route back to a directional call
+([ADR-0009](../decisions/ADR-0009-cut-the-directional-product.md)); the target
+space is distributions, states and gaps, and each register entry carries the
+check. Not a change to the published note, the sealed table or `pipeline.yml`
+— every explore-tier computation is a shadow. Not a replacement for the two
+clocks (Phase 22 ~2027-05; a live fragility episode), which gate product changes
+and are untouched.
+
+### WP-23.A — Which seal governs *(decision, before anything runs)*
+
+`numeric_baseline.SEAL_START` (2018-01-01) was sealed for *directional* families.
+A promoted distribution or state hypothesis reads a different question on the
+same dates. Reusing the slice is defensible only if written down first, with the
+multiplicity ledger attached; a new seal is the alternative. One `todo.md` entry,
+decided before WP-23.C.
+
+### WP-23.B — The class bars *(written before any candidate is promoted)*
+
+One pre-registered bar per hypothesis *class*, not per hypothesis — the
+[ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md) move
+made a rule. Two classes are visible in the register today:
+
+- **Shadow conditioner vs `unconditional`** (H-002, H-004): Phase 22's bar as
+  is — `MIN_SKILL = 0.02`, block-bootstrap interval clear of zero,
+  `underpowered → miscalibrated → inverted` first — **plus a mechanism clause**
+  named by the entry (for H-002: Elevated width > Normal width *and* medians on
+  opposite sides of unconditional; either failing → `unexplained`, not `edge`).
+- **Gap → width** (H-003): no scorer exists. Pinball loss on a quantile pair of
+  the next-quarter rate change against `trailing_250` and `unconditional`,
+  quarterly blocks, an explicit `underpowered` floor given ~55 observations.
+
+Each bar ships with the tests [the method §10](../concepts/the-method.md#10-a-bar-is-not-tested-by-the-results-that-fail-it)
+requires: every disqualifier driven independently, and a planted-signal
+positive control.
+
+### WP-23.C — The shadow-conditioner harness
+
+`conditional.build_distribution_table_for_backtest` already builds a
+point-in-time table from historical snapshots; `fragility_or._pit_backtest`
+already produces the PIT state flag on the ETF panel from 2007; `score_distributions`
+already scores quantile forecasts against `unconditional` with the right blocks.
+The harness joins them on the explore slice and emits a report in the
+`numeric_baseline` shape (metadata line first — the [KB-025] check). It returns
+`exploratory` on the explore slice by construction. Owner's competence gate
+([how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis))
+applies before the first promotion.
+
+### WP-23.D — First promotion
+
+Not chosen. H-004 is the cheapest (a sub-table of H-002); H-001's confound
+resolution is an errand with a **2026-10-07** deadline and is not a promotion.
+The owner rewrites the chosen entry, its status moves `draft → promoted`, the
+ledger is attached, and the run reads the sealed slice once. Result → KB,
+either way.

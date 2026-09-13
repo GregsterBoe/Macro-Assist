@@ -75,6 +75,7 @@ nav:
       - What this is: concepts/what-this-is.md
       - The signal stack: concepts/the-signal-stack.md
       - The method: concepts/the-method.md
+      - How we explore: concepts/how-we-explore.md
       - The cut (v1.6): concepts/the-cut.md
       - What we believe: concepts/what-we-believe.md
   - Reference:
@@ -114,6 +115,7 @@ nav:
       - Roadmap: record/roadmap.md
       - Improvement track: record/improvement-track.md
       - Open decisions (TODO): record/todo.md
+      - Hypothesis register: record/hypotheses.md
       - Resolved: record/resolved.md
       - Maintenance log: record/maintenance-log.md
       - Roadmap archive: record/roadmap-archive.md

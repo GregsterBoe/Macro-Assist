@@ -245,3 +245,5 @@ work package depended on.
 ---
 
 **Next:** [The cut](the-cut.md) — the method's largest bill, paid in full.
+Then [How we explore](how-we-explore.md) — the generation side; this page is
+only the refutation side.

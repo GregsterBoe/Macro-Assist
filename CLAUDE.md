@@ -31,6 +31,7 @@ Inside `docs/record/`:
 | `active-experiments.md` | **The status board** — one row per live track | Detail (link to it) |
 | `improvement-track.md` | IMP-# experiments on components that exist | Results (→ KB) |
 | `todo.md` | **The single inbox** for open decisions & carried findings | Anything resolved |
+| `hypotheses.md` | **Conjectures** — seen or proposed, never read against a bar | Results (→ KB), decisions (→ `todo.md`) |
 | `resolved.md` | Closed decisions, reasoning intact | Anything still open |
 | `maintenance-log.md` | Dated housekeeping passes | Open items (→ `todo.md`) |
 

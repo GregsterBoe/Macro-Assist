@@ -14,7 +14,7 @@ Conventions:
   reasoning intact, and pull any "carry forward" caveat back up into this file
   as its own entry. A resolved item left here is noise; a lost caveat is worse.
 
-Last reviewed: 2026-09-13 (#17 the HAR-RV fit window landed → `resolved.md`; #18 WP-18.4's missing metric, from the archive pass; #16 the CORR shadow flag IMP-7 admitted and did not wire, [KB-032]; #15 the turbulence-only hindsight read from [KB-031],
+Last reviewed: 2026-09-13 (#19 which seal governs a Phase 23 promotion, from the exploration-tier draft; #17 the HAR-RV fit window landed → `resolved.md`; #18 WP-18.4's missing metric, from the archive pass; #16 the CORR shadow flag IMP-7 admitted and did not wire, [KB-032]; #15 the turbulence-only hindsight read from [KB-031],
 open decision; #13 `hy_spread` mean-window caveat from [KB-028]; #14
 IMP-5.3 added from [KB-029] and closed the same day → `resolved.md`, [KB-030]).
 Prior: 2026-09-12 (#12 GitHub Pages closed → `resolved.md`);
@@ -262,6 +262,28 @@ which needs no A/B; (2) make #7 first and run 18.4 against Target Range
 coverage; (3) prune the [KB-009]/[KB-010] union on cost alone, no outcome read,
 and say so. *Lean: (1) or (3) — an ablation with no scored output is exactly the
 unfalsifiable experiment the phase's own hard gate forbids.*
+
+---
+
+## Phase 23 — exploration tier
+
+### Open decision #19 — which seal governs a promoted non-directional hypothesis (WP-23.A)
+**Where:** `roadmap.md` Phase 23 (WP-23.A) · [`hypotheses.md`](hypotheses.md)
+H-002/H-004 · `numeric_baseline.SEAL_START`. **Source:** the Phase 23 draft
+(2026-09-13), not a measurement. `SEAL_START = 2018-01-01` was chosen for
+*directional* families (five stress regimes in the holdout, ~9 years of explore
+surface) and every WP-21.E family is comparable because they share it. A
+promoted shadow-conditioner hypothesis reads a *different question* — a
+conditional distribution against `unconditional`, Phase 22's bar — on the same
+dates. **Options:** (1) reuse 2018-01-01: the slice has never been read for a
+distribution question, and the ledger records the reuse; keeps one seal in the
+repo; (2) a new seal for the distribution class, later than 2018 so the explore
+surface includes 2018 and 2020 stress — costs holdout regimes; (3) no
+historical seal at all — explore on all history, confirm only on Phase 22's
+live record from 2026-09-07, which pushes any read to ~2027-05 or later.
+*Must be decided before WP-23.C runs anything; the entry that decides it names
+the hypothesis class, not a hypothesis.* Also inside this phase, dated: H-001's
+confound is resolvable from CI artifact `10013945071`, **expires 2026-10-07**.
 
 ---
 
