@@ -544,6 +544,20 @@ _RAW_NORMAL = {
 }
 
 
+# Copied from results/quant_context_log/2026-08-13.jsonl (the first live
+# Elevated) with the `degraded` key the fix now writes: vix_term was absent and
+# the renormalised composite crossed 56.5 — KB-029.
+_RAW_DEGRADED = {
+    "fragility": {
+        "composite": 61.95, "label": "Unavailable", "trend": "Rising",
+        "components": {"variance_trend": 64.7, "correlation": 37.19, "autocorr": 60.63},
+        "weights": {"variance_trend": 0.9, "correlation": 0.1, "autocorr": 0.0},
+        "degraded": ["vix_term"],
+        "mode": "log",
+    },
+}
+
+
 def _raw_or(flag: bool) -> dict:
     """raw['fragility_or'] as collect_quant_raw() writes it."""
     fired = ["AR", "TURB"] if flag else []
@@ -604,6 +618,13 @@ class TestFragilityLogLines:
         assert level == "OK"
         assert "n/a" in msg
 
+    def test_degraded_reading_warns_and_names_the_missing_component(self):
+        (section, level, msg), = fragility_log_lines(_RAW_DEGRADED)
+        assert section == "FRAGILITY"
+        assert level == "WARN"                      # a feed went quiet — stand out
+        assert "[Unavailable]" in msg
+        assert "DEGRADED: vix_term missing" in msg
+
 
 class TestBuildFragilitySnapshot:
 
@@ -635,6 +656,12 @@ class TestBuildFragilitySnapshot:
         assert "| OR-flag (high-recall) | FIRING (absorption, turbulence) |" in block
         assert "OR channels (own-history pct)" in block
         assert "OR `log`" in block
+
+    def test_degraded_reading_withholds_the_label_visibly(self):
+        block = build_fragility_snapshot(_RAW_DEGRADED)
+        assert "**Unavailable**" in block
+        assert "vix_term missing" in block
+        assert "Elevated" not in block
 
     def test_is_a_wellformed_markdown_table(self):
         lines = build_fragility_snapshot(_RAW_NORMAL).splitlines()

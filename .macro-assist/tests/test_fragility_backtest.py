@@ -12,6 +12,7 @@ import pandas as pd
 import pytest
 
 from fragility_backtest import (
+    freshen_vol_indices,
     forward_worst_return,
     drawdown_label,
     walk_forward_fragility,
@@ -105,8 +106,10 @@ def test_walk_forward_produces_readings():
     }
     df = walk_forward_fragility(histories)
     assert not df.empty
-    assert set(["composite", "label", "trend", "variance_trend",
+    assert set(["composite", "label", "trend", "degraded", "variance_trend",
                 "correlation", "vix_term", "autocorr"]).issubset(df.columns)
+    # No vol legs in this fixture -> every reading is degraded and unlabelled.
+    assert df["degraded"].all() and (df["label"] == "Unavailable").all()
     # Composite stays in range and no reading appears before min_history.
     assert df["composite"].between(0, 100).all()
     # No reading before min_history warmup; never more than the anchor length.
@@ -243,3 +246,41 @@ def test_evaluate_horizon_adds_deoverlap_keys():
     assert "episodes" in report
     assert "composite" in report["auc_nonoverlap"]
     assert "elevated_label" in report["episodes"]
+
+
+# ---------------------------------------------------------------------------
+# freshen_vol_indices (IMP-5 / KB-029) — CBOE splice under a stale vol leg
+# ---------------------------------------------------------------------------
+
+def test_freshen_is_a_noop_when_legs_are_fresh():
+    idx = pd.date_range("2026-01-01", periods=100, freq="B")
+    h = {"sp500": pd.Series(1.0, index=idx), "vix": pd.Series(20.0, index=idx),
+         "vix3m": pd.Series(21.0, index=idx)}
+    calls = []
+    out = freshen_vol_indices(h, fetch=lambda sym: calls.append(sym) or None)
+    assert calls == []
+    assert out["vix3m"].equals(h["vix3m"]) and out["vix"].equals(h["vix"])
+
+
+def test_freshen_splices_cboe_under_a_stale_vix3m():
+    # The live August-2026 shape: VIX3M stopped 40 rows before the anchor's end.
+    idx = pd.date_range("2026-01-01", periods=100, freq="B")
+    h = {"sp500": pd.Series(1.0, index=idx), "vix": pd.Series(20.0, index=idx),
+         "vix3m": pd.Series(21.0, index=idx[:60])}
+    cboe = pd.Series(22.0, index=idx[30:])         # CBOE's file starts later, runs to today
+    calls = []
+    out = freshen_vol_indices(h, fetch=lambda sym: calls.append(sym) or cboe)
+    assert calls == ["VIX3M"]                      # only the stale leg is fetched
+    assert out["vix3m"].index[-1] == idx[-1]
+    # yfinance history kept where CBOE does not reach, CBOE from its first date.
+    assert (out["vix3m"].loc[idx[:30]] == 21.0).all()
+    assert (out["vix3m"].loc[idx[30:]] == 22.0).all()
+    assert out["vix"].equals(h["vix"])
+
+
+def test_freshen_leaves_a_stale_leg_alone_when_cboe_fails():
+    idx = pd.date_range("2026-01-01", periods=100, freq="B")
+    h = {"sp500": pd.Series(1.0, index=idx), "vix": pd.Series(20.0, index=idx),
+         "vix3m": pd.Series(21.0, index=idx[:60])}
+    out = freshen_vol_indices(h, fetch=lambda sym: None)
+    assert out["vix3m"].equals(h["vix3m"])         # stale -> fragility_index treats as missing

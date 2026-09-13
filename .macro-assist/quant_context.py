@@ -135,6 +135,14 @@ def _fetch_fragility_histories(period: str = "1y") -> dict:
             out[name] = close
         except Exception:
             continue
+    # A stale VIX3M leg is worse than a missing one: the ratio aligns on shared
+    # dates, so the term-structure component would silently freeze. Splice
+    # CBOE's own history under either vol leg that has fallen behind (KB-029).
+    try:
+        from fragility_backtest import freshen_vol_indices
+        out = freshen_vol_indices(out)
+    except Exception:
+        pass
     return out
 
 
@@ -324,6 +332,7 @@ def collect_quant_raw(
                 "trend":      frag["trend"],
                 "components": {k: round(v["score"], 2) for k, v in frag["components"].items()},
                 "weights":    {k: round(w, 3) for k, w in frag.get("weights", {}).items()},
+                "degraded":   list(frag.get("degraded") or []),
                 "mode":       _fragility_mode(),
             }
     except Exception:
@@ -555,9 +564,14 @@ def _build_fragility_block(
         for name, c in drivers
     ]
 
+    label_str = label
+    degraded = result.get("degraded") or []
+    if degraded:
+        label_str = f"{label} — {', '.join(degraded)} missing, calibrated label withheld"
+
     lines = [
         "**Fragility Monitor (experimental — Phase 16; risk gauge, not directional):**",
-        f"- Composite: {composite:.0f}/100 [{label}], trend {trend}",
+        f"- Composite: {composite:.0f}/100 [{label_str}], trend {trend}",
     ]
     if driver_strs:
         lines.append(f"- Drivers: {', '.join(driver_strs)}")
@@ -707,12 +721,18 @@ def fragility_log_lines(raw: Optional[dict]) -> list[tuple[str, str, str]]:
         label     = frag.get("label", "?")
         trend     = frag.get("trend", "?")
         comp_str  = f"{composite:.0f}/100" if isinstance(composite, (int, float)) else "n/a"
+        degraded = frag.get("degraded") or []
         msg = f"composite {comp_str} [{label}], trend {trend}"
+        if degraded:
+            msg += f" — DEGRADED: {', '.join(degraded)} missing, label withheld"
         drivers = _raw_driver_strs(frag, limit=3)
         if drivers:
             msg += f" — top drivers: {', '.join(drivers)}"
         msg += f" (mode={frag.get('mode', '?')})"
-        lines.append(("FRAGILITY", "WARN" if label == "Elevated" else "OK", msg))
+        # WARN on a degraded reading too: a data feed has gone quiet, and the
+        # first live Elevated came out of exactly that (KB-029).
+        level = "WARN" if (label == "Elevated" or degraded) else "OK"
+        lines.append(("FRAGILITY", level, msg))
 
     or_raw = raw.get("fragility_or")
     if or_raw:
@@ -810,8 +830,13 @@ def build_fragility_snapshot(raw: Optional[dict]) -> str:
     label     = frag.get("label", "?")
     trend     = frag.get("trend", "?")
 
+    degraded  = frag.get("degraded") or []
+    label_str = f"**{label}**"
+    if degraded:
+        label_str += f" ({', '.join(degraded)} missing — calibrated label withheld)"
+
     rows = [
-        f"| Composite | {comp_str} — **{label}** |",
+        f"| Composite | {comp_str} — {label_str} |",
         f"| Trend | {trend} |",
     ]
     drivers = _raw_driver_strs(frag)
@@ -824,10 +849,6 @@ def build_fragility_snapshot(raw: Optional[dict]) -> str:
         detail = _or_channel_strs(or_raw)
         if detail:
             rows.append(f"| OR channels (own-history pct) | {', '.join(detail)} |")
-
-    modes = f"`{frag.get('mode', '?')}`"
-    if or_raw:
-        modes += f" · OR `{or_raw.get('mode', '?')}`"
 
     modes = f"`{frag.get('mode', '?')}`"
     if or_raw:

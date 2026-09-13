@@ -34,6 +34,7 @@ reading plus a self-check that the live path reproduces the KB-020 numbers.
 
 Public surface
 --------------
+composite_channel(walk) -> Series  the walked composite, NaN on degraded days
 build_channels(...)   -> dict {common, gspc, comp, AR, TURB}  (walked histories)
 or_mode_reading(...)  -> dict today's flag + per-channel value/threshold/fired
 """
@@ -107,6 +108,20 @@ def _panel_channels(px: pd.DataFrame, anchor: pd.DatetimeIndex) -> tuple:
     return AR, TURB
 
 
+def composite_channel(walk: pd.DataFrame) -> pd.Series:
+    """The composite as an OR channel: its walked value, masked to NaN on days
+    the composite was degraded (a required component missing — KB-029). A
+    degraded composite sits on a different distribution from its own history,
+    so its PIT threshold would be meaningless that day; NaN makes `or_mode_reading`
+    treat the channel as having no live reading (non-firing, recorded) and keeps
+    the degraded values out of the composite's own threshold history.
+    """
+    comp = walk["composite"].astype(float)
+    if "degraded" in walk.columns:
+        comp = comp.where(~walk["degraded"].astype(bool))
+    return comp
+
+
 def build_channels(
     start: str = "2008-01-01",
     etf_start: str = "2007-01-01",
@@ -120,7 +135,7 @@ def build_channels(
     (un-ranked) channel series plus the ^GSPC level for labels.
     """
     traded = fetch_histories(start=start)
-    comp = walk_forward_fragility(traded)["composite"].astype(float)
+    comp = composite_channel(walk_forward_fragility(traded))
     gspc = pd.Series(traded["sp500"]).astype(float)
 
     px = fetch_sector_etfs(start=etf_start, refresh=refresh)

@@ -14,8 +14,8 @@ Conventions:
   reasoning intact, and pull any "carry forward" caveat back up into this file
   as its own entry. A resolved item left here is noise; a lost caveat is worse.
 
-Last reviewed: 2026-09-13 (#13 added — the `hy_spread` mean-window caveat carried
-out of [KB-028]). Prior: 2026-09-12 (#12 GitHub Pages closed → `resolved.md`);
+Last reviewed: 2026-09-13 (#13 `hy_spread` mean-window caveat from [KB-028]; #14
+IMP-5.3 from [KB-029]). Prior: 2026-09-12 (#12 GitHub Pages closed → `resolved.md`);
 2026-09-11: resolved items split out to `resolved.md`; the maintenance log's open
 follow-ups folded in below.
 
@@ -195,6 +195,20 @@ arm it currently trades (kimi) went 100%-confident long S&P / short bonds on
 2026-08-24 — the same one-sidedness, now at 70% gross.
 **Action:** no code change. Do not read an early green NAV print as edge; watch
 bear-share into the first risk-off. Revisit at the DESIGN §9 quarter mark.
+---
+
+## Fragility monitor
+
+### Carried finding #14 — IMP-5.3: the composite's label cut is static; the OR flag's is PIT
+**Where:** `fragility._LABEL_ELEVATED = 56.5` (a 2008–2026 full-sample percentile) vs
+`fragility_or` (expanding-PIT top decile per channel).
+**Source:** [KB-029] / `improvement-track.md` IMP-5.3. Two flags in one note on two
+threshold methods. Planned, with its gate written (reproduce [KB-002] within ±1
+crisis per horizon); not an open decision, listed here so the inbox is complete.
+Also carried from [KB-029]: the live record 2026-07-18 → 09-11 has a frozen
+`vix_term` (correct by coincidence); the five `Elevated` rows 2026-08-13 → 08-19
+are artifacts and stay in the log, superseded by the KB entry.
+
 ---
 
 ## Repo & tooling follow-ups

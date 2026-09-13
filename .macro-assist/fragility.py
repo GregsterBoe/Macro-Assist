@@ -26,6 +26,17 @@ of this scheme's own 2008-2026 composite distribution — Elevated = 90th pct,
 Resilient = 40th pct. The 90th-pct (Elevated) cut is exactly the flag whose
 episode precision/recall was validated in the backtest.
 
+DEGRADATION (IMP-5, KB-029): the cut-points are percentiles of the composite
+built from ALL its weight-bearing components. When one of them cannot be
+computed the weights renormalise over what is left, which puts the 0-100
+number on a different distribution — the calibrated cut no longer means "top
+decile". The live monitor learned this the hard way: with VIX3M missing for ten
+trading days in August 2026 the composite became ~90% variance-trend, crossed
+56.5 and printed its first-ever live Elevated on a tape that then fell 2.7%.
+So a composite missing a required component now carries the label
+`Unavailable` and names what is missing in `degraded`; the number is still
+returned for the record, but no calibrated label is claimed for it.
+
 Public functions
 ----------------
 realized_variance_trend(close)          -> dict   primary
@@ -74,6 +85,21 @@ _VOL_KEYS = {"vix", "vix3m"}
 # Resilient = 40th pct. The Elevated cut is the validated top-decile flag.
 _LABEL_ELEVATED = 56.5
 _LABEL_RESILIENT = 24.0
+
+# The components the calibrated cut-points assume are present. These are the
+# weight-bearing members of `var_led_vix35` as it was actually scored in KB-002:
+# `acceleration` was never computable in that backtest (renormalised away), and
+# `correlation` is a token 0.05 whose absence moves the composite by at most a
+# couple of points, so neither is required. Missing either of THESE two puts the
+# composite on a distribution the cut-points were never fitted to.
+_LABEL_REQUIRES: tuple[str, ...] = ("variance_trend", "vix_term")
+
+# A VIX3M series whose last observation lags VIX's by more than this many VIX
+# observations is treated as missing rather than stale: the ratio aligns on
+# shared dates, so a stale leg would silently freeze the component at whatever
+# the term structure did weeks ago (the live path did exactly this from
+# 2026-07-17 when yfinance's ^VIX3M stopped updating — see KB-029).
+_VIX3M_MAX_STALE = 5
 
 
 def _to_log_returns(close: pd.Series) -> pd.Series:
@@ -188,17 +214,27 @@ def vix_term_backwardation(
     vix: pd.Series,
     vix3m: pd.Series,
     window: int = 20,
+    max_stale: int = _VIX3M_MAX_STALE,
 ) -> Optional[dict]:
     """Score persistence of VIX-term backwardation (acute near-term stress).
 
     ratio = VIX / VIX3M; ratio > 1 = backwardation. Score is the fraction of
     the trailing `window` days spent in backwardation, scaled to 0-100.
 
-    Returns None if either series is missing or too short.
+    Returns None if either series is missing or too short, or if `vix3m` has
+    stopped updating — more than `max_stale` VIX observations lie after its
+    last date (a stale leg would freeze the ratio window, not track it).
     """
     if vix is None or vix3m is None:
         return None
-    ratio = (pd.Series(vix).astype(float) / pd.Series(vix3m).astype(float)).dropna()
+    vix = pd.Series(vix).astype(float).dropna()
+    vix3m = pd.Series(vix3m).astype(float).dropna()
+    if len(vix) == 0 or len(vix3m) == 0:
+        return None
+    n_after = int((vix.index > vix3m.index[-1]).sum())
+    if n_after > max_stale:
+        return None
+    ratio = (vix / vix3m).dropna()
     if len(ratio) < 5:
         return None
     tail = ratio.iloc[-min(window, len(ratio)):]
@@ -454,10 +490,14 @@ def fragility_index(
     -------
     dict with:
         composite  : 0-100 (higher = more fragile)
-        label      : 'Resilient' | 'Normal' | 'Elevated'  (provisional)
+        label      : 'Resilient' | 'Normal' | 'Elevated', or 'Unavailable' when
+                     a component in _LABEL_REQUIRES could not be computed (the
+                     calibrated cut-points do not apply to the degraded number)
         trend      : 'Rising' | 'Stable' | 'Falling'      (is fragility building?)
         components : {name: component dict}  (only those that were computable)
         weights    : the renormalised weights actually applied
+        degraded   : [required component names that are missing]; [] when the
+                     composite is on its calibrated footing
     None if no component could be computed.
     """
     w = dict(weights or DEFAULT_WEIGHTS)
@@ -543,12 +583,18 @@ def fragility_index(
     else:
         trend = "Stable"
 
+    # A required component that is missing means the weights renormalised onto
+    # a subset and the number is not on the distribution the cut-points were
+    # fitted to. Report the number, withhold the calibrated label (KB-029).
+    degraded = [k for k in _LABEL_REQUIRES if k not in components and w.get(k, 0.0) > 0.0]
+
     return {
         "composite":  composite,
-        "label":      _label(composite),
+        "label":      "Unavailable" if degraded else _label(composite),
         "trend":      trend,
         "components": components,
         "weights":    norm_w,
+        "degraded":   degraded,
     }
 
 

@@ -40,7 +40,7 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Optional
+from typing import Callable, Optional
 
 import numpy as np
 import pandas as pd
@@ -105,8 +105,11 @@ def walk_forward_fragility(
     using only data known up to that day.
 
     Returns a DataFrame indexed by date with columns:
-        composite, label, trend, and one column per component score
-        (variance_trend, correlation, vix_term, autocorr).
+        composite, label, trend, degraded (bool — a required component was
+        missing that day, so `label` is 'Unavailable' and the composite is not
+        on its calibrated distribution; see fragility._LABEL_REQUIRES), and one
+        column per component score (variance_trend, correlation, vix_term,
+        autocorr).
     """
     if anchor not in histories:
         raise ValueError(f"anchor asset {anchor!r} not in histories")
@@ -139,6 +142,7 @@ def walk_forward_fragility(
             "composite":      res["composite"],
             "label":          res["label"],
             "trend":          res["trend"],
+            "degraded":       bool(res.get("degraded")),
             "variance_trend": comps.get("variance_trend", {}).get("score", np.nan),
             "correlation":    comps.get("correlation", {}).get("score", np.nan),
             "absorption":     comps.get("absorption", {}).get("score", np.nan),
@@ -411,9 +415,78 @@ _TICKERS = {
 }
 
 
+# CBOE publishes its own daily index history as plain CSV (DATE,OPEN,HIGH,LOW,
+# CLOSE; VIX from 1990, VIX3M from 2009-09). It is the issuer's record and the
+# fallback for the term-structure legs: yfinance's ^VIX3M silently stopped
+# updating on 2026-07-17, which froze the live `vix_term` component and then
+# dropped it for ten trading days — the composite's first live Elevated came
+# out of that gap, not out of the market (KB-029). The yfinance ^VIX3M history
+# (VXV, from 2007) still seeds the pre-2009 backtest window; the CBOE file
+# takes over from its own first date.
+_CBOE_SYMBOLS: dict[str, str] = {"vix": "VIX", "vix3m": "VIX3M"}
+_CBOE_URL = "https://cdn.cboe.com/api/global/us_indices/daily_prices/{symbol}_History.csv"
+_CBOE_TIMEOUT = 20
+
+
+def fetch_cboe_index(symbol: str, timeout: int = _CBOE_TIMEOUT) -> Optional[pd.Series]:
+    """Daily Close for a CBOE index (e.g. 'VIX3M') from CBOE's own CSV, as a
+    tz-naive Series indexed by date. None on any failure — the caller decides
+    whether the yfinance leg is fresh enough to stand alone."""
+    import io
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(_CBOE_URL.format(symbol=symbol), timeout=timeout) as resp:
+            df = pd.read_csv(io.StringIO(resp.read().decode("utf-8")))
+        df.columns = [c.strip().upper() for c in df.columns]
+        out = pd.Series(df["CLOSE"].astype(float).to_numpy(),
+                        index=pd.to_datetime(df["DATE"]), name=symbol)
+        out = out[~out.index.duplicated(keep="last")].sort_index().dropna()
+        return out if len(out) else None
+    except Exception:
+        return None
+
+
+def freshen_vol_indices(
+    histories: dict,
+    anchor: str = "sp500",
+    max_stale: int = 5,
+    fetch: "Callable[[str], Optional[pd.Series]]" = fetch_cboe_index,
+) -> dict:
+    """Splice CBOE's own history under any VIX / VIX3M leg that is missing or
+    has fallen more than `max_stale` anchor observations behind the anchor's
+    last date. Legs that are fresh are left exactly as fetched, so on a normal
+    day this is a no-op and the backtest is unchanged. Never raises."""
+    out = dict(histories)
+    anchor_s = out.get(anchor)
+    if anchor_s is None or len(anchor_s) == 0:
+        return out
+    anchor_idx = pd.Series(anchor_s).index
+    for name, symbol in _CBOE_SYMBOLS.items():
+        cur = out.get(name)
+        stale = cur is None or len(cur) == 0 or \
+            int((anchor_idx > pd.Series(cur).index[-1]).sum()) > max_stale
+        if not stale:
+            continue
+        try:
+            cboe = fetch(symbol)
+        except Exception:
+            cboe = None
+        if cboe is None:
+            continue
+        if cur is not None and len(cur) and pd.Series(cur).index[0] < cboe.index[0]:
+            # keep the older yfinance history where CBOE's file does not reach
+            head = pd.Series(cur)[pd.Series(cur).index < cboe.index[0]]
+            cboe = pd.concat([head, cboe])
+        out[name] = cboe.astype(float)
+    return out
+
+
 def fetch_histories(period: str = "max", start: str | None = "2008-01-01") -> dict:
     """Pull daily Close series for the tracked tickers from yfinance (free).
-    VIX3M only exists from ~2008, so the default start caps there.
+    VIX3M only exists from ~2008, so the default start caps there. The VIX /
+    VIX3M legs are freshened from CBOE's own CSV when yfinance's copy is stale
+    (`freshen_vol_indices`).
     """
     import yfinance as yf
 
@@ -427,6 +500,11 @@ def fetch_histories(period: str = "max", start: str | None = "2008-01-01") -> di
                 histories[name] = close
         except Exception as e:   # noqa: BLE001 — CLI convenience only
             print(f"  warn: {tk} failed: {e}")
+    histories = freshen_vol_indices(histories)
+    if start:
+        for name in _CBOE_SYMBOLS:
+            if name in histories:
+                histories[name] = histories[name][histories[name].index >= pd.Timestamp(start)]
     return histories
 
 

@@ -182,6 +182,15 @@ def test_vix_term_missing_returns_none():
     assert vix_term_backwardation(None, None) is None
 
 
+def test_vix_term_stale_vix3m_returns_none():
+    idx = pd.date_range("2026-01-01", periods=60, freq="B")
+    vix = pd.Series(20.0, index=idx)
+    vix3m = pd.Series(18.0, index=idx)                        # backwardation throughout
+    assert vix_term_backwardation(vix, vix3m)["score"] == 100.0
+    assert vix_term_backwardation(vix, vix3m.iloc[:-6]) is None   # 6 > max_stale (5)
+    assert vix_term_backwardation(vix, vix3m.iloc[:-5])["score"] == 100.0  # within tolerance
+
+
 # ---------------------------------------------------------------------------
 # level_acceleration
 # ---------------------------------------------------------------------------
@@ -225,12 +234,24 @@ def _make_histories(n: int = 250, seed: int = 0, explode: bool = False) -> dict:
     return histories
 
 
+def _with_vol(histories: dict, n: int = 250, seed: int = 1, backwardation: bool = False) -> dict:
+    """Add fresh vix / vix3m legs on the same index as the price series."""
+    rng = np.random.default_rng(seed)
+    idx = next(iter(histories.values())).index
+    vix = pd.Series(np.clip(20 + rng.normal(0, 2, len(idx)), 10, 80), index=idx)
+    out = dict(histories)
+    out["vix"] = vix
+    out["vix3m"] = vix * (0.9 if backwardation else 1.1)
+    return out
+
+
 def test_index_output_keys_and_ranges():
-    result = fragility_index(_make_histories())
+    result = fragility_index(_with_vol(_make_histories()))
     assert result is not None
-    assert set(result.keys()) == {"composite", "label", "trend", "components", "weights"}
+    assert set(result.keys()) == {"composite", "label", "trend", "components", "weights", "degraded"}
     assert 0.0 <= result["composite"] <= 100.0
     assert result["label"] in {"Resilient", "Normal", "Elevated"}
+    assert result["degraded"] == []
     assert result["trend"] in {"Rising", "Stable", "Falling"}
     # Renormalised weights over available components sum to ~1.
     assert abs(sum(result["weights"].values()) - 1.0) < 1e-9
@@ -255,6 +276,56 @@ def test_index_weights_renormalise_when_components_missing():
     assert result is not None
     assert "correlation" not in result["components"]
     assert abs(sum(result["weights"].values()) - 1.0) < 1e-9
+
+
+# ---------------------------------------------------------------------------
+# Degradation (IMP-5 / KB-029): a composite missing a required component is
+# not on the distribution the cut-points were fitted to, so it carries no
+# calibrated label. The live monitor printed its first-ever Elevated
+# (2026-08-13..19, composite 59-62) with vix_term absent; with vix_term at its
+# neighbouring value the same days score ~36 (Normal).
+# ---------------------------------------------------------------------------
+
+def test_index_label_unavailable_when_vix_term_missing():
+    result = fragility_index(_make_histories())          # no vix / vix3m at all
+    assert result is not None
+    assert "vix_term" not in result["components"]
+    assert result["degraded"] == ["vix_term"]
+    assert result["label"] == "Unavailable"
+    # The number is still reported for the record.
+    assert 0.0 <= result["composite"] <= 100.0
+
+
+def test_degradation_would_have_flagged_the_august_2026_false_alarm():
+    # A vol explosion with vix_term present reads Normal-ish; drop the vol legs
+    # and the renormalised composite (now ~90% variance_trend) jumps. Before the
+    # fix that jump could cross the Elevated cut; now it carries no label at all.
+    stressed = _make_histories(explode=True, seed=10)
+    full = fragility_index(_with_vol(stressed, backwardation=False))
+    degraded = fragility_index(stressed)
+    assert full["degraded"] == [] and full["label"] != "Unavailable"
+    assert degraded["label"] == "Unavailable"
+    assert degraded["composite"] > full["composite"]     # the renormalisation inflates it
+
+
+def test_degradation_ignores_components_with_zero_weight():
+    # A weight scheme that zeroes vix_term does not require it.
+    weights = {"variance_trend": 1.0, "vix_term": 0.0, "correlation": 0.0,
+               "acceleration": 0.0, "autocorr": 0.0, "absorption": 0.0}
+    result = fragility_index(_make_histories(), weights=weights)
+    assert result["degraded"] == []
+    assert result["label"] in {"Resilient", "Normal", "Elevated"}
+
+
+def test_stale_vix3m_degrades_rather_than_freezing():
+    # vix3m that stopped updating 30 observations ago: the ratio would silently
+    # freeze on the last shared window. It must count as missing instead.
+    h = _with_vol(_make_histories(), backwardation=True)
+    h["vix3m"] = h["vix3m"].iloc[:-30]
+    result = fragility_index(h)
+    assert "vix_term" not in result["components"]
+    assert result["label"] == "Unavailable"
+    assert result["degraded"] == ["vix_term"]
 
 
 def test_index_deterministic():

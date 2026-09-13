@@ -2431,3 +2431,99 @@ the model reads "vs 5-yr mean" for a number that is not that. Not changed here �
 - **The reference layer's description of the bucket was three edits behind**
   (three assets, P50 only, HY spread). Corrected in `data-sources.md` and
   `analysis-pipeline.md` with this entry.
+
+---
+
+## KB-029 — The composite's first live Elevated was a data-feed artifact: yfinance's VIX3M stopped, the weights renormalised, and the calibrated cut no longer meant "top decile" (IMP-5)
+
+**Date:** 2026-09-13 · **Branch:** `main` · **Source:** `results/quant_context_log/`
+(the live shadow record, 64 composite readings 2026-06-17 → 2026-09-11) ·
+**Confirmed against:** CBOE's own `VIX3M_History.csv` · **Fix:** `fragility.py`
+(`Unavailable` label + stale-leg detection), `fragility_backtest.py`
+(`freshen_vol_indices`, CBOE fallback), `fragility_or.py` (`composite_channel`
+masks degraded days), `quant_context.py` (surfaces `degraded`). Zero LLM cost.
+
+**What we looked at.** The status board said the composite monitor had "never
+fired Elevated live". Reading the quant log to plan the next fragility
+experiment showed it had — **five consecutive days, 2026-08-13 → 08-19,
+composite 59–62 against the 56.5 cut**, trend Rising. The question became
+whether that was a signal or a wiring event.
+
+### Headline — a wiring event, in three parts
+
+1. **yfinance's `^VIX3M` stopped updating on 2026-07-17.** As of 2026-09-13 a
+   `history(start=2026-06-01)` call still returns nothing after that date;
+   `^VIX` and `^GSPC` are current. The live `vix_term` component is the
+   fraction of the trailing 20 *shared* VIX/VIX3M dates in backwardation, so
+   from 07-18 it was a **frozen** window — a number that could never change —
+   and nobody could tell, because a calm July reads 0.0 either way.
+2. **For ten trading days (08-13 → 08-27) the fetch returned nothing at all**,
+   and the composite's "graceful degradation" did what it was written to do:
+   renormalised the weights over what was left. `variance_trend` went from 0.45
+   to **~0.90** of the composite. `variance_trend` alone was reading 62–65 (a
+   real, modest vol pickup), which the full composite would have diluted to
+   **~36 → Normal**; at 90% weight it printed **62 → Elevated**.
+3. **Nothing followed.** The S&P's worst drawdown from 08-13 was **−2.7%**
+   (2026-09-10) — no ≥5% event at any horizon. CBOE's file confirms the
+   counterfactual: **zero** VIX/VIX3M backwardation days since 07-01, so the
+   true `vix_term` was 0.0 throughout and the composite was never near the cut.
+
+| | logged 08-13 | with `vix_term` at its true value |
+|---|---|---|
+| components | variance_trend 64.7 · correlation 37.2 (vix_term **absent**) | + vix_term 0.0 |
+| effective weights | 0.90 / 0.10 | 0.45 / 0.35 / 0.05 |
+| composite | **62.0 → Elevated** | **36.4 → Normal** |
+
+**The nuance that is easy to forget.** (a) This is not a signal failure; the
+signal was never consulted. The KB-002 cut-points are percentiles of the
+composite built from *all* its weight-bearing components, and a composite
+missing one is on a different distribution — "graceful degradation" preserved
+a number and silently invalidated its label. (b) The frozen window is the worse
+half. A missing leg at least renormalises visibly (the components dict shrinks);
+a stale leg keeps a plausible number on the page that has stopped measuring
+anything. Had the term structure inverted in August, the monitor would have
+read 0.0 through it. (c) The OR flag was not affected in the record — its log
+starts 08-28, after the outage — but its `comp` channel is walked through the
+same fetch, so the same failure would have reached it. (d) The 2008–2026
+backtest is untouched: yfinance's `^VIX3M` history is complete up to 07-17,
+so the walk has **0 degraded days** in 4,574 readings and KB-002 stands.
+
+**What was changed.**
+- **Stale means missing.** `vix_term_backwardation` returns None when VIX3M's
+  last date is more than 5 VIX observations behind (`_VIX3M_MAX_STALE`).
+- **No calibrated label for a degraded composite.** `fragility_index` now
+  returns `degraded: [...]` naming any missing member of `_LABEL_REQUIRES =
+  ("variance_trend", "vix_term")` and labels the reading **`Unavailable`**; the
+  number is still returned and logged. `acceleration` is not required (it was
+  never computable in the calibration and renormalised away there, so its
+  absence *is* the calibrated state); `correlation` is a token 0.05.
+- **The issuer's file is the fallback.** `freshen_vol_indices` splices CBOE's
+  `VIX_History.csv` / `VIX3M_History.csv` under either vol leg that is missing
+  or stale, in both the live fetch and the backtest fetch; fresh legs are left
+  untouched (a no-op on a normal day). yfinance's VXV-era history still seeds
+  2007–2009, where CBOE's file does not reach.
+- **The OR engine masks degraded days** (`composite_channel`): a degraded
+  composite is NaN in the `comp` channel, so it neither fires nor enters the
+  channel's own threshold history.
+- **It is visible.** `degraded` is in the JSONL record, the Action log line goes
+  WARN with `DEGRADED: vix_term missing, label withheld`, and the note's
+  Fragility Monitor block prints `Unavailable (vix_term missing — calibrated
+  label withheld)` instead of a label.
+- Re-run today with the fix: `vix3m` current to 09-11, composite **14.8 →
+  Resilient**, `degraded: []`; re-walking 2026-07-17 → 09-11 yields **0**
+  Elevated days.
+
+**What it changes.**
+- **The composite monitor still has no live Elevated episode.** The board row
+  was wrong in the other direction — it had fired, but as an artifact — and the
+  live gate ("one live Elevated episode") is unmet, not met.
+- **The live record 2026-07-18 → 09-11 carries a frozen `vix_term`.** The
+  readings are correct by coincidence (contango throughout, CBOE-confirmed) and
+  are kept; the five `Elevated` rows 08-13 → 08-19 stay in the log as written
+  and are superseded by this entry, not rewritten.
+- **The precondition for every aggregator experiment (IMP-6) is a composite
+  that is on its calibrated distribution.** This is the first entry of IMP-5;
+  the remaining IMP-5 item is aligning the composite's *label* cut to the same
+  expanding-PIT form the OR flag already uses, which is planned, not done.
+- Not a version bump: a bug fix plus a fallback for an existing series; the
+  note publishes nothing new.

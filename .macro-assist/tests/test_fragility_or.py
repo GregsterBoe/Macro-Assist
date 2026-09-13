@@ -9,7 +9,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from fragility_or import or_mode_reading, _CH_KEYS
+from fragility_or import or_mode_reading, composite_channel, _CH_KEYS
 
 
 def _channels(comp_last, ar_last, turb_last, n=400, seed=0):
@@ -69,3 +69,24 @@ def test_reading_carries_asof_and_all_channels():
     assert r["asof"] == pd.Timestamp("2020-01-01") + pd.tseries.offsets.BDay(399)
     assert set(r["channels"]) == set(_CH_KEYS)
     assert r["q"] == 0.90
+
+
+def test_composite_channel_masks_degraded_days():
+    # KB-029: a degraded composite (required component missing) has no PIT
+    # meaning that day — it must not fire and must not enter the history.
+    idx = pd.date_range("2020-01-01", periods=5, freq="B")
+    walk = pd.DataFrame({"composite": [10.0, 20.0, 95.0, 30.0, 40.0],
+                         "degraded":  [False, False, True, False, False]}, index=idx)
+    ch = composite_channel(walk)
+    assert np.isnan(ch.iloc[2]) and ch.drop(idx[2]).notna().all()
+    # Without the column (older frames) nothing is masked.
+    assert composite_channel(walk[["composite"]]).notna().all()
+
+
+def test_degraded_latest_day_is_recorded_as_non_firing():
+    ch = _channels(0.1, 0.1, 0.1)
+    ch["comp"].iloc[-1] = np.nan          # today's composite degraded -> masked
+    r = or_mode_reading(ch, min_warmup=100)
+    assert r["channels"]["comp"]["fired"] is False
+    assert r["channels"]["comp"]["value"] is None
+    assert r["flag"] is False

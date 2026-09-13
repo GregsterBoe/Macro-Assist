@@ -45,7 +45,7 @@ Fetched via `fredapi`. 5-year history pulled per series to enable historical con
 | `vix` | `^VIX` | |
 | `dxy` | `DX-Y.NYB` | |
 | `bitcoin` | `BTC-USD` | |
-| `vix3m` | `^VIX3M` | Term ratio only; not in snapshot table |
+| `vix3m` | `^VIX3M` | Term ratio only; not in snapshot table. yfinance's copy stopped updating 2026-07-17; the fragility fetches fall back to CBOE's CSV when it is stale |
 
 **Technical indicators** (computed in Python, injected as `## Technical & Positioning State`):
 - 14-day Wilder RSI — Overbought (>70) / Oversold (<30) / Neutral
@@ -107,14 +107,14 @@ still renders; at build time it drops the date (`assign_bucket(strict=True)`).
 
 **Fragility Monitor** — `fragility.py` (+ `fragility_or.py`)
 
-A 0–100 composite tail-risk gauge (variance trend, VIX term structure, level acceleration, cross-asset correlation), labelled Resilient / Normal / Elevated with a Rising / Stable / Falling trend. A **risk gauge, never a directional signal**. It runs in shadow via the `FRAGILITY_MODE` ladder (`log` → `show` → `active`, default `log`); at `log` the reading never enters the prompt. The optional `FRAGILITY_OR_MODE` ladder (default `off`) adds the higher-recall OR-of-channels flag (composite | absorption | turbulence, each vs. its own point-in-time top decile).
+A 0–100 composite tail-risk gauge (variance trend, VIX term structure, level acceleration, cross-asset correlation), labelled Resilient / Normal / Elevated with a Rising / Stable / Falling trend. A **risk gauge, never a directional signal**. The label is only claimed when the composite is on the footing its cut-points were calibrated on: if `variance_trend` or `vix_term` cannot be computed the reading is labelled **`Unavailable`** and names the missing component in `degraded` (the number is still logged). A VIX3M leg that has stopped updating counts as missing — the ratio would otherwise freeze — and both the live and backtest fetches splice CBOE's own `VIX_History.csv` / `VIX3M_History.csv` under a missing or stale vol leg (`freshen_vol_indices`; a no-op when yfinance is fresh). Why: [KB-029]. It runs in shadow via the `FRAGILITY_MODE` ladder (`log` → `show` → `active`, default `log`); at `log` the reading never enters the prompt. The optional `FRAGILITY_OR_MODE` ladder (default `off`) adds the higher-recall OR-of-channels flag (composite | absorption | turbulence, each vs. its own point-in-time top decile).
 
 Where the reading shows up at the default `log` mode — computed once, surfaced three ways, so a shadow run is no longer invisible:
 
 | Surface | What appears |
 |---------|--------------|
 | `results/quant_context_log/YYYY-MM-DD.jsonl` | the full raw reading (the accumulating shadow record) |
-| Daily run log (`macro_daily.yml`) | `[FRAGILITY]` / `[FRAG-OR]` one-liners — composite, label, trend, top drivers; `WARN` when Elevated or the OR flag fires |
+| Daily run log (`macro_daily.yml`) | `[FRAGILITY]` / `[FRAG-OR]` one-liners — composite, label, trend, top drivers; `WARN` when Elevated, when the reading is degraded (`DEGRADED: … missing, label withheld`), or when the OR flag fires |
 | The note's **Data Snapshot** | a `### Fragility Monitor` table, appended by `build_note()` *after* the LLM call — visible to you, still not to the model |
 
 **Monitoring** — raw quant outputs (vol, regime, conditional, fragility) are logged to `results/quant_context_log/YYYY-MM-DD.jsonl` on each pipeline run for drift detection.

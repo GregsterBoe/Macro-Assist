@@ -207,3 +207,123 @@ Parked directions from the fragility review, pending IMP-1:
     is escalated. `python fragility_or.py`.
   - Validated by [KB-015]/[KB-016]/[KB-017]/[KB-020]/[KB-021]. Receives IMP-1's channels (AR cov=120,
     turbulence cov=252 on a homogeneous panel). **IMP-4 CLOSED.**
+
+---
+
+## Fragility monitor — the 2026-09-13 review
+
+**Where this came from.** With every "add a channel" bid exhausted (IMP-2, IMP-3)
+and IMP-4 live, an external review proposed upgrading the OR aggregation (tree
+models, an HMM, rolling thresholds) and adding ΔCoVaR, SRISK, eigenvector
+centrality, critical slowing down and Shannon entropy. Checked against the record
+before any of it was scheduled — most of it had already been measured here:
+
+| Proposed | Record | Outcome |
+|---|---|---|
+| Tree models learning conditional thresholds | 12–28 crisis episodes, ~7 macro events; [KB-017]/[KB-018]/[KB-019] refused even parameter sweeps on this n. The worked example (AND-gate on composite ≥ p80) *lowers* recall | Reduced to its honest floor: a 3-parameter logistic under LOCO (IMP-6.3). If that cannot beat OR, trees will not |
+| HMM regime-switching | Tested four times and retired: [KB-004] no skill, [KB-005] sequence inference reaches 0.55–0.65, [KB-006] loses to a 4-feature linear rule and adds nothing within stress terciles | **Closed.** Re-proposing it argues against KB-006 |
+| Rolling / dynamic thresholds | The OR flag already uses expanding-PIT deciles; [KB-017] showed static cuts leaked negligibly. A trailing-252 percentile fires at a fixed rate by construction and discards level | Half done. The remaining half — the composite *label* cut is static — is IMP-5.3 |
+| ΔCoVaR | Needs an institution cross-section and quantile regression; the published measure is contemporaneous and its forward form needs quarterly balance-sheet data. [KB-019]: everything financial co-moves in a ≥5% equity drawdown | Not planned |
+| SRISK | Slow capital-shortfall measure for financial-system crises; needs leverage data; no free daily feed; horizon mismatch with a 5/10-day label | Not planned |
+| Eigenvector centrality | The absorption ratio *is* the dominant-eigenvalue read, live since IMP-4; 9 sector ETFs carry ~2 meaningful eigenvectors | Rides along in IMP-7 as a fourth companion; expected redundant |
+| Critical slowing down (lag-1 AR) | **Falsified here**: AUC 0.44/0.50 [KB-001], weight 0 since [KB-002], "exactly as the literature predicted for equities". The "coupled with variance expansion" half *is* the live leading component | **Closed** |
+| Shannon entropy | On returns, entropy ≈ ½·log(2πeσ²): variance in disguise, and an entropy *drop* means falling variance — the opposite of [KB-001]. Permutation/sample entropy measures ordering = predictability = the autocorrelation negative again | Not planned; reasoning recorded so it is not re-proposed |
+
+Two framing points, for the next time this comes up: the OR does **not** weight
+channels equally — each fires against its *own* PIT top-decile, so severity is
+per-channel calibrated; and weighting *was* tested — the rank blend lifted AUC and
+degraded the flag [KB-016], which is why OR is a mode and not a weight.
+
+What the review did do was send us back to the live record, which held a finding
+none of the proposals would have found — IMP-5.
+
+## IMP-5 — Composite degradation: the calibrated cut only applies to the calibrated composite
+
+**Status:** 🟡 **IMP-5.1–5.2 shipped 2026-09-13 → [KB-029]; IMP-5.3 open.**
+
+**Finding.** The composite's first-ever live Elevated (2026-08-13 → 08-19, five
+days, 59–62 vs the 56.5 cut) was a data-feed artifact: yfinance's `^VIX3M`
+stopped updating on 2026-07-17, the live `vix_term` froze, then vanished for ten
+trading days, and the weights renormalised onto `variance_trend` at ~0.90. With
+`vix_term` present the same days read ~36 → Normal; nothing followed (−2.7% max).
+Detail and the counterfactual in [KB-029].
+
+- [x] **IMP-5.1 — Stale means missing; degraded means unlabelled.** A VIX3M leg
+  more than 5 VIX observations behind is treated as absent. A composite missing a
+  member of `_LABEL_REQUIRES` (`variance_trend`, `vix_term`) reports its number
+  but carries the label **`Unavailable`** and a `degraded` list; the OR engine
+  masks such days out of its `comp` channel. Surfaced in the JSONL, the Action log
+  (WARN) and the note block. The 2008–2026 walk has 0 degraded days — KB-002
+  stands.
+- [x] **IMP-5.2 — Issuer fallback for the vol legs.** `freshen_vol_indices` splices
+  CBOE's own `VIX_History.csv` / `VIX3M_History.csv` under a missing or stale leg
+  in both the live and the backtest fetch; a no-op when yfinance is fresh.
+- [ ] **IMP-5.3 — Align the composite label cut to expanding-PIT.** The OR flag's
+  thresholds are the 90th percentile of each channel's *own prior* readings; the
+  composite's Elevated cut is a static 56.5 fitted over 2008–2026. Bring the
+  label onto the same footing so the two flags in the note are on one method.
+  **Gate:** re-walk 2008–2026 with the PIT cut (warm-up 252); the episode
+  recall/precision must reproduce [KB-002] within ±1 crisis per horizon, as
+  [KB-017] found for the OR flag. If it does not, the static cut stays and the
+  discrepancy is a KB entry.
+
+## IMP-6 — Precision at held recall: the aggregator question, asked honestly
+
+**Status:** ⏸ **queued behind IMP-5.3.** Bar written 2026-09-13, before any variant
+was run.
+
+**Question.** The OR mode's operating point is recall ~0.6–0.8 / precision ~0.32
+at 5d ([KB-017]/[KB-021]) — roughly two alarms in three are false. Can precision
+rise *without* paying recall, using only the existing trio? All "add a channel"
+routes are closed; this is the operating point of what exists.
+
+**Three pre-registered variants, one run, one KB entry (positive or negative):**
+
+1. **Persistence** — the OR flag must be set on **two consecutive readings** (the
+   anchor grid is strided, so "consecutive" means consecutive readings, not days).
+   The classic false-positive filter. Its cost is lead time — [KB-002]'s median
+   Elevated→trough lead is 4 days at 5d — so lead time is measured and is a
+   disqualifier, not a footnote.
+2. **k-of-n / severity tiers** — `watch` = any channel ≥ its PIT p90 (today's
+   flag, unchanged); `alert` = **two of three ≥ p90, or any one ≥ p97**. A graded
+   output rather than a sharper binary; `alert` is what gets scored here.
+3. **Fitted logistic** on the three channels' PIT percentiles, **leave-one-crisis-
+   out**, threshold chosen on training folds only. The honest floor for "learn the
+   weighting": three parameters, fitted out-of-sample. If it cannot beat OR, the
+   tree-model question is closed with it.
+
+**The bar — under `run_holdout_cv` (PIT + LOCO) on the [KB-021] live window
+(`comp ∩ ETF`), both horizons, fixed config, no sweeps:**
+
+- **Disqualifiers, evaluated first, each its own verdict:** `underpowered` —
+  fewer than 10 alarms on the PIT window; `too_late` — median lead to trough
+  below 2 days at 5d; `recall_lost` — more than 1 crisis lost vs the 3-channel OR
+  at either horizon under LOCO.
+- **Pass** = PIT precision **+0.05 absolute or more at both horizons** with recall
+  within 1 crisis of OR, **or** LOCO recall **+2 crises or more** at PIT precision
+  within −0.02.
+- Anything between is `no_edge` and is logged as such. A variant that passes goes
+  to the shadow ladder as a *separate* flag, not a replacement — the validated OR
+  operating point keeps accumulating its live record regardless.
+
+**Prior, stated so it can be checked later:** persistence buys precision at a
+lead-time cost and probably fails `too_late` at 5d; tiers reshuffle the same
+alarms; the logistic reproduces OR. Honest expectation is one `no_edge` and two
+disqualifications — which would close the aggregator question and is worth having
+in the KB for exactly that reason.
+
+## IMP-7 — The companion measures IMP-1 listed and never ran
+
+**Status:** ⏸ **queued; expected negative; costs an afternoon.**
+
+IMP-1's candidate list named cross-sectional **dispersion**, **average pairwise
+correlation** and **breadth** as "cheap companions computable from the same
+panel". They were never run — the arc went AR → turbulence → OR and stopped.
+**Eigenvector loading concentration** (from the review) rides along as a fourth.
+
+- Same panel (nine sector ETFs), same standalone gate (`walk_forward_signal` →
+  `evaluate_signal`, GO ≈ nov-AUC > 0.60), then the [KB-017] OR-admission gate
+  (PIT recall must rise at precision within −0.02).
+- **Prior after [KB-019]:** redundant in the tail — orthogonal in calm ≠ orthogonal
+  in a ≥5% drawdown. Run so the next session does not have to; one KB entry for
+  all four.
