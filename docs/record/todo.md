@@ -14,8 +14,9 @@ Conventions:
   reasoning intact, and pull any "carry forward" caveat back up into this file
   as its own entry. A resolved item left here is noise; a lost caveat is worse.
 
-Last reviewed: 2026-09-11 (cleanup pass — resolved items split out to
-`resolved.md`; the maintenance log's open follow-ups folded in below).
+Last reviewed: 2026-09-12 (#12 GitHub Pages closed → `resolved.md`). Prior pass
+2026-09-11: resolved items split out to `resolved.md`; the maintenance log's open
+follow-ups folded in below.
 
 ---
 
@@ -180,17 +181,6 @@ explicit `-m integration`) or keep the current trade.
 remaining module and the least test-covered. Could split into agents / synthesis /
 note-markdown if it keeps growing; kept as one module for now to minimise churn in
 untested code.
-
-### Open decision #12 — GitHub Pages is still switched off
-The docs site cannot publish until a repo admin sets **Settings → Pages → Build
-and deployment → Source: "GitHub Actions"** once — or, when that settings page
-404s, does the same with
-`POST /repos/GregsterBoe/Macro-Assist/pages -d '{"build_type":"workflow"}'` under a
-PAT that has admin on the repo. Storing that PAT as the `PAGES_ADMIN_TOKEN` secret
-lets the deploy preflight do it instead; the default Actions token cannot (see
-`maintenance-log.md`, 2026-09-10). **Every push to `main` that touches `docs/` will
-keep failing at the deploy preflight until this is done.** Not a code problem —
-don't try to fix it in the workflow.
 
 ---
 

@@ -157,9 +157,11 @@ table.
 - **`llm_analysis.py` is the largest and least-tested module** (~1,200 lines).
   Kept as one module to minimise churn in untested code; see `maintenance-log.md`
   open follow-ups before splitting it.
-- **GitHub Pages is off** and every `main` push touching `docs/` fails at the
-  deploy preflight until a repo admin turns it on once. The preflight names the
-  fix. Not a code problem — don't try to fix it in the workflow.
+- **GitHub Pages is on** as of 2026-09-12 — the docs site publishes and the
+  deploy preflight passes. It had been off, failing every `main` push that
+  touched `docs/`; if it ever reverts, the preflight names the fix and only a
+  repo admin (or a `PAGES_ADMIN_TOKEN` PAT) can apply it. Not a code problem —
+  don't try to fix it in the workflow.
 - **`score_predictions.py` is frozen, not dead** ([ADR-0010](docs/decisions/ADR-0010-freeze-the-directional-scorer.md)).
   It gates on version so v1.5-and-earlier history stays scoreable. It scores
   nothing on v1.6+ notes. Its readers (`summarize_accuracy.py`,

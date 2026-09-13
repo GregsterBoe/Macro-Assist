@@ -17,6 +17,20 @@ questions.
 
 ## Tooling
 
+### RESOLVED 2026-09-12 — #12 GitHub Pages is switched on
+**Resolution: the repo admin enabled it.** Settings → Pages → Build and
+deployment → Source is now "GitHub Actions", so the deploy preflight passes and
+the docs site publishes. Every push to `main` touching `docs/` had been failing
+at that preflight since the site was stood up — a red check on green code, which
+is the kind of noise that trains a reader to ignore checks.
+
+Kept for the next time it matters: the preflight names the fix itself, and the
+default Actions token **cannot** do it — a PAT with admin on the repo is
+required, stored as `PAGES_ADMIN_TOKEN` if the preflight is ever to
+self-heal. When the settings page 404s, the same change is
+`POST /repos/GregsterBoe/Macro-Assist/pages -d '{"build_type":"workflow"}'`.
+See `maintenance-log.md`, 2026-09-10, for how it was diagnosed.
+
 ### RESOLVED 2026-09-09 — #9 `bump_version.py` cannot find its anchors (pre-existing)
 **Resolution: option 3 — generate the table.** The milestones table now lives at
 [Reference → Versioning](../reference/versions.md), rewritten wholesale from

@@ -95,7 +95,8 @@ the result to GitHub Pages. Pull requests build but do not deploy: `mkdocs build
 reference is caught in review.
 
 **Publishing requires Pages to be switched on once**, by a repo admin, in one of
-two ways.
+two ways. *Done on this repo 2026-09-12* — the recipes below are kept for a fresh
+fork, and for the case where the setting is ever reverted.
 
 *In the browser:* **Settings → Pages → Build and deployment → Source: "GitHub
 Actions"**.
