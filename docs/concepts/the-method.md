@@ -48,7 +48,13 @@ episode, `EDGE_MIN_BSS` was left at 0.0 even though a floor of literally zero is
 obviously too loose — because raising it *after* seeing a result it would have
 changed is a goalpost move, and the pre-registration said nothing about a margin.
 It was recorded as an open decision instead, with a test pinning it
-([ADR-0017](../decisions/ADR-0017-bss-floor-left-open.md)).
+([ADR-0017](../decisions/ADR-0017-bss-floor-left-open.md)) — and settled five
+days later, once no candidate family existed for the number to favour
+([ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md)):
+`EDGE_MIN_BSS = 0.02` plus a block-bootstrap interval that must clear zero, the
+same bar Phase 22 had already set for itself. The check that it was not a
+goalpost move is a test: applied to every arm in the record, the new bar
+relabels nothing.
 
 ## 3. Seal the holdout, and time the sealing honestly
 

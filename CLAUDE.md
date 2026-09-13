@@ -18,7 +18,7 @@ already say, and it must not become a second copy of them.
 |---|---|---|
 | **Concepts** | `docs/concepts/` | What the system is for, and why |
 | **Reference** | `docs/reference/` | **How the code behaves today** — kept current with the code |
-| **Decisions** | `docs/decisions/` | **Why** the system has its shape (19 ADRs) |
+| **Decisions** | `docs/decisions/` | **Why** the system has its shape (20 ADRs) |
 | **Record** | `docs/record/` | Plans, status, and **measured findings** |
 
 Inside `docs/record/`:
@@ -144,7 +144,7 @@ page with no costs listed has not been thought through.
 | **Live product** | Conditional return distribution across 6 assets + Fragility Monitor |
 | **Live experiment** | Phase 22 distribution scorer — bar sealed, first honest read ~2027-05 |
 | **Winding down** | The directional scorer, once the last T+20 window resolves ~2026-10-02 |
-| **Blocked on a decision** | WP-21.E families 2–3, pending a written BSS floor ([ADR-0017](docs/decisions/ADR-0017-bss-floor-left-open.md)) |
+| **Queued** | WP-21.E families 2–3 — bar written ([ADR-0020](docs/decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md)), no family chosen, honest prior low |
 
 The board in [active-experiments.md](docs/record/active-experiments.md) is
 authoritative. If this table disagrees with it, the board wins — and fix this

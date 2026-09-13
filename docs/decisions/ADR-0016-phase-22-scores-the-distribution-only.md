@@ -5,7 +5,7 @@
 | **Status** | Accepted |
 | **Decided** | 2026-09-08 |
 | **Evidence** | [KB-024], [KB-026], [KB-027] motivate the benchmark choice |
-| **Related** | [ADR-0009](ADR-0009-cut-the-directional-product.md) · [ADR-0017](ADR-0017-bss-floor-left-open.md) |
+| **Related** | [ADR-0009](ADR-0009-cut-the-directional-product.md) · [ADR-0017](ADR-0017-bss-floor-left-open.md) · [ADR-0020](ADR-0020-the-numeric-bar-has-a-skill-margin.md) (adopted this bar's shape for the numeric harness) |
 
 ## Context
 
@@ -38,7 +38,9 @@ macro bucket at all** — plus `trailing_250` and `har_gaussian`.
   on 2026-09-07; the bar was written 2026-09-08, when the interval record had
   **zero** resolved observations. `MIN_SKILL = 0.02` (deliberately not zero — this
   settles in advance the question [ADR-0017](ADR-0017-bss-floor-left-open.md)
-  leaves open) and `MIN_BLOCKS = 8` put the earliest read at ~2027-05.
+  left open — [ADR-0020](ADR-0020-the-numeric-bar-has-a-skill-margin.md) then
+  gave the numeric harness the same margin and the same interval) and
+  `MIN_BLOCKS = 8` put the earliest read at ~2027-05.
 - **The exploratory half is fenced in code.** The median-only backfill
   (2026-05-29 → 2026-08-28) was seen before the bar was written, so
   `verdict(sealed=False)` can only ever return `exploratory`. It shows skill vs

@@ -36,7 +36,7 @@ Everything runs offline: the panel fixtures are synthetic, and only
 Run:
     pytest .macro-assist/tests/test_numeric_baseline.py -q
 """
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -352,7 +352,8 @@ def test_verdict_is_underpowered_below_the_bar():
 def test_verdict_reports_edge_when_the_bar_is_cleared():
     ev = {
         "overall": {"decisive_hit_rate": 0.58,
-                    "calibration": {"n": 500, "brier_skill_score": 0.04}},
+                    "calibration": {"n": 500, "brier_skill_score": 0.04,
+                                    "bss_ci": {"lo": 0.012, "hi": 0.071}}},
         "separation": {"overall": {"ordering": "aligned"}},
     }
     assert nb.verdict(ev) == "edge"
@@ -1448,13 +1449,20 @@ def test_workflow_disables_a_family_only_on_an_explicit_false():
 # 10. KB-027 — an inverted ordering disqualifies, whatever the BSS says
 # ---------------------------------------------------------------------------
 
-def _evaluation(hit: float, bss: float, ordering: str | None, n: int = 15215) -> dict:
+def _evaluation(hit: float, bss: float, ordering: str | None, n: int = 15215,
+                ci: tuple[float, float] | None = None) -> dict:
+    calib = {"n": n, "brier_skill_score": bss}
+    if ci is not None:
+        calib["bss_ci"] = {"lo": ci[0], "hi": ci[1]}
     return {
         "n_calls": n * 2,
-        "overall": {"decisive_hit_rate": hit,
-                    "calibration": {"n": n, "brier_skill_score": bss}},
+        "overall": {"decisive_hit_rate": hit, "calibration": calib},
         "separation": {"overall": {"ordering": ordering}} if ordering else None,
     }
+
+
+# A clean pass under ADR-0020: margin cleared, interval clear of zero.
+_CLEAR = dict(bss=0.03, ci=(0.008, 0.052))
 
 
 def test_an_inverted_ordering_cannot_pass_on_a_hair_of_positive_bss():
@@ -1485,13 +1493,12 @@ def test_inverted_is_its_own_verdict_not_folded_into_no_edge():
 
 
 def test_the_pass_path_still_passes():
-    """The correction must only ever remove passes, never add or block a clean one."""
-    assert nb.verdict(_evaluation(0.55, 0.01, "aligned")) == "edge"
-    assert nb.verdict(_evaluation(0.55, 0.01, "mixed")) == "edge"
-    assert nb.verdict(_evaluation(0.55, -0.01, "aligned")) == "edge"
-    assert nb.verdict(_evaluation(0.55, 0.01, None)) == "edge"
-    # Still short of the bar on hit-rate, ordering notwithstanding.
-    assert nb.verdict(_evaluation(0.51, 0.01, "aligned")) == "no edge"
+    """The disqualifier must only ever remove passes, never block a clean one."""
+    assert nb.verdict(_evaluation(0.55, ordering="aligned", **_CLEAR)) == "edge"
+    assert nb.verdict(_evaluation(0.55, ordering="mixed", **_CLEAR)) == "edge"
+    assert nb.verdict(_evaluation(0.55, ordering=None, **_CLEAR)) == "edge"
+    # Still short of the bar on hit-rate, calibration notwithstanding.
+    assert nb.verdict(_evaluation(0.51, ordering="aligned", **_CLEAR)) == "no edge"
 
 
 def test_inversion_does_not_override_an_unscoreable_arm():
@@ -1503,16 +1510,122 @@ def test_inversion_does_not_override_an_unscoreable_arm():
     assert nb.verdict(abstainer) == "abstains"
 
 
-def test_the_bss_margin_was_deliberately_left_alone():
-    """KB-027's second lesson is recorded as open, not silently implemented.
+# ---------------------------------------------------------------------------
+# 11. ADR-0020 — the skill margin, and the interval that goes with it
+# ---------------------------------------------------------------------------
 
-    Raising the BSS floor above zero so +0.003 stops reading as skill is a real
-    goalpost move — the pre-registration says nothing about a margin — so it must
-    not arrive as a quiet constant change alongside the correction that *was*
-    pre-registered.
+def test_the_bss_floor_is_the_written_down_margin():
+    """ADR-0020 closed ADR-0017: the floor is 0.02, the same as Phase 22's.
+
+    The case ADR-0017 left open — a hair of positive BSS with a clean ordering —
+    was `edge` under the floor of zero and is `no edge` now. That is the only
+    hypothetical the margin changes; see the record test below for the arms it
+    does not.
     """
-    assert nb.EDGE_MIN_BSS == 0.0
-    assert nb.verdict(_evaluation(0.573, 0.003, "aligned")) == "edge", (
-        "a hair of positive BSS still passes when the ordering is clean — that "
-        "is the open question, not something this change decided"
+    assert nb.EDGE_MIN_BSS == 0.02
+    from score_distributions import MIN_SKILL
+    assert nb.EDGE_MIN_BSS == MIN_SKILL, "one standard for skill across the repo"
+    assert nb.verdict(_evaluation(0.573, 0.003, "aligned", ci=(0.001, 0.005))) == "no edge"
+
+
+def test_the_margin_alone_is_not_enough_the_interval_must_clear_zero():
+    """+0.021 on the same overlapping calls is no more independent than +0.003."""
+    assert nb.verdict(_evaluation(0.58, 0.03, "aligned", ci=(-0.004, 0.061))) == "no edge"
+    assert nb.verdict(_evaluation(0.58, 0.03, "aligned", ci=(0.0, 0.061))) == "no edge"
+    assert nb.verdict(_evaluation(0.58, 0.03, "aligned", ci=(0.001, 0.061))) == "edge"
+
+
+def test_an_arm_without_an_interval_cannot_pass():
+    """No interval means the arm was not measured against this bar, not that it cleared it."""
+    assert nb.verdict(_evaluation(0.58, 0.05, "aligned")) == "no edge"
+    assert nb.verdict(_evaluation(0.58, 0.05, "aligned", ci=(None, None))) == "no edge"
+
+
+def test_an_aligned_ordering_no_longer_buys_a_pass():
+    """The old clause was `hit > 0.52 AND (BSS > 0 OR aligned)`.
+
+    An `aligned` label is as weak on a near-zero effect as `inverted` was
+    ([KB-027]), so it cannot substitute for calibration. It stays a diagnostic;
+    `inverted` stays a disqualifier.
+    """
+    assert nb.verdict(_evaluation(0.58, -0.01, "aligned", ci=(-0.03, 0.01))) == "no edge"
+    assert nb.verdict(_evaluation(0.58, 0.01, "aligned", ci=(0.001, 0.02))) == "no edge"
+
+
+@pytest.mark.parametrize("kb, arm, hit, bss, ordering, expected", [
+    ("KB-024", "ridge",               0.530, -0.087, "inverted", "inverted"),
+    ("KB-024", "gbm",                 0.526, -0.059, "inverted", "inverted"),
+    ("KB-026", "exogenous_spf",       0.561, -0.030, "mixed",    "no edge"),
+    ("KB-026", "market_plus_exo",     0.548, -0.124, "mixed",    "no edge"),
+    ("KB-027", "vix_term",            0.573,  0.003, "inverted", "inverted"),
+    ("KB-027", "market_plus_vixterm", 0.528, -0.083, "inverted", "inverted"),
+    ("KB-027", "always_bullish",      0.567, -0.001, None,       "no edge"),
+    ("KB-027", "random_walk",         0.496, -0.012, "mixed",    "no edge"),
+])
+def test_the_new_bar_relabels_nothing_in_the_record(kb, arm, hit, bss, ordering, expected):
+    """The test that ADR-0020 is not a goalpost move.
+
+    A bar that changes no verdict in the record was not chosen to change one.
+    The numbers are the published ones; the interval is left absent, which is
+    the strictest reading and still cannot flip any of these.
+    """
+    assert nb.verdict(_evaluation(hit, bss, ordering)) == expected, f"{kb} {arm}"
+
+
+def _calib_items(n_dates: int, per_date: int, levels: list[tuple[int, float]],
+                 seed: int) -> list[dict]:
+    """`levels` = [(stated confidence, realised hit-rate at that confidence)]."""
+    rng = np.random.default_rng(seed)
+    items = []
+    for d in range(n_dates):
+        day = (date(2018, 1, 1) + timedelta(days=d)).isoformat()
+        for k in range(per_date):
+            conf, p_hit = levels[k % len(levels)]
+            items.append({"date": day, "confidence": conf,
+                          "score": 1.0 if rng.random() < p_hit else 0.0})
+    return items
+
+
+def test_bss_bootstrap_interval_excludes_zero_for_a_real_signal():
+    """Calibrated *and* discriminating — 80% calls hit 80%, 55% calls hit 55%.
+
+    Skill is discrimination, not accuracy: a constant confidence equal to the
+    base rate has BSS 0 by construction however often it hits.
+    """
+    items = _calib_items(420, 6, [(80, 0.80), (55, 0.55)], seed=1)
+    ci = nb.bss_block_bootstrap_ci(items, n_boot=300)
+    assert ci is not None
+    assert ci["lo"] > 0, ci
+    assert ci["n_blocks"] == 20 and ci["block_days"] == 21
+
+
+def test_bss_bootstrap_interval_spans_zero_for_noise_dressed_as_confidence():
+    """Confidence that varies but says nothing — 80% and 55% calls both hit at
+    the same 0.65 base rate. Overconfidence costs Brier, so the estimate sits
+    below zero and the interval must not let a lucky draw through."""
+    items = _calib_items(420, 6, [(80, 0.65), (55, 0.65)], seed=2)
+    ci = nb.bss_block_bootstrap_ci(items, n_boot=300)
+    assert ci is not None
+    assert ci["lo"] < 0, ci
+
+
+def test_bss_bootstrap_needs_two_blocks_and_decisive_calls():
+    assert nb.bss_block_bootstrap_ci(_calib_items(15, 4, [(70, 0.7)], seed=3)) is None
+    flat = [{"date": "2018-01-02", "confidence": 50, "score": 0.5}] * 50
+    assert nb.bss_block_bootstrap_ci(flat) is None
+
+
+def test_evaluate_reports_the_interval_and_the_json_names_the_bar(noise_panel, tmp_path):
+    pytest.importorskip("sklearn")
+    result = nb.run(
+        noise_panel, out_dir=tmp_path, arms=(nb.ARM_RIDGE,), horizons={"t5": 5},
+        min_train=400, refit_every=60, with_importance=False,
+        with_separation=False, write=True,
     )
+    calib = result["evaluations"][nb.ARM_RIDGE]["overall"]["calibration"]
+    assert calib is not None and "bss_ci" in calib
+    assert result["meta"]["bar"]["adr"] == "ADR-0020"
+    assert result["meta"]["bar"]["min_bss"] == nb.EDGE_MIN_BSS
+    text = (tmp_path / "numeric_baseline.md").read_text()
+    assert "BSS 95% CI" in text
+    assert "ADR-0020" in text

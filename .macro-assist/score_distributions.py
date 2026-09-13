@@ -849,8 +849,10 @@ NOMINAL_COVERAGE = 0.50
 # The skill margin over the unconditional benchmark. NOT zero, deliberately:
 # [KB-027] found the previous bar handing out "edge" for a BSS of +0.003 on
 # heavily overlapping calls, and recorded that a floor of literally zero is not
-# a skill threshold. This is the same decision as the open EDGE_MIN_BSS one, and
-# it is settled HERE, in writing, before the data exists rather than after.
+# a skill threshold. This is the same decision as the EDGE_MIN_BSS one, and it
+# was settled HERE first, in writing, before the data existed rather than after;
+# ADR-0020 then set `numeric_baseline.EDGE_MIN_BSS` to the same number, and a
+# test in that module keeps the two equal.
 MIN_SKILL = 0.02
 
 

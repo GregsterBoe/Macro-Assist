@@ -107,6 +107,7 @@ nav:
       - "ADR-0017 — `EDGE_MIN_BSS` stays at 0.0; the floor is an open decision, not a fix": decisions/ADR-0017-bss-floor-left-open.md
       - "ADR-0018 — Market data is barred from the exogenous branch's core inputs": decisions/ADR-0018-market-data-barred-from-the-exogenous-branch.md
       - "ADR-0019 — The paper portfolio is mechanical and paper-only in v1": decisions/ADR-0019-paper-portfolio-mechanical-and-paper-only.md
+      - "ADR-0020 — The numeric bar has a skill margin: `EDGE_MIN_BSS = 0.02` and the BSS interval must exclude zero": decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md
   - Record:
       - Knowledge Base: record/knowledge-base.md
       - Active experiments: record/active-experiments.md

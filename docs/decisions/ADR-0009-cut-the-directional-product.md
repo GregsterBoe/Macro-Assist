@@ -60,6 +60,6 @@ That is why the feedback loop went too rather than being re-pointed.
 ## Would we revisit it?
 
 Only through WP-21.E's capped, pre-registered search — three feature families, of
-which family 1 has run and closed negative ([KB-027]). Families 2 and 3 are
-deliberately blocked pending [ADR-0017](ADR-0017-bss-floor-left-open.md). The
-honest prior is low and the roadmap says so.
+which family 1 has run and closed negative ([KB-027]). Families 2 and 3 face
+the bar in [ADR-0020](ADR-0020-the-numeric-bar-has-a-skill-margin.md), written
+down before either was chosen. The honest prior is low and the roadmap says so.

@@ -51,7 +51,8 @@ source of truth for *why*.
 | [ADR-0014](ADR-0014-point-in-time-without-alfred.md) | Point-in-time without ALFRED: only never-revised inputs are eligible | Accepted |
 | [ADR-0010](ADR-0010-freeze-the-directional-scorer.md) | Freeze `score_predictions.py` rather than refactor or delete it | Accepted |
 | [ADR-0016](ADR-0016-phase-22-scores-the-distribution-only.md) | Phase 22 scores the conditional distribution only | Accepted |
-| [ADR-0017](ADR-0017-bss-floor-left-open.md) | `EDGE_MIN_BSS` stays at 0.0 — the floor is an open decision | **Open** |
+| [ADR-0017](ADR-0017-bss-floor-left-open.md) | `EDGE_MIN_BSS` stays at 0.0 — the floor is an open decision | Superseded → ADR-0020 |
+| [ADR-0020](ADR-0020-the-numeric-bar-has-a-skill-margin.md) | The numeric bar has a skill margin: `EDGE_MIN_BSS = 0.02` and the BSS interval must exclude zero | Accepted |
 
 ### Experiment tracks
 
@@ -66,8 +67,6 @@ source of truth for *why*.
 These are consciously undecided and are tracked in
 [todo.md](../record/todo.md) rather than here, except where one blocks work:
 
-- **[ADR-0017](ADR-0017-bss-floor-left-open.md) — the BSS floor.** Blocking
-  WP-21.E families 2 and 3. Must be written down *before* family 2 runs.
 - **Open decision #7 — Target Range coverage.** Needs a pre-registered nominal
   and a path-vs-endpoint call. It is the last LLM-authored falsifiable claim in
   the note and it is unscored.

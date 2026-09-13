@@ -87,7 +87,7 @@ diagnosed, archived and written up — see the
 | **Not published** | Any directional call. Removed in v1.6 — [KB-024](record/knowledge-base.md) |
 | **Live experiment** | Phase 22 — the distribution scorer. Bar sealed 2026-09-08, first honest read ~2027-05 |
 | **Winding down** | The directional scorer, once the last open T+20 window resolves ~2026-10-02 |
-| **Blocked on a decision** | WP-21.E families 2–3, pending a written BSS floor — [KB-027](record/knowledge-base.md) |
+| **Queued** | WP-21.E families 2–3 — unblocked by [ADR-0020](decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md); no family chosen, honest prior low |
 
 The authoritative version of this table is the board in
 [Active experiments](record/active-experiments.md). If the two disagree, the

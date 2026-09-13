@@ -165,10 +165,18 @@ python .macro-assist/numeric_baseline.py --start 2005-01-01 --save-panel panel.c
 python .macro-assist/numeric_baseline.py --panel panel.csv --windows t5
 ```
 
-`verdict()` applies a bar fixed before the numbers. `edge` requires n ≥ 30
-decisive calls, decisive hit-rate > 0.52, and either BSS > 0 or an `aligned`
-separation ordering — the same standard as [KB-007] / [KB-022]. Below n it
-reports `underpowered`, not `no edge`.
+`verdict()` applies a bar fixed before the numbers
+([ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md)).
+`edge` requires n ≥ 30 decisive calls, decisive hit-rate > 0.52, **BSS > 0.02**
+*and* a BSS block-bootstrap 95% interval (21 report-date blocks, the unit
+`bias_separation` and `score_distributions` share) whose lower bound is above
+zero. The disqualifiers are read first, each with its own verdict: below n it
+reports `underpowered`, an all-Neutral arm `abstains`, and an `inverted`
+separation ordering returns `inverted` whatever the other numbers say. An
+`aligned` ordering is a reported diagnostic, not a pass route. The headline table
+prints the interval beside the BSS, and `meta.bar` in the JSON records the
+constants a run was judged under. `0.02` is `score_distributions.MIN_SKILL`, and
+a test keeps the two equal.
 
 !!! warning "Corrected after [KB-027]"
     As originally written, the pass clause was
@@ -184,11 +192,15 @@ reports `underpowered`, not `no edge`.
     project; "did nothing" and "did something backwards" should not print the
     same word.
 
-    `EDGE_MIN_BSS` was deliberately **left at 0.0**. Raising it after seeing a
-    result it would have changed is a goalpost move and the pre-registration says
-    nothing about a margin, so it is recorded as an open decision instead, pinned
-    by `test_the_bss_margin_was_deliberately_left_alone`. See
-    [ADR-0017](../decisions/ADR-0017-bss-floor-left-open.md).
+    `EDGE_MIN_BSS` was deliberately **left at 0.0** in that change. Raising it
+    after seeing a result it would have changed is a goalpost move and the
+    pre-registration said nothing about a margin, so it was recorded as an open
+    decision ([ADR-0017](../decisions/ADR-0017-bss-floor-left-open.md)) and
+    settled on 2026-09-13, with no candidate family on the table
+    ([ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md)).
+    The same change retired the `OR aligned` half of the old disjunct.
+    `test_the_new_bar_relabels_nothing_in_the_record` is the check that the new
+    bar changes no published verdict.
 
 ## Window-Aware Calibration — retired in v1.6
 

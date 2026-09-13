@@ -155,9 +155,10 @@ feature families, each pre-registered and sealed before it runs.
 - **[KB-027]** — family 1, the VIX term structure. Negative, on three independent
   readings, with the same contrarian mechanism as [KB-024]. It also exposed the
   defect in the pre-committed bar (see [The method](the-method.md), §10).
-- **Families 2 and 3** — deliberately blocked, pending a written decision on the
-  BSS floor. Deciding it now, with no candidate family on the table, is the only
-  moment it can be decided honestly.
+- **Families 2 and 3** — not chosen. They face the bar in
+  [ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md),
+  which was written while no candidate family existed — the only moment it
+  could be decided honestly.
 
 The honest prior after three independent negatives is low, and the roadmap says
 so.

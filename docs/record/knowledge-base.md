@@ -2284,7 +2284,12 @@ goalpost move — the pre-registration says nothing about a margin — so it is
 recorded as open rather than edited in quietly.
 `test_the_bss_margin_was_deliberately_left_alone` pins that.
 
-### Open question for family 2
+### Open question for family 2 — *settled 2026-09-13 → [ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md)*
+
+*Kept as written; the decision is on the ADR page. Note for a reader weighing
+the comparator-relative option below: on the table above `vix_term` already
+beats `always_bullish` on Brier (0.244 vs 0.246), so that clause alone would
+have passed it.*
 
 **A BSS floor of literally zero is not a skill threshold.** +0.003 over the base
 rate on 15,215 heavily overlapping calls (2,261 dates × 6 assets × 3 horizons) is

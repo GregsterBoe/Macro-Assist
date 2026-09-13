@@ -66,7 +66,7 @@ Measured results live in `knowledge-base.md`.
 | 13 | End-to-end validation | ⏸ Backlog (optional) |
 | 14 | Production hardening (weekly refit, monitoring) | ✅ 2026-05-29 |
 | 16 | Fragility monitor + design-by-emergence prompt levers | ✅ Closed 2026-09-04 — 16.A shipped and alive (→ IMP-4), 16.B/C closed by Phase 21; detail archived |
-| 21 | Directional product validation → **the cut (v1.6)** | ✅ Closed 2026-09-04 — [KB-024]. WP-21.E bounded search: family 1 (VIX term structure) resolved **negative** 2026-09-08 → [KB-027]; 2 of 3 families remain |
+| 21 | Directional product validation → **the cut (v1.6)** | ✅ Closed 2026-09-04 — [KB-024]. WP-21.E bounded search: family 1 (VIX term structure) resolved **negative** 2026-09-08 → [KB-027]; 2 of 3 families remain, bar for them written 2026-09-13 ([ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md)) |
 | 22 | Scoring the distribution product | 🟢 Open 2026-09-08 — the scorer follows the v1.6 cut. A/B shipped; the bar is sealed, first read ~2027-05 |
 
 The v1.5 **system-state snapshot** that used to open this file was archived on the
@@ -303,7 +303,7 @@ Existing dated predictions  (results/**/<date>-*-macro.md, per arm)
 > the arm is the drift benchmark, adding it to the panel makes the panel worse,
 > and the mechanism is [KB-024]'s inversion through a new instrument. It also
 > exposed a defect in the pre-committed bar — see the WP below. 2 of 3 families
-> remain) · WP-21.F ✅ both remaining directional arms stood down ·
+> remain, against the bar in [ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md)) · WP-21.F ✅ both remaining directional arms stood down ·
 > WP-21.G ✅ scoring loop wound down. The WP-21.A–D table below carries the
 > verdicts, including what replaced the two cut columns.
 
@@ -360,7 +360,7 @@ all, and now the seal date. Every optional family also arrives with its own
 dispatched to test publishes a valid report answering a different question
 [KB-025].
 
-### WP-21.E — Bounded, pre-registered indicator search *(family 1 ✅ RESOLVED 2026-09-08 — negative, and it found a defect in the bar → [KB-027]. Two families remain.)*
+### WP-21.E — Bounded, pre-registered indicator search *(family 1 ✅ RESOLVED 2026-09-08 — negative, and it found a defect in the bar → [KB-027]. Two families remain; their bar is [ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md), written 2026-09-13.)*
 
 The honest way back in. [KB-024] closes "this payload, these model classes" — it
 does not close "no feature family predicts direction." So the search is allowed,
@@ -375,8 +375,13 @@ but on three conditions, written down before it starts:
    first** — it is nearly free given the panel `numeric_baseline.py` already
    builds, and `vix_term` is the strongest single fragility component
    ([KB-001], AUC 0.77/0.67) that has never been tested for *direction*.
-3. **The bar is the one already written.** Same `verdict()` clause as WP-21.A
-   (n ≥ 30 decisive, hit-rate > 0.52, and BSS > 0 or an `aligned` ordering), on
+3. **The bar is the one already written.** For family 1 that was WP-21.A's
+   `verdict()` clause (n ≥ 30 decisive, hit-rate > 0.52, and BSS > 0 or an
+   `aligned` ordering). **For families 2 and 3 it is
+   [ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md)**,
+   written 2026-09-13 with no candidate chosen: n ≥ 30, hit-rate > 0.52, no
+   `inverted` ordering, **BSS > 0.02 and the BSS block-bootstrap interval clear
+   of zero**; `aligned` no longer substitutes for calibration. Either way, on
    **sealed holdout data** — a slice held out before the family is chosen, not
    after. Clearing it on the training panel is not a result.
 
@@ -410,14 +415,17 @@ an `inverted` ordering now disqualifies before the pass clause and prints as its
 own verdict. This is not a goalpost that moved — the defence is entirely that the
 read was committed before the run — and the full argument is in [KB-027].
 
-**Open before family 2 runs, and it must be settled in writing first:** a BSS
-floor of literally zero is not a skill threshold. +0.003 on heavily overlapping
-calls is not distinguishable from zero. Either a margin or a comparator-relative
-clause ("must beat the best comparator on Brier") is the principled bar.
-`EDGE_MIN_BSS` was deliberately left at 0.0 — raising it *is* a goalpost move and
-is not covered by the pre-registration, so it is a decision, not a fix. Held open
-as **[ADR-0017](../decisions/ADR-0017-bss-floor-left-open.md)**, which blocks
-families 2 and 3.
+**The floor, settled 2026-09-13 → [ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md).**
+A BSS floor of literally zero is not a skill threshold, and `EDGE_MIN_BSS` was
+deliberately left at 0.0 in the correction above — raising it with +0.003 in
+view would have been a goalpost move ([ADR-0017](../decisions/ADR-0017-bss-floor-left-open.md)).
+It was decided once no candidate family existed: **`EDGE_MIN_BSS = 0.02`** (the
+same number as Phase 22's `MIN_SKILL`) **and** the BSS block-bootstrap interval
+must clear zero. The comparator-relative Brier clause was checked against the
+[KB-027] table and would have *passed* `vix_term` (Brier 0.244 vs 0.246, on
+different call subsets), which is why it was not taken. Applied to every arm in
+the record the new bar relabels nothing — a test pins that. Families 2 and 3 are
+unblocked; none has been chosen.
 
 **Scope, as the pre-registration required it be carried:** this closes the term
 structure as a *directional* input. [KB-001] scored it as a *stress* instrument

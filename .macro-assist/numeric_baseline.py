@@ -1487,7 +1487,8 @@ def evaluate(reports: list[dict], arm: str, with_separation: bool = True,
                 sc = adata.get("score")
                 if sc is None:
                     continue
-                item = {"confidence": adata.get("confidence", 50), "score": sc}
+                item = {"confidence": adata.get("confidence", 50), "score": sc,
+                        "date": str(report.get("report_date", ""))}
                 bucket["items"].append(item)
                 bucket["scores"].append(sc)
                 all_items.append(item)
@@ -1503,6 +1504,13 @@ def evaluate(reports: list[dict], arm: str, with_separation: bool = True,
             "calibration":    _brier_and_reliability(bucket["items"]),
         }
 
+    calibration = _brier_and_reliability(all_items)
+    if calibration is not None:
+        # The interval the ADR-0020 bar reads. Always computed, not only with
+        # separation on: without it `verdict()` cannot pass an arm, and a quick
+        # sweep that prints "no edge" for want of an interval would mislead.
+        calibration["bss_ci"] = bss_block_bootstrap_ci(all_items, n_boot=n_boot)
+
     return {
         "arm":       arm,
         "n_reports": len(scoped),
@@ -1510,12 +1518,72 @@ def evaluate(reports: list[dict], arm: str, with_separation: bool = True,
         "overall": {
             "mean_score":        round(sum(all_scores) / len(all_scores), 4) if all_scores else None,
             "decisive_hit_rate": _decisive_hit_rate(all_scores),
-            "calibration":       _brier_and_reliability(all_items),
+            "calibration":       calibration,
         },
         "windows":    windows_out,
         "separation": (bias_separation(scoped, arm=arm, n_perm=n_perm, n_boot=n_boot)
                        if with_separation else None),
     }
+
+
+def bss_block_bootstrap_ci(items: list[dict], n_boot: int = SEPARATION_DRAWS,
+                           block_days: int | None = None, seed: int = SEED,
+                           alpha: float = 0.05) -> dict | None:
+    """Block-bootstrap interval for the Brier skill score (ADR-0020).
+
+    `items` are the calibration observations — {"confidence", "score", "date"} —
+    and the statistic is exactly `summarize_accuracy._brier_and_reliability`'s
+    BSS: `1 - Brier / (p(1-p))` with `p` the decisive hit frequency of the
+    resample. Whole blocks of report-dates are resampled with replacement so the
+    interval respects the overlap that makes daily T+20 calls dependent — the
+    same `BLOCK_DAYS` unit `bias_separation` and `score_distributions` use, so
+    all three readers mean the same thing by "independent".
+
+    Returns None when there are fewer than two blocks: an interval on one block
+    is not an interval, and `verdict()` treats a missing one as a fail.
+    """
+    from bias_separation import BLOCK_DAYS
+
+    block_days = block_days or BLOCK_DAYS
+    decisive = [i for i in items if i["score"] in (0.0, 1.0)]
+    if not decisive:
+        return None
+
+    by_date: dict[str, list[dict]] = {}
+    for i in decisive:
+        by_date.setdefault(i["date"], []).append(i)
+    dates = sorted(by_date)
+    blocks = [dates[k:k + block_days] for k in range(0, len(dates), block_days)]
+    if len(blocks) < 2:
+        return None
+
+    # Per-block sums are all the statistic needs, so a draw is a handful of
+    # additions rather than a pass over every call.
+    sq_err = np.zeros(len(blocks))
+    hits   = np.zeros(len(blocks))
+    count  = np.zeros(len(blocks))
+    for b, blk in enumerate(blocks):
+        for d in blk:
+            for i in by_date[d]:
+                p, o = i["confidence"] / 100.0, float(i["score"])
+                sq_err[b] += (p - o) ** 2
+                hits[b]   += o
+                count[b]  += 1
+
+    rng  = np.random.default_rng(seed)
+    draw = rng.integers(0, len(blocks), size=(n_boot, len(blocks)))
+    n    = count[draw].sum(axis=1)
+    brier = sq_err[draw].sum(axis=1) / n
+    rate  = hits[draw].sum(axis=1) / n
+    ref   = rate * (1.0 - rate)
+    ok    = ref > 0
+    if ok.sum() < n_boot // 2:
+        return None
+    bss = np.sort(1.0 - brier[ok] / ref[ok])
+    lo = bss[int((alpha / 2) * len(bss))]
+    hi = bss[min(int((1 - alpha / 2) * len(bss)), len(bss) - 1)]
+    return {"lo": round(float(lo), 4), "hi": round(float(hi), 4),
+            "n_blocks": len(blocks), "block_days": block_days, "n_boot": int(ok.sum())}
 
 
 def split_reports_by_seal(reports: list[dict],
@@ -1556,12 +1624,28 @@ def _decisive_hit_rate(scores: list[float]) -> float | None:
 # a numeric result and an LLM result are held to the same standard.
 EDGE_MIN_N: int = 30
 EDGE_MIN_HIT_RATE: float = 0.52
-EDGE_MIN_BSS: float = 0.0
+
+# The skill margin — ADR-0020, decided 2026-09-13 with no candidate family on
+# the table. NOT zero: [KB-027] found this bar handing out `edge` for a BSS of
+# +0.003 on 15,215 heavily overlapping calls, and recorded that a floor of
+# literally zero is not a skill threshold. It was deliberately *left* at 0.0 in
+# that change (raising it with the +0.003 in view would have been a goalpost
+# move — ADR-0017) and settled here once no result could be protected or rescued
+# by where it landed. Same number, same reason, as `score_distributions.MIN_SKILL`:
+# one standard for "skill" across the repo.
+EDGE_MIN_BSS: float = 0.02
+
+# ...and the BSS must be distinguishable from zero. The margin alone would fail
+# +0.003 and pass +0.021 on the same overlapping calls with no statement about
+# whether either is noise; the block-bootstrap interval (21 report-date blocks,
+# `bias_separation.BLOCK_DAYS`) is what says that. Its lower bound must clear
+# this. Both halves are required, as in `score_distributions.verdict`.
+EDGE_BSS_CI_LO_ABOVE: float = 0.0
 
 # An `inverted` bias/return ordering disqualifies an arm outright, whatever its
 # other numbers say (WP-21.E, 2026-09-08 — see [KB-027]).
 #
-# This is NOT a bar that moved after seeing a result. WP-21.E's pre-registration,
+# This was NOT a bar that moved after seeing a result. WP-21.E's pre-registration,
 # committed before the family was fitted, named the inversion as outcome 3 and
 # said in terms: *"An inversion is not a pass and must not be re-labelled a
 # contrarian signal after the fact."* The function did not implement that. Its
@@ -1569,20 +1653,25 @@ EDGE_MIN_BSS: float = 0.0
 # the disjunct and the ordering was never consulted — the inversion check was
 # skipped in exactly the case it was written for.
 #
-# The hole was invisible until this run because no arm had ever returned BSS > 0:
+# The hole was invisible until that run because no arm had ever returned BSS > 0:
 # every arm in [KB-024] and [KB-026] failed on the first clause and the second was
 # never reached. `vix_term` cleared it with BSS **+0.003** and an inverted
 # ordering, and `verdict()` called it an edge.
 #
-# Deliberately NOT also done: raising `EDGE_MIN_BSS` above zero so that +0.003
-# stops counting as skill. That is the other lesson of [KB-027] and it is a real
-# goalpost move — the pre-registration says nothing about a margin — so it stays
-# an open question in the KB rather than a quiet edit here.
+# ADR-0020 also retired the `OR aligned` half of that disjunct: an `aligned`
+# label is as weak on a near-zero effect as `inverted` was, so it no longer buys
+# a pass for an arm whose calibration failed. The ordering stays a disqualifier
+# and a reported diagnostic.
 EDGE_DISQUALIFYING_ORDERING: str = "inverted"
 
 
 def verdict(evaluation: dict) -> str:
     """'edge' / 'no edge' / 'inverted' / 'abstains' / 'underpowered'.
+
+    The bar is ADR-0020: n >= EDGE_MIN_N decisive calls, no `inverted` ordering,
+    decisive hit-rate > EDGE_MIN_HIT_RATE, BSS > EDGE_MIN_BSS *and* the BSS
+    block-bootstrap interval's lower bound above EDGE_BSS_CI_LO_ABOVE. The
+    disqualifiers are read first, each returning its own verdict.
 
     `inverted` is its own verdict, not folded into 'no edge': across [KB-022],
     [KB-024] and [KB-027] a wrong-signed relationship has been the single most
@@ -1601,6 +1690,7 @@ def verdict(evaluation: dict) -> str:
         return "underpowered"
     hit = overall.get("decisive_hit_rate")
     bss = calib.get("brier_skill_score")
+    ci  = calib.get("bss_ci") or {}
     sep = ((evaluation.get("separation") or {}).get("overall") or {}).get("ordering")
     if hit is None:
         return "underpowered"
@@ -1610,9 +1700,12 @@ def verdict(evaluation: dict) -> str:
         # Brier came out, and this ordering is what the pre-registration barred.
         return "inverted"
     beats_chance = hit > EDGE_MIN_HIT_RATE
-    calibrated   = bss is not None and bss > EDGE_MIN_BSS
-    aligned      = sep == "aligned"
-    if beats_chance and (calibrated or aligned):
+    # Both halves, always: a margin says the skill is worth having, the interval
+    # says it is distinguishable from zero. A missing interval cannot pass —
+    # an arm evaluated without one has not been measured against this bar.
+    calibrated = (bss is not None and bss > EDGE_MIN_BSS
+                  and ci.get("lo") is not None and ci["lo"] > EDGE_BSS_CI_LO_ABOVE)
+    if beats_chance and calibrated:
         return "edge"
     return "no edge"
 
@@ -1623,9 +1716,15 @@ def verdict(evaluation: dict) -> str:
 
 _HEADLINE_HEADER = (
     "| Arm | inputs | n decisive | decisive hit-rate | mean score | Brier | BSS "
-    "| ECE | separation | verdict |",
-    "|---|---|---|---|---|---|---|---|---|---|",
+    "| BSS 95% CI | ECE | separation | verdict |",
+    "|---|---|---|---|---|---|---|---|---|---|---|",
 )
+
+
+def _fmt_ci(ci: dict | None) -> str:
+    if not ci or ci.get("lo") is None:
+        return "n/a"
+    return f"[{ci['lo']:+.3f}, {ci['hi']:+.3f}]"
 
 
 def _headline_rows(evaluations: dict[str, dict], meta: dict,
@@ -1649,12 +1748,13 @@ def _headline_rows(evaluations: dict[str, dict], meta: dict,
             f"{calib.get('n', 0)} | "
             f"{_fmt(ov.get('decisive_hit_rate'))} | {_fmt(ov.get('mean_score'))} | "
             f"{_fmt(calib.get('brier'))} | {_fmt(bss, plus=True)} | "
+            f"{_fmt_ci(calib.get('bss_ci'))} | "
             f"{_fmt(calib.get('ece'))} | {sep or 'n/a'} | {cell} |"
         )
     for arm, reason in (meta.get("arms_skipped") or {}).items():
         lines.append(
             f"| `{arm}` | {ARM_SPECS[arm].feature_set if arm in ARM_SPECS else '—'} "
-            f"| — | — | — | — | — | — | — | **skipped: {reason}** |"
+            f"| — | — | — | — | — | — | — | — | **skipped: {reason}** |"
         )
     return lines
 
@@ -1770,9 +1870,13 @@ def report_md_lines(evaluations: dict[str, dict], diagnostics: dict[str, dict],
         "> `min_train` days of that asset's own history, and handing `always_bullish`",
         "> the difference would flatter the benchmark the verdict turns on.",
         "",
-        f"> **Bar (pre-committed).** An arm shows an edge only with n ≥ {EDGE_MIN_N} decisive",
-        f"> calls, decisive hit-rate > {EDGE_MIN_HIT_RATE:.2f}, and either BSS > {EDGE_MIN_BSS:.0f}",
-        "> or an `aligned` separation ordering. Same standard as [KB-007] / [KB-022].",
+        f"> **Bar (pre-committed, ADR-0020).** An arm shows an edge only with n ≥ {EDGE_MIN_N}",
+        f"> decisive calls, decisive hit-rate > {EDGE_MIN_HIT_RATE:.2f}, BSS > {EDGE_MIN_BSS:.2f}",
+        f"> **and** a BSS block-bootstrap 95% CI whose lower bound is above {EDGE_BSS_CI_LO_ABOVE:.0f}",
+        "> (21 report-date blocks). The margin is not zero because [KB-027] showed a floor",
+        "> of zero handing out `edge` for +0.003 on overlapping calls; it is the same",
+        "> `0.02` as the distribution scorer's `MIN_SKILL`, settled with no candidate",
+        "> family in view. An `aligned` ordering is a diagnostic, not a pass route.",
         f"> An **`{EDGE_DISQUALIFYING_ORDERING}`** ordering disqualifies outright, whatever the",
         "> other numbers say — WP-21.E pre-registered that and [KB-027] is where the",
         "> function was corrected to implement it. `inverted` prints as its own verdict:",
@@ -2170,6 +2274,16 @@ def run(
         "refit_every": refit_every,
         "deadband":    deadband,
         "separation_draws": separation_draws if with_separation else None,
+        # The bar this run was judged under, so the JSON says which standard its
+        # verdicts mean without the reader dating the commit (ADR-0020).
+        "bar": {
+            "adr":                    "ADR-0020",
+            "min_n":                  EDGE_MIN_N,
+            "min_hit_rate":           EDGE_MIN_HIT_RATE,
+            "min_bss":                EDGE_MIN_BSS,
+            "bss_ci_lo_above":        EDGE_BSS_CI_LO_ABOVE,
+            "disqualifying_ordering": EDGE_DISQUALIFYING_ORDERING,
+        },
         # An arm that could not run is named here rather than silently missing
         # from the table — a blank row and an absent row read very differently.
         "arms_skipped": {arm: diag["skipped"]

@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| **Status** | **Open** — blocking WP-21.E families 2 and 3 |
+| **Status** | **Superseded** by [ADR-0020](ADR-0020-the-numeric-bar-has-a-skill-margin.md) on 2026-09-13 — the floor is written down |
 | **Decided** | 2026-09-08 — decided *not* to decide it yet, deliberately |
 | **Evidence** | **[KB-027]** |
-| **Related** | [ADR-0016](ADR-0016-phase-22-scores-the-distribution-only.md) · [The method](../concepts/the-method.md) |
+| **Related** | [ADR-0020](ADR-0020-the-numeric-bar-has-a-skill-margin.md) (the decision) · [ADR-0016](ADR-0016-phase-22-scores-the-distribution-only.md) · [The method](../concepts/the-method.md) |
 
 ## Context
 
@@ -59,3 +59,10 @@ best comparator on Brier", which is arguably the more principled bar given that
 every negative so far has been a loss to a trivial rival.
 
 It must be written down **before family 2 runs**.
+
+**Decided 2026-09-13 → [ADR-0020](ADR-0020-the-numeric-bar-has-a-skill-margin.md).**
+`EDGE_MIN_BSS = 0.02` and the BSS block-bootstrap interval must clear zero — the
+shape Phase 22 had already chosen. The comparator-relative Brier clause was
+checked against [KB-027]'s table and would have *passed* `vix_term` (0.244 vs
+0.246), which is why it was not taken. No family had been chosen when it was
+settled. This page stays as the record of why it was left open first.
