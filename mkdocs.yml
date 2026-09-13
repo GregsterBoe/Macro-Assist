@@ -51,10 +51,18 @@ markdown_extensions:
       permalink: true
       toc_depth: 3
   - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
-  - pymdownx.snippets
+  - pymdownx.snippets:
+      base_path: [docs]
+      auto_append:
+        - includes/abbreviations.md
+  - pymdownx.arithmatex:
+      generic: true
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
@@ -68,6 +76,13 @@ markdown_extensions:
 plugins:
   - search
 
+exclude_docs: |
+  includes/
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
 nav:
   - Start here: index.md
   - Concepts:
@@ -78,6 +93,12 @@ nav:
       - How we explore: concepts/how-we-explore.md
       - The cut (v1.6): concepts/the-cut.md
       - What we believe: concepts/what-we-believe.md
+  - Foundations:
+      - foundations/index.md
+      - Stress measures: foundations/stress-measures.md
+      - Scoring rules: foundations/scoring-rules.md
+      - Inference: foundations/inference.md
+      - Models: foundations/models.md
   - Reference:
       - reference/index.md
       - Architecture: reference/architecture.md

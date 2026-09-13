@@ -17,6 +17,7 @@ already say, and it must not become a second copy of them.
 | Layer | Path | Is the source of truth for |
 |---|---|---|
 | **Concepts** | `docs/concepts/` | What the system is for, and why |
+| **Foundations** | `docs/foundations/` | General concepts (stress measures, scoring rules, inference, models) in this project's terms — explains, never owns a number |
 | **Reference** | `docs/reference/` | **How the code behaves today** — kept current with the code |
 | **Decisions** | `docs/decisions/` | **Why** the system has its shape (20 ADRs) |
 | **Record** | `docs/record/` | Plans, status, and **measured findings** |

@@ -4,7 +4,8 @@ Six essays. Together they are the background needed to follow what is currently
 being built, argued about, and cut.
 
 They are deliberately **not** a file-by-file tour of the repository — that is
-[Reference](../reference/index.md). Nothing here is a source of truth for a
+[Reference](../reference/index.md) — and they assume the vocabulary; a term
+that stops you is in [Foundations](../foundations/index.md). Nothing here is a source of truth for a
 number or a schema; where a detail matters, the page links to the reference page
 or the Knowledge Base entry that owns it.
 

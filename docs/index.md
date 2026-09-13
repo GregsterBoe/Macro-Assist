@@ -50,24 +50,33 @@ evidence said that on this payload, at these horizons, **nobody can** — see
 
     [Reference](reference/index.md) — data sources, agents, scoring, workflows.
 
+- **:material-school: I met a term I don't know**
+
+    [Foundations](foundations/index.md) — absorption ratio, Brier skill score,
+    block bootstrap, seal: the background the other layers assume, in this
+    project's terms, each entry pointing at the code that owns the number.
+
 </div>
 
 ---
 
-## The four layers
+## The layers
 
-This documentation is deliberately layered, because the project has four
+This documentation is deliberately layered, because the project has several
 different kinds of reader and they want incompatible things.
 
 | Layer | Answers | Where |
 |---|---|---|
 | **Orientation** | What is this, and what state is it in? | [README](https://github.com/GregsterBoe/Macro-Assist#readme) · this page |
 | **Concepts** | What do I need to know to follow the current work? | [Concepts](concepts/index.md) |
+| **Foundations** | What does this term mean, and where is its number owned? | [Foundations](foundations/index.md) |
 | **Reference** | How exactly does X work? | [Reference](reference/index.md) |
 | **Record** | What was tried, what was measured, what was decided? | [Knowledge Base](record/knowledge-base.md) · [Decisions](decisions/index.md) · [Roadmap](record/roadmap.md) |
 
 The rule that keeps them from drifting: **a fact lives in exactly one layer.**
-Concepts explain and link; they do not restate reference detail. Reference
+Concepts explain and link; they do not restate reference detail. Foundations
+define general concepts and point at the owner of every project-specific
+number. Reference
 describes the system as it is today; it does not narrate how it got there. The
 record is append-mostly and is never rewritten to match a later opinion.
 
