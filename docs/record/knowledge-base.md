@@ -2416,7 +2416,7 @@ not wrong, they are unconditional-on-two-dimensions; the published P25/P75
 changed by ~0.1pp for the S&P, more for the 10Y and Bitcoin whose short
 records the new buckets now populate. (d) `hy_spread` is still in the payload
 with a `five_yr_mean` computed on whatever ≤3-year window FRED serves that day;
-the model reads "vs 5-yr mean" for a number that is not that. Not changed here.
+the model reads "vs 5-yr mean" for a number that is not that. Not changed here — carried as `todo.md` #13.
 
 **What it changes.**
 - **Phase 22's sealed record has two conditioners** — the v2.0 table for the

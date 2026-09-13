@@ -14,7 +14,8 @@ Conventions:
   reasoning intact, and pull any "carry forward" caveat back up into this file
   as its own entry. A resolved item left here is noise; a lost caveat is worse.
 
-Last reviewed: 2026-09-12 (#12 GitHub Pages closed → `resolved.md`). Prior pass
+Last reviewed: 2026-09-13 (#13 added — the `hy_spread` mean-window caveat carried
+out of [KB-028]). Prior: 2026-09-12 (#12 GitHub Pages closed → `resolved.md`);
 2026-09-11: resolved items split out to `resolved.md`; the maintenance log's open
 follow-ups folded in below.
 
@@ -148,6 +149,38 @@ deliverable. Belongs with the §9 quarter read, not a mid-flight reporting tweak
 ---
 
 ## Pipeline / accuracy
+
+### Carried finding #13 — `hy_spread.five_yr_mean` is a ≤3-year rolling mean wearing a 5-year label
+**Where:** `fred_data.py:236-238` (the field is computed over whatever the fetch
+returned) · `llm_analysis.py:1093` (the FRED dict is dumped as raw JSON into the
+user message, so the model reads the key name `five_yr_mean` verbatim).
+**Source:** [KB-028] nuance (d), carried out of WP-17.5 deliberately unfixed.
+**Problem:** `fetch_fred_data` asks for 5 years, but free FRED serves
+`BAMLH0A0HYM2` on a *rolling* ~3-year window (2023-09-12 → today on
+2026-09-13, and the start date moves forward daily). `five_yr_mean` and
+`vs_mean` for `hy_spread` are therefore means of ≤3 years of one credit regime,
+labelled as five — the model is told "vs 5-yr mean" for a number that is not
+that, and the baseline it compares against drifts as the window rolls. Every
+other series in that branch (`philly_fed_mfg`, `real_yield_10y`,
+`breakeven_10y`, `nfci`, `jobless_claims`) gets the full window; the mislabel is
+specific to HY.
+**Why not fixed with KB-028:** the conditional table is the note's published
+product and got the BAA10Y fix; `hy_spread` is a prompt input the model cites
+([KB-010]: kept for citations, `baa_spread` was the one dropped at 0/78), and
+changing the payload mid-record is a separate lever from the quant-layer rebuild.
+**Options, cheapest first:**
+1. **Label honestly** — emit the window actually used (e.g. `mean_window_start`
+   / `mean_window_years`) alongside or instead of `five_yr_mean`. Bug fix, no
+   version bump; the model stops being told something false.
+2. **Compute HY's mean on BAA10Y-scaled history** — a longer baseline, but then
+   the level and the mean are different series, which is worse than the label.
+3. **Fold into WP-18.4** as `drop-hy_spread`, next to `drop-baa_spread` — the
+   ablation gate decides whether the field earns its place at all. If it goes,
+   the mislabel goes with it.
+*Lean: option 1 now, independent of 3 — a wrong label is a defect regardless
+of whether the field survives ablation.* One caveat to carry: `jobless_claims`'
+comment says its window "starts ~2021", which is a dated remark about a 5-year
+fetch, not a rolling-window problem; don't conflate the two.
 
 
 ### Carried finding #7 — headline accuracy is below chance and horizon-decaying
