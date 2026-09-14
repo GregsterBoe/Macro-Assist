@@ -163,3 +163,75 @@ def test_identical_arms_have_zero_skill_and_a_degenerate_interval():
 def test_the_harness_is_research_tier():
     import product_surface as ps
     assert ps.tier_of("explore_conditioner") == "RESEARCH"
+
+
+# ---------------------------------------------------------------------------
+# The optional HAR arms (H-006's rival)
+# ---------------------------------------------------------------------------
+
+def _closes(n: int = 1300, seed: int = 3) -> pd.Series:
+    rng = np.random.default_rng(seed)
+    idx = pd.bdate_range("2010-01-01", periods=n)
+    return pd.Series(100.0 * np.exp(np.cumsum(rng.normal(0, 0.01, size=n))), index=idx)
+
+
+def test_har_sigma_uses_only_closes_at_or_before_the_report_date():
+    """The product fits HAR on the closes it has at the report date. A jump the
+    day after must leave the forecast unchanged; a jump on the date must move it."""
+    closes = _closes()
+    asof = closes.index[1200]
+    base = ec.har_sigma(closes, asof)
+    assert base is not None and base > 0
+
+    later = closes.copy()
+    later.iloc[1201:] *= 3.0
+    assert ec.har_sigma(later, asof) == base
+
+    same_day = closes.copy()
+    same_day.iloc[1200] *= 1.2
+    assert ec.har_sigma(same_day, asof) != base
+
+
+def test_har_sigma_refuses_a_history_shorter_than_the_product_gate():
+    from vol_forecast import HAR_MIN_RETURNS
+    closes = _closes(n=HAR_MIN_RETURNS - 50)
+    assert ec.har_sigma(closes, closes.index[-1]) is None
+    # and never sees beyond `window` closes back
+    long = _closes(n=3000)
+    assert ec.har_sigma(long, long.index[-1]) == ec.har_sigma(long.iloc[-ec.HAR_WINDOW:], long.index[-1])
+
+
+def test_har_scaled_keeps_the_median_and_rescales_the_width():
+    sp = ec.BY_KEY["SP500"]
+    uncond = {0.25: -1.0, 0.50: 0.3, 0.75: 1.6}
+    sigma = 16.0                                   # annualised, pct
+    known_sd = 2.0
+    q = ec.har_scaled_quantiles(uncond, sigma, 5, sp, known_sd)
+    r = sigma * np.sqrt(5 / 252) / known_sd
+    assert q[0.50] == pytest.approx(0.3)
+    assert q[0.75] - q[0.25] == pytest.approx(2.6 * r)
+    assert ec.har_scaled_quantiles(uncond, sigma, 5, ec.BY_KEY["UST10Y"], known_sd) is None
+    assert ec.har_scaled_quantiles(uncond, sigma, 5, sp, 0.0) is None
+
+
+def test_an_optional_arm_never_drops_an_observation():
+    """`har_*` are quoted where a forecast exists and absent otherwise; the
+    required arms' sample is the same either way (WP-21.A.2's rule for the
+    scorer's `har_gaussian`)."""
+    frame, fr = _tiny_world()
+    ladders = ec.arm_labels(frame)
+    without = ec.build_observations(frame, fr, ladders)
+    sig = np.full(len(frame), np.nan)
+    sig[ec.BURN_IN + 100:] = 15.0                  # a forecast from some date on, SP500 only
+    with_ = ec.build_observations(frame, fr, ladders, sigmas={"SP500": sig})
+    assert len(with_) == len(without)
+    assert not any("har_gaussian" in o["arms"] for o in without)
+    sp = [o for o in with_ if o["asset"] == "SP500"]
+    assert any("har_gaussian" in o["arms"] and "har_scaled" in o["arms"] for o in sp)
+    assert not all("har_gaussian" in o["arms"] for o in sp)
+    assert not any("har_gaussian" in o["arms"] for o in with_ if o["asset"] != "SP500")
+    # and the read of an optional arm is on its own subsample
+    s = ec.summarize_arm(with_, "har_gaussian", 5)
+    assert s["n"] == sum("har_gaussian" in o["arms"] for o in with_ if o["horizon"] == 5)
+    assert s["n_report_dates"] < ec.summarize_arm(with_, "dd_bin", 5)["n_report_dates"]
+    assert s["verdict"]["verdict"] == "exploratory"

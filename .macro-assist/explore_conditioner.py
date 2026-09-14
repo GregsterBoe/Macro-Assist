@@ -41,6 +41,23 @@ finally to `unconditional`, mirroring `conditional.lookup_distribution`.
                     "more stressed")
     dd_x_frag       drawdown bin × OR state (H-002's split itself)
 
+Two OPTIONAL arms (the scorer's rule for `har_gaussian`, WP-21.A.2: quoted
+where the product would quote them, scored on their own subsample, never a
+reason to drop an observation) — H-006's rival, added 2026-09-14 as the
+register's next counted look:
+
+    har_gaussian    the product's comparator exactly: zero-mean Normal scaled
+                    by the HAR-RV forecast fitted on the last `HAR_WINDOW`
+                    closes at or before the report date, through
+                    `vol_forecast.har_forecast_or_none`'s gates, for the
+                    assets the product logs a forecast for (`HAR_KEYS`);
+                    `score_distributions._gaussian_quantiles` does the rest
+    har_scaled      the unconditional empirical quantiles with their width
+                    rescaled by HAR sigma / the known sample's sd, about the
+                    unconditional median — the same vol forecast, the
+                    empirical shape and location kept. Splits H-006's width
+                    claim from the Gaussian's zero mean
+
 Scoring
 -------
 Pinball loss on the three quantiles, `skill_vs` = 1 − loss(arm)/loss(benchmark)
@@ -57,6 +74,10 @@ should sit in Elevated and be ~0 in Normal.
 H-002: realized forward-change quantiles on the explore slice by
 drawdown bin × OR state — width and median side, against the same table by
 drawdown bin alone.
+H-006: on the subsample where `har_gaussian` quotes, `dd_bin` scored against
+the HAR arms as benchmark (does the drawdown bin add anything a vol forecast
+does not already carry?), and the mean quoted P25–P75 width of each arm by the
+drawdown bin the report date was in (does HAR narrow in calm as `dd_bin` does?).
 
 Run
 ---
@@ -84,9 +105,10 @@ from conditional import TABLE_START, assign_bucket, _bucket_drop_credit, _bucket
 from fragility_or import build_channels, _Q, _MIN_WARMUP, _CH_KEYS
 from numeric_baseline import SEAL_START, DRAWDOWN_WINDOW
 from score_distributions import (
-    BLOCK_DAYS, N_BOOT, SEED, MIN_POOL_BLOCKS,
-    pinball_loss, pit_bin, skill_vs, verdict,
+    BLOCK_DAYS, N_BOOT, SEED, MIN_POOL_BLOCKS, TRADING_DAYS_PER_YEAR, _VOL_LOG_KEYS,
+    _gaussian_quantiles, pinball_loss, pit_bin, skill_vs, verdict,
 )
+from vol_forecast import har_forecast_or_none
 
 _HERE = Path(__file__).resolve().parent
 RESULTS_DIR = _HERE.parent / "results" / "explore_conditioner"
@@ -98,7 +120,12 @@ DD_EDGES = (-0.05, -0.10)       # drawdown bins: > −5% | −5..−10% | < −1
 
 ARMS = ("unconditional", "trailing_250", "macro", "frag_or", "frag_comp",
         "frag_or_x_nfci", "dd_bin", "dd_x_frag")
+OPTIONAL_ARMS = ("har_gaussian", "har_scaled")      # quoted where available, own subsample
+ALL_ARMS = ARMS + OPTIONAL_ARMS
 BENCH = "unconditional"
+
+HAR_WINDOW = 1250               # ≈ the product's 5y close history (market_data.VOL_HISTORY_PERIOD)
+HAR_KEYS = frozenset(_VOL_LOG_KEYS)   # the assets the product logs a HAR forecast for
 
 
 # ---------------------------------------------------------------------------
@@ -229,12 +256,79 @@ def arm_labels(frame: pd.DataFrame) -> dict[str, list[np.ndarray]]:
     }
 
 
+def har_sigma(closes: pd.Series, asof: pd.Timestamp, window: int = HAR_WINDOW) -> float | None:
+    """The product's HAR-RV forecast as of `asof`: annualised vol (percent) from
+    the last `window` closes AT OR BEFORE `asof`, log returns, through
+    `har_forecast_or_none`'s gates (≥ HAR_MIN_RETURNS returns, positive
+    forecast). None where the product would print no forecast."""
+    hist = closes.loc[:asof].to_numpy(dtype=float)[-window:]
+    if len(hist) < 2:
+        return None
+    rets = pd.Series(np.log(hist[1:] / hist[:-1]))
+    fc = har_forecast_or_none(rets)
+    return None if fc is None else float(fc["forecast_daily_vol"])
+
+
+def har_sigmas(prices: dict[str, pd.Series], dates: pd.DatetimeIndex,
+               first: int, stop: int, keys=HAR_KEYS) -> dict[str, np.ndarray]:
+    """`sigmas[asset][t]` = `har_sigma` on report date `dates[t]` for
+    first <= t < stop, NaN elsewhere and for assets outside `keys`."""
+    out = {}
+    for key in keys:
+        if key not in prices:
+            continue
+        arr = np.full(len(dates), np.nan)
+        for t in range(first, min(stop, len(dates))):
+            s = har_sigma(prices[key], dates[t])
+            if s is not None:
+                arr[t] = s
+        out[key] = arr
+    return out
+
+
+def har_scaled_quantiles(uncond: dict[float, float], sigma_annual_pct: float, horizon: int,
+                         asset, known_sd: float) -> dict[float, float] | None:
+    """The unconditional empirical quantiles, width rescaled by the HAR
+    forecast: q' = median + (q − median) × sigma_h / sd(known). None for a
+    level asset (the HAR vol is a percent-return vol; same refusal as
+    `_gaussian_quantiles`) or a degenerate sample."""
+    if asset.is_level or sigma_annual_pct <= 0 or not np.isfinite(known_sd) or known_sd <= 0:
+        return None
+    r = sigma_annual_pct * np.sqrt(horizon / TRADING_DAYS_PER_YEAR) / known_sd
+    med = uncond[0.50]
+    return {q: float(med + (v - med) * r) for q, v in uncond.items()}
+
+
 # ---------------------------------------------------------------------------
 # Quoting and scoring
 # ---------------------------------------------------------------------------
 
 def _quote(vals: np.ndarray) -> dict[float, float]:
     return {q: float(np.percentile(vals, q * 100)) for q in QUANTILES}
+
+
+def _score_arm(quantiles: dict[float, float], realized: float, level: str, n: int) -> dict:
+    per_q = {str(k): pinball_loss(realized, v, k) for k, v in quantiles.items()}
+    return {
+        "pinball": per_q,
+        "pinball_mean": float(np.mean(list(per_q.values()))),
+        "quantiles": quantiles,
+        "level": level, "n": n,
+        "inside_iqr": bool(quantiles[0.25] <= realized <= quantiles[0.75]),
+        "pit_bin": pit_bin(realized, quantiles),
+        "width": quantiles[0.75] - quantiles[0.25],
+    }
+
+
+def report_range(frame: pd.DataFrame, seal: date = SEAL_START) -> tuple[int, int]:
+    """[first, stop) positions of the explore-slice report dates: BURN_IN
+    readings after the first evaluable OR flag, strictly before the seal."""
+    evaluable = np.where(frame["or_state"].notna().to_numpy())[0]
+    if len(evaluable) == 0:
+        raise RuntimeError("no evaluable OR flag dates")
+    first = int(evaluable[0] + BURN_IN)
+    stop = int(np.searchsorted(frame.index.to_numpy(), np.datetime64(pd.Timestamp(seal))))
+    return first, stop
 
 
 def quote_arm(ladder: list[np.ndarray], fr_h: np.ndarray, t: int, h: int,
@@ -261,24 +355,23 @@ def quote_arm(ladder: list[np.ndarray], fr_h: np.ndarray, t: int, h: int,
 
 
 def build_observations(frame: pd.DataFrame, fr: dict, ladders: dict,
-                       seal: date = SEAL_START) -> list[dict]:
+                       seal: date = SEAL_START,
+                       sigmas: dict[str, np.ndarray] | None = None) -> list[dict]:
     """One observation per (report date, asset, horizon) on the explore slice,
-    every arm quoting or the observation is dropped (sample alignment, WP-21.A.2).
-    Report dates start BURN_IN readings after the first evaluable OR flag."""
+    every arm in ARMS quoting or the observation is dropped (sample alignment,
+    WP-21.A.2). Report dates start BURN_IN readings after the first evaluable
+    OR flag. `sigmas` (from `har_sigmas`) adds the OPTIONAL_ARMS where a HAR
+    forecast exists; their absence never drops an observation."""
     dates = frame.index
-    evaluable = np.where(frame["or_state"].notna().to_numpy())[0]
-    if len(evaluable) == 0:
-        raise RuntimeError("no evaluable OR flag dates")
-    first = evaluable[0] + BURN_IN
-    seal_ts = pd.Timestamp(seal)
+    first, stop = report_range(frame, seal)
+    sigmas = sigmas or {}
     obs: list[dict] = []
-    for t in range(first, len(dates)):
+    for t in range(first, min(stop, len(dates))):
         ts = dates[t]
-        if ts >= seal_ts:
-            break
         if not isinstance(frame["or_state"].iat[t], str) or not isinstance(frame["bucket"].iat[t], str):
             continue
         for a in ASSETS:
+            sig = sigmas[a.key][t] if a.key in sigmas else np.nan
             for h in HORIZONS:
                 realized = fr[a.key][h][t]
                 if not np.isfinite(realized):
@@ -290,18 +383,18 @@ def build_observations(frame: pd.DataFrame, fr: dict, ladders: dict,
                     if q is None:
                         break
                     quantiles, level, n = q
-                    per_q = {str(k): pinball_loss(realized, v, k) for k, v in quantiles.items()}
-                    arms[arm] = {
-                        "pinball": per_q,
-                        "pinball_mean": float(np.mean(list(per_q.values()))),
-                        "quantiles": quantiles,
-                        "level": level, "n": n,
-                        "inside_iqr": bool(quantiles[0.25] <= realized <= quantiles[0.75]),
-                        "pit_bin": pit_bin(realized, quantiles),
-                        "width": quantiles[0.75] - quantiles[0.25],
-                    }
+                    arms[arm] = _score_arm(quantiles, realized, level, n)
                 if len(arms) < len(ARMS):
                     continue
+                if np.isfinite(sig):
+                    gq = _gaussian_quantiles(float(sig), h, a)
+                    if gq:
+                        arms["har_gaussian"] = _score_arm(gq, realized, "har", HAR_WINDOW)
+                    known = fr[a.key][h][:t - h + 1]
+                    sq = har_scaled_quantiles(arms[BENCH]["quantiles"], float(sig), h, a,
+                                              float(np.nanstd(known)))
+                    if sq:
+                        arms["har_scaled"] = _score_arm(sq, realized, "har", arms[BENCH]["n"])
                 obs.append({
                     "date": ts.date().isoformat(), "asset": a.key, "horizon": h,
                     "unit": a.unit, "realized": float(realized),
@@ -355,6 +448,9 @@ def pooled(obs: list[dict], arm: str, keys, benchmark: str = BENCH,
     """Equal-weight per-asset skill, `score_distributions.pooled_skill`'s design
     (qualifying set fixed on the real sample; bootstrap re-pools exactly those
     assets on shared blocks) with the vectorised resample."""
+    obs = [o for o in obs if arm in o["arms"] and benchmark in o["arms"]]
+    if not obs:
+        return None
     qualifying = []
     for a in ASSETS:
         if a.key not in keys:
@@ -409,7 +505,9 @@ def pit_hist(obs: list[dict], arm: str) -> dict[str, float]:
 
 
 def summarize_arm(obs: list[dict], arm: str, horizon: int) -> dict:
-    sub = [o for o in obs if o["horizon"] == horizon]
+    """The arm's read at one horizon, on the observations it quoted (an optional
+    arm's subsample is smaller than the slice; `n_report_dates` says so)."""
+    sub = [o for o in obs if o["horizon"] == horizon and arm in o["arms"]]
     dates = sorted({o["date"] for o in sub})
     out = {
         "arm": arm, "horizon": horizon, "n": len(sub), "n_report_dates": len(dates),
@@ -426,6 +524,8 @@ def summarize_arm(obs: list[dict], arm: str, horizon: int) -> dict:
             continue
         out["per_asset"][a.key] = {"skill": round(sk, 4), "n": len(s),
                                    "ci": skill_ci(s, arm), "coverage": coverage(s, arm)}
+    if not out["per_asset"]:
+        out["pooled_skill"] = out["pooled_skill_all_assets"] = None
     out["verdict"] = verdict(out, sealed=False)     # can only be `exploratory`
     return out
 
@@ -479,10 +579,49 @@ def skill_by_year(obs: list[dict], arm: str, asset: str, horizon: int) -> dict:
     out = {}
     for y in sorted({o["date"][:4] for o in obs}):
         s = [o for o in obs if o["horizon"] == horizon and o["asset"] == asset and o["date"].startswith(y)]
-        if s:
-            out[y] = {"n": len(s), "skill": round(skill_vs(s, arm, BENCH), 4),
+        sk = skill_vs(s, arm, BENCH) if s else None
+        if sk is not None:
+            out[y] = {"n": len(s), "skill": round(sk, 4),
                       "share_elevated": round(float(np.mean([o["or_state"] == "Elevated" for o in s])), 3),
                       "share_dd_below_5": round(float(np.mean([o["dd_bin"] != "dd>-5" for o in s])), 3)}
+    return out
+
+
+def har_rival(obs: list[dict], horizon: int, keys=ORIGINAL_KEYS) -> dict:
+    """H-006's structure check, on the subsample where `har_gaussian` quotes:
+    `dd_bin` and the two HAR arms each vs `unconditional`, and `dd_bin` vs each
+    HAR arm as benchmark — per asset with a block-bootstrap CI, and pooled
+    equal-weight over `keys`. If the drawdown bin's gain is the vol forecast's
+    gain, its skill vs the HAR arm is ~0 or negative."""
+    sub = [o for o in obs if o["horizon"] == horizon and "har_gaussian" in o["arms"]]
+    pairs = (("dd_bin", BENCH), ("har_gaussian", BENCH), ("har_scaled", BENCH),
+             ("dd_bin", "har_gaussian"), ("dd_bin", "har_scaled"), ("trailing_250", "har_scaled"))
+    out = {"n_report_dates": len({o["date"] for o in sub}), "pairs": {}}
+    for arm, bench in pairs:
+        name = f"{arm} vs {bench}"
+        row = {"pooled": pooled(sub, arm, keys, benchmark=bench)}
+        for a in ASSETS:
+            s = [o for o in sub if o["asset"] == a.key and arm in o["arms"] and bench in o["arms"]]
+            sk = skill_vs(s, arm, bench) if s else None
+            if sk is not None:
+                row[a.key] = {"skill": round(sk, 4), "ci": skill_ci(s, arm, benchmark=bench)}
+        out["pairs"][name] = row
+    return out
+
+
+def width_by_bin(obs: list[dict], asset: str, horizon: int,
+                 arms=(BENCH, "trailing_250", "dd_bin", "har_gaussian", "har_scaled")) -> dict:
+    """Mean quoted P25–P75 width per arm by the drawdown bin the report date was
+    in, one asset, on the subsample where every listed arm quoted. Does the vol
+    forecast narrow in calm the way the drawdown bin does?"""
+    sub = [o for o in obs if o["asset"] == asset and o["horizon"] == horizon
+           and all(a in o["arms"] for a in arms)]
+    out = {}
+    for b in sorted({o["dd_bin"] for o in sub}):
+        s = [o for o in sub if o["dd_bin"] == b]
+        out[b] = {"n_report_dates": len(s),
+                  **{a: round(float(np.mean([o["arms"][a]["width"] for o in s])), 3) for a in arms},
+                  "realized_iqr": round(float(np.subtract(*np.percentile([o["realized"] for o in s], [75, 25]))), 3)}
     return out
 
 
@@ -533,26 +672,32 @@ def report_md(summary: dict, cells: dict[str, pd.DataFrame], meta: dict) -> str:
          f"(< `SEAL_START` {SEAL_START}) · {meta['n_report_dates']} report dates · "
          f"{meta['n_obs']} observations · inputs fetched {meta['fetched']}",
          f"**Verdict on every arm:** `exploratory` — `verdict(sealed=False)`; nothing here can pass.",
-         f"**Multiplicity:** {len(ARMS) - 1} arms × {len(HORIZONS)} horizons × "
-         f"{len(ASSETS)} assets looked at, all reported.",
+         f"**Multiplicity:** {len(ALL_ARMS) - 1} arms ({len(OPTIONAL_ARMS)} optional, own subsample) × "
+         f"{len(HORIZONS)} horizons × {len(ASSETS)} assets looked at, all reported.",
          "",
          "## Skill vs `unconditional` (pinball, P25/P50/P75), pooled equal-weight",
          "",
-         "| arm | h | pooled (SP500/Gold/WTI) | 95% CI | pooled (all 6) | 95% CI | coverage P25–P75 |",
-         "|---|---|---|---|---|---|---|"]
+         "| arm | h | n dates | pooled (SP500/Gold/WTI) | 95% CI | pooled (all 6) | 95% CI | coverage P25–P75 |",
+         "|---|---|---|---|---|---|---|---|"]
     for h in HORIZONS:
-        for arm in ARMS:
+        for arm in ALL_ARMS:
             if arm == BENCH:
                 continue
             s = summary[str(h)][arm]
             p, pa = s["pooled_skill"], s["pooled_skill_all_assets"]
-            L.append(f"| `{arm}` | {h} | {p['skill']:+.4f} | {_ci(p['ci'])} | "
+            if not p:
+                L.append(f"| `{arm}` | {h} | {s['n_report_dates']} | n/a | n/a | n/a | n/a | n/a |")
+                continue
+            L.append(f"| `{arm}` | {h} | {s['n_report_dates']} | {p['skill']:+.4f} | {_ci(p['ci'])} | "
                      f"{pa['skill']:+.4f} | {_ci(pa['ci'])} | {s['coverage_iqr']:.3f} |")
-    L += ["", "## Per-asset skill vs `unconditional`", ""]
+    L += ["", "## Per-asset skill vs `unconditional`", "",
+          "Optional arms (`har_*`) score on their own subsample — the assets the product "
+          "logs a HAR forecast for, where the 1000-return gate passes — so their "
+          "'pooled (all 6)' above is over the assets that qualified, not six.", ""]
     L.append("| arm | h | " + " | ".join(a.key for a in ASSETS) + " |")
     L.append("|---|---|" + "---|" * len(ASSETS))
     for h in HORIZONS:
-        for arm in ARMS:
+        for arm in ALL_ARMS:
             if arm == BENCH:
                 continue
             s = summary[str(h)][arm]["per_asset"]
@@ -593,6 +738,30 @@ def report_md(summary: dict, cells: dict[str, pd.DataFrame], meta: dict) -> str:
         L.append(f"| {y} | {r['n']} | {r['skill']:+.3f} | {by['dd_bin']['10'][y]['skill']:+.3f} | "
                  f"{by['macro']['5'][y]['skill']:+.3f} | {by['macro']['10'][y]['skill']:+.3f} | "
                  f"{by['frag_or']['5'][y]['skill']:+.3f} | {r['share_elevated']:.2f} | {r['share_dd_below_5']:.2f} |")
+    L += ["", "## H-006 rival check — does the HAR forecast already carry `dd_bin`'s gain?", "",
+          "On the subsample where `har_gaussian` quotes. `a vs b` = skill of arm a with b as benchmark. "
+          "If the drawdown bin's gain is the vol forecast's gain, `dd_bin vs har_*` is ~0 or negative.", "",
+          "| h | n dates | pair | pooled (SP500/Gold/WTI) | 95% CI | SP500 | 95% CI | Gold | WTI |",
+          "|---|---|---|---|---|---|---|---|---|"]
+    for h in HORIZONS:
+        r = summary["har_rival"][str(h)]
+        for name, row in r["pairs"].items():
+            p = row["pooled"]
+            sp = row.get("SP500")
+            L.append(f"| {h} | {r['n_report_dates']} | `{name}` | "
+                     f"{(p['skill'] if p else float('nan')):+.4f} | {_ci(p['ci']) if p else 'n/a'} | "
+                     f"{(sp['skill'] if sp else float('nan')):+.3f} | {_ci(sp['ci']) if sp else 'n/a'} | "
+                     f"{(row['Gold']['skill'] if row.get('Gold') else float('nan')):+.3f} | "
+                     f"{(row['WTI Oil']['skill'] if row.get('WTI Oil') else float('nan')):+.3f} |")
+    L += ["", "### Mean quoted P25–P75 width by drawdown bin — SP500", "",
+          "Does the vol forecast narrow in calm the way the drawdown bin does? `realized_iqr` is the "
+          "realized forward change's IQR in that bin on the same dates.", "",
+          "| h | bin | n dates | `unconditional` | `trailing_250` | `dd_bin` | `har_gaussian` | `har_scaled` | realized IQR |",
+          "|---|---|---|---|---|---|---|---|---|"]
+    for h in HORIZONS:
+        for b, v in summary["width_by_bin"][str(h)].items():
+            L.append(f"| {h} | {b} | {v['n_report_dates']} | {v['unconditional']:.3f} | {v['trailing_250']:.3f} | "
+                     f"{v['dd_bin']:.3f} | {v['har_gaussian']:.3f} | {v['har_scaled']:.3f} | {v['realized_iqr']:.3f} |")
     L += ["", "## H-002 structure check — S&P realized forward change by drawdown bin × OR state", "",
           "Width = P75 − P25 (pct). `side` = median vs the slice's unconditional median. "
           "The dose-response rival (drawdown bin alone) follows each table.", ""]
@@ -602,7 +771,8 @@ def report_md(summary: dict, cells: dict[str, pd.DataFrame], meta: dict) -> str:
           "```", "", "Inputs: `refit_models._fetch_price_history(TABLE_START)`, "
           "`refit_models._fetch_fred_series`, `fragility_or.build_channels(stride=1)`; "
           f"flags `pit_flags(q={_Q}, min_warmup={_MIN_WARMUP})`; MIN_N={MIN_N}; "
-          f"BURN_IN={BURN_IN}; DD_EDGES={DD_EDGES}; N_BOOT={N_BOOT}; SEED={SEED}."]
+          f"BURN_IN={BURN_IN}; DD_EDGES={DD_EDGES}; HAR_WINDOW={HAR_WINDOW}; "
+          f"HAR_KEYS={sorted(HAR_KEYS)}; N_BOOT={N_BOOT}; SEED={SEED}."]
     return "\n".join(L) + "\n"
 
 
@@ -616,13 +786,17 @@ def run(cached: bool = False, out_dir: Path = RESULTS_DIR) -> dict:
         cache.write_bytes(pickle.dumps(inputs))
     frame, fr = build_panel(inputs)
     ladders = arm_labels(frame)
-    obs = build_observations(frame, fr, ladders)
+    first, stop = report_range(frame)
+    sigmas = har_sigmas(inputs["prices"], frame.index, first, stop)
+    obs = build_observations(frame, fr, ladders, sigmas=sigmas)
     if not obs:
         raise SystemExit("no observations on the explore slice")
 
     summary: dict = {}
     for h in HORIZONS:
-        summary[str(h)] = {arm: summarize_arm(obs, arm, h) for arm in ARMS if arm != BENCH}
+        summary[str(h)] = {arm: summarize_arm(obs, arm, h) for arm in ALL_ARMS if arm != BENCH}
+    summary["har_rival"] = {str(h): har_rival(obs, h) for h in HORIZONS}
+    summary["width_by_bin"] = {str(h): width_by_bin(obs, "SP500", h) for h in HORIZONS}
     summary["by_state"] = {str(h): skill_by_state(obs, "frag_or", "or_state", h) for h in HORIZONS}
     summary["dd_by_bin"] = {str(h): skill_by_state(obs, "dd_bin", "dd_bin", h) for h in HORIZONS}
     summary["macro_by_level"] = {str(h): skill_by_level(obs, "macro", h) for h in HORIZONS}

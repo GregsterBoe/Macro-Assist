@@ -724,7 +724,11 @@ against `unconditional`, 21-report-date block bootstrap, coverage, PIT), with
 `verdict(sealed=False)` on every arm so the code, not the reader, returns
 `exploratory`. Eight arms: the published macro bucket, `trailing_250`, the OR
 flag's state, the composite's state, OR × NFCI, the S&P drawdown bin, and
-drawdown × OR — plus the H-002 / H-004 structure checks. Report in the
+drawdown × OR — plus the H-002 / H-004 structure checks. Two optional arms
+since the second look: `har_gaussian` (the scorer's comparator, walked forward
+with the product's fit) and `har_scaled` (the same σ on the empirical shape),
+quoted where the product would quote a forecast and scored on their own
+subsample, with the H-006 rival check beside them. Report in the
 `numeric_baseline` shape at `results/explore_conditioner/report.md`; inputs
 cached beside it so `--cached` reproduces the run.
 
@@ -734,8 +738,14 @@ was burnt — and a seal earlier than 2018 is now off the table. What it saw is 
 the register: H-002 and H-004 each carry a ledger block (both structure checks
 failed as written), H-005 and H-006 are new `seen` entries. Owner's competence
 gate ([how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis))
-still applies before the first promotion. Next counted look, if any: a
-walk-forward `har_gaussian` arm as H-006's rival.
+still applies before the first promotion. **The second counted look ran the
+same evening — H-006's rival.** `har_gaussian` does not carry the drawdown
+bin's gain; `har_scaled` does, and H-006 closes toward [KB-033] as a width
+claim a vol forecast delivers. What the look also showed — the scorer's own
+comparator over-covers and loses to `unconditional` at 20d because of its
+Gaussian wrapper — is H-007 (`seen`) and `todo.md` #22. Next counted look, if
+any: the H-005 occupancy cut (deficit by bucket, single-episode cells), or the
+price-only arms pushed back to 2001 to test H-006's calm-tape confound.
 
 ### WP-23.D — First promotion
 

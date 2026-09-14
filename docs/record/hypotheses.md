@@ -25,7 +25,8 @@ missing a confound is not finished.
 | [H-003](#h-003) | `draft` | The SPF-vs-SEP gap predicts the *width* of the realized rate path, not its direction |
 | [H-004](#h-004) | `draft` | The published conditioner's dimensions are not the ones that move the distribution; a fragility-state conditioner beats the macro bucket — *explore look 2026-09-14: structure check failed in direction* |
 | [H-005](#h-005) | `seen` | On the explore slice the published macro bucket is reliably *worse* than not conditioning, and the deficit grows with horizon |
-| [H-006](#h-006) | `seen` | The only conditioner that beats `unconditional` on the explore slice is the S&P's own drawdown bin — and its gain is a narrower interval in calm, not the reversion |
+| [H-006](#h-006) | `seen` | The only conditioner that beats `unconditional` on the explore slice is the S&P's own drawdown bin — and its gain is a narrower interval in calm, not the reversion — *rival look 2026-09-14: the width claim holds; the product's `har_gaussian` does not carry it, the same σ on the empirical shape does* |
+| [H-007](#h-007) | `seen` | The product's `har_gaussian` comparator is handicapped by its shape and its zero mean, not its σ: too wide in calm (coverage 0.57 at nominal 0.50), skewed PIT, −0.044 on the S&P at 20d, while the same forecast on the empirical shape is +0.016 … +0.026 |
 
 ---
 
@@ -417,6 +418,125 @@ as a width claim only; a directional read is not taken even if it appears.
 **Read first.** [KB-033] (HAR-RV, and why a gaussian from a vol forecast is the
 width rival) · [KB-024] and [KB-022] · `numeric_baseline.asset_features`
 (`drawdown`, `DRAWDOWN_WINDOW`) · the report.
+
+**Explore-tier looks (ledger).** *2026-09-14, later the same day* — the rival
+named above, run as the second look of `explore_conditioner.py`. Two arms
+fixed before looking, both **optional** in the scorer's sense (quoted where the
+product would quote a forecast, scored on their own subsample, never a reason
+to drop an observation): `har_gaussian`, the product's comparator exactly —
+zero-mean Normal on the HAR-RV σ fitted walk-forward on the last 1,250 closes
+at or before the report date, `har_forecast_or_none`'s gates, for the four
+assets the product logs (`_VOL_LOG_KEYS`) — and `har_scaled`, the same σ
+applied to `unconditional`'s empirical quantiles as a width ratio about their
+median (the width-vs-shape decomposition, so the prediction could fail for
+the Gaussian's reasons and still be tested). Same 1,893 report dates; the
+S&P, Gold and WTI carry a forecast on all of them, Bitcoin on the last ~130.
+Report: § *H-006 rival check*, § *Mean quoted P25–P75 width by drawdown bin*.
+
+- **The prediction as written fails.** `har_gaussian` does not capture the
+  gain: `dd_bin` vs `har_gaussian` on the S&P is **+0.020 [+0.003, +0.038]** at
+  5d, +0.041 [+0.011, +0.070] at 10d, +0.071 [+0.025, +0.116] at 20d.
+  `har_gaussian` itself vs `unconditional` on the S&P is +0.003, −0.014,
+  **−0.044 [−0.074, −0.015]** — it *loses* to no conditioning at 20d.
+- **The width claim holds.** The same σ on the empirical shape matches the
+  drawdown bin on the S&P at every horizon — `dd_bin` vs `har_scaled` −0.003
+  [−0.014, +0.008] · +0.007 [−0.010, +0.024] · +0.015 [−0.013, +0.044] — and
+  beats it pooled over the original three at 5d (−0.006 [−0.011, −0.001]).
+  `har_scaled` vs `unconditional`: S&P +0.026 [+0.018, +0.036] · +0.020
+  [+0.010, +0.032] · +0.016 [+0.002, +0.031]; pooled +0.015 [+0.011, +0.019] at
+  5d, +0.010, +0.006. It also pays on WTI (+0.015 at 5d), where the S&P's
+  drawdown bin cannot (+0.005).
+- **Why the Gaussian fails is legible in the width table.** In the calm bin
+  (1,536 dates) the realized 5d IQR is 1.57; `dd_bin` quotes 1.93,
+  `har_scaled` 1.85, `har_gaussian` **2.44** — a Normal with the HAR variance
+  is too wide for a fat-tailed return (its IQR/σ is 1.35; the S&P's is less),
+  and it over-covers: 0.574 / 0.568 / 0.540 at nominal 0.50 across horizons,
+  against `har_scaled`'s 0.500 / 0.512 / 0.487. In the deep-stress bin (130
+  dates) the picture inverts — the Gaussian's 5.20 is the closest to the
+  realized 5.03 — but 81% of the tape is the calm bin.
+- **`trailing_250` is the worse "recent regime" rival**: vs `har_scaled`
+  −0.016 [−0.029, −0.003] on the S&P at 5d.
+- **What it means for this entry.** The width half is a vol-forecast effect
+  and a vol forecast delivers it; the own-price state carries nothing the
+  forecast does not, on this tape. That is the "closes as [KB-033] restated"
+  branch, with one correction to how it was going to close: the rival that
+  restates it is not the arm the product has. That is [H-007](#h-007).
+  Confounds (a) and (b) stand unchanged; (c) is resolved. Two counted looks.
+
+---
+
+## H-007 — The product's `har_gaussian` comparator is handicapped by its shape and its zero mean, not its σ {: #h-007 }
+
+**Status:** `seen` · 2026-09-14 · draft text by the assistant — the owner's
+rewrite is required before this can be promoted (§6)
+
+**What was seen.** Walked forward on the explore slice (1,893 report dates,
+2010-06-25 → 2017-12-29) with the product's own fit — 1,250 closes, the
+`HAR_MIN_RETURNS` gate, the four logged assets — the zero-mean Normal on the
+HAR-RV σ scores **+0.003 / −0.014 / −0.044 [−0.074, −0.015]** against
+`unconditional` on the S&P at 5 / 10 / 20d and over-covers its P25–P75 at
+every horizon (0.574 / 0.568 / 0.540 against a nominal 0.50). The same σ
+applied to the empirical unconditional quantiles as a width ratio about their
+median (`har_scaled`) scores **+0.026 [+0.018, +0.036] / +0.020 / +0.016** with
+coverage at nominal. Pooled over SP500/Gold/WTI: `har_gaussian` +0.009
+[−0.000, +0.016] · +0.002 · −0.005; `har_scaled` +0.015 [+0.011, +0.019] ·
++0.010 [+0.004, +0.016] · +0.006 [−0.001, +0.013]. Gold is flat under both
+(≤ ±0.004); WTI gains under both (+0.019 / +0.015 at 5d).
+
+**Where.** `results/explore_conditioner/report.md`, tables 1–2 (the `har_*`
+rows), § *H-006 rival check*, § *Mean quoted P25–P75 width by drawdown bin* ·
+second look of 2026-09-14, ledgered under [H-006](#h-006).
+
+**Mechanism it would imply.** The forecast is fine; the distribution wrapped
+around it is not, in two ways. *Shape:* a Normal carries IQR = 1.35 σ; a
+fat-tailed 5-day return with the same variance has a narrower IQR and heavier
+tails, so the Gaussian quotes an interval that is too wide in calm (2.44
+against a realized 1.57 at 5d) and pays pinball on it on the 81% of dates that
+are calm. *Location:* its median is zero by construction while the S&P's
+forward change has a positive drift median, so realizations land above its
+P50 too often. In deep stress it is the closest arm to the realized width —
+which is where a Normal's IQR/σ and the return's happen to agree — but that
+is 130 dates. Scaling the *empirical* quantiles keeps the fat-tail shape and
+the drift median and applies the σ only to the width, which is the one thing
+the forecast knows.
+
+**The prediction that is not the score.** Two cuts. (1) If it is shape and
+location, `har_gaussian`'s 4-bin PIT is both hump-shaped and skewed, and
+`har_scaled`'s is flat. *Cut, same run:* `har_gaussian` 0.19 / 0.26 / 0.32 /
+0.23 at 5d (0.19 / 0.25 / 0.32 / 0.24 at 10d; 0.19 / 0.24 / 0.30 / 0.27 at
+20d) — the two middle bins hold 0.57 / 0.57 / 0.54 against 0.50, and the
+below-P25 bin is 0.19 at every horizon while the P50–P75 bin is 0.30–0.32:
+the hump and the skew both. `har_scaled` is flat within ±0.017 at every
+horizon. (2) The Gaussian's deficit vs `har_scaled` should be largest in the
+calm bin and shrink toward zero in the deep-stress bin. *Not cut* — the
+per-bin pairing is one `skill_by_state` call on the cached observations.
+
+**The confound.** (a) One calm tape — the calm-bin share is 81%, and the
+Gaussian's over-width is a calm-bin cost; a slice with more stress narrows
+the gap. (b) `har_scaled` was designed in this session as the decomposition
+arm, not pre-registered in an earlier entry — it is a second look, counted,
+and its form (ratio about the median, σ over the full-history sd) is one of
+several one could have chosen. (c) The sealed scorer's `har_gaussian` reads a
+*logged* σ from the note's own fit (5y fetch since 2026-09-14); this walk
+replicates that fit on yfinance history and is not the logged number.
+
+**What would test it.** As a hypothesis about the comparator it needs no
+sealed read of the product; it needs the two cuts above and then a decision
+— `todo.md` #22 — on whether the Phase 22 scorer gains `har_scaled` as a
+*further* optional comparator before the first read. A better rival makes the
+published table's job harder, not easier (the WP-22.C amendment's own words),
+so adding one is admissible under the seal; replacing `har_gaussian` is not,
+because the roadmap's exploratory observation was scored against it.
+
+**Target-space check.** A distribution's width and shape; no location claim.
+`har_scaled` inherits the empirical median rather than predicting one.
+Admissible.
+
+**Read first.** [KB-033] · the WP-22.C amendment in `roadmap.md` (*The
+`har_gaussian` comparator's σ changed once*) and its "one exploratory
+observation" paragraph, which this entry does not overturn (that was a
+median-only read against the old σ; this is all three quantiles against the
+new fit) · `score_distributions._gaussian_quantiles` · the report.
 
 ---
 

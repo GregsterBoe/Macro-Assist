@@ -14,7 +14,7 @@ Conventions:
   reasoning intact, and pull any "carry forward" caveat back up into this file
   as its own entry. A resolved item left here is noise; a lost caveat is worse.
 
-Last reviewed: 2026-09-14 (#21 does the explore-tier H-005 look change anything before Phase 22, from the first WP-23.C run; #19 updated — nothing burnt, no seal earlier than 2018; #20 the two product → research imports drained → `resolved.md`; #19 which seal governs a Phase 23 promotion, from the exploration-tier draft; #17 the HAR-RV fit window landed → `resolved.md`; #18 WP-18.4's missing metric, from the archive pass; #16 the CORR shadow flag IMP-7 admitted and did not wire, [KB-032]; #15 the turbulence-only hindsight read from [KB-031],
+Last reviewed: 2026-09-14 (#22 whether the Phase 22 scorer gains a `har_scaled` comparator, from the second WP-23.C look (H-007); #21 does the explore-tier H-005 look change anything before Phase 22, from the first WP-23.C run; #19 updated — nothing burnt, no seal earlier than 2018; #20 the two product → research imports drained → `resolved.md`; #19 which seal governs a Phase 23 promotion, from the exploration-tier draft; #17 the HAR-RV fit window landed → `resolved.md`; #18 WP-18.4's missing metric, from the archive pass; #16 the CORR shadow flag IMP-7 admitted and did not wire, [KB-032]; #15 the turbulence-only hindsight read from [KB-031],
 open decision; #13 `hy_spread` mean-window caveat from [KB-028]; #14
 IMP-5.3 added from [KB-029] and closed the same day → `resolved.md`, [KB-030]).
 Prior: 2026-09-12 (#12 GitHub Pages closed → `resolved.md`);
@@ -313,6 +313,31 @@ rendered comparison line names `unconditional` beside the bucket so a reader
 can see both — a presentation change, needs the version discipline in
 `versions.md`. *Not an option:* changing the bucket's dimensions now — that is
 H-004's territory and it failed its own structure check in the same run.
+
+### Open decision #22 — does the Phase 22 scorer gain a `har_scaled` comparator before its first read?
+**Where:** [`hypotheses.md`](hypotheses.md) H-007 (and H-006's ledger) ·
+`score_distributions._gaussian_quantiles` · `explore_conditioner.har_scaled_quantiles` ·
+**Source:** the second WP-23.C look, 2026-09-14 — **explore tier, not a
+result.** The scorer's optional `har_gaussian` comparator, walked forward on
+2010-06 → 2017-12 with the product's own fit, scores +0.003 / −0.014 / −0.044
+against `unconditional` on the S&P at 5 / 10 / 20d and over-covers its
+P25–P75 (0.57 at nominal 0.50): a zero-mean Normal is the wrong wrapper for the
+σ, on that tape. The same σ applied to `unconditional`'s empirical quantiles as
+a width ratio about their median scores +0.026 / +0.020 / +0.016 with coverage
+at nominal, and matches the best explore-slice conditioner (`dd_bin`) at every
+horizon. So the strongest rival the published table could face is not in the
+scorer. **Options:** (1) nothing — `har_gaussian` stays as the optional
+comparator it was sealed with, H-007 is the recorded prior, and `har_scaled`
+enters the *next* bar (WP-23.B's, for any promoted distribution hypothesis) —
+the default; (2) add `har_scaled` to `score_distributions.ARMS` as a second
+optional comparator now, before any interval observation resolves against it —
+the WP-22.C amendment already states the principle that a better rival makes
+the published table's job harder, not easier, so this is admissible under the
+seal, but it is a scorer change against a sealed record and needs its own
+amendment paragraph in `roadmap.md`, tests, and a note that the comparator was
+chosen after an explore look at it. *Not an option:* replacing `har_gaussian`
+— the roadmap's exploratory "a constant beat the model" observation was scored
+against it and stays comparable only if it stays.
 
 ---
 

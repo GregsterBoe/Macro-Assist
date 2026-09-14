@@ -170,7 +170,7 @@ live path may not import a harness.
 | **Live product** | Conditional return distribution across 6 assets + Fragility Monitor |
 | **Live experiment** | Phase 22 distribution scorer — bar sealed, first honest read ~2027-05 |
 | **Winding down** | The directional scorer, once the last T+20 window resolves ~2026-10-02 |
-| **Exploring** | Phase 23 — harness built, first looks run 2026-09-14 on 2010–2017; register holds H-001 `seen` (artifact expires 2026-10-07), H-002–H-004 `draft`, H-005/H-006 `seen`. Open: `todo.md` #19 (which seal) and #21 (does the H-005 look change anything before Phase 22 reads — default: no) |
+| **Exploring** | Phase 23 — harness built, two looks run 2026-09-14 on 2010–2017; register holds H-001 `seen` (artifact expires 2026-10-07), H-002–H-004 `draft`, H-005–H-007 `seen`. Open: `todo.md` #19 (which seal), #21 (does the H-005 look change anything before Phase 22 reads — default: no), #22 (does the scorer gain `har_scaled` before its first read — default: no) |
 | **Queued** | WP-21.E families 2–3 — bar written ([ADR-0020](docs/decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md)), no family chosen, honest prior low |
 
 The board in [active-experiments.md](docs/record/active-experiments.md) is
