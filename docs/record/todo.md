@@ -14,7 +14,7 @@ Conventions:
   reasoning intact, and pull any "carry forward" caveat back up into this file
   as its own entry. A resolved item left here is noise; a lost caveat is worse.
 
-Last reviewed: 2026-09-13 (#19 which seal governs a Phase 23 promotion, from the exploration-tier draft; #17 the HAR-RV fit window landed → `resolved.md`; #18 WP-18.4's missing metric, from the archive pass; #16 the CORR shadow flag IMP-7 admitted and did not wire, [KB-032]; #15 the turbulence-only hindsight read from [KB-031],
+Last reviewed: 2026-09-14 (#20 and #21 added from the Phase 24 draft — both are convention calls, not code). Prior: 2026-09-13 (#19 which seal governs a Phase 23 promotion, from the exploration-tier draft; #17 the HAR-RV fit window landed → `resolved.md`; #18 WP-18.4's missing metric, from the archive pass; #16 the CORR shadow flag IMP-7 admitted and did not wire, [KB-032]; #15 the turbulence-only hindsight read from [KB-031],
 open decision; #13 `hy_spread` mean-window caveat from [KB-028]; #14
 IMP-5.3 added from [KB-029] and closed the same day → `resolved.md`, [KB-030]).
 Prior: 2026-09-12 (#12 GitHub Pages closed → `resolved.md`);
@@ -284,6 +284,52 @@ live record from 2026-09-07, which pushes any read to ~2027-05 or later.
 *Must be decided before WP-23.C runs anything; the entry that decides it names
 the hypothesis class, not a hypothesis.* Also inside this phase, dated: H-001's
 confound is resolvable from CI artifact `10013945071`, **expires 2026-10-07**.
+
+---
+
+## Phase 24 — record integrity
+
+*Both items are conventions, not code. The rest of Phase 24 is engineering and
+does not need an entry here; these two change how the repo is written, so they
+are decisions. **Source:** the Phase 24 draft (2026-09-14), assistant-drafted
+from a session walkthrough — not a measurement.*
+
+### Open decision #20 — may a report-only audit finding ever fail CI? (WP-24.D)
+**Where:** `roadmap.md` Phase 24 (WP-24.D) · `CLAUDE.md` ("when two docs
+disagree about status, `active-experiments.md` wins") · planned
+`.macro-assist/record_audit.py`. The precedence rule exists and has no detector.
+WP-24.D proposes one that **prints the disagreeing pair and does not resolve it**,
+on the reasoning that an audit picking a side can silently pick the wrong one —
+which makes the finding report-only, and a report-only finding is one nobody
+reads. **Options:** (1) report-only, printed by `/orient` (WP-24.G) and never red
+— cheap, and depends entirely on the ritual being run; (2) red after a grace
+period, so a contradiction that survives N days blocks CI — forces a resolution
+but can block unrelated work on a doc disagreement; (3) red immediately, with an
+explicit acknowledge-and-record escape (the disagreement is deliberate and the
+reason is written down) — strictest, and the escape hatch is the thing that would
+rot. *Decide before WP-24.D lands; the same call governs WP-24.E's ages, which
+are report-only by construction.*
+
+### Open decision #21 — is a revisit condition mandatory on every ADR? (WP-24.F)
+**Where:** `roadmap.md` Phase 24 (WP-24.F) · `CLAUDE.md` convention #11 ·
+[`../decisions/index.md`](../decisions/index.md) (the page shape). Convention #11
+says *"a page with no costs listed has not been thought through"*;
+[ADR-0009](../decisions/ADR-0009-cut-the-directional-product.md) additionally
+carries a **"Would we revisit it?"** section answered with a *condition* rather
+than a date, and [ADR-0017](../decisions/ADR-0017-bss-floor-left-open.md) is the
+worked case of such a condition coming true and being acted on five days later.
+The proposal is to make the section mandatory and have the audit both check it
+exists and flag conditions that have **become true** — the intended answer to a
+rule written in good faith that later holds progress back. **Open, because it is
+not free:** (a) the 20 existing ADRs would need one retrofitted, and a
+retrofitted condition invented years later is weaker evidence than one written at
+decision time — possibly "not stated at the time" is the honest value for older
+pages; (b) some decisions genuinely have no revisit condition
+([ADR-0001](../decisions/ADR-0001-output-on-an-orphan-branch.md), the orphan
+branch) and forcing prose onto them manufactures a fake one; (c) a machine-checkable
+condition is a narrower thing than a prose one, and only some conditions are
+checkable at all. *Decide the page-shape question first; the audit half is
+downstream of it.*
 
 ---
 

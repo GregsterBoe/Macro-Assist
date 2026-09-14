@@ -773,8 +773,9 @@ the facts and the audit only reads them. Not an auto-fixer — see WP-24.D.
 
 **Drafted by the assistant, 2026-09-14, from a session walkthrough.** The
 work packages are engineering; the two that change a *convention* (24.D's
-precedence handling, 24.F's ADR page shape) are decisions for the owner and
-should land in `todo.md` before their code does.
+precedence handling, 24.F's ADR page shape) are decisions for the owner and are
+logged as [`todo.md`](todo.md) **#20** and **#21** — neither WP ships before its
+entry is decided.
 
 **Order.** 24.A is the first step and stands alone — it is the check that would
 have caught the frozen refit on day one instead of day eleven. Everything after
@@ -828,8 +829,8 @@ is that a human sees two claims next to each other.
 
 That makes this report-only rather than red, which creates the real risk — a
 report nobody reads. Its output must be printed by WP-24.G, not merely logged.
-Whether report-only findings should ever fail CI is an owner decision, not a
-default.
+Whether a report-only finding should ever fail CI is an owner decision, not a
+default → [`todo.md`](todo.md) **#20**, which governs WP-24.E's ages too.
 
 ### WP-24.E — Ages, from git
 
@@ -854,6 +855,13 @@ that every ADR has one, and — the useful half — flags any stated condition t
 has **become true**. This is the answer to a rule written in good faith that
 later holds progress back: the rule carries its own expiry trigger, and something
 watches the triggers.
+
+It is not free, which is why it is a decision and not a task: 20 existing ADRs
+would need one retrofitted, a condition invented years after the fact is weaker
+than one written at decision time, some decisions genuinely have none
+([ADR-0001](../decisions/ADR-0001-output-on-an-orphan-branch.md)), and only some
+conditions are machine-checkable at all → [`todo.md`](todo.md) **#21**. The
+page-shape call comes first; the audit half is downstream of it.
 
 ### WP-24.G — `/orient`, the session-start ritual
 
