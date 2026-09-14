@@ -61,16 +61,20 @@ Every instrument carries a positive and a negative control in the test suite
 ## What is in each state now
 
 - **Exploration:** seven entries in the [register](../record/hypotheses.md) —
-  H-001 `seen` with a 2026-10-07 deadline; H-002–H-004 `draft` awaiting the
-  owner's rewrite, two of them with a first explore-tier look on the ledger
-  (2026-09-14, both structure checks failed as written); H-005 and H-006 `seen`
-  in that same run; H-006's rival look the same evening (its width claim
-  holds — a vol forecast on the empirical shape delivers it) and H-007 `seen`
-  from it (the scorer's `har_gaussian` comparator is handicapped by its
-  Gaussian wrapper, not its σ). The harness is `explore_conditioner.py`
-  (WP-23.C); the seal decision (WP-23.A, `todo.md` #19) is still open, what
-  the H-005 look means for the product before Phase 22 reads is `todo.md`
-  #21, and whether the scorer gains `har_scaled` before its first read is #22.
+  H-001 `closed` (its confound resolved 2026-09-14 from the pulled artifact:
+  the SPF anchor's confidence ordering is a crisis-rebound period effect and
+  inverts within three of six assets; closed on its own target-space rule, no
+  KB entry); H-002–H-004 `draft` awaiting the owner's rewrite, two of them
+  with a first explore-tier look on the ledger (2026-09-14, both structure
+  checks failed as written); H-005 and H-006 `seen` in that same run; H-006's
+  rival look the same evening (its width claim holds — a vol forecast on the
+  empirical shape delivers it) and H-007 `seen` from it (the scorer's
+  `har_gaussian` comparator is handicapped by its Gaussian wrapper, not its σ).
+  The harness is `explore_conditioner.py` (WP-23.C). Decided 2026-09-14
+  (`resolved.md`): the seal for a promoted distribution-class hypothesis is
+  `SEAL_START` 2018-01-01, reused (#19); H-005 changes nothing before Phase 22
+  reads (#21); the scorer keeps its sealed comparator and `har_scaled` enters
+  WP-23.B's class bar as a second comparator (#22).
 - **Confirmation:** Phase 22 — one sealed read pending. WP-21.E families 2–3
   have a bar and no candidate.
 - **Accepted:** [What we believe](../concepts/what-we-believe.md), rewritten

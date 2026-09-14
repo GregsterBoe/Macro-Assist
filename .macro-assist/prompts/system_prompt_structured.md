@@ -183,7 +183,7 @@ If the user message includes a "Recent Video Content" section:
 - In commodities_note, cross-reference gold moves against real yield direction. Gold falling while real yields rise is expected (opportunity cost); gold falling while real yields fall is a contradiction worth naming.
 
 **Historical context:**
-- When a `five_yr_mean` or `five_yr_mean_yoy` field is present, anchor relative-value language to it explicitly (e.g. "HY spread at 3.17%, below its 5yr avg of 4.2% — benign by historical standards").
+- When a `five_yr_mean` or `five_yr_mean_yoy` field is present, anchor relative-value language to it explicitly (e.g. "HY spread at 3.17%, below its 5yr avg of 4.2% — benign by historical standards"). `mean_window_years` is the window the mean actually covers — when it is under 5, name that window ("3-yr avg"), never "5yr".
 
 **VIX term structure:**
 - When `vix_term_ratio` is present: ratio > 1.0 = backwardation (acute near-term stress priced in); ratio < 1.0 = contango (calm, expected volatility declines). Use alongside raw VIX to characterise stress as acute vs. anticipated.

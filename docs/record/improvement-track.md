@@ -332,8 +332,8 @@ persistence shifts every alarm a reading later past it, tiers' severity comes
 at the trough, the logistic splits the same budget into more alarms.
 `too_late` never fired because it measured the median lead of *surviving* true
 positives — the next lead-time bar is written as crises-caught-with-lead. A
-hindsight observation (10 of 12 false 5d alarms are turbulence-only) is in
-`todo.md` #15 as an open decision, not a change.
+hindsight observation (10 of 12 false 5d alarms are turbulence-only) was
+`todo.md` #15, declined 2026-09-14 → `resolved.md`; not a change.
 
 ## IMP-7 — The companion measures IMP-1 listed and never ran
 
@@ -341,7 +341,7 @@ hindsight observation (10 of 12 false 5d alarms are turbulence-only) is in
 standalone skill; DISP `precision_lost`, BREADTH and EIGC `redundant`, CORR
 `admit` by the letter of the bar — on one post-crash aftershock crisis, via two
 readings in 664 where the trio was silent. Not wired; the deployment call is
-`todo.md` #16. Bar written 2026-09-13 before any companion was computed, kept
+`resolved.md` #16 (closed 2026-09-14). Bar written 2026-09-13 before any companion was computed, kept
 as written. Harness `.macro-assist/companion_testing.py`.
 
 IMP-1's candidate list named cross-sectional **dispersion**, **average pairwise
@@ -415,6 +415,6 @@ The bar had no lead clause, the hole [KB-031] nuance (a) had already named; the
 correction is written into the next OR-admission bar (a gained crisis counts
 only if the trio's alarm was not already active), not into this verdict.
 Wiring the admitted flag was judged uninformative (it would agree with the live
-OR on 662 of 664 readings) and is `todo.md` #16, not done silently. **The
+OR on 662 of 664 readings) and is `resolved.md` #16, not done silently. **The
 candidate list IMP-1 opened is exhausted; the fragility track is forward
 observation only.**

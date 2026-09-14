@@ -20,7 +20,7 @@ missing a confound is not finished.
 
 | # | Status | One line |
 |---|---|---|
-| [H-001](#h-001) | `seen` | The SPF anchor's confidence bins are the first correctly ordered ones ever measured here — artifact expires 2026-10-07 |
+| [H-001](#h-001) | `closed` | The SPF anchor's confidence bins are the first correctly ordered ones ever measured here — *confound resolved 2026-09-14: the ordering is carried by two crisis-rebound periods and inverts within three of six assets; closed on its own target-space rule, no KB entry* |
 | [H-002](#h-002) | `draft` | The stress-reversion mechanism is conditional on fragility state: stress continues in Elevated tapes, reverts in Normal ones — *explore look 2026-09-14: width half seen, location half not* |
 | [H-003](#h-003) | `draft` | The SPF-vs-SEP gap predicts the *width* of the realized rate path, not its direction |
 | [H-004](#h-004) | `draft` | The published conditioner's dimensions are not the ones that move the distribution; a fragility-state conditioner beats the macro bucket — *explore look 2026-09-14: structure check failed in direction* |
@@ -32,7 +32,7 @@ missing a confound is not finished.
 
 ## H-001 — The SPF anchor's confidence is ordered correctly, and nothing else's is {: #h-001 }
 
-**Status:** `seen` · 2026-09-07 · **deadline 2026-10-07** (artifact expiry)
+**Status:** `closed` · seen 2026-09-07 · confound resolved 2026-09-14 (the artifact was pulled to `results/numeric_baseline/runs/2026-09-07-wp19e-spf/scores.json.gz` on 2026-09-13, before its 2026-10-07 expiry). No KB entry — the entry's own rule below: the outcome is a note here, and the only thing the observation could become is a better-calibrated directional call, which [ADR-0009](../decisions/ADR-0009-cut-the-directional-product.md) closes. Pointer: [KB-026].
 
 **What was seen.** In the WP-19.E run, `exogenous_spf` is the first arm measured
 in this project whose reliability bins increase monotonically — 0.544 → 0.549 →
@@ -71,6 +71,41 @@ only as a lead toward a gap/width question. If the only thing it can become is
 
 **Read first.** [KB-026] in full · [KB-007] for what a mis-ordered table looks
 like · `numeric_baseline._brier_and_reliability` for how bins are built.
+
+**Confound resolved (ledger).** *2026-09-14, draft by the assistant.* The
+per-call record (`exogenous_spf`, 4,637 reports 2008-11-21 → 2026-08-31,
+41,050 decisive calls) read with the production reader
+(`summarize_accuracy._brier_and_reliability`), split the way the confound
+asked for. **The ordering does not survive.**
+
+- *Where the top bin lives.* Calls at 90–100 confidence occur only in
+  2008–2011 and 2020; the arm's maximum confidence on 2012–2019 is 88 and on
+  2021+ is 85. The 90–100 bin is 629 decisive calls, 270 of them 2020-05-18 →
+  2020-08-14 — the post-crash rebound — and the rest the 2008–2011 recovery.
+  Its composition is S&P Bullish (192), DXY Bearish (136), WTI Bullish (116),
+  10Y Bullish (95), Bitcoin Bullish (84): directional calls on a tape that then
+  went one way.
+- *Within assets.* S&P 0.650 → 0.626 → 0.670 → 0.710 → **0.892** (n=186, 176
+  of them Bullish, base rate 0.655); WTI 0.503 → … → 0.684; DXY … → 0.866
+  (n=119, 113 Bearish, 2020). **Gold 0.741 → 0.167** (n=6), **10Y 0.444 →
+  0.224** (n=67), **Bitcoin 0.649 → 0.442** (n=77). Three of six invert in the
+  top bin; the three that hold are the post-crisis up-rate.
+- *The calm middle.* On 2012–2019 every asset is flat-to-inverted:
+  S&P 0.712 → 0.629, Gold 0.506 → 0.361, WTI 0.517 → 0.267, 10Y 0.525 → 0.000
+  (n=7); DXY and Bitcoin never reach 80. Excluding 2020 alone leaves the
+  pooled top bin at 0.749 — so it is not one episode but the class of episode:
+  the anchor is far from consensus exactly when the tape has just crashed, and
+  its high-confidence call is "back toward consensus", which is the reversion
+  [KB-022] already measured.
+
+So the mechanism the entry conjectured — confidence as distance-from-consensus,
+a real quantity — reduces to *distance-from-consensus is large after a crash
+and crashes revert*: a period-and-direction effect with zero discrimination
+inside a regime, which is the confound as written. The gap/width lead
+(→ H-003) is untouched by this; nothing here bears on whether the SPF–SEP gap
+predicts width. **Closed, on the target-space check's own terms.** Reproduce:
+`python -c` over `scores.json.gz` with `_brier_and_reliability` per asset, per
+`report_date[:4]`; no harness change was needed.
 
 ---
 
@@ -345,8 +380,9 @@ forward, not the note's live record (the note used other tables until
 **What would test it.** Nothing new — **Phase 22 is the test**, live and sealed
 from 2026-09-07, first read ~2027-05. The only earlier read is the same
 walk-forward on the 2018+ historical slice under the WP-23.B class bar, which
-needs `todo.md` #19 decided as option (1) and burns that slice for the
-conditioner class. Whether anything changes before then is `todo.md` #21.
+`resolved.md` #19 now permits (the seal is reused) and which burns that slice
+for the conditioner class. Nothing changes before Phase 22 reads — decided,
+`resolved.md` #21 (2026-09-14).
 
 **Target-space check.** A conditional distribution against `unconditional`.
 Passes.
@@ -406,8 +442,9 @@ the product's vol-state arms — HAR was not in this run.
 **What would test it.** Add a walk-forward `har_gaussian` arm to
 `explore_conditioner.py` (from `har_backtest`) and re-read the explore slice
 with HAR as the benchmark — still explore tier, one more counted look. A
-confirm read waits on `todo.md` #19 and the WP-23.B class bar with the
-benchmark set to the best existing vol-state arm.
+confirm read waits on the WP-23.B class bar (the seal is decided,
+`resolved.md` #19) with the benchmark set to the best existing vol-state arm
+— which, after the rival look, is `har_scaled`.
 
 **Target-space check.** A distribution, and the claim is its *width*. The
 location half — a right-shifted median after a drawdown — is [KB-024]'s
@@ -521,12 +558,15 @@ several one could have chosen. (c) The sealed scorer's `har_gaussian` reads a
 replicates that fit on yfinance history and is not the logged number.
 
 **What would test it.** As a hypothesis about the comparator it needs no
-sealed read of the product; it needs the two cuts above and then a decision
-— `todo.md` #22 — on whether the Phase 22 scorer gains `har_scaled` as a
-*further* optional comparator before the first read. A better rival makes the
-published table's job harder, not easier (the WP-22.C amendment's own words),
-so adding one is admissible under the seal; replacing `har_gaussian` is not,
-because the roadmap's exploratory observation was scored against it.
+sealed read of the product; it needs the two cuts above. The decision it
+raised — whether the Phase 22 scorer gains `har_scaled` as a *further*
+optional comparator before the first read — was taken 2026-09-14
+(`resolved.md` #22): **no**. A better rival makes the published table's job
+harder, not easier (the WP-22.C amendment's own words), so adding one was
+admissible under the seal; it was declined because it would be a bar change
+made after seeing the rival's number, and `har_scaled` goes into WP-23.B's
+class bar instead. Replacing `har_gaussian` was never an option, because the
+roadmap's exploratory observation was scored against it.
 
 **Target-space check.** A distribution's width and shape; no location claim.
 `har_scaled` inherits the empirical median rather than predicting one.
