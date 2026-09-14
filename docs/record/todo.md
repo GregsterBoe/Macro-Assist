@@ -14,7 +14,7 @@ Conventions:
   reasoning intact, and pull any "carry forward" caveat back up into this file
   as its own entry. A resolved item left here is noise; a lost caveat is worse.
 
-Last reviewed: 2026-09-14 (#20 drain the two product → research imports, from the boundary pass; #19 which seal governs a Phase 23 promotion, from the exploration-tier draft; #17 the HAR-RV fit window landed → `resolved.md`; #18 WP-18.4's missing metric, from the archive pass; #16 the CORR shadow flag IMP-7 admitted and did not wire, [KB-032]; #15 the turbulence-only hindsight read from [KB-031],
+Last reviewed: 2026-09-14 (#20 the two product → research imports drained → `resolved.md`; #19 which seal governs a Phase 23 promotion, from the exploration-tier draft; #17 the HAR-RV fit window landed → `resolved.md`; #18 WP-18.4's missing metric, from the archive pass; #16 the CORR shadow flag IMP-7 admitted and did not wire, [KB-032]; #15 the turbulence-only hindsight read from [KB-031],
 open decision; #13 `hy_spread` mean-window caveat from [KB-028]; #14
 IMP-5.3 added from [KB-029] and closed the same day → `resolved.md`, [KB-030]).
 Prior: 2026-09-12 (#12 GitHub Pages closed → `resolved.md`);
@@ -291,26 +291,6 @@ confound is resolvable from CI artifact `10013945071`, **expires 2026-10-07**.
 
 *Folded in from `maintenance-log.md` 2026-09-11 so there is one inbox rather
 than three. The maintenance log now records passes; the open items live here.*
-
-### Open decision #20 — drain the two product → research imports (ADR-0021)
-The product/research boundary is enforced by `test_product_boundary.py`
-against the manifest in `product_surface.py`. Two edges cross it today and are
-pinned in `KNOWN_LEAKS`, both because data-feed code lives in the research
-module that first needed it:
-
-- `fragility_or` → `fragility_backtest` for `fetch_histories`,
-  `fetch_sector_etfs`, `walk_forward_fragility`, and `drawdown_label` /
-  `episode_scoring` in its `__main__` self-check that reproduces [KB-020].
-- `quant_context` → `fragility_backtest` for `freshen_vol_indices`.
-
-**The fix is a move, not a rewrite:** extract the feeds (`fetch_histories`,
-`fetch_sector_etfs`, `freshen_vol_indices`, `_SECTOR_ETFS`, `_ETF_CACHE`) and
-the walk (`walk_forward_fragility`) into a product module — `fragility_feeds.py`
-or into `market_data.py` — and have `fragility_backtest` import them from
-there; make the self-check's scorer imports lazy. The live path is [KB-021]'s
-"reproduces the KB-020 numbers" claim, so the move must be verified by
-`python fragility_or.py`'s self-check and the full suite, not by the boundary
-test alone. When done, remove both pins; the test fails until you do.
 
 ### Carried finding #10 — `point_in_time.py` runs network by default
 Its tests make real ALFRED/FRED calls (~113 s of the default suite) but are *not*

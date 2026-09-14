@@ -48,11 +48,13 @@ scan (no module is imported, so no network). It fails on:
 - any module not assigned to a tier;
 - any pinned leak that has been fixed without its pin being removed.
 
-The two edges that cross the line today (`fragility_or` and `quant_context`,
-both → `fragility_backtest`, both for data-feed functions) are pinned as an
-exact set in `KNOWN_LEAKS` and queued as todo #20. The pin is the ADR-0017
-pattern: the violation is recorded in a test rather than tolerated in silence,
-and the test fails in *both* directions so the pin cannot outlive the leak.
+A known violation goes in `KNOWN_LEAKS` with a todo number rather than being
+tolerated in silence — the ADR-0017 pattern — and the test holds the set
+exactly in *both* directions, so a pin cannot outlive its leak. On the day
+the rule was written the set held two edges (`fragility_or` and
+`quant_context`, both → `fragility_backtest`, both for data-feed functions);
+they were drained the same day into `fragility_panel.py` and the set is empty
+([resolved #20](../record/resolved.md)).
 
 Two things this decision deliberately does **not** do:
 
@@ -76,10 +78,15 @@ Two things this decision deliberately does **not** do:
   the class bar, the KB, the mode ladder) as its rungs. Nothing new runs.
 - Adding a module now requires classifying it. That is one line and it is
   the point.
-- **Cost:** the two pinned leaks are debt with a name, not a fix. Draining
-  them touches the live fragility path and must be verified by
-  `fragility_or.py`'s self-check against the KB-020 numbers, not by the
-  boundary test alone.
+- **Cost:** draining the two initial leaks touched the live fragility path.
+  It was verified by running `fragility_or.py`'s self-check on the moved and
+  the pre-move code on the same data — identical, and equal to the reference
+  row [KB-031] recorded — not by the boundary test alone. Any future drain is
+  held to the same standard.
+- **Cost:** `fragility_backtest.py` now re-exports the moved names so research
+  callers are unchanged. That is a convenience, not a second definition — a
+  test asserts the re-exports are the same objects — but a reader will find
+  `fetch_sector_etfs` importable from two places and must know which one owns it.
 - **Cost:** "product" and "research" are not the same axis as the four doc
   layers (concepts / foundations / reference / decisions / record), which
   are organised by kind of reader. The two pages sit above the layers as

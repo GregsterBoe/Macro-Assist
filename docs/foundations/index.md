@@ -100,7 +100,7 @@ confused:
 
 - **The drawdown label** — the *target* the fragility instruments are scored
   against: does the S&P fall ≥ 5 % within the next 10 trading days?
-  (`fragility_backtest.drawdown_label`, defaults; horizons 5 and 10 are both
+  (`fragility_panel.drawdown_label`, defaults; horizons 5 and 10 are both
   reported). This is a forward-looking boolean.
 - **The drawdown feature** — a *backward-looking input* in the numeric
   baseline: distance from the trailing 252-day high. It is the one input every
@@ -329,7 +329,7 @@ drawdown. Counted at the *episode* level (runs of days collapsed, gaps ≤ 3
 merged) so the denominators are small honest integers rather than inflated
 day counts. The OR flag trades precision for recall by design: precision ≈ 0.3
 "is the operating point of a recall mode, not a defect" (KB-031). Owner:
-`fragility_backtest.episode_scoring`.
+`fragility_panel.episode_scoring`.
 
 ### Proper scoring rule
 

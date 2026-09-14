@@ -22,11 +22,13 @@ TOOLING      Release and bookkeeping scripts. Outside both rules.
 
 Packages (`portfolio/`, `exogenous/`) are classified as units.
 
-The one direction the rule forbids — product → research — currently happens in
-two places, both because data-feed functions live in `fragility_backtest.py`
-next to the harness that first needed them. They are pinned in `KNOWN_LEAKS`
-so the boundary test is green today and fails the day a *third* one appears,
-or the day one of these is fixed without the pin being removed (todo #20).
+If the rule ever has to be broken knowingly, the edge goes in `KNOWN_LEAKS`
+with a todo number, and the test then holds it exactly: it fails on a new
+unpinned edge *and* on a pinned edge that has been fixed without its pin being
+removed. The set is empty. It was not on 2026-09-14 — `fragility_or` and
+`quant_context` both imported data feeds from `fragility_backtest.py`, the
+harness that first needed them — and draining it produced `fragility_panel.py`
+(resolved #20).
 
 See docs/product/index.md, docs/research/index.md and ADR-0021.
 """
@@ -35,7 +37,7 @@ from __future__ import annotations
 PRODUCT: frozenset[str] = frozenset({
     # the daily note (stage 2)
     "collect_and_analyze", "llm_analysis", "quant_context", "conditional",
-    "fragility", "fragility_or", "vol_forecast",
+    "fragility", "fragility_or", "fragility_panel", "vol_forecast",
     "market_data", "fred_data", "calendar_events", "youtube_data",
     "parse_positions", "schemas", "assets", "versions",
     "pipeline_common", "pipeline_config",
@@ -65,13 +67,10 @@ TOOLING: frozenset[str] = frozenset({
     "bump_version", "tag_versions",
 })
 
-# (importer, imported) pairs that cross product → research today. Exact set:
-# the test fails on any addition AND on any removal, so draining one means
-# editing both the code and this pin, deliberately.
-KNOWN_LEAKS: frozenset[tuple[str, str]] = frozenset({
-    ("fragility_or", "fragility_backtest"),    # fetch_histories, fetch_sector_etfs, walk_forward_fragility + self-check scorers
-    ("quant_context", "fragility_backtest"),   # freshen_vol_indices
-})
+# (importer, imported) pairs that cross product → research, each with a todo
+# number. Exact set: the test fails on any addition AND on any removal, so
+# adding or draining one means editing both the code and this pin, deliberately.
+KNOWN_LEAKS: frozenset[tuple[str, str]] = frozenset()
 
 ALL_TIERS = {"PRODUCT": PRODUCT, "DORMANT": DORMANT, "RESEARCH": RESEARCH, "TOOLING": TOOLING}
 

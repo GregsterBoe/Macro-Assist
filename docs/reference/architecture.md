@@ -105,7 +105,8 @@ Macro-Assist/
 │   ├── backtest.py                  # point-in-time backtesting harness
 │   ├── regime_backtest.py           # walk-forward regime validation
 │   ├── har_backtest.py              # walk-forward HAR-RV skill read (WP-17.5, degenerate as wired)
-│   ├── fragility_backtest.py        # de-overlapped fragility backtest
+│   ├── fragility_backtest.py        # de-overlapped fragility backtest (research)
+│   ├── fragility_panel.py           # feeds, history walk, drawdown target — the live path's data (product)
 │   ├── point_in_time.py             # ALFRED-vintage reconstruction
 │   ├── synthetic.py                 # synthetic data generator for tests
 │   ├── kimi_arm.py                  # ensemble confidence arm — DEACTIVATED

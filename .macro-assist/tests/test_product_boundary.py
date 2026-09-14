@@ -19,8 +19,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-import pytest
-
 import product_surface as ps
 
 _ROOT = Path(__file__).resolve().parent.parent
@@ -105,7 +103,26 @@ def test_research_closure_of_each_entry_point_is_only_the_pinned_leaks():
         assert reached <= allowed, f"{entry} reaches research code {sorted(reached - allowed)}"
 
 
-@pytest.mark.parametrize("pair", sorted(ps.KNOWN_LEAKS))
-def test_each_pinned_leak_is_tracked_in_todo(pair):
+def test_each_pinned_leak_is_tracked_in_todo():
     todo = (_ROOT.parent / "docs" / "record" / "todo.md").read_text()
-    assert pair[0] in todo and pair[1] in todo, f"{pair} pinned but not in todo.md"
+    for pair in sorted(ps.KNOWN_LEAKS):
+        assert pair[0] in todo and pair[1] in todo, f"{pair} pinned but not in todo.md"
+
+
+def test_the_live_fragility_path_imports_no_harness():
+    """The concrete case that motivated ADR-0021: the OR flag and the note's vol
+    legs get their feeds from fragility_panel, never from fragility_backtest."""
+    for unit in ("fragility_or", "quant_context", "fragility_panel"):
+        assert "fragility_backtest" not in DEPS[unit], unit
+    assert "fragility_panel" in ps.PRODUCT
+
+
+def test_harness_re_exports_are_the_panel_objects():
+    """Research callers still spell `fragility_backtest.fetch_sector_etfs`; that
+    must be the same object, not a copy that could drift."""
+    import fragility_backtest as fb
+    import fragility_panel as fp
+    for name in ("fetch_histories", "fetch_sector_etfs", "freshen_vol_indices",
+                 "walk_forward_fragility", "drawdown_label", "episode_scoring",
+                 "collapse_episodes", "_SECTOR_ETFS", "_ETF_CACHE"):
+        assert getattr(fb, name) is getattr(fp, name), name

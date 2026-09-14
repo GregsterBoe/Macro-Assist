@@ -50,14 +50,14 @@ that keeps it a product:
 
 | Tier | Members | Rule |
 |---|---|---|
-| **Product** | `collect_and_analyze`, `llm_analysis`, `quant_context`, `conditional`, `fragility`, `fragility_or`, `vol_forecast`, `market_data`, `fred_data`, `calendar_events`, `youtube_data`, `parse_positions`, `schemas`, `assets`, `versions`, `pipeline_common`, `pipeline_config`, `score_distributions`, `score_predictions`, `summarize_accuracy`, `bias_separation`, `portfolio/`, `refit_models`, `point_in_time` | Versioned; changed through the mode ladder and the version rule; never imports research |
+| **Product** | `collect_and_analyze`, `llm_analysis`, `quant_context`, `conditional`, `fragility`, `fragility_or`, `fragility_panel`, `vol_forecast`, `market_data`, `fred_data`, `calendar_events`, `youtube_data`, `parse_positions`, `schemas`, `assets`, `versions`, `pipeline_common`, `pipeline_config`, `score_distributions`, `score_predictions`, `summarize_accuracy`, `bias_separation`, `portfolio/`, `refit_models`, `point_in_time` | Versioned; changed through the mode ladder and the version rule; never imports research |
 | **Dormant** | `regime`, `regime_features`, `kimi_arm` | Soft-killed product ([ADR-0015](../decisions/ADR-0015-soft-kill-convention.md)); same rule |
 | **Research** | `numeric_baseline`, `input_testing`, `aggregator_testing`, `companion_testing`, `fragility_backtest`, `regime_backtest`, `har_backtest`, `backtest`, `input_ledger`, `citation_screen`, `synthetic`, `exogenous/` | Free to change; never imported by product |
 | **Tooling** | `bump_version`, `tag_versions` | Outside both rules |
 
-Two edges cross the line today, both data-feed functions that live in
-`fragility_backtest.py` because the harness needed them first. They are
-pinned in `KNOWN_LEAKS` and queued as [todo #20](../record/todo.md); the
+No edge crosses the line. Two did on the day the rule was written — the live
+OR flag took its data feeds from `fragility_backtest.py` — and draining them
+produced `fragility_panel.py` ([resolved #20](../record/resolved.md)). The
 manifest in code is authoritative if this table drifts.
 
 A distinction worth holding: the **scorer** is product — it publishes what the

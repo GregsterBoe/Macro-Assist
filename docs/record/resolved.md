@@ -96,6 +96,35 @@ The frozen-`vix_term` caveat that rode along with #14 stays in `todo.md` as #14b
 
 ## Tooling
 
+### RESOLVED 2026-09-14 — #20 the two product → research imports are drained
+
+**Was:** `fragility_or` (the live OR flag) and `quant_context` (the note's vol
+legs) imported their data feeds and history walk from `fragility_backtest.py`,
+the research harness that first needed them. ADR-0021's boundary test pinned
+both in `KNOWN_LEAKS` on 2026-09-14 rather than tolerate them silently.
+
+**Done:** the feeds (`fetch_histories`, `fetch_cboe_index`, `freshen_vol_indices`,
+`fetch_sector_etfs`, `_SECTOR_ETFS`, `_ETF_CACHE`), the walk
+(`walk_forward_fragility`) and the target (`forward_worst_return`,
+`drawdown_label`, `collapse_episodes`, `episode_scoring`) moved **unchanged**
+into a new product module, `fragility_panel.py`. `fragility_backtest.py`
+imports and re-exports every name, so `input_testing`, `aggregator_testing`,
+`companion_testing`, `regime_backtest` and the tests that spell
+`fragility_backtest.fetch_sector_etfs` are untouched; a test asserts the
+re-exports are the same objects. `KNOWN_LEAKS` is empty and the test now fails
+on any first edge.
+
+**The target went with the feeds** deliberately: `drawdown_label` and
+`episode_scoring` are what the live path checks *itself* against
+(`python fragility_or.py`'s self-check), so they are on the product side of
+the line. AUC, lead time, ablation and the pit-cut check stayed in the harness.
+
+**Verified as todo #20 asked:** the self-check run on the moved code and on the
+committed pre-move code, same day, same data, prints identical lines — OR
+10/17 · 0.333 at 5d, 11/21 · 0.444 at 10d, 664 evaluable readings — which is
+the reference row [KB-031] recorded when it noted the row had moved since
+[KB-021]. The full offline suite passes. No behaviour changed; no version bump.
+
 ### RESOLVED 2026-09-12 — #12 GitHub Pages is switched on
 **Resolution: the repo admin enabled it.** Settings → Pages → Build and
 deployment → Source is now "GitHub Actions", so the deploy preflight passes and

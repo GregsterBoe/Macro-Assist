@@ -206,7 +206,7 @@ and the label are collapsed into episodes and:
 - **Lead time** = days from the alarm's first day to the crisis's first day,
   for the crises it caught.
 
-(`fragility_backtest.episode_scoring`.) The denominators are ~a dozen crises
+(`fragility_panel.episode_scoring`.) The denominators are ~a dozen crises
 and a few dozen alarms — small integers that are honest about how much
 evidence there is. Day-level counts would say "recall 0.94 on 4,000 days";
 episode counts say "11 of 12 crises".
