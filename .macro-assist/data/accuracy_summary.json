@@ -41,8 +41,8 @@
   "windows": {
     "t5": {
       "n_reports": 119,
-      "overall_accuracy": 0.485,
-      "overall_dir_acc": 0.452,
+      "overall_accuracy": 0.486,
+      "overall_dir_acc": 0.455,
       "by_asset": {
         "S&P 500": {
           "n": 118,
@@ -53,9 +53,9 @@
         },
         "Gold": {
           "n": 119,
-          "accuracy": 0.508,
-          "directional_acc": 0.515,
-          "directional_n": 66,
+          "accuracy": 0.513,
+          "directional_acc": 0.523,
+          "directional_n": 65,
           "avg_confidence": 57.4
         },
         "WTI Oil": {
@@ -192,8 +192,8 @@
   "feedback_windows": {
     "t5": {
       "n_reports": 103,
-      "overall_accuracy": 0.483,
-      "overall_dir_acc": 0.437,
+      "overall_accuracy": 0.484,
+      "overall_dir_acc": 0.44,
       "by_asset": {
         "S&P 500": {
           "n": 102,
@@ -204,9 +204,9 @@
         },
         "Gold": {
           "n": 103,
-          "accuracy": 0.495,
-          "directional_acc": 0.491,
-          "directional_n": 53,
+          "accuracy": 0.5,
+          "directional_acc": 0.5,
+          "directional_n": 52,
           "avg_confidence": 56.3
         },
         "WTI Oil": {
@@ -498,8 +498,8 @@
       "windows": {
         "t5": {
           "n_reports": 50,
-          "overall_accuracy": 0.503,
-          "overall_dir_acc": 0.522,
+          "overall_accuracy": 0.505,
+          "overall_dir_acc": 0.533,
           "by_asset": {
             "S&P 500": {
               "n": 49,
@@ -510,9 +510,9 @@
             },
             "Gold": {
               "n": 50,
-              "accuracy": 0.55,
-              "directional_acc": 0.619,
-              "directional_n": 21,
+              "accuracy": 0.56,
+              "directional_acc": 0.65,
+              "directional_n": 20,
               "avg_confidence": 56.1
             },
             "WTI Oil": {
@@ -721,18 +721,18 @@
   "calibration": {
     "windows": {
       "t5": {
-        "n": 221,
-        "brier": 0.2643,
-        "base_rate": 0.452,
-        "brier_skill_score": -0.067,
-        "ece": 0.1182,
+        "n": 220,
+        "brier": 0.2639,
+        "base_rate": 0.455,
+        "brier_skill_score": -0.065,
+        "ece": 0.1161,
         "bins": [
           {
             "range": "50-60",
-            "n": 138,
+            "n": 137,
             "mean_conf": 0.539,
-            "hit_rate": 0.464,
-            "gap": -0.075
+            "hit_rate": 0.467,
+            "gap": -0.072
           },
           {
             "range": "60-70",
@@ -812,18 +812,18 @@
       }
     },
     "overall": {
-      "n": 693,
-      "brier": 0.2685,
-      "base_rate": 0.398,
-      "brier_skill_score": -0.121,
-      "ece": 0.1714,
+      "n": 692,
+      "brier": 0.2684,
+      "base_rate": 0.399,
+      "brier_skill_score": -0.12,
+      "ece": 0.1708,
       "bins": [
         {
           "range": "50-60",
-          "n": 441,
-          "mean_conf": 0.539,
+          "n": 440,
+          "mean_conf": 0.538,
           "hit_rate": 0.395,
-          "gap": -0.144
+          "gap": -0.143
         },
         {
           "range": "60-70",
@@ -845,18 +845,18 @@
   "calibration_feedback": {
     "windows": {
       "t5": {
-        "n": 167,
-        "brier": 0.2636,
-        "base_rate": 0.437,
-        "brier_skill_score": -0.072,
-        "ece": 0.1186,
+        "n": 166,
+        "brier": 0.2632,
+        "base_rate": 0.44,
+        "brier_skill_score": -0.068,
+        "ece": 0.1158,
         "bins": [
           {
             "range": "50-60",
-            "n": 128,
+            "n": 127,
             "mean_conf": 0.537,
-            "hit_rate": 0.461,
-            "gap": -0.076
+            "hit_rate": 0.465,
+            "gap": -0.072
           },
           {
             "range": "60-70",
@@ -915,18 +915,18 @@
       }
     },
     "overall": {
-      "n": 524,
-      "brier": 0.2678,
-      "base_rate": 0.374,
-      "brier_skill_score": -0.144,
-      "ece": 0.1802,
+      "n": 523,
+      "brier": 0.2677,
+      "base_rate": 0.375,
+      "brier_skill_score": -0.142,
+      "ece": 0.1795,
       "bins": [
         {
           "range": "50-60",
-          "n": 409,
+          "n": 408,
           "mean_conf": 0.537,
-          "hit_rate": 0.381,
-          "gap": -0.155
+          "hit_rate": 0.382,
+          "gap": -0.154
         },
         {
           "range": "60-70",
@@ -970,18 +970,18 @@
       ]
     },
     "loosened": {
-      "n": 132,
-      "brier": 0.2435,
-      "base_rate": 0.568,
-      "brier_skill_score": 0.007,
-      "ece": 0.0312,
+      "n": 131,
+      "brier": 0.2428,
+      "base_rate": 0.573,
+      "brier_skill_score": 0.008,
+      "ece": 0.0359,
       "bins": [
         {
           "range": "50-60",
-          "n": 112,
+          "n": 111,
           "mean_conf": 0.546,
-          "hit_rate": 0.571,
-          "gap": 0.025
+          "hit_rate": 0.577,
+          "gap": 0.031
         },
         {
           "range": "60-70",
@@ -995,18 +995,18 @@
   },
   "calibration_by_conviction_floor": {
     "off": {
-      "n": 132,
-      "brier": 0.2435,
-      "base_rate": 0.568,
-      "brier_skill_score": 0.007,
-      "ece": 0.0312,
+      "n": 131,
+      "brier": 0.2428,
+      "base_rate": 0.573,
+      "brier_skill_score": 0.008,
+      "ece": 0.0359,
       "bins": [
         {
           "range": "50-60",
-          "n": 112,
+          "n": 111,
           "mean_conf": 0.546,
-          "hit_rate": 0.571,
-          "gap": 0.025
+          "hit_rate": 0.577,
+          "gap": 0.031
         },
         {
           "range": "60-70",
@@ -1043,11 +1043,11 @@
       ]
     },
     "kimi": {
-      "n": 114,
-      "brier": 0.3235,
-      "base_rate": 0.596,
-      "brier_skill_score": -0.344,
-      "ece": 0.2699,
+      "n": 115,
+      "brier": 0.3207,
+      "base_rate": 0.6,
+      "brier_skill_score": -0.336,
+      "ece": 0.2676,
       "bins": [
         {
           "range": "50-60",
@@ -1079,26 +1079,26 @@
         },
         {
           "range": "90-100",
-          "n": 64,
-          "mean_conf": 0.976,
-          "hit_rate": 0.625,
-          "gap": -0.351
+          "n": 65,
+          "mean_conf": 0.977,
+          "hit_rate": 0.631,
+          "gap": -0.346
         }
       ]
     },
     "market": {
-      "n": 693,
-      "brier": 0.2685,
-      "base_rate": 0.398,
-      "brier_skill_score": -0.121,
-      "ece": 0.1714,
+      "n": 692,
+      "brier": 0.2684,
+      "base_rate": 0.399,
+      "brier_skill_score": -0.12,
+      "ece": 0.1708,
       "bins": [
         {
           "range": "50-60",
-          "n": 441,
-          "mean_conf": 0.539,
+          "n": 440,
+          "mean_conf": 0.538,
           "hit_rate": 0.395,
-          "gap": -0.144
+          "gap": -0.143
         },
         {
           "range": "60-70",
@@ -1142,12 +1142,12 @@
       "bullish_rate": 0.197,
       "bearish_rate": 0.015,
       "bearish_share_of_directional": 0.073,
-      "decisive_rate": 0.17,
-      "wrong_decisive_rate": 0.073,
+      "decisive_rate": 0.168,
+      "wrong_decisive_rate": 0.072,
       "right_decisive_rate": 0.096,
-      "net_decisive_edge": 0.023,
-      "hit_rate_when_decisive": 0.568,
-      "n_decisive": 132,
+      "net_decisive_edge": 0.024,
+      "hit_rate_when_decisive": 0.573,
+      "n_decisive": 131,
       "n_directional": 165,
       "n_bullish": 153,
       "n_bearish": 12
@@ -1161,14 +1161,14 @@
         "Bullish": {
           "n": 513,
           "mean_z": -0.217,
-          "median_z": -0.274,
-          "mean_pct": -1.266
+          "median_z": -0.272,
+          "mean_pct": -1.265
         },
         "Neutral": {
           "n": 1162,
           "mean_z": 0.035,
           "median_z": -0.021,
-          "mean_pct": 1.156
+          "mean_pct": 1.158
         },
         "Bearish": {
           "n": 342,
@@ -1179,24 +1179,24 @@
       },
       "ordering": "inverted",
       "bullish_vs_neutral": {
-        "gap": -0.2525,
+        "gap": -0.2528,
         "p_value": 0.0005,
         "n_a": 513,
         "n_b": 1162,
         "n_blocks": 6,
-        "ci_lo": -0.5213,
-        "ci_hi": 0.0307,
-        "ci_width": 0.5519
+        "ci_lo": -0.5218,
+        "ci_hi": 0.0297,
+        "ci_width": 0.5514
       },
       "bearish_vs_bullish": {
-        "gap": 0.4231,
+        "gap": 0.4232,
         "p_value": 0.0005,
         "n_a": 342,
         "n_b": 513,
         "n_blocks": 6,
-        "ci_lo": -0.0195,
-        "ci_hi": 0.8322,
-        "ci_width": 0.8517
+        "ci_lo": -0.0199,
+        "ci_hi": 0.8323,
+        "ci_width": 0.8522
       }
     },
     "windows": {
@@ -1207,8 +1207,8 @@
           "Bullish": {
             "n": 180,
             "mean_z": -0.157,
-            "median_z": -0.156,
-            "mean_pct": -0.587
+            "median_z": -0.153,
+            "mean_pct": -0.581
           },
           "Neutral": {
             "n": 417,
@@ -1225,24 +1225,24 @@
         },
         "ordering": "mixed",
         "bullish_vs_neutral": {
-          "gap": -0.2135,
-          "p_value": 0.0185,
+          "gap": -0.2127,
+          "p_value": 0.019,
           "n_a": 180,
           "n_b": 417,
           "n_blocks": 6,
-          "ci_lo": -0.4355,
-          "ci_hi": 0.0136,
-          "ci_width": 0.4491
+          "ci_lo": -0.4347,
+          "ci_hi": 0.0143,
+          "ci_width": 0.4489
         },
         "bearish_vs_bullish": {
-          "gap": 0.1997,
-          "p_value": 0.1274,
+          "gap": 0.1991,
+          "p_value": 0.1279,
           "n_a": 115,
           "n_b": 180,
           "n_blocks": 6,
-          "ci_lo": -0.0662,
-          "ci_hi": 0.4702,
-          "ci_width": 0.5364
+          "ci_lo": -0.0693,
+          "ci_hi": 0.4695,
+          "ci_width": 0.5389
         }
       },
       "t10": {
@@ -1251,15 +1251,15 @@
         "buckets": {
           "Bullish": {
             "n": 172,
-            "mean_z": -0.181,
-            "median_z": -0.299,
+            "mean_z": -0.182,
+            "median_z": -0.3,
             "mean_pct": -0.934
           },
           "Neutral": {
             "n": 395,
             "mean_z": 0.018,
-            "median_z": -0.037,
-            "mean_pct": 1.042
+            "median_z": -0.039,
+            "mean_pct": 1.044
           },
           "Bearish": {
             "n": 115,
@@ -1270,24 +1270,24 @@
         },
         "ordering": "inverted",
         "bullish_vs_neutral": {
-          "gap": -0.1988,
-          "p_value": 0.068,
+          "gap": -0.1999,
+          "p_value": 0.0675,
           "n_a": 172,
           "n_b": 395,
           "n_blocks": 6,
-          "ci_lo": -0.5263,
-          "ci_hi": 0.1409,
-          "ci_width": 0.6672
+          "ci_lo": -0.5285,
+          "ci_hi": 0.1404,
+          "ci_width": 0.6689
         },
         "bearish_vs_bullish": {
-          "gap": 0.3905,
+          "gap": 0.3911,
           "p_value": 0.0045,
           "n_a": 115,
           "n_b": 172,
           "n_blocks": 6,
-          "ci_lo": -0.1367,
-          "ci_hi": 0.9107,
-          "ci_width": 1.0474
+          "ci_lo": -0.1361,
+          "ci_hi": 0.9114,
+          "ci_width": 1.0475
         }
       },
       "t20": {
@@ -1304,7 +1304,7 @@
             "n": 350,
             "mean_z": 0.03,
             "median_z": -0.04,
-            "mean_pct": 1.976
+            "mean_pct": 1.979
           },
           "Bearish": {
             "n": 112,
@@ -1315,24 +1315,24 @@
         },
         "ordering": "inverted",
         "bullish_vs_neutral": {
-          "gap": -0.3528,
+          "gap": -0.3537,
           "p_value": 0.002,
           "n_a": 161,
           "n_b": 350,
           "n_blocks": 5,
-          "ci_lo": -0.6059,
-          "ci_hi": -0.1024,
-          "ci_width": 0.5035
+          "ci_lo": -0.6067,
+          "ci_hi": -0.1035,
+          "ci_width": 0.5032
         },
         "bearish_vs_bullish": {
-          "gap": 0.6928,
+          "gap": 0.6933,
           "p_value": 0.0005,
           "n_a": 112,
           "n_b": 161,
           "n_blocks": 5,
-          "ci_lo": 0.1576,
-          "ci_hi": 1.1838,
-          "ci_width": 1.0262
+          "ci_lo": 0.1583,
+          "ci_hi": 1.1843,
+          "ci_width": 1.0259
         }
       }
     },
@@ -1343,14 +1343,14 @@
         "buckets": {
           "Bullish": {
             "n": 360,
-            "mean_z": -0.368,
+            "mean_z": -0.369,
             "median_z": -0.35,
             "mean_pct": -2.526
           },
           "Neutral": {
             "n": 549,
             "mean_z": -0.154,
-            "median_z": -0.167,
+            "median_z": -0.168,
             "mean_pct": -0.982
           },
           "Bearish": {
@@ -1362,24 +1362,24 @@
         },
         "ordering": "inverted",
         "bullish_vs_neutral": {
-          "gap": -0.2144,
+          "gap": -0.215,
           "p_value": 0.0135,
           "n_a": 360,
           "n_b": 549,
           "n_blocks": 4,
-          "ci_lo": -0.5608,
-          "ci_hi": 0.0799,
+          "ci_lo": -0.5614,
+          "ci_hi": 0.0794,
           "ci_width": 0.6407
         },
         "bearish_vs_bullish": {
-          "gap": 0.5741,
+          "gap": 0.5748,
           "p_value": 0.0005,
           "n_a": 330,
           "n_b": 360,
           "n_blocks": 4,
-          "ci_lo": 0.0881,
-          "ci_hi": 0.9682,
-          "ci_width": 0.8801
+          "ci_lo": 0.0889,
+          "ci_hi": 0.9689,
+          "ci_width": 0.88
         }
       },
       "loosened": {
@@ -1388,15 +1388,15 @@
         "buckets": {
           "Bullish": {
             "n": 153,
-            "mean_z": 0.138,
-            "median_z": -0.052,
-            "mean_pct": 1.698
+            "mean_z": 0.139,
+            "median_z": -0.054,
+            "mean_pct": 1.704
           },
           "Neutral": {
             "n": 613,
             "mean_z": 0.205,
-            "median_z": 0.104,
-            "mean_pct": 3.072
+            "median_z": 0.115,
+            "mean_pct": 3.075
           },
           "Bearish": {
             "n": 12,
@@ -1407,14 +1407,14 @@
         },
         "ordering": "inverted",
         "bullish_vs_neutral": {
-          "gap": -0.0663,
-          "p_value": 0.4498,
+          "gap": -0.0657,
+          "p_value": 0.4533,
           "n_a": 153,
           "n_b": 613,
           "n_blocks": 3,
-          "ci_lo": -0.4232,
-          "ci_hi": 0.1463,
-          "ci_width": 0.5696
+          "ci_lo": -0.4092,
+          "ci_hi": 0.1452,
+          "ci_width": 0.5544
         },
         "bearish_vs_bullish": null
       }
@@ -1437,11 +1437,11 @@
       "Gold": {
         "Bullish": {
           "n": 207,
-          "mean_pct": -0.071
+          "mean_pct": -0.066
         },
         "Neutral": {
           "n": 121,
-          "mean_pct": -0.47
+          "mean_pct": -0.454
         },
         "Bearish": {
           "n": 9,
