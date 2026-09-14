@@ -22,12 +22,12 @@
 
 ## T+5 (1 week)
 
-**Overall accuracy:** 48%  |  **Directional:** 45%  |  **Reports:** 119
+**Overall accuracy:** 49%  |  **Directional:** 46%  |  **Reports:** 119
 
 | Asset | Accuracy | Directional | n | Avg Confidence |
 |-------|----------|-------------|---|----------------|
 | S&P 500 | 49% | 48% (n=42) | 118 | 55% |
-| Gold | 51% | 52% (n=66) | 119 | 57% |
+| Gold | 51% | 52% (n=65) | 119 | 57% |
 | WTI Oil | 47% | 33% (n=24) | 119 | 55% |
 | 10Y Treasury Yield | 49% | 42% (n=19) | 119 | 56% |
 | DXY | 50% | 48% (n=23) | 119 | 55% |
@@ -103,12 +103,12 @@ Use this to confirm that structural improvements translate into better predictio
 
 ### v1.5  (50 scored / 50 total reports in this version)
 
-**T+5 (1 week)** — overall: 50% | directional: 52% | reports: 50
+**T+5 (1 week)** — overall: 50% | directional: 53% | reports: 50
 
 | Asset | Accuracy | Directional | n | Avg Confidence |
 |-------|----------|-------------|---|----------------|
 | S&P 500 | 46% | 38% (n=16) | 49 | 56% |
-| Gold | 55% | 62% (n=21) | 50 | 56% |
+| Gold | 56% | 65% (n=20) | 50 | 56% |
 | WTI Oil | 52% | 100% (n=2) | 50 | 57% |
 | 10Y Treasury Yield | 52% | 100% (n=2) | 50 | 56% |
 | DXY | 51% | 100% (n=1) | 50 | 55% |
@@ -157,26 +157,26 @@ Use this to confirm that structural improvements translate into better predictio
 > **Gap** = actual hit-rate − predicted confidence: **+ underconfident**, **− overconfident**.
 > Decisive directional calls only (Neutral / flat excluded — no binary outcome to calibrate).
 
-**Overall (all windows):** Brier **0.269** | BSS -0.121 | ECE 0.171 | base-rate 40% | n=693 — *overconfident*
+**Overall (all windows):** Brier **0.268** | BSS -0.120 | ECE 0.171 | base-rate 40% | n=692 — *overconfident*
 
 **Profile A/B (WP-16 — control vs loosened):**
 
 - **baseline**: Brier 0.274 | BSS -0.194 | ECE 0.214 | base-rate 36% | n=561
-- **loosened**: Brier 0.243 | BSS +0.007 | ECE 0.031 | base-rate 57% | n=132
+- **loosened**: Brier 0.243 | BSS +0.008 | ECE 0.036 | base-rate 57% | n=131
 
 > ⛔ **The profile A/B is confounded: `baseline` and `loosened` share zero report-dates** (`baseline`: 2026-03-13 → 2026-06-26; `loosened`: 2026-06-29 → 2026-09-04). `MACRO_PROFILE` was switched in one block, so the profile split *is* a time split — the rows differ by market period as much as by prompt. Assign the profile per report-date (alternating) before reading this as an A/B [KB-023, WP-21.B].
 
 **Arm A/B (market vs exogenous vs kimi):**
 
 - **exogenous**: Brier 0.207 | BSS -0.296 | ECE 0.230 | base-rate 20% | n=25
-- **kimi**: Brier 0.324 | BSS -0.344 | ECE 0.270 | base-rate 60% | n=114
-- **market**: Brier 0.269 | BSS -0.121 | ECE 0.171 | base-rate 40% | n=693
+- **kimi**: Brier 0.321 | BSS -0.336 | ECE 0.268 | base-rate 60% | n=115
+- **market**: Brier 0.268 | BSS -0.120 | ECE 0.171 | base-rate 40% | n=692
 
-### T+5 (1 week) — Brier 0.264 | BSS -0.067 | ECE 0.118 | n=221 — *overconfident*
+### T+5 (1 week) — Brier 0.264 | BSS -0.065 | ECE 0.116 | n=220 — *overconfident*
 
 | Confidence bin | n | Predicted | Actual | Gap |
 |----------------|---|-----------|--------|-----|
-| 50-60 | 138 | 54% | 46% | -8% (over) |
+| 50-60 | 137 | 54% | 47% | -7% (over) |
 | 60-70 | 79 | 62% | 43% | -19% (over) |
 | 70-80 | 4 | 70% | 50% | -20% (over) |
 
@@ -206,9 +206,9 @@ Use this to confirm that structural improvements translate into better predictio
 | Arm | n resolved | commit-rate | bull | bear | bear-share | wrong-dec | right-dec | net edge | hit-rate\|decisive |
 |-----|-----------:|------------:|-----:|-----:|-----------:|----------:|----------:|---------:|-------------------:|
 | baseline | 1239 | 56% | 29% | 27% | 48% | 29% | 16% | -0.128 | 36% (n=561) |
-| loosened | 778 | 21% | 20% | 2% | 7% | 7% | 10% | +0.023 | 57% (n=132) |
+| loosened | 778 | 21% | 20% | 2% | 7% | 7% | 10% | +0.024 | 57% (n=131) |
 
-Loosened vs baseline: commit-rate -35%, wrong-decisive -22%, net edge +0.151 — _**not attributable to the arm** — the profiles share no dates, so this is a before/after on the market as much as an A/B._
+Loosened vs baseline: commit-rate -35%, wrong-decisive -22%, net edge +0.152 — _**not attributable to the arm** — the profiles share no dates, so this is a before/after on the market as much as an A/B._
 
 > ⛔ **The commitment A/B is confounded: `baseline` and `loosened` share zero report-dates** (`baseline`: 2026-03-13 → 2026-06-26; `loosened`: 2026-06-29 → 2026-09-04). `MACRO_PROFILE` was switched in one block, so the profile split *is* a time split — the rows differ by market period as much as by prompt. Assign the profile per report-date (alternating) before reading this as an A/B [KB-023, WP-21.B].
 
@@ -256,9 +256,9 @@ Loosened vs baseline: commit-rate -35%, wrong-decisive -22%, net edge +0.151 —
 | Window | n | Bullish z | Neutral z | Bearish z | Bull−Neut | 95% CI | p | Bear−Bull | p |
 |--------|--:|----------:|----------:|----------:|----------:|:------:|--:|----------:|--:|
 | **all** | 2017 | -0.217 (n=513) | +0.035 (n=1162) | +0.206 (n=342) | -0.253 | [-0.52, +0.03] | 0.001 | +0.423 | 0.001 |
-| T+5 (1 week) | 712 | -0.157 (n=180) | +0.056 (n=417) | +0.042 (n=115) | -0.213 | [-0.44, +0.01] | 0.018 | +0.200 | 0.127 |
-| T+10 (2 weeks) | 682 | -0.181 (n=172) | +0.018 (n=395) | +0.209 (n=115) | -0.199 | [-0.53, +0.14] | 0.068 | +0.391 | 0.004 |
-| T+20 (1 month) | 623 | -0.323 (n=161) | +0.030 (n=350) | +0.370 (n=112) | -0.353 | [-0.61, -0.10] | 0.002 | +0.693 | 0.001 |
+| T+5 (1 week) | 712 | -0.157 (n=180) | +0.056 (n=417) | +0.042 (n=115) | -0.213 | [-0.43, +0.01] | 0.019 | +0.199 | 0.128 |
+| T+10 (2 weeks) | 682 | -0.182 (n=172) | +0.018 (n=395) | +0.209 (n=115) | -0.200 | [-0.53, +0.14] | 0.068 | +0.391 | 0.004 |
+| T+20 (1 month) | 623 | -0.323 (n=161) | +0.030 (n=350) | +0.370 (n=112) | -0.354 | [-0.61, -0.10] | 0.002 | +0.693 | 0.001 |
 
 ### By run profile *(WP-16.B conviction-floor A/B)*
 
@@ -267,8 +267,8 @@ Loosened vs baseline: commit-rate -35%, wrong-decisive -22%, net edge +0.151 —
 
 | Profile | n | dates | Bullish z | Neutral z | Bull−Neut | 95% CI | p |
 |---------|--:|------:|----------:|----------:|----------:|:------:|--:|
-| `baseline` | 1239 | 69 | -0.368 (n=360) | -0.154 (n=549) | -0.214 | [-0.56, +0.08] | 0.013 |
-| `loosened` | 778 | 50 | +0.138 (n=153) | +0.205 (n=613) | -0.066 | [-0.42, +0.15] | 0.450 |
+| `baseline` | 1239 | 69 | -0.369 (n=360) | -0.154 (n=549) | -0.215 | [-0.56, +0.08] | 0.013 |
+| `loosened` | 778 | 50 | +0.139 (n=153) | +0.205 (n=613) | -0.066 | [-0.41, +0.15] | 0.453 |
 
 > ⛔ **`baseline` and `loosened` share zero report-dates** (`baseline`: 2026-03-13 → 2026-06-26; `loosened`: 2026-06-29 → 2026-09-04). The profile was switched in one block, so *profile* and *market period* are the same partition of the data — no test above can tell them apart, and the rows should not be read as an A/B. Assign the profile per report-date (alternating) to make this comparison mean anything [KB-023, WP-21.B].
 
@@ -277,7 +277,7 @@ Loosened vs baseline: commit-rate -35%, wrong-decisive -22%, net edge +0.151 —
 | Asset | Bullish | Neutral | Bearish |
 |-------|--------:|--------:|--------:|
 | S&P 500 | +0.34% (n=91) | +1.21% (n=187) | +4.24% (n=57) |
-| Gold | -0.07% (n=207) | -0.47% (n=121) | -4.03% (n=9) |
+| Gold | -0.07% (n=207) | -0.45% (n=121) | -4.03% (n=9) |
 | WTI Oil | -5.85% (n=55) | +0.88% (n=264) | +4.14% (n=18) |
 | 10Y Treasury Yield | +0.46% (n=64) | +1.25% (n=222) | +0.52% (n=51) |
 | DXY | -0.03% (n=11) | -0.25% (n=182) | +0.15% (n=144) |
