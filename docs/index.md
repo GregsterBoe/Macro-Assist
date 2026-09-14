@@ -15,6 +15,19 @@ evidence said that on this payload, at these horizons, **nobody can** — see
 
 ---
 
+## Two tracks
+
+| | What it is | Where |
+|---|---|---|
+| **Product** | What is ready to use, what it promises, what it does not — and the module boundary that keeps it stable | [Product](product/index.md) |
+| **Research** | The ladder a question climbs: exploration → confirmation → accepted finding → product. Nothing crosses a rung without a bar | [Research](research/index.md) |
+
+The two are separated by an import rule the test suite enforces: research
+measures the product and may import it; the product never imports research
+([ADR-0021](decisions/ADR-0021-product-and-research-are-separated-by-an-import-boundary.md)).
+
+---
+
 ## Pick a path
 
 <div class="grid cards" markdown>

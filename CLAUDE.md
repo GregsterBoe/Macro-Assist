@@ -14,12 +14,18 @@ already say, and it must not become a second copy of them.
 
 ## Orientation
 
+Two tracks sit above the doc layers: [Product](docs/product/index.md) — what is
+ready, its contract, its module surface — and [Research](docs/research/index.md)
+— the ladder exploration → confirmation → accepted → product. The boundary
+between them is code: `product_surface.py` + `test_product_boundary.py`
+([ADR-0021](docs/decisions/ADR-0021-product-and-research-are-separated-by-an-import-boundary.md)).
+
 | Layer | Path | Is the source of truth for |
 |---|---|---|
 | **Concepts** | `docs/concepts/` | What the system is for, and why |
 | **Foundations** | `docs/foundations/` | General concepts (stress measures, scoring rules, inference, models) in this project's terms — explains, never owns a number |
 | **Reference** | `docs/reference/` | **How the code behaves today** — kept current with the code |
-| **Decisions** | `docs/decisions/` | **Why** the system has its shape (20 ADRs) |
+| **Decisions** | `docs/decisions/` | **Why** the system has its shape (21 ADRs) |
 | **Record** | `docs/record/` | Plans, status, and **measured findings** |
 
 Inside `docs/record/`:
@@ -135,6 +141,13 @@ line out of `results/` rather than composing a plausible one.
 **11. ADRs: number sequentially, never renumber, never delete.** Supersede and
 link both ways. See [the index](docs/decisions/index.md) for the page shape — a
 page with no costs listed has not been thought through.
+
+**12. Product never imports research** ([ADR-0021](docs/decisions/ADR-0021-product-and-research-are-separated-by-an-import-boundary.md)).
+Every module is assigned a tier in `.macro-assist/product_surface.py`;
+`test_product_boundary.py` fails on a new product → research import, on an
+unclassified module, and on a pinned leak that was fixed without its pin being
+removed. A new module needs one line there. A harness may import anything; the
+live path may not import a harness.
 
 ---
 

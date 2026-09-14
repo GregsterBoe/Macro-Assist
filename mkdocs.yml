@@ -85,6 +85,8 @@ extra_javascript:
 
 nav:
   - Start here: index.md
+  - Product: product/index.md
+  - Research: research/index.md
   - Concepts:
       - concepts/index.md
       - What this is: concepts/what-this-is.md
@@ -130,6 +132,7 @@ nav:
       - "ADR-0018 — Market data is barred from the exogenous branch's core inputs": decisions/ADR-0018-market-data-barred-from-the-exogenous-branch.md
       - "ADR-0019 — The paper portfolio is mechanical and paper-only in v1": decisions/ADR-0019-paper-portfolio-mechanical-and-paper-only.md
       - "ADR-0020 — The numeric bar has a skill margin: `EDGE_MIN_BSS = 0.02` and the BSS interval must exclude zero": decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md
+      - "ADR-0021 — Product and research are separated by an import boundary, enforced by test": decisions/ADR-0021-product-and-research-are-separated-by-an-import-boundary.md
   - Record:
       - Knowledge Base: record/knowledge-base.md
       - Active experiments: record/active-experiments.md
