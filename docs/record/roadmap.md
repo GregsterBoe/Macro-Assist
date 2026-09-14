@@ -69,6 +69,8 @@ Measured results live in `knowledge-base.md`.
 | 16 | Fragility monitor + design-by-emergence prompt levers | ✅ Closed 2026-09-04 — 16.A shipped and alive (→ IMP-4), 16.B/C closed by Phase 21; detail archived |
 | 21 | Directional product validation → **the cut (v1.6)** | ✅ Closed 2026-09-04 — [KB-024]. WP-21.E bounded search: family 1 (VIX term structure) resolved **negative** 2026-09-08 → [KB-027]; 2 of 3 families remain, bar for them written 2026-09-13 ([ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md)) |
 | 22 | Scoring the distribution product | 🟢 Open 2026-09-08 — the scorer follows the v1.6 cut. A/B shipped; the bar is sealed, first read ~2027-05 |
+| 23 | Exploration tier — the generation side of the method | ⏸ Draft 2026-09-13 — nothing runs; first step is a decision (WP-23.A, which seal governs) |
+| 24 | Record integrity & session continuity | ⏸ Draft 2026-09-14 — make the record layer executable; first step WP-24.A (workflow-orphan check) |
 
 The v1.5 **system-state snapshot** that used to open this file was archived on the
 same pass; `README.md` is the maintained system reference.
@@ -733,3 +735,145 @@ resolution is an errand with a **2026-10-07** deadline and is not a promotion.
 The owner rewrites the chosen entry, its status moves `draft → promoted`, the
 ledger is attached, and the run reads the sealed slice once. Result → KB,
 either way.
+
+---
+
+## Record Integrity & Session Continuity (Phase 24) — *make the record layer executable* ⏸ DRAFT 2026-09-14
+
+**Why it exists.** Everywhere a claim could be inflated, this project built a
+mechanism rather than a request: `verdict(sealed=False)` *cannot* return a pass,
+`--require-<family>` fails a run that silently dropped its arm, the workflow
+**pins** `--seal-start` so the boundary lands in the run log and not only in
+whichever revision was checked out. The **record layer** — the four docs that
+carry meaning across sessions — is the one place that still runs on good
+intentions. `CLAUDE.md` states a precedence rule ("when two docs disagree about
+status, `active-experiments.md` wins") with **no detector**; `todo.md` carries a
+hand-written `Last reviewed:` line; convention #11's "never renumber, never
+delete" is a sentence.
+
+The cost is already measured. The 2026-09-11 maintenance pass found the weekly
+refit unreachable: the conditional table had frozen at **2026-08-31**, *"no run
+failed, no check went red"*, WP-22.A's six-asset universe never landed, and the
+note kept printing "no conditional base rate" for three assets. It was **found by
+reading commit dates**. That is the same failure as the exogenous gate going
+*"unreadable rather than failed"* and as the three days when the pipeline
+published a product no scorer measured — a track that can no longer answer its
+question, with nothing watching.
+
+So the axis is not progress, and not correctness. A wrong result is productive
+here: it gets a KB entry and closes a question. The axis is **readability** — for
+each open track, can it still answer its question, and when?
+
+**What it is not.** Not a research track: no seal, no pre-registered bar, no KB
+entry expected — nothing here measures the world, so [the method](../concepts/the-method.md)'s
+machinery does not apply and invoking it would be cargo cult. Not a change to the
+published note, the sealed table or `pipeline.yml`, so **no version bump**
+(convention #9 — not a capability change). Not a new source of truth: the docs own
+the facts and the audit only reads them. Not an auto-fixer — see WP-24.D.
+
+**Drafted by the assistant, 2026-09-14, from a session walkthrough.** The
+work packages are engineering; the two that change a *convention* (24.D's
+precedence handling, 24.F's ADR page shape) are decisions for the owner and
+should land in `todo.md` before their code does.
+
+**Order.** 24.A is the first step and stands alone — it is the check that would
+have caught the frozen refit on day one instead of day eleven. Everything after
+it is additive and independently shippable.
+
+### WP-24.A — `record_audit.py` skeleton + the workflow-orphan check *(first step)*
+
+A new `.macro-assist/record_audit.py`, run in CI. One check to start:
+every file in `.github/workflows/` is either a `needs:`-ordered stage of
+`pipeline.yml`, explicitly `workflow_dispatch`-only, or listed as soft-killed
+([ADR-0015](../decisions/ADR-0015-soft-kill-convention.md)). Anything else is an
+orphan and fails.
+
+This is [ADR-0013](../decisions/ADR-0013-one-pipeline-entry-point.md) made
+enforceable. `operations.md` already states the rule the refit was the
+counter-example to — *a new scheduled thing is a new stage, not a new cron entry*
+— and this is that rule with a detector. Exit non-zero on a finding; tests drive
+each finding independently.
+
+### WP-24.B — Artifact liveness
+
+Each live track names its output artifact and an expected cadence; the audit
+fails when the artifact's last-changed commit exceeds it. First entries:
+`conditional_distributions.json` (weekly refit, stale > 8 days),
+`accuracy_summary.json` (weekly). Read the date from **git**, not mtime — a fresh
+clone rewrites mtimes and would make every check pass vacuously.
+
+The pairing is the point: 24.A catches a stage that cannot run, 24.B catches a
+stage that runs and produces nothing. The frozen refit was the first; both were
+invisible.
+
+### WP-24.C — Referential integrity
+
+Every `[KB-###]`, `[ADR-####]` and `WP-##.x` cited anywhere under `docs/`
+resolves to something that exists. ADR numbering is sequential with no gaps and
+no dupes, and no ADR file present in git history has been deleted — convention
+#11, currently unenforced. Every `resolved.md` item is absent from every open
+list, and every open item in the repo is reachable from `todo.md` (the single
+inbox is a claim, so check it).
+
+`mkdocs build --strict` already fails on a broken *link*; this covers the
+identifiers that are not links.
+
+### WP-24.D — Contradiction surfacing *(report, never repair)*
+
+Parse the status of each phase from the board row and from its `roadmap.md`
+entry, and the `CLAUDE.md` **Current state** table against the board. Print the
+disagreeing pair. **Do not resolve it.** `CLAUDE.md` already says who wins; an
+audit that picks a side can silently pick the wrong one, and the whole value here
+is that a human sees two claims next to each other.
+
+That makes this report-only rather than red, which creates the real risk — a
+report nobody reads. Its output must be printed by WP-24.G, not merely logged.
+Whether report-only findings should ever fail CI is an owner decision, not a
+default.
+
+### WP-24.E — Ages, from git
+
+Days since each open `todo.md` item was last edited, and since each board row
+last changed. No threshold and no judgment: print a table sorted oldest first.
+The single most likely stale thing in the repo becomes visible on every run,
+which is what the hand-maintained `Last reviewed:` line is trying and failing to
+do.
+
+### WP-24.F — ADR revisit conditions *(convention change — owner's call)*
+
+[ADR-0009](../decisions/ADR-0009-cut-the-directional-product.md) carries a
+section most ADRs do not: **"Would we revisit it?"**, answered with a *condition*
+rather than a date. [ADR-0017](../decisions/ADR-0017-bss-floor-left-open.md) is
+the worked example of that condition coming true and being acted on — a decision
+parked with a test pinning it, closed five days later the moment no candidate
+family was on the table.
+
+Proposal: make the section mandatory, as the sibling of `CLAUDE.md` #11's *"a
+page with no costs listed has not been thought through"*. The audit then checks
+that every ADR has one, and — the useful half — flags any stated condition that
+has **become true**. This is the answer to a rule written in good faith that
+later holds progress back: the rule carries its own expiry trigger, and something
+watches the triggers.
+
+### WP-24.G — `/orient`, the session-start ritual
+
+`.claude/` currently holds two settings files and nothing else: **no skills, no
+commands.** A skill is the one artifact guaranteed to be in context when it is
+relevant, rather than depending on a session happening to read the right file —
+which makes this the cheapest continuity win available.
+
+`/orient` prints, at turn 1 of any session: the board; the audit output including
+24.D's contradictions and 24.E's ages; open `todo.md` items oldest first; any ADR
+revisit condition now true; and, when a promotion is pending, the four
+competence-gate questions from
+[how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis).
+
+That last line is the point of the phase in miniature. §6 — the anti-helicopter
+rule, the one that makes the owner rather than the assistant author a
+pre-registration — was written 2026-09-13 and has **no trigger**. A rule nobody
+is prompted to apply is in the same category as a precedence rule with no
+detector.
+
+**Where (planned):** `.macro-assist/record_audit.py` · `.macro-assist/tests/` ·
+`.github/workflows/docs.yml` (or its own job — 24.A decides) ·
+`.claude/skills/orient/`.
