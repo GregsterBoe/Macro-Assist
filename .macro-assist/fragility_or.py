@@ -24,7 +24,7 @@ BEFORE today (an expanding window), and today fires if the latest reading clears
 it — exactly `input_testing._pit_decile_or_flags` evaluated at the final day.
 
 The cross-section feed is the live daily SPDR sector-ETF panel
-(`fragility_backtest.fetch_sector_etfs`), the daily-fresh drop-in KB-020 proved
+(`fragility_panel.fetch_sector_etfs`), the daily-fresh drop-in KB-020 proved
 reproduces the Fama-French backtest feed at this operating point.
 
 THE AGGREGATION STAYS A PLAIN OR (IMP-6, KB-031). Persistence (two consecutive
@@ -55,7 +55,7 @@ import numpy as np
 import pandas as pd
 
 from fragility import absorption_ratio, turbulence_signal
-from fragility_backtest import (
+from fragility_panel import (
     fetch_histories, walk_forward_fragility, fetch_sector_etfs,
     drawdown_label, collapse_episodes, episode_scoring,
 )

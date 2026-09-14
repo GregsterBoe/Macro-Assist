@@ -66,10 +66,11 @@ Measured results live in `knowledge-base.md`.
 | 13 | End-to-end validation | ⏸ Backlog (optional) |
 | 14 | Production hardening (weekly refit, monitoring) | ✅ 2026-05-29 |
 | 17 | Numerical-layer validation — regime cut, conditional input rebuilt, HAR-RV read | ✅ Closed 2026-09-13 — [KB-003]–[KB-006], [KB-028], [KB-033]; detail archived |
+| 18 | Input information value — payload screens; the ablation gate closed unrun | ✅ Closed 2026-09-14 at 18.3, negative-by-construction — [KB-009], [KB-010]; `resolved.md` #18; detail archived |
 | 16 | Fragility monitor + design-by-emergence prompt levers | ✅ Closed 2026-09-04 — 16.A shipped and alive (→ IMP-4), 16.B/C closed by Phase 21; detail archived |
 | 21 | Directional product validation → **the cut (v1.6)** | ✅ Closed 2026-09-04 — [KB-024]. WP-21.E bounded search: family 1 (VIX term structure) resolved **negative** 2026-09-08 → [KB-027]; 2 of 3 families remain, bar for them written 2026-09-13 ([ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md)) |
 | 22 | Scoring the distribution product | 🟢 Open 2026-09-08 — the scorer follows the v1.6 cut. A/B shipped; the bar is sealed, first read ~2027-05 |
-| 23 | Exploration tier — the generation side of the method | ⏸ Draft 2026-09-13 — nothing runs; first step is a decision (WP-23.A, which seal governs) |
+| 23 | Exploration tier — the generation side of the method | 🔍 Open 2026-09-13 — harness built, two explore looks run 2026-09-14; seal decided (`SEAL_START` reused); next is the owner's rewrites, then the WP-23.B class bar |
 | 24 | Record integrity & session continuity | ⏸ Draft 2026-09-14 — make the record layer executable; first step WP-24.A (workflow-orphan check) |
 
 The v1.5 **system-state snapshot** that used to open this file was archived on the
@@ -149,23 +150,26 @@ finding corrected (`resolved.md` #17; `vol_forecast.HAR_MIN_RETURNS`).
 
 ---
 
-## Input Information Value & Prompt Economy (Phase 18) — *input-side of Goal 1*
+## Input Information Value & Prompt Economy (Phase 18) ✅ CLOSED 2026-09-14 — at 18.3, negative-by-construction
 
-**Premise.** Phase 17 asked, layer by layer, whether each *numerical component* earns its place (and cut the HMM regime when it didn't). Phase 18 points the **same discipline at the LLM input payload**: the daily user message is now ~6.5k chars across 7 sections (FRED ~3.1k, Sector ~1k, Market ~0.9k, Quant ~0.65k, Technicals ~0.45k, COT ~0.37k) plus a ~13k-char system prompt — and **none of it has ever been tested for whether it actually improves the macro assessment.** Unhelpful inputs aren't free: they cost tokens and dilute attention. This is the **input-side complement to WP-16.B.3** (emergent signal weights): same substrate (per-prediction logging + Brier), one level up (whole input sections/series, not just dashboard signals). Point-1 ("is this quality information?") and point-2 ("weight the inputs") converge here.
+*Detail archived 2026-09-14 → [roadmap-archive.md](roadmap-archive.md);
+decision in [`resolved.md`](resolved.md) #18.*
 
-**Hard gate — read before starting.** As written, every verdict here was to be measured by WP-16.B.2's Brier/reliability on the directional calls. B.2 was built ([KB-007]) and then v1.6 cut the calls it scored ([KB-024], [ADR-0009](../decisions/ADR-0009-cut-the-directional-product.md)). **WP-18.4 therefore has no outcome metric until it is re-pointed** — the candidate is Phase 22's pinball skill vs `unconditional` on the published distribution, but the LLM no longer authors that distribution, so an input ablation would be measuring the model's prose, not a scored number. That is a decision to write down before 18.4 is paid for, not a detail. The two standing rules survive unchanged: **(a)** cheap proxies before expensive ablation; **(b)** one lever at a time.
+Phase 17's discipline pointed at the LLM input payload: does each section earn
+its place? The cheap screens ran; the paid decision gate never could.
 
-1. **WP-18.1 — Payload observability ✅** (on `main`): `MACRO_PREVIEW=1` writes `results/llm_payload_preview/<date>.md` — section-size index, the verbatim user message, the withheld signals. Build detail → [roadmap-archive.md](roadmap-archive.md).
+| WP | Verdict |
+|---|---|
+| **18.1 — Payload observability** | ✅ `MACRO_PREVIEW=1` → `results/llm_payload_preview/<date>.md`. |
+| **18.2 — Cheap input-quality proxies** | ✅ → [KB-009]. The daily market/sector block is highly collinear; the FRED series carry the orthogonal information. A screen, not a verdict. |
+| **18.3 — Citation screen** | ✅ → [KB-010]. Citation and redundancy nearly anti-correlated; the ablation queue was the union of the two screens. |
+| **18.4 — Outcome-grounded ablation** | ❌ closed unrun. Its metric was Brier on the LLM's directional calls ([KB-007]); v1.6 cut those calls ([KB-024], [ADR-0009](../decisions/ADR-0009-cut-the-directional-product.md)) and the payload cannot move the Python-rendered distribution that replaced them. An ablation with no scored output is the unfalsifiable experiment the phase's own hard gate forbade. |
+| **18.5 — Feed results into weighting** | ❌ closed with 18.4; WP-16.B.3, its consumer, closed with Phase 21. |
 
-2. **WP-18.2 — Cheap input-quality proxies ✅ → [KB-009]** (`input_ledger.py`, 22 tests; 2026-06-27). Staleness / entropy / robust σ / first-difference redundancy per input series. Headline: the daily market/sector block is highly collinear, the FRED macro series carry the orthogonal information. A screen, not a verdict.
-
-3. **WP-18.3 — Citation screen ✅ → [KB-010]** (`citation_screen.py`, 13 tests; 2026-06-27). Per-input citation rate in the note's free prose. Headline: citation and redundancy are nearly anti-correlated, so the 18.4 queue is the union of the two screens.
-
-4. **WP-18.4 — Outcome-grounded input ablation (the decision gate; gated on B.2 + sample).** Drop-one-section (and add-one) A/B over the live LLM, re-scoring **Brier**/accuracy on the resulting calls. Expensive (N× LLM cost; outcomes resolve in 5–20d), so run **only on the candidates flagged by 18.2/18.3, one lever at a time, n≥30 per arm.** Verdict: a section that doesn't move Brier past a threshold ⇒ **trim from the payload** (token + attention savings, the prompt-economy payoff); a section that helps ⇒ feed its weight into B.3.
-
-5. **WP-18.5 — Feed results into weighting (closes the loop with WP-16.B.3).** The input-value ranking becomes a **prior for the emergent signal-weight table**: down-weight or drop low-value inputs, up-weight high-value ones, and eventually reorder/prune the prompt itself. This is the explicit join between point-1 (quality test) and point-2 (weighting) — Phase 18 produces the evidence, [WP-16.B.3](#) consumes it.
-
-**Order, as it stands.** 18.1–18.3 ran (the cheap screens are done and in the KB). 18.4 is the paid decision gate and is queued on the board; before it runs, its metric has to be re-pointed (see the gate paragraph). 18.5 follows 18.4.
+**What survives:** the two screens as the payload's documented redundancy, and
+`input_ledger.py` / `citation_screen.py` as instruments. Nothing was pruned on
+cost alone. Re-opens only through `todo.md` #7 — a scored Target Range would be
+an outcome metric for the model's prose, and 18.4 could be re-pointed at it.
 
 ---
 
@@ -667,13 +671,13 @@ comes out of `pipeline.yml`. What changes is that stage 3 is no longer left empt
 product with no scorer again.
 
 
-## Exploration Tier (Phase 23) — *the generation side of the method* ⏸ DRAFT 2026-09-13
+## Exploration Tier (Phase 23) — *the generation side of the method* 🔍 OPEN — drafted 2026-09-13, harness run 2026-09-14, seal decided 2026-09-14
 
 **Why it exists.** The method ([the method](../concepts/the-method.md)) is a
 refutation engine, and on 2026-09-13 it ran out of its kind of question: the
 IMP-1 candidate list is exhausted ([KB-032]), WP-21.E families 2–3 are unblocked
-but unchosen with an honestly low prior, and WP-18.4 is gated on a metric that no
-longer exists. Every queued item is another input to a question closed three
+but unchosen with an honestly low prior, and WP-18.4 was gated on a metric that no
+longer existed (Phase 18 closed 2026-09-14). Every queued item is another input to a question closed three
 times ([KB-024], [KB-026], [KB-027]). Meanwhile the most robust empirical
 statement in the repo — the stress-reversion mechanism, found independently in
 three runs — is filed as an explanation of a negative and has never been asked
@@ -689,13 +693,17 @@ check. Not a change to the published note, the sealed table or `pipeline.yml`
 clocks (Phase 22 ~2027-05; a live fragility episode), which gate product changes
 and are untouched.
 
-### WP-23.A — Which seal governs *(decision, before anything runs)*
+### WP-23.A — Which seal governs ✅ decided 2026-09-14 → `SEAL_START` reused
 
 `numeric_baseline.SEAL_START` (2018-01-01) was sealed for *directional* families.
 A promoted distribution or state hypothesis reads a different question on the
-same dates. Reusing the slice is defensible only if written down first, with the
-multiplicity ledger attached; a new seal is the alternative. One `todo.md` entry,
-decided before WP-23.C.
+same dates. **Decided ([`resolved.md`](resolved.md) #19): the slice is reused.**
+It has never been read for a distribution question; one seal stays in the repo;
+the multiplicity ledger of the two WP-23.C looks (nine arms, two runs, all
+reported, all on explore surface) travels with whichever class is promoted
+first. A promoted hypothesis reads 2018-01-01 → the day before Phase 22's live
+record, once, and that read burns the slice for its whole class. The harness
+keeps stopping at the seal.
 
 ### WP-23.B — The class bars *(written before any candidate is promoted)*
 
@@ -707,7 +715,12 @@ made a rule. Two classes are visible in the register today:
   is — `MIN_SKILL = 0.02`, block-bootstrap interval clear of zero,
   `underpowered → miscalibrated → inverted` first — **plus a mechanism clause**
   named by the entry (for H-002: Elevated width > Normal width *and* medians on
-  opposite sides of unconditional; either failing → `unexplained`, not `edge`).
+  opposite sides of unconditional; either failing → `unexplained`, not `edge`),
+  **plus `har_scaled` as a second comparator** (`resolved.md` #22): a promoted
+  conditioner must beat not only `unconditional` but the vol forecast the
+  product already has, applied to the empirical shape — on the explore slice
+  that rival matched the best arm at every horizon, so a conditioner that
+  clears `unconditional` and not `har_scaled` has found width, not a state.
 - **Gap → width** (H-003): no scorer exists. Pinball loss on a quantile pair of
   the next-quarter rate change against `trailing_250` and `unconditional`,
   quarterly blocks, an explicit `underpowered` floor given ~55 observations.
@@ -716,25 +729,49 @@ Each bar ships with the tests [the method §10](../concepts/the-method.md#10-a-b
 requires: every disqualifier driven independently, and a planted-signal
 positive control.
 
-### WP-23.C — The shadow-conditioner harness
+### WP-23.C — The shadow-conditioner harness ✅ built 2026-09-14, first looks run
 
-`conditional.build_distribution_table_for_backtest` already builds a
-point-in-time table from historical snapshots; `fragility_or._pit_backtest`
-already produces the PIT state flag on the ETF panel from 2007; `score_distributions`
-already scores quantile forecasts against `unconditional` with the right blocks.
-The harness joins them on the explore slice and emits a report in the
-`numeric_baseline` shape (metadata line first — the [KB-025] check). It returns
-`exploratory` on the explore slice by construction. Owner's competence gate
-([how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis))
-applies before the first promotion.
+`.macro-assist/explore_conditioner.py` (research tier). Walks every arm
+forward on the explore slice — report dates strictly before
+`numeric_baseline.SEAL_START`, known-by-*t* quantiles, `MIN_N = 10` with the
+product's collapse ladder — and scores each the Phase 22 way (`skill_vs`
+against `unconditional`, 21-report-date block bootstrap, coverage, PIT), with
+`verdict(sealed=False)` on every arm so the code, not the reader, returns
+`exploratory`. Eight arms: the published macro bucket, `trailing_250`, the OR
+flag's state, the composite's state, OR × NFCI, the S&P drawdown bin, and
+drawdown × OR — plus the H-002 / H-004 structure checks. Two optional arms
+since the second look: `har_gaussian` (the scorer's comparator, walked forward
+with the product's fit) and `har_scaled` (the same σ on the empirical shape),
+quoted where the product would quote a forecast and scored on their own
+subsample, with the H-006 rival check beside them. Report in the
+`numeric_baseline` shape at `results/explore_conditioner/report.md`; inputs
+cached beside it so `--cached` reproduces the run.
+
+It ran before WP-23.A was decided, deliberately: the 2010-06 → 2017-12 dates it
+read are explore surface under every option #19 had, so nothing was burnt —
+and the seal was then decided as 2018-01-01 (`resolved.md` #19). What it saw is on
+the register: H-002 and H-004 each carry a ledger block (both structure checks
+failed as written), H-005 and H-006 are new `seen` entries. Owner's competence
+gate ([how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis))
+still applies before the first promotion. **The second counted look ran the
+same evening — H-006's rival.** `har_gaussian` does not carry the drawdown
+bin's gain; `har_scaled` does, and H-006 closes toward [KB-033] as a width
+claim a vol forecast delivers. What the look also showed — the scorer's own
+comparator over-covers and loses to `unconditional` at 20d because of its
+Gaussian wrapper — is H-007 (`seen`); the scorer keeps its sealed comparator
+and `har_scaled` is in WP-23.B's bar instead (`resolved.md` #22). Next counted look, if
+any: the H-005 occupancy cut (deficit by bucket, single-episode cells), or the
+price-only arms pushed back to 2001 to test H-006's calm-tape confound.
 
 ### WP-23.D — First promotion
 
-Not chosen. H-004 is the cheapest (a sub-table of H-002); H-001's confound
-resolution is an errand with a **2026-10-07** deadline and is not a promotion.
-The owner rewrites the chosen entry, its status moves `draft → promoted`, the
-ledger is attached, and the run reads the sealed slice once. Result → KB,
-either way.
+Not chosen. H-004 is the cheapest (a sub-table of H-002). H-001's confound was
+resolved 2026-09-14 from the pulled artifact (the ordering is a crisis-rebound
+period effect and inverts within three of six assets) and the entry is
+`closed` on its own target-space rule — an errand, not a promotion, and no KB
+entry. The owner rewrites the chosen entry, its status moves `draft →
+promoted`, the ledger is attached, and the run reads the sealed slice once.
+Result → KB, either way.
 
 ---
 
@@ -774,7 +811,7 @@ the facts and the audit only reads them. Not an auto-fixer — see WP-24.D.
 **Drafted by the assistant, 2026-09-14, from a session walkthrough.** The
 work packages are engineering; the two that change a *convention* (24.D's
 precedence handling, 24.F's ADR page shape) are decisions for the owner and are
-logged as [`todo.md`](todo.md) **#20** and **#21** — neither WP ships before its
+logged as [`todo.md`](todo.md) **#23** and **#24** — neither WP ships before its
 entry is decided.
 
 **Order.** 24.A is the first step and stands alone — it is the check that would
@@ -830,7 +867,7 @@ is that a human sees two claims next to each other.
 That makes this report-only rather than red, which creates the real risk — a
 report nobody reads. Its output must be printed by WP-24.G, not merely logged.
 Whether a report-only finding should ever fail CI is an owner decision, not a
-default → [`todo.md`](todo.md) **#20**, which governs WP-24.E's ages too.
+default → [`todo.md`](todo.md) **#23**, which governs WP-24.E's ages too.
 
 ### WP-24.E — Ages, from git
 
@@ -860,7 +897,7 @@ It is not free, which is why it is a decision and not a task: 20 existing ADRs
 would need one retrofitted, a condition invented years after the fact is weaker
 than one written at decision time, some decisions genuinely have none
 ([ADR-0001](../decisions/ADR-0001-output-on-an-orphan-branch.md)), and only some
-conditions are machine-checkable at all → [`todo.md`](todo.md) **#21**. The
+conditions are machine-checkable at all → [`todo.md`](todo.md) **#24**. The
 page-shape call comes first; the audit half is downstream of it.
 
 ### WP-24.G — `/orient`, the session-start ritual

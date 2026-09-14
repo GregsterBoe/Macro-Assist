@@ -156,6 +156,22 @@ def _fred_get_with_retry(fred: Fred, series_id: str, observation_start: str,
             raise
 
 
+def _mean_window(series: pd.Series) -> dict:
+    """The window a `five_yr_mean` was actually computed over.
+
+    `fetch_*` ask FRED for five years, but free FRED serves some series on a
+    *rolling* window (`BAMLH0A0HYM2` ≈ 3 years — [KB-028] nuance (d), todo
+    #13), so the mean can be of far less than five years of one regime.
+    Emitting the true window beside the number is what stops the model being
+    told "5-yr average" for something that is not.
+    """
+    first, last = series.index[0].date(), series.index[-1].date()
+    return {
+        "mean_window_start": first.isoformat(),
+        "mean_window_years": round((last - first).days / 365.25, 1),
+    }
+
+
 def fetch_quant_inputs(fred: Fred) -> dict:
     """
     Fetch QUANT_FRED_SERIES in the fetch_fred_data() entry shape.
@@ -187,6 +203,7 @@ def fetch_quant_inputs(fred: Fred) -> dict:
             "frequency":    "daily",
             "five_yr_mean": round(float(series.mean()), 3),
             "vs_mean":      round(float(latest) - float(series.mean()), 3),
+            **_mean_window(series),
         }
     _log("FRED", "OK" if len(data) == len(QUANT_FRED_SERIES) else "WARN",
          f"{len(data)}/{len(QUANT_FRED_SERIES)} quant-only series")
@@ -232,11 +249,13 @@ def fetch_fred_data(fred: Fred) -> dict:
                 data[name]["five_yr_mean_yoy"] = round(float(yoy_series.mean()), 2)
         # 5-year mean of raw value for spread/index/rate series
         # Note: philly_fed_mfg mean includes COVID-era extremes (~-56 in Apr 2020)
-        # Note: jobless_claims 5yr window (starts ~2021) excludes COVID spike — post-crisis baseline
+        # Note: jobless_claims' 5yr window excludes the 2020 COVID spike — post-crisis baseline
+        # `hy_spread` is served on a rolling ~3y window by free FRED; `_mean_window` names it
         if name in ("hy_spread", "philly_fed_mfg", "real_yield_10y",
                     "breakeven_10y", "nfci", "jobless_claims") and len(series) >= 12:
             data[name]["five_yr_mean"] = round(float(series.mean()), 3)
             data[name]["vs_mean"]      = round(float(latest) - float(series.mean()), 3)
+            data[name].update(_mean_window(series))
         # MoM point change for diffusion indices — absolute swing reveals regime shifts
         # that level-vs-mean comparisons miss (e.g. -0.4 looks mild; -27pt drop from +26.7 is a shock)
         if name == "philly_fed_mfg" and len(series) >= 2:

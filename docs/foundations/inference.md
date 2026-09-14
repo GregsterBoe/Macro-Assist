@@ -149,7 +149,7 @@ A seal is consumed on first read. Reading the sealed slice, adjusting, and
 reading again is the same as never having sealed it; the only honest second
 read is against a *new* bar on data that arrived after the first. Which seal
 governs a new hypothesis is therefore a decision to record before the harness
-is built (todo #19).
+is built (`resolved.md` #19: for the distribution class, the same 2018-01-01).
 
 ## 6. Pre-registration, and the line it draws
 

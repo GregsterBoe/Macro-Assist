@@ -11,6 +11,7 @@ Measured results live in `knowledge-base.md`; active plans in `roadmap.md`.
 | 2026-09-04 | The v1.5 system-state snapshot, Phase 16 (Emergence & Fragility), and Phase 21's WP-level detail (the learnability test, the cut, and the wind-down) |
 | 2026-09-13 | Phase 17 (closed with WP-17.5 → [KB-033]); done-WP detail from Phases 18 (18.1–18.3), 19 (19.B, integration status) and 20 (20.A–E, architecture sketch, Kimi arm); WP-21.E family 1's result text |
 | 2026-09-11 | Phase 19's L0–L4 build detail and the WP-19.E harness; Phase 21's execution order and the no-neural-network reasoning (now [ADR-0008](../decisions/ADR-0008-no-neural-network.md)); WP-22.A/B build detail |
+| 2026-09-14 | Phase 18 (closed at 18.3, negative-by-construction — `resolved.md` #18): the live section as it stood, including the hard-gate paragraph and the unrun 18.4/18.5 |
 
 ---
 
@@ -2040,4 +2041,35 @@ unblocked; none has been chosen.
 structure as a *directional* input. [KB-001] scored it as a *stress* instrument
 (AUC 0.77/0.67) and that stands untouched; the two live fragility flags do not
 depend on this outcome and nothing in `fragility.py` changes.
+
+---
+
+## Archived 2026-09-14 — Phase 18 closed at 18.3
+
+Moved out of `roadmap.md` when `todo.md` #18 resolved (Phase 18 closed
+negative-by-construction: the ablation gate's metric — Brier on directional
+calls — was cut with v1.6, and no scored LLM output remains to ablate against).
+Verbatim as it stood; the 18.1–18.3 build detail was already archived on
+2026-09-13 (above).
+
+### Input Information Value & Prompt Economy (Phase 18) — *input-side of Goal 1* (as it stood on 2026-09-14)
+
+**Premise.** Phase 17 asked, layer by layer, whether each *numerical component* earns its place (and cut the HMM regime when it didn't). Phase 18 points the **same discipline at the LLM input payload**: the daily user message is now ~6.5k chars across 7 sections (FRED ~3.1k, Sector ~1k, Market ~0.9k, Quant ~0.65k, Technicals ~0.45k, COT ~0.37k) plus a ~13k-char system prompt — and **none of it has ever been tested for whether it actually improves the macro assessment.** Unhelpful inputs aren't free: they cost tokens and dilute attention. This is the **input-side complement to WP-16.B.3** (emergent signal weights): same substrate (per-prediction logging + Brier), one level up (whole input sections/series, not just dashboard signals). Point-1 ("is this quality information?") and point-2 ("weight the inputs") converge here.
+
+**Hard gate — read before starting.** As written, every verdict here was to be measured by WP-16.B.2's Brier/reliability on the directional calls. B.2 was built ([KB-007]) and then v1.6 cut the calls it scored ([KB-024], [ADR-0009](../decisions/ADR-0009-cut-the-directional-product.md)). **WP-18.4 therefore has no outcome metric until it is re-pointed** — the candidate is Phase 22's pinball skill vs `unconditional` on the published distribution, but the LLM no longer authors that distribution, so an input ablation would be measuring the model's prose, not a scored number. That is a decision to write down before 18.4 is paid for, not a detail. The two standing rules survive unchanged: **(a)** cheap proxies before expensive ablation; **(b)** one lever at a time.
+
+1. **WP-18.1 — Payload observability ✅** (on `main`): `MACRO_PREVIEW=1` writes `results/llm_payload_preview/<date>.md` — section-size index, the verbatim user message, the withheld signals. Build detail → [roadmap-archive.md](roadmap-archive.md).
+
+2. **WP-18.2 — Cheap input-quality proxies ✅ → [KB-009]** (`input_ledger.py`, 22 tests; 2026-06-27). Staleness / entropy / robust σ / first-difference redundancy per input series. Headline: the daily market/sector block is highly collinear, the FRED macro series carry the orthogonal information. A screen, not a verdict.
+
+3. **WP-18.3 — Citation screen ✅ → [KB-010]** (`citation_screen.py`, 13 tests; 2026-06-27). Per-input citation rate in the note's free prose. Headline: citation and redundancy are nearly anti-correlated, so the 18.4 queue is the union of the two screens.
+
+4. **WP-18.4 — Outcome-grounded input ablation (the decision gate; gated on B.2 + sample).** Drop-one-section (and add-one) A/B over the live LLM, re-scoring **Brier**/accuracy on the resulting calls. Expensive (N× LLM cost; outcomes resolve in 5–20d), so run **only on the candidates flagged by 18.2/18.3, one lever at a time, n≥30 per arm.** Verdict: a section that doesn't move Brier past a threshold ⇒ **trim from the payload** (token + attention savings, the prompt-economy payoff); a section that helps ⇒ feed its weight into B.3.
+
+5. **WP-18.5 — Feed results into weighting (closes the loop with WP-16.B.3).** The input-value ranking becomes a **prior for the emergent signal-weight table**: down-weight or drop low-value inputs, up-weight high-value ones, and eventually reorder/prune the prompt itself. This is the explicit join between point-1 (quality test) and point-2 (weighting) — Phase 18 produces the evidence, [WP-16.B.3](#) consumes it.
+
+**Order, as it stands.** 18.1–18.3 ran (the cheap screens are done and in the KB). 18.4 is the paid decision gate and is queued on the board; before it runs, its metric has to be re-pointed (see the gate paragraph). 18.5 follows 18.4.
+
+---
+
 

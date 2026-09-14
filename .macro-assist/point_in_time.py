@@ -36,6 +36,7 @@ from collect_and_analyze import (
     _NET_LIQ_KEYS,
     MARKET_TICKERS,
 )
+from fred_data import _mean_window
 
 ALFRED_MIN_DATE = date(1997, 1, 1)
 _FRED_API_BASE  = "https://api.stlouisfed.org/fred/series/observations"
@@ -215,6 +216,7 @@ def historical_snapshot(snapshot_date: date) -> dict:
                     "nfci", "jobless_claims") and len(series) >= 12:
             data[name]["five_yr_mean"] = round(float(series.mean()), 3)
             data[name]["vs_mean"]      = round(latest - float(series.mean()), 3)
+            data[name].update(_mean_window(series))
         if name == "jobless_claims" and len(series) >= 2:
             wow = round(((latest - prev) / prev) * 100, 2)
             data[name]["wow_pct"] = wow

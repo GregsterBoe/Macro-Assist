@@ -15,14 +15,51 @@ rather than in a second list here. This log records **what a pass did**; what is
 still owed is tracked in one place.
 
 Carried over on 2026-09-11: `point_in_time.py` running network by default
-(#10), the optional `llm_analysis.py` split (#11), and GitHub Pages still being
-switched off (#12).
+(#10 — closed 2026-09-14, stays as is), the optional `llm_analysis.py` split
+(#11), and GitHub Pages still being switched off (#12 — closed 2026-09-12).
 
 **Closed by the 2026-09-11 pass:** *"Archive Phase 19 build detail once the
 exogenous arm resolves."* WP-19.E resolved negative on 2026-09-07 [KB-026], so
 the trigger fired; the L0–L4 build detail and the WP-19.E harness are in
 `roadmap-archive.md`, with the integration-status and kill block kept inline as
 that follow-up specified.
+
+---
+
+## 2026-09-14 — Closing pass over the inbox
+
+`todo.md` had grown to fourteen open items across six sections, several of
+which were decided in prose and never moved, and one section (Phase 20)
+describing a live forward test that the board had marked dormant ten days
+earlier. One pass, decisions taken by the owner where they were the owner's:
+
+**Nine items → `resolved.md`,** reasoning kept: #19 (seal reused), #21
+(nothing before Phase 22), #22 (no scorer change; `har_scaled` → WP-23.B's
+bar), #18 (Phase 18 closed at 18.3), #15 (OR unchanged), #16 and #4 (already
+decided, filed), #10 (PIT guard stays in the default run), #13 (landed — see
+below), #7-carried (superseded by the cut). The Phase 20 section now says what
+the board says — dormant, two rebalances ever, the §9 clock stopped — and #5b
+is folded into #5 with the cap evidence the item was waiting for (it bound on
+both rebalances). The duplicate numbering (an open decision #7 and a carried
+finding #7) is gone with the latter.
+
+**One code change, #13.** Free FRED serves HY OAS on a rolling ~3-year window,
+so `five_yr_mean` was a ≤3-year mean wearing a 5-year label in the LLM payload.
+`fred_data._mean_window` now emits `mean_window_start` / `mean_window_years`
+beside every `five_yr_mean` — both fetchers and the point-in-time snapshot, so
+`test_schema_matches_current` keeps the historical and live key sets identical
+— and both prompts say to name the window when it is under five. Label kept
+(historical readers and `regime_features` parse it). 4 tests; no version bump.
+
+**Phase 18 archived** (roadmap → archive, row in the completed table, board
+"recently closed"). **H-001 closed on the register:** its artifact had already
+been pulled to `results/numeric_baseline/runs/2026-09-07-wp19e-spf/` on
+2026-09-13 — the runs README still said "missing"; fixed — and the per-asset
+read resolved the confound against the hypothesis. No KB entry; the entry's
+own target-space rule.
+
+**Not touched:** Phase 22's #7/#8 (wait for a note-format revision), #14b (a
+record note, not a task), #11 (optional).
 
 ---
 

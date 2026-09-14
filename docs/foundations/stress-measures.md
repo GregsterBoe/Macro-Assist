@@ -21,7 +21,7 @@ label_t = 1  if  min(close[t+1 .. t+h]) / close[t]  ≤  1 − threshold
 ```
 
 with `threshold = 0.05` and `h ∈ {5, 10}` trading days
-(`fragility_backtest.drawdown_label`). It is a forward-looking boolean, one per
+(`fragility_panel.drawdown_label`). It is a forward-looking boolean, one per
 day, and because the window is 5–10 days wide, adjacent labels overlap almost
 completely — see [Inference §1](inference.md#1-overlap-is-not-sample-size).
 

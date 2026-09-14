@@ -99,7 +99,7 @@ _VALID_OR_MODES = ("off", "log", "show", "active")
 # too short. Below this many anchor rows we fetch our own history.
 _MIN_FRAG_HISTORY = 150
 
-# Tickers for the self-contained fragility fetch (mirror fragility_backtest).
+# Tickers for the self-contained fragility fetch (mirror fragility_panel._TICKERS).
 _FRAG_TICKERS: dict[str, str] = {
     "sp500": "^GSPC", "nasdaq": "^IXIC", "gold": "GC=F",
     "wti_oil": "CL=F", "dxy": "DX-Y.NYB", "vix": "^VIX", "vix3m": "^VIX3M",
@@ -139,7 +139,7 @@ def _fetch_fragility_histories(period: str = "1y") -> dict:
     # dates, so the term-structure component would silently freeze. Splice
     # CBOE's own history under either vol leg that has fallen behind (KB-029).
     try:
-        from fragility_backtest import freshen_vol_indices
+        from fragility_panel import freshen_vol_indices
         out = freshen_vol_indices(out)
     except Exception:
         pass

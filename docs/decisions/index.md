@@ -31,6 +31,7 @@ source of truth for *why*.
 | [ADR-0003](ADR-0003-four-narrow-agents.md) | Four narrow agents rather than one wide call | Accepted |
 | [ADR-0012](ADR-0012-external-cron-with-backstop.md) | External cron triggers the pipeline; GitHub's scheduler is a backstop | Accepted |
 | [ADR-0013](ADR-0013-one-pipeline-entry-point.md) | One entry point, `needs:`-ordered, with one resolved `asof` | Accepted |
+| [ADR-0021](ADR-0021-product-and-research-are-separated-by-an-import-boundary.md) | Product and research are separated by an import boundary, enforced by test | Accepted |
 
 ### What the system publishes
 

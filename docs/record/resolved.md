@@ -11,11 +11,119 @@ questions.
 
 > **Carried-forward caveats stay in `todo.md`.** Several items below closed *with*
 > a trade-off attached. Those trade-offs are live entries in `todo.md` (#2b, #3b,
-> #5b, #1b, #6b, #14b) — resolving an item never silently absorbs its cost.
+> #1b, #6b, #14b; #5b is folded into #5) — resolving an item never silently
+> absorbs its cost.
+
+---
+
+## Phase 23 — exploration tier
+
+### RESOLVED 2026-09-14 — #19 the seal for a promoted distribution-class hypothesis is `SEAL_START` (2018-01-01), reused
+**Resolution: option (1) — reuse.** One seal in the repo. The 2018+ slice has
+never been read for a distribution question — every read of it so far was
+directional ([KB-024], [KB-026], [KB-027]) — and the ledger records the reuse:
+whichever class is promoted first carries the multiplicity of the two WP-23.C
+looks (nine arms, two runs, all reported, 2010-06 → 2017-12, all explore
+surface). The alternatives were a later seal for the class (gains 2018 and
+2020 stress in the explore surface at the cost of holdout regimes and a second
+seal to keep straight) and no historical seal at all (confirm only on Phase
+22's live record, any read ≥ ~2027-05). Both were declined for the same reason:
+the point of a seal is that it was fixed before the question, and 2018-01-01
+was. **What it binds:** `explore_conditioner.py` keeps stopping at
+`numeric_baseline.SEAL_START`; a promoted distribution hypothesis reads
+2018-01-01 → the day before Phase 22's live record once, under WP-23.B's class
+bar, and that read burns the slice for the whole conditioner class. The entry
+that promotes names the class. **Carried:** nothing — the H-001 artifact errand
+that was dated inside this item is done (register, 2026-09-14).
+
+### RESOLVED 2026-09-14 — #21 the walked-forward macro bucket's explore-slice deficit changes nothing before Phase 22 reads
+**Resolution: option (1) — nothing.** H-005 stands as the recorded prior (the
+v2.1 conditioner walked forward on 2010-06 → 2017-12 scores −0.009 / −0.028 /
+−0.053 against `unconditional` at 5 / 10 / 20d over six assets, intervals clear
+of zero); the note keeps publishing the bucket; Phase 22's sealed read
+(~2027-05) is the product decision and this look must not pre-empt it. Option
+(2) — a pre-registered read on the 2018+ slice now that #19 makes it available
+— was declined because it spends the class's one historical read on the arm
+the explore slice already says is worst, and option (3) — rendering
+`unconditional` beside the bucket in the note — was declined as a mid-record
+presentation change with a versioning cost and no reader asking for it. The
+look's mechanism (a regime-memory conditioner with about three regimes behind
+it) and its confound (one calm tape here, five regimes there) are on the
+register; if Phase 22 reads `no_edge`, H-005 is the explanation already written.
+**Carried:** nothing.
+
+### RESOLVED 2026-09-14 — #22 the Phase 22 scorer does not gain `har_scaled` before its first read
+**Resolution: option (1) — no scorer change.** `har_gaussian` stays as the
+optional comparator the bar was sealed with; H-007 (`seen`) is the recorded
+prior that it is handicapped by its Gaussian wrapper, not its σ; `har_scaled`
+enters the *next* bar — WP-23.B's, for any promoted distribution hypothesis —
+where it was designed. Option (2), adding it to `score_distributions.ARMS` now,
+was admissible under WP-22.C's own amendment principle (a better rival makes
+the published table's job harder, not easier) and would have cost nothing on
+the record (zero interval observations have resolved against any HAR arm), but
+it is a scorer change against a sealed record chosen *after* an explore look at
+the rival's number, and the discipline the whole record rests on is that the
+bar does not move once the data is visible — either direction. Replacing
+`har_gaussian` was never an option: the roadmap's "a constant beat the model"
+observation was scored against it and stays comparable only if it stays.
+**Carried:** `har_scaled` in WP-23.B's bar (roadmap).
+
+---
+
+## Phase 18 — input information value
+
+### RESOLVED 2026-09-14 — #18 Phase 18 is closed at 18.3, negative-by-construction
+**Resolution: option (1).** WP-18.4 (outcome-grounded payload ablation) and
+18.5 (feed the ranking into signal weights) were to read Brier on the LLM's
+directional calls ([KB-007]'s metric). v1.6 cut those calls ([KB-024],
+[ADR-0009](../decisions/ADR-0009-cut-the-directional-product.md)); the
+distribution that replaced them is rendered by Python from
+`conditional_distributions.json` and the LLM payload cannot move it; the only
+LLM-authored falsifiable claim left is the Target Range, which is unscored
+(`todo.md` #7). An ablation with no scored output is exactly the unfalsifiable
+experiment the phase's own hard gate forbids, so 18.4 is closed unrun and 18.5
+with it. The cheap screens stand as the payload's documented redundancy
+([KB-009] collinearity, [KB-010] citation); nothing is pruned on cost alone
+(option 3 declined — a prompt change mid-record for a token saving nobody
+measured). Option (2), re-pointing 18.4 at Target Range coverage, is reachable
+only through #7 and is re-opened by #7 if that is ever decided. Phase detail →
+`roadmap-archive.md`; one line + verdict in the completed-phases table. No
+KB entry: nothing was measured.
 
 ---
 
 ## Pipeline / accuracy
+
+### RESOLVED 2026-09-14 — #13 `hy_spread.five_yr_mean` now carries the window it was computed over
+**Resolution: option (1), landed.** `fred_data._mean_window(series)` returns
+`mean_window_start` / `mean_window_years` from the series actually fetched, and
+every site that computes a `five_yr_mean` emits them beside it — the
+`fetch_fred_data` branch (`hy_spread`, `philly_fed_mfg`, `real_yield_10y`,
+`breakeven_10y`, `nfci`, `jobless_claims`), the quant-only branch (BAA10Y and
+company) and `point_in_time.historical_snapshot`, so the historical and live key
+sets stay identical (`test_schema_matches_current`). Both system prompts gained
+one clause at the anchoring rule: `mean_window_years` is the window the mean
+covers; when it is under 5, name it, never "5yr". The label the model was
+reading (`five_yr_mean`) is kept — historical readers and `regime_features`
+parse it — the fix is that the truth now travels beside it. Bug fix, no version
+bump; 4 tests (`test_fred_mean_window.py`). Options (2) — HY's mean on a
+BAA10Y-scaled history — and (3) — fold into WP-18.4 — are moot: (2) compares a
+level to a different series, (3)'s phase closed the same day (#18). The
+`jobless_claims` comment that said its window "starts ~2021" was a dated remark
+about a 5-year fetch, not a rolling-window problem; reworded so the two are not
+conflated.
+
+### RESOLVED 2026-09-14 — #7 (carried) headline accuracy below chance — superseded by the cut
+**Resolution: answered, not fixed.** The 2026-08-24 accuracy report (T+5 46%,
+T+10 42%, T+20 32%; overconfident at every horizon) was carried with "no code
+change, watch bear-share into the first risk-off". The question it was
+watching — is the directional call worth anything — was then asked properly
+and answered: [KB-024] (not learnable by any model class on this payload),
+[ADR-0009](../decisions/ADR-0009-cut-the-directional-product.md) (the product
+is cut, v1.6), and the kimi arm whose 100%-confident one-sidedness the item
+worried about was deactivated 2026-09-04. The frozen scorer prints its last
+window ~2026-10-02; the numbers stay in `accuracy_report.md` as the record of
+why. Nothing to revisit at a "§9 quarter mark" that no longer arrives.
 
 ### RESOLVED 2026-09-13 — #17 the HAR-RV fit window is fixed, dated against the seal
 **Resolution: landed, as recommended — the same day it was opened, with zero
@@ -79,6 +187,38 @@ window and is not acted on here.
 
 ## Fragility monitor
 
+### RESOLVED 2026-09-14 — #15 "turbulence alone is not an alarm" stays a hindsight read; the OR is unchanged
+**Resolution: leave it.** The observation ([KB-031] nuance (b): of the OR's 18
+PIT alarms at 5d, all 6 true ones had a second channel firing and 10 of the 12
+false ones were turbulence-only) was read off the IMP-6 window after the run;
+any re-test on 2013–2026 is in-sample for it, and [KB-020] measured
+ETF-turbulence as the best standalone channel by non-overlapping AUC (0.713) —
+the flag's looseness and the channel's information are different things. The
+OR is a recall mode by design with a stated precision ≈ 0.3, and nothing on the
+backtest window can settle whether requiring a second channel is a rule or a
+fit to twelve alarms. The alternative — a pre-registered forward shadow flag
+`or_no_turb_alone`, judged only on live alarms after a stated date — was
+declined as a new record to build and carry that becomes decidable only after
+several live alarms, on a track that is forward observation only with nothing
+queued. Recorded so it is a declined read and not a forgotten one; the next
+OR-admission bar (with [KB-032]'s lead clause) is where a channel question is
+asked, if one is.
+
+### RESOLVED 2026-09-14 — #16 the CORR shadow flag IMP-7 admitted is not wired
+**Resolution: not wired — the call was made 2026-09-13 and recorded in the
+inbox; moved here on the closing pass.** Average pairwise correlation met the
+IMP-7 admit clause by the letter (PIT recall +1 crisis at both horizons at the
+trio's own 18 alarms, LOCO held); what met it was two trio-silent readings
+(2020-06-01, 2020-06-08) extending the COVID alarm into its aftershock. An
+`or_corr` shadow flag would agree with the live OR on 662 of 664 readings and
+cannot produce a decidable live record. Not a re-reading of the bar — it was
+met — but a judgement that the record it would build is worth nothing.
+**Re-open only if** the next OR-admission bar, with the lead clause [KB-032]
+names, is run on a shift-form correlation measure and admits on a crisis
+*with lead*. Cost of wiring if ever wanted: a CORR channel in
+`build_channels`, an `or_corr` boolean in the OR reading's JSONL log, tests;
+no prompt exposure, no bump.
+
 ### RESOLVED 2026-09-13 — #14 the composite's label cut stays static (IMP-5.3, negative)
 **Resolution: measured, and the answer is no → [KB-030].** The question was
 whether the composite's `Elevated` cut (static 56.5, the full-sample 90th pct
@@ -95,6 +235,46 @@ is now a documented asymmetry with a measured reason. The harness stays
 The frozen-`vix_term` caveat that rode along with #14 stays in `todo.md` as #14b.
 
 ## Tooling
+
+### RESOLVED 2026-09-14 — #10 `test_point_in_time.py` stays in the default run
+**Resolution: keep the trade.** Its tests make real ALFRED/FRED calls (~113 s
+of the default suite) and are deliberately *not* marked `integration`, because
+they are the look-ahead-leakage guard — the one test class whose silent
+absence has already cost this project (the WP-17 input-window findings,
+[KB-003] / [KB-028] / [KB-033], were all "the data was not what the code
+assumed"). Marking them `integration` would buy two minutes per run and require
+CI to be checked for still running them; the offline path is documented in
+`CLAUDE.md` (`--deselect .macro-assist/tests/test_point_in_time.py`) for the
+sessions that need it. A deliberate choice, now written down.
+
+### RESOLVED 2026-09-14 — #20 the two product → research imports are drained
+
+**Was:** `fragility_or` (the live OR flag) and `quant_context` (the note's vol
+legs) imported their data feeds and history walk from `fragility_backtest.py`,
+the research harness that first needed them. ADR-0021's boundary test pinned
+both in `KNOWN_LEAKS` on 2026-09-14 rather than tolerate them silently.
+
+**Done:** the feeds (`fetch_histories`, `fetch_cboe_index`, `freshen_vol_indices`,
+`fetch_sector_etfs`, `_SECTOR_ETFS`, `_ETF_CACHE`), the walk
+(`walk_forward_fragility`) and the target (`forward_worst_return`,
+`drawdown_label`, `collapse_episodes`, `episode_scoring`) moved **unchanged**
+into a new product module, `fragility_panel.py`. `fragility_backtest.py`
+imports and re-exports every name, so `input_testing`, `aggregator_testing`,
+`companion_testing`, `regime_backtest` and the tests that spell
+`fragility_backtest.fetch_sector_etfs` are untouched; a test asserts the
+re-exports are the same objects. `KNOWN_LEAKS` is empty and the test now fails
+on any first edge.
+
+**The target went with the feeds** deliberately: `drawdown_label` and
+`episode_scoring` are what the live path checks *itself* against
+(`python fragility_or.py`'s self-check), so they are on the product side of
+the line. AUC, lead time, ablation and the pit-cut check stayed in the harness.
+
+**Verified as todo #20 asked:** the self-check run on the moved code and on the
+committed pre-move code, same day, same data, prints identical lines — OR
+10/17 · 0.333 at 5d, 11/21 · 0.444 at 10d, 664 evaluable readings — which is
+the reference row [KB-031] recorded when it noted the row had moved since
+[KB-021]. The full offline suite passes. No behaviour changed; no version bump.
 
 ### RESOLVED 2026-09-12 — #12 GitHub Pages is switched on
 **Resolution: the repo admin enabled it.** Settings → Pages → Build and
@@ -161,6 +341,17 @@ the duplicate is generated rather than hand-written. Bump with
 ---
 
 ## Phase 20 — paper portfolio
+
+### RESOLVED 2026-09-14 — #4 kimi confidence clusters high — assessed, no change; the track is dormant
+**Resolution: leave as-is, as assessed 2026-08-24; moved here on the closing
+pass.** The confidence was already the continuous vote share (`aggregate`:
+`conf = round(dir_share*100)`, un-clamped); it landed on 100/92 because the 12
+samples genuinely agreed on a one-sided tape. A finer statistic would have been
+a fit to that tape. The real lever was the cap (#5), where the "max weight or
+nothing" degeneracy lives. The watch it carried — does the cap bind every
+week — is answered inside #5 (it bound on both of the two rebalances the track
+ever ran). Overtaken twice since: the kimi arm was deactivated 2026-09-04 and
+v1.6 withdrew the sizer's input, so there is no confidence channel to tune.
 
 Context: the first live rebalance ran 2026-08-24 and produced two fully flat books
 out of three. `.macro-assist/portfolio/DESIGN.md` is the contract; §7 mandates a

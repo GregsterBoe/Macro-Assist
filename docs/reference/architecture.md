@@ -105,7 +105,9 @@ Macro-Assist/
 │   ├── backtest.py                  # point-in-time backtesting harness
 │   ├── regime_backtest.py           # walk-forward regime validation
 │   ├── har_backtest.py              # walk-forward HAR-RV skill read (WP-17.5, degenerate as wired)
-│   ├── fragility_backtest.py        # de-overlapped fragility backtest
+│   ├── fragility_backtest.py        # de-overlapped fragility backtest (research)
+│   ├── fragility_panel.py           # feeds, history walk, drawdown target — the live path's data (product)
+│   ├── explore_conditioner.py       # explore-tier shadow conditioners on the pre-seal slice (research, Phase 23)
 │   ├── point_in_time.py             # ALFRED-vintage reconstruction
 │   ├── synthetic.py                 # synthetic data generator for tests
 │   ├── kimi_arm.py                  # ensemble confidence arm — DEACTIVATED
@@ -140,6 +142,7 @@ Macro-Assist/
 │   ├── scores/                      #   raw directional score JSON
 │   ├── dist_scores/                 #   distribution score JSON (Phase 22)
 │   ├── numeric_baseline/            #   learnability harness output
+│   ├── explore_conditioner/         #   explore-tier report + cached inputs (Phase 23)
 │   ├── quant_context_log/           #   daily JSONL snapshots of quant outputs
 │   └── accuracy_report.md
 │
