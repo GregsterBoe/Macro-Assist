@@ -1,0 +1,174 @@
+{
+  "report_date": "2026-09-03",
+  "scored_at": "2026-09-14",
+  "observations": [
+    {
+      "date": "2026-09-03",
+      "asset": "Gold",
+      "note_name": "Gold",
+      "unit": "%",
+      "horizon": 5,
+      "published_in_note": true,
+      "claim": "median",
+      "bucket": "NFCI:low|YC:positive|HY:tight",
+      "bucket_n": 331,
+      "eval_date": "2026-09-11",
+      "entry": 4491.7002,
+      "exit": 4366.2002,
+      "realized": -2.794,
+      "pit_bin": null,
+      "inside_iqr": null,
+      "above_median": false,
+      "arms": {
+        "published": {
+          "pinball": {
+            "0.5": 1.922021
+          },
+          "pinball_mean": 1.922021,
+          "quantiles": {
+            "0.5": 1.05
+          }
+        },
+        "unconditional": {
+          "pinball": {
+            "0.5": 1.528134
+          },
+          "pinball_mean": 1.528134,
+          "quantiles": {
+            "0.5": 0.2622
+          }
+        },
+        "trailing_250": {
+          "pinball": {
+            "0.5": 2.012965
+          },
+          "pinball_mean": 2.012965,
+          "quantiles": {
+            "0.5": 1.2319
+          }
+        },
+        "har_gaussian": {
+          "pinball": {
+            "0.5": 1.397021
+          },
+          "pinball_mean": 1.397021,
+          "quantiles": {
+            "0.5": 0.0
+          }
+        }
+      }
+    },
+    {
+      "date": "2026-09-03",
+      "asset": "SP500",
+      "note_name": "S&P 500",
+      "unit": "%",
+      "horizon": 5,
+      "published_in_note": true,
+      "claim": "median",
+      "bucket": "NFCI:low|YC:positive|HY:tight",
+      "bucket_n": 331,
+      "eval_date": "2026-09-11",
+      "entry": 7747.71,
+      "exit": 7656.98,
+      "realized": -1.1711,
+      "pit_bin": null,
+      "inside_iqr": null,
+      "above_median": false,
+      "arms": {
+        "published": {
+          "pinball": {
+            "0.5": 0.770528
+          },
+          "pinball_mean": 0.770528,
+          "quantiles": {
+            "0.5": 0.37
+          }
+        },
+        "unconditional": {
+          "pinball": {
+            "0.5": 0.789509
+          },
+          "pinball_mean": 0.789509,
+          "quantiles": {
+            "0.5": 0.408
+          }
+        },
+        "trailing_250": {
+          "pinball": {
+            "0.5": 0.782173
+          },
+          "pinball_mean": 0.782173,
+          "quantiles": {
+            "0.5": 0.3933
+          }
+        },
+        "har_gaussian": {
+          "pinball": {
+            "0.5": 0.585528
+          },
+          "pinball_mean": 0.585528,
+          "quantiles": {
+            "0.5": 0.0
+          }
+        }
+      }
+    },
+    {
+      "date": "2026-09-03",
+      "asset": "WTI Oil",
+      "note_name": "WTI Oil",
+      "unit": "%",
+      "horizon": 5,
+      "published_in_note": true,
+      "claim": "median",
+      "bucket": "NFCI:low|YC:positive|HY:tight",
+      "bucket_n": 331,
+      "eval_date": "2026-09-11",
+      "entry": 91.3,
+      "exit": 100.05,
+      "realized": 9.5838,
+      "pit_bin": null,
+      "inside_iqr": null,
+      "above_median": true,
+      "arms": {
+        "published": {
+          "pinball": {
+            "0.5": 5.001895
+          },
+          "pinball_mean": 5.001895,
+          "quantiles": {
+            "0.5": -0.42
+          }
+        },
+        "unconditional": {
+          "pinball": {
+            "0.5": 4.649503
+          },
+          "pinball_mean": 4.649503,
+          "quantiles": {
+            "0.5": 0.2848
+          }
+        },
+        "trailing_250": {
+          "pinball": {
+            "0.5": 4.70768
+          },
+          "pinball_mean": 4.70768,
+          "quantiles": {
+            "0.5": 0.1684
+          }
+        },
+        "har_gaussian": {
+          "pinball": {
+            "0.5": 4.791895
+          },
+          "pinball_mean": 4.791895,
+          "quantiles": {
+            "0.5": 0.0
+          }
+        }
+      }
+    }
+  ]
+}

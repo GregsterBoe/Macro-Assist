@@ -1,0 +1,49 @@
+{
+  "report_date": "2026-08-31",
+  "agent_version": "unknown",
+  "conviction_floor": "unknown",
+  "profile": "unknown",
+  "arm": "exogenous",
+  "model": "unknown",
+  "base_rate_first": "unknown",
+  "prune_rules": "unknown",
+  "scored_at": "2026-09-14",
+  "windows": {
+    "t5": {
+      "eval_date": "2026-09-07",
+      "assets": {
+        "10Y Treasury Yield": {
+          "bias": "Bullish",
+          "confidence": 55,
+          "entry_price": 4.758,
+          "eval_price": 4.806,
+          "eval_date": "2026-09-07",
+          "pct_change": 1.009,
+          "score": 0.5
+        },
+        "DXY": {
+          "bias": "Bullish",
+          "confidence": 50,
+          "entry_price": 99.43,
+          "eval_price": 98.84,
+          "eval_date": "2026-09-07",
+          "pct_change": -0.593,
+          "score": 0.0
+        },
+        "Gold": {
+          "bias": "Bearish",
+          "confidence": 45,
+          "entry_price": 4431.1001,
+          "eval_price": 4393.8999,
+          "eval_date": "2026-09-07",
+          "pct_change": -0.84,
+          "score": 1.0
+        }
+      },
+      "summary": {
+        "n_scored": 3,
+        "accuracy": 0.5
+      }
+    }
+  }
+}
