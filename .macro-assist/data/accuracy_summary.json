@@ -1,31 +1,31 @@
 {
-  "generated_at": "2026-09-07",
+  "generated_at": "2026-09-14",
   "arm": "market",
   "arm_composition": {
     "market": {
-      "n_reports": 114,
-      "n_calls": 1927,
+      "n_reports": 119,
+      "n_calls": 2017,
       "first_date": "2026-03-13",
-      "last_date": "2026-08-28"
+      "last_date": "2026-09-04"
     },
     "exogenous": {
-      "n_reports": 5,
-      "n_calls": 33,
+      "n_reports": 6,
+      "n_calls": 42,
       "first_date": "2026-07-27",
-      "last_date": "2026-08-24"
+      "last_date": "2026-08-31"
     },
     "kimi": {
-      "n_reports": 20,
-      "n_calls": 240,
+      "n_reports": 25,
+      "n_calls": 330,
       "first_date": "2026-08-03",
-      "last_date": "2026-08-28"
+      "last_date": "2026-09-04"
     }
   },
   "profile_confound": {
     "baseline|loosened": {
       "n_shared": 0,
       "n_a": 69,
-      "n_b": 45,
+      "n_b": 50,
       "confounded": true,
       "span_a": [
         "2026-03-13",
@@ -33,153 +33,153 @@
       ],
       "span_b": [
         "2026-06-29",
-        "2026-08-28"
+        "2026-09-04"
       ]
     }
   },
-  "n_reports_total": 114,
+  "n_reports_total": 119,
   "windows": {
     "t5": {
-      "n_reports": 114,
-      "overall_accuracy": 0.487,
-      "overall_dir_acc": 0.458,
+      "n_reports": 119,
+      "overall_accuracy": 0.485,
+      "overall_dir_acc": 0.452,
       "by_asset": {
         "S&P 500": {
-          "n": 113,
-          "accuracy": 0.5,
-          "directional_acc": 0.5,
-          "directional_n": 40,
-          "avg_confidence": 55.1
+          "n": 118,
+          "accuracy": 0.492,
+          "directional_acc": 0.476,
+          "directional_n": 42,
+          "avg_confidence": 55.2
         },
         "Gold": {
-          "n": 114,
-          "accuracy": 0.513,
-          "directional_acc": 0.524,
-          "directional_n": 63,
+          "n": 119,
+          "accuracy": 0.508,
+          "directional_acc": 0.515,
+          "directional_n": 66,
           "avg_confidence": 57.4
         },
         "WTI Oil": {
-          "n": 114,
-          "accuracy": 0.461,
-          "directional_acc": 0.304,
-          "directional_n": 23,
-          "avg_confidence": 55.1
+          "n": 119,
+          "accuracy": 0.466,
+          "directional_acc": 0.333,
+          "directional_n": 24,
+          "avg_confidence": 55.2
         },
         "10Y Treasury Yield": {
-          "n": 114,
+          "n": 119,
           "accuracy": 0.487,
           "directional_acc": 0.421,
           "directional_n": 19,
-          "avg_confidence": 55.4
+          "avg_confidence": 55.5
         },
         "DXY": {
-          "n": 114,
+          "n": 119,
           "accuracy": 0.496,
           "directional_acc": 0.478,
           "directional_n": 23,
-          "avg_confidence": 54.6
+          "avg_confidence": 54.7
         },
         "Bitcoin": {
-          "n": 113,
-          "accuracy": 0.465,
-          "directional_acc": 0.413,
-          "directional_n": 46,
+          "n": 118,
+          "accuracy": 0.462,
+          "directional_acc": 0.404,
+          "directional_n": 47,
           "avg_confidence": 54.2
         }
       }
     },
     "t10": {
-      "n_reports": 109,
-      "overall_accuracy": 0.465,
-      "overall_dir_acc": 0.402,
+      "n_reports": 114,
+      "overall_accuracy": 0.466,
+      "overall_dir_acc": 0.401,
       "by_asset": {
         "S&P 500": {
-          "n": 108,
-          "accuracy": 0.44,
-          "directional_acc": 0.349,
-          "directional_n": 43,
+          "n": 113,
+          "accuracy": 0.434,
+          "directional_acc": 0.333,
+          "directional_n": 45,
           "avg_confidence": 55.1
         },
         "Gold": {
-          "n": 109,
+          "n": 114,
           "accuracy": 0.482,
           "directional_acc": 0.471,
           "directional_n": 68,
-          "avg_confidence": 57.5
+          "avg_confidence": 57.4
         },
         "WTI Oil": {
-          "n": 109,
-          "accuracy": 0.445,
+          "n": 114,
+          "accuracy": 0.447,
           "directional_acc": 0.25,
           "directional_n": 24,
           "avg_confidence": 55.1
         },
         "10Y Treasury Yield": {
-          "n": 109,
-          "accuracy": 0.491,
-          "directional_acc": 0.438,
-          "directional_n": 16,
+          "n": 114,
+          "accuracy": 0.496,
+          "directional_acc": 0.471,
+          "directional_n": 17,
           "avg_confidence": 55.4
         },
         "DXY": {
-          "n": 109,
-          "accuracy": 0.463,
+          "n": 114,
+          "accuracy": 0.465,
           "directional_acc": 0.367,
           "directional_n": 30,
-          "avg_confidence": 54.7
+          "avg_confidence": 54.6
         },
         "Bitcoin": {
-          "n": 108,
-          "accuracy": 0.472,
+          "n": 113,
+          "accuracy": 0.473,
           "directional_acc": 0.438,
           "directional_n": 48,
-          "avg_confidence": 54.1
+          "avg_confidence": 54.2
         }
       }
     },
     "t20": {
-      "n_reports": 99,
-      "overall_accuracy": 0.44,
-      "overall_dir_acc": 0.349,
+      "n_reports": 104,
+      "overall_accuracy": 0.441,
+      "overall_dir_acc": 0.346,
       "by_asset": {
         "S&P 500": {
-          "n": 99,
-          "accuracy": 0.439,
-          "directional_acc": 0.342,
-          "directional_n": 38,
-          "avg_confidence": 55.1
+          "n": 104,
+          "accuracy": 0.423,
+          "directional_acc": 0.31,
+          "directional_n": 42,
+          "avg_confidence": 54.9
         },
         "Gold": {
-          "n": 99,
-          "accuracy": 0.424,
-          "directional_acc": 0.381,
-          "directional_n": 63,
-          "avg_confidence": 57.6
+          "n": 104,
+          "accuracy": 0.433,
+          "directional_acc": 0.391,
+          "directional_n": 64,
+          "avg_confidence": 57.5
         },
         "WTI Oil": {
-          "n": 99,
-          "accuracy": 0.424,
+          "n": 104,
+          "accuracy": 0.428,
           "directional_acc": 0.174,
           "directional_n": 23,
-          "avg_confidence": 54.8
+          "avg_confidence": 54.9
         },
         "10Y Treasury Yield": {
-          "n": 99,
-          "accuracy": 0.535,
+          "n": 104,
+          "accuracy": 0.534,
           "directional_acc": 0.64,
           "directional_n": 25,
           "avg_confidence": 55.4
         },
         "DXY": {
-          "n": 99,
-          "accuracy": 0.449,
+          "n": 104,
+          "accuracy": 0.452,
           "directional_acc": 0.368,
           "directional_n": 38,
-          "avg_confidence": 54.6
+          "avg_confidence": 54.7
         },
         "Bitcoin": {
-          "n": 98,
-          "accuracy": 0.367,
+          "n": 103,
+          "accuracy": 0.374,
           "directional_acc": 0.229,
           "directional_n": 48,
           "avg_confidence": 54.1
@@ -188,31 +188,80 @@
     }
   },
   "min_feedback_version": "v0.3",
-  "n_feedback_reports": 98,
+  "n_feedback_reports": 103,
   "feedback_windows": {
     "t5": {
+      "n_reports": 103,
+      "overall_accuracy": 0.483,
+      "overall_dir_acc": 0.437,
+      "by_asset": {
+        "S&P 500": {
+          "n": 102,
+          "accuracy": 0.495,
+          "directional_acc": 0.483,
+          "directional_n": 29,
+          "avg_confidence": 54.1
+        },
+        "Gold": {
+          "n": 103,
+          "accuracy": 0.495,
+          "directional_acc": 0.491,
+          "directional_n": 53,
+          "avg_confidence": 56.3
+        },
+        "WTI Oil": {
+          "n": 103,
+          "accuracy": 0.456,
+          "directional_acc": 0.235,
+          "directional_n": 17,
+          "avg_confidence": 54.8
+        },
+        "10Y Treasury Yield": {
+          "n": 103,
+          "accuracy": 0.505,
+          "directional_acc": 0.538,
+          "directional_n": 13,
+          "avg_confidence": 54.7
+        },
+        "DXY": {
+          "n": 103,
+          "accuracy": 0.505,
+          "directional_acc": 0.529,
+          "directional_n": 17,
+          "avg_confidence": 54.1
+        },
+        "Bitcoin": {
+          "n": 102,
+          "accuracy": 0.441,
+          "directional_acc": 0.342,
+          "directional_n": 38,
+          "avg_confidence": 54.0
+        }
+      }
+    },
+    "t10": {
       "n_reports": 98,
-      "overall_accuracy": 0.485,
-      "overall_dir_acc": 0.444,
+      "overall_accuracy": 0.455,
+      "overall_dir_acc": 0.352,
       "by_asset": {
         "S&P 500": {
           "n": 97,
-          "accuracy": 0.505,
-          "directional_acc": 0.519,
-          "directional_n": 27,
+          "accuracy": 0.459,
+          "directional_acc": 0.375,
+          "directional_n": 32,
           "avg_confidence": 53.9
         },
         "Gold": {
           "n": 98,
-          "accuracy": 0.5,
-          "directional_acc": 0.5,
-          "directional_n": 50,
+          "accuracy": 0.444,
+          "directional_acc": 0.4,
+          "directional_n": 55,
           "avg_confidence": 56.3
         },
         "WTI Oil": {
           "n": 98,
-          "accuracy": 0.449,
-          "directional_acc": 0.188,
+          "accuracy": 0.439,
+          "directional_acc": 0.125,
           "directional_n": 16,
           "avg_confidence": 54.7
         },
@@ -225,112 +274,63 @@
         },
         "DXY": {
           "n": 98,
-          "accuracy": 0.505,
-          "directional_acc": 0.529,
-          "directional_n": 17,
-          "avg_confidence": 54.1
-        },
-        "Bitcoin": {
-          "n": 97,
-          "accuracy": 0.443,
-          "directional_acc": 0.351,
-          "directional_n": 37,
-          "avg_confidence": 54.0
-        }
-      }
-    },
-    "t10": {
-      "n_reports": 93,
-      "overall_accuracy": 0.453,
-      "overall_dir_acc": 0.352,
-      "by_asset": {
-        "S&P 500": {
-          "n": 92,
-          "accuracy": 0.467,
-          "directional_acc": 0.4,
-          "directional_n": 30,
-          "avg_confidence": 53.9
-        },
-        "Gold": {
-          "n": 93,
-          "accuracy": 0.441,
-          "directional_acc": 0.4,
-          "directional_n": 55,
-          "avg_confidence": 56.3
-        },
-        "WTI Oil": {
-          "n": 93,
-          "accuracy": 0.435,
-          "directional_acc": 0.125,
-          "directional_n": 16,
-          "avg_confidence": 54.6
-        },
-        "10Y Treasury Yield": {
-          "n": 93,
-          "accuracy": 0.5,
-          "directional_acc": 0.5,
-          "directional_n": 12,
-          "avg_confidence": 54.6
-        },
-        "DXY": {
-          "n": 93,
-          "accuracy": 0.425,
+          "accuracy": 0.429,
           "directional_acc": 0.208,
           "directional_n": 24,
           "avg_confidence": 54.1
         },
         "Bitcoin": {
-          "n": 92,
-          "accuracy": 0.451,
+          "n": 97,
+          "accuracy": 0.454,
           "directional_acc": 0.385,
           "directional_n": 39,
-          "avg_confidence": 53.8
+          "avg_confidence": 54.0
         }
       }
     },
     "t20": {
-      "n_reports": 83,
+      "n_reports": 88,
       "overall_accuracy": 0.445,
-      "overall_dir_acc": 0.341,
+      "overall_dir_acc": 0.337,
       "by_asset": {
         "S&P 500": {
-          "n": 83,
-          "accuracy": 0.518,
-          "directional_acc": 0.565,
-          "directional_n": 23,
-          "avg_confidence": 53.8
+          "n": 88,
+          "accuracy": 0.494,
+          "directional_acc": 0.481,
+          "directional_n": 27,
+          "avg_confidence": 53.6
         },
         "Gold": {
-          "n": 83,
-          "accuracy": 0.41,
-          "directional_acc": 0.347,
-          "directional_n": 49,
-          "avg_confidence": 56.4
+          "n": 88,
+          "accuracy": 0.42,
+          "directional_acc": 0.36,
+          "directional_n": 50,
+          "avg_confidence": 56.3
         },
         "WTI Oil": {
-          "n": 83,
-          "accuracy": 0.428,
+          "n": 88,
+          "accuracy": 0.432,
           "directional_acc": 0.125,
           "directional_n": 16,
-          "avg_confidence": 54.2
+          "avg_confidence": 54.3
         },
         "10Y Treasury Yield": {
-          "n": 83,
-          "accuracy": 0.548,
+          "n": 88,
+          "accuracy": 0.545,
           "directional_acc": 0.7,
           "directional_n": 20,
-          "avg_confidence": 54.5
+          "avg_confidence": 54.6
         },
         "DXY": {
-          "n": 83,
-          "accuracy": 0.392,
+          "n": 88,
+          "accuracy": 0.398,
           "directional_acc": 0.154,
           "directional_n": 26,
           "avg_confidence": 54.0
         },
         "Bitcoin": {
-          "n": 82,
-          "accuracy": 0.372,
+          "n": 87,
+          "accuracy": 0.379,
           "directional_acc": 0.231,
           "directional_n": 39,
           "avg_confidence": 53.8
@@ -339,312 +339,6 @@
     }
   },
   "version_windows": {
-    "v1.1": {
-      "n_reports_in_pipeline": 2,
-      "n_reports_scored": 2,
-      "windows": {
-        "t5": {
-          "n_reports": 2,
-          "overall_accuracy": 0.5,
-          "overall_dir_acc": 0.5,
-          "by_asset": {
-            "S&P 500": {
-              "n": 2,
-              "accuracy": 0.5,
-              "directional_acc": null,
-              "directional_n": 0,
-              "avg_confidence": 55.0
-            },
-            "Gold": {
-              "n": 2,
-              "accuracy": 0.5,
-              "directional_acc": null,
-              "directional_n": 0,
-              "avg_confidence": 52.5
-            },
-            "WTI Oil": {
-              "n": 2,
-              "accuracy": 0.75,
-              "directional_acc": 1.0,
-              "directional_n": 1,
-              "avg_confidence": 52.0
-            },
-            "10Y Treasury Yield": {
-              "n": 2,
-              "accuracy": 0.5,
-              "directional_acc": null,
-              "directional_n": 0,
-              "avg_confidence": 55.0
-            },
-            "DXY": {
-              "n": 2,
-              "accuracy": 0.5,
-              "directional_acc": null,
-              "directional_n": 0,
-              "avg_confidence": 52.0
-            },
-            "Bitcoin": {
-              "n": 2,
-              "accuracy": 0.25,
-              "directional_acc": 0.0,
-              "directional_n": 1,
-              "avg_confidence": 53.5
-            }
-          }
-        },
-        "t10": {
-          "n_reports": 2,
-          "overall_accuracy": 0.333,
-          "overall_dir_acc": 0.0,
-          "by_asset": {
-            "S&P 500": {
-              "n": 2,
-              "accuracy": 0.5,
-              "directional_acc": null,
-              "directional_n": 0,
-              "avg_confidence": 55.0
-            },
-            "Gold": {
-              "n": 2,
-              "accuracy": 0.5,
-              "directional_acc": null,
-              "directional_n": 0,
-              "avg_confidence": 52.5
-            },
-            "WTI Oil": {
-              "n": 2,
-              "accuracy": 0.25,
-              "directional_acc": 0.0,
-              "directional_n": 1,
-              "avg_confidence": 52.0
-            },
-            "10Y Treasury Yield": {
-              "n": 2,
-              "accuracy": 0.25,
-              "directional_acc": 0.0,
-              "directional_n": 1,
-              "avg_confidence": 55.0
-            },
-            "DXY": {
-              "n": 2,
-              "accuracy": 0.25,
-              "directional_acc": 0.0,
-              "directional_n": 1,
-              "avg_confidence": 52.0
-            },
-            "Bitcoin": {
-              "n": 2,
-              "accuracy": 0.25,
-              "directional_acc": 0.0,
-              "directional_n": 1,
-              "avg_confidence": 53.5
-            }
-          }
-        },
-        "t20": {
-          "n_reports": 2,
-          "overall_accuracy": 0.458,
-          "overall_dir_acc": 0.4,
-          "by_asset": {
-            "S&P 500": {
-              "n": 2,
-              "accuracy": 0.5,
-              "directional_acc": null,
-              "directional_n": 0,
-              "avg_confidence": 55.0
-            },
-            "Gold": {
-              "n": 2,
-              "accuracy": 0.5,
-              "directional_acc": null,
-              "directional_n": 0,
-              "avg_confidence": 52.5
-            },
-            "WTI Oil": {
-              "n": 2,
-              "accuracy": 0.25,
-              "directional_acc": 0.0,
-              "directional_n": 1,
-              "avg_confidence": 52.0
-            },
-            "10Y Treasury Yield": {
-              "n": 2,
-              "accuracy": 1.0,
-              "directional_acc": 1.0,
-              "directional_n": 2,
-              "avg_confidence": 55.0
-            },
-            "DXY": {
-              "n": 2,
-              "accuracy": 0.25,
-              "directional_acc": 0.0,
-              "directional_n": 1,
-              "avg_confidence": 52.0
-            },
-            "Bitcoin": {
-              "n": 2,
-              "accuracy": 0.25,
-              "directional_acc": 0.0,
-              "directional_n": 1,
-              "avg_confidence": 53.5
-            }
-          }
-        }
-      }
-    },
-    "v1.2": {
-      "n_reports_in_pipeline": 1,
-      "n_reports_scored": 1,
-      "windows": {
-        "t5": {
-          "n_reports": 1,
-          "overall_accuracy": 0.583,
-          "overall_dir_acc": 1.0,
-          "by_asset": {
-            "S&P 500": {
-              "n": 1,
-              "accuracy": 1.0,
-              "directional_acc": 1.0,
-              "directional_n": 1,
-              "avg_confidence": 57.0
-            },
-            "Gold": {
-              "n": 1,
-              "accuracy": 0.5,
-              "directional_acc": null,
-              "directional_n": 0,
-              "avg_confidence": 60.0
-            },
-            "WTI Oil": {
-              "n": 1,
-              "accuracy": 0.5,
-              "directional_acc": null,
-              "directional_n": 0,
-              "avg_confidence": 52.0
-            },
-            "10Y Treasury Yield": {
-              "n": 1,
-              "accuracy": 0.5,
-              "directional_acc": null,
-              "directional_n": 0,
-              "avg_confidence": 55.0
-            },
-            "DXY": {
-              "n": 1,
-              "accuracy": 0.5,
-              "directional_acc": null,
-              "directional_n": 0,
-              "avg_confidence": 57.0
-            },
-            "Bitcoin": {
-              "n": 1,
-              "accuracy": 0.5,
-              "directional_acc": null,
-              "directional_n": 0,
-              "avg_confidence": 53.0
-            }
-          }
-        },
-        "t10": {
-          "n_reports": 1,
-          "overall_accuracy": 0.25,
-          "overall_dir_acc": 0.0,
-          "by_asset": {
-            "S&P 500": {
-              "n": 1,
-              "accuracy": 0.0,
-              "directional_acc": 0.0,
-              "directional_n": 1,
-              "avg_confidence": 57.0
-            },
-            "Gold": {
-              "n": 1,
-              "accuracy": 0.0,
-              "directional_acc": 0.0,
-              "directional_n": 1,
-              "avg_confidence": 60.0
-            },
-            "WTI Oil": {
-              "n": 1,
-              "accuracy": 0.5,
-              "directional_acc": null,
-              "directional_n": 0,
-              "avg_confidence": 52.0
-            },
-            "10Y Treasury Yield": {
-              "n": 1,
-              "accuracy": 0.5,
-              "directional_acc": null,
-              "directional_n": 0,
-              "avg_confidence": 55.0
-            },
-            "DXY": {
-              "n": 1,
-              "accuracy": 0.0,
-              "directional_acc": 0.0,
-              "directional_n": 1,
-              "avg_confidence": 57.0
-            },
-            "Bitcoin": {
-              "n": 1,
-              "accuracy": 0.5,
-              "directional_acc": null,
-              "directional_n": 0,
-              "avg_confidence": 53.0
-            }
-          }
-        },
-        "t20": {
-          "n_reports": 1,
-          "overall_accuracy": 0.25,
-          "overall_dir_acc": 0.0,
-          "by_asset": {
-            "S&P 500": {
-              "n": 1,
-              "accuracy": 0.0,
-              "directional_acc": 0.0,
-              "directional_n": 1,
-              "avg_confidence": 57.0
-            },
-            "Gold": {
-              "n": 1,
-              "accuracy": 0.0,
-              "directional_acc": 0.0,
-              "directional_n": 1,
-              "avg_confidence": 60.0
-            },
-            "WTI Oil": {
-              "n": 1,
-              "accuracy": 0.5,
-              "directional_acc": null,
-              "directional_n": 0,
-              "avg_confidence": 52.0
-            },
-            "10Y Treasury Yield": {
-              "n": 1,
-              "accuracy": 0.5,
-              "directional_acc": null,
-              "directional_n": 0,
-              "avg_confidence": 55.0
-            },
-            "DXY": {
-              "n": 1,
-              "accuracy": 0.0,
-              "directional_acc": 0.0,
-              "directional_n": 1,
-              "avg_confidence": 57.0
-            },
-            "Bitcoin": {
-              "n": 1,
-              "accuracy": 0.5,
-              "directional_acc": null,
-              "directional_n": 0,
-              "avg_confidence": 53.0
-            }
-          }
-        }
-      }
-    },
     "v1.4": {
       "n_reports_in_pipeline": 21,
       "n_reports_scored": 20,
@@ -800,25 +494,74 @@
     },
     "v1.5": {
       "n_reports_in_pipeline": 50,
-      "n_reports_scored": 45,
+      "n_reports_scored": 50,
       "windows": {
         "t5": {
+          "n_reports": 50,
+          "overall_accuracy": 0.503,
+          "overall_dir_acc": 0.522,
+          "by_asset": {
+            "S&P 500": {
+              "n": 49,
+              "accuracy": 0.459,
+              "directional_acc": 0.375,
+              "directional_n": 16,
+              "avg_confidence": 55.7
+            },
+            "Gold": {
+              "n": 50,
+              "accuracy": 0.55,
+              "directional_acc": 0.619,
+              "directional_n": 21,
+              "avg_confidence": 56.1
+            },
+            "WTI Oil": {
+              "n": 50,
+              "accuracy": 0.52,
+              "directional_acc": 1.0,
+              "directional_n": 2,
+              "avg_confidence": 57.4
+            },
+            "10Y Treasury Yield": {
+              "n": 50,
+              "accuracy": 0.52,
+              "directional_acc": 1.0,
+              "directional_n": 2,
+              "avg_confidence": 55.9
+            },
+            "DXY": {
+              "n": 50,
+              "accuracy": 0.51,
+              "directional_acc": 1.0,
+              "directional_n": 1,
+              "avg_confidence": 54.8
+            },
+            "Bitcoin": {
+              "n": 50,
+              "accuracy": 0.46,
+              "directional_acc": 0.0,
+              "directional_n": 4,
+              "avg_confidence": 54.7
+            }
+          }
+        },
+        "t10": {
           "n_reports": 45,
-          "overall_accuracy": 0.509,
-          "overall_dir_acc": 0.564,
+          "overall_accuracy": 0.502,
+          "overall_dir_acc": 0.511,
           "by_asset": {
             "S&P 500": {
               "n": 44,
-              "accuracy": 0.477,
-              "directional_acc": 0.429,
-              "directional_n": 14,
+              "accuracy": 0.443,
+              "directional_acc": 0.368,
+              "directional_n": 19,
               "avg_confidence": 55.5
             },
             "Gold": {
               "n": 45,
               "accuracy": 0.567,
-              "directional_acc": 0.667,
-              "directional_n": 18,
+              "directional_acc": 0.65,
+              "directional_n": 20,
               "avg_confidence": 56.1
             },
             "WTI Oil": {
@@ -830,15 +573,15 @@
             },
             "10Y Treasury Yield": {
               "n": 45,
-              "accuracy": 0.522,
+              "accuracy": 0.533,
               "directional_acc": 1.0,
-              "directional_n": 2,
+              "directional_n": 3,
               "avg_confidence": 56.0
             },
             "DXY": {
               "n": 45,
-              "accuracy": 0.511,
-              "directional_acc": 1.0,
+              "accuracy": 0.489,
+              "directional_acc": 0.0,
               "directional_n": 1,
               "avg_confidence": 54.7
             },
@@ -851,98 +594,49 @@
             }
           }
         },
-        "t10": {
-          "n_reports": 40,
-          "overall_accuracy": 0.504,
-          "overall_dir_acc": 0.523,
-          "by_asset": {
-            "S&P 500": {
-              "n": 39,
-              "accuracy": 0.462,
-              "directional_acc": 0.412,
-              "directional_n": 17,
-              "avg_confidence": 55.6
-            },
-            "Gold": {
-              "n": 40,
-              "accuracy": 0.575,
-              "directional_acc": 0.65,
-              "directional_n": 20,
-              "avg_confidence": 56.1
-            },
-            "WTI Oil": {
-              "n": 40,
-              "accuracy": 0.512,
-              "directional_acc": 1.0,
-              "directional_n": 1,
-              "avg_confidence": 57.6
-            },
-            "10Y Treasury Yield": {
-              "n": 40,
-              "accuracy": 0.525,
-              "directional_acc": 1.0,
-              "directional_n": 2,
-              "avg_confidence": 55.9
-            },
-            "DXY": {
-              "n": 40,
-              "accuracy": 0.487,
-              "directional_acc": 0.0,
-              "directional_n": 1,
-              "avg_confidence": 54.9
-            },
-            "Bitcoin": {
-              "n": 40,
-              "accuracy": 0.463,
-              "directional_acc": 0.0,
-              "directional_n": 3,
-              "avg_confidence": 54.5
-            }
-          }
-        },
         "t20": {
-          "n_reports": 30,
-          "overall_accuracy": 0.55,
-          "overall_dir_acc": 0.765,
+          "n_reports": 35,
+          "overall_accuracy": 0.536,
+          "overall_dir_acc": 0.692,
           "by_asset": {
             "S&P 500": {
-              "n": 30,
-              "accuracy": 0.6,
-              "directional_acc": 0.75,
-              "directional_n": 12,
-              "avg_confidence": 55.8
+              "n": 35,
+              "accuracy": 0.529,
+              "directional_acc": 0.562,
+              "directional_n": 16,
+              "avg_confidence": 55.1
             },
             "Gold": {
-              "n": 30,
-              "accuracy": 0.683,
-              "directional_acc": 0.867,
-              "directional_n": 15,
-              "avg_confidence": 56.2
+              "n": 35,
+              "accuracy": 0.671,
+              "directional_acc": 0.875,
+              "directional_n": 16,
+              "avg_confidence": 56.0
             },
             "WTI Oil": {
-              "n": 30,
-              "accuracy": 0.517,
+              "n": 35,
+              "accuracy": 0.514,
               "directional_acc": 1.0,
               "directional_n": 1,
-              "avg_confidence": 57.6
+              "avg_confidence": 57.4
             },
             "10Y Treasury Yield": {
-              "n": 30,
-              "accuracy": 0.517,
+              "n": 35,
+              "accuracy": 0.514,
               "directional_acc": 1.0,
               "directional_n": 1,
               "avg_confidence": 56.0
             },
             "DXY": {
-              "n": 30,
-              "accuracy": 0.517,
+              "n": 35,
+              "accuracy": 0.514,
               "directional_acc": 1.0,
               "directional_n": 1,
-              "avg_confidence": 54.8
+              "avg_confidence": 54.9
             },
             "Bitcoin": {
-              "n": 30,
-              "accuracy": 0.467,
+              "n": 35,
+              "accuracy": 0.471,
               "directional_acc": 0.25,
               "directional_n": 4,
               "avg_confidence": 54.4
@@ -952,6 +646,54 @@
       }
     },
     "v1.6": {
+      "n_reports_in_pipeline": 3,
+      "n_reports_scored": 0,
+      "windows": {
+        "t5": {
+          "n_reports": 0,
+          "overall_accuracy": null,
+          "overall_dir_acc": null,
+          "by_asset": {}
+        },
+        "t10": {
+          "n_reports": 0,
+          "overall_accuracy": null,
+          "overall_dir_acc": null,
+          "by_asset": {}
+        },
+        "t20": {
+          "n_reports": 0,
+          "overall_accuracy": null,
+          "overall_dir_acc": null,
+          "by_asset": {}
+        }
+      }
+    },
+    "v2.0": {
+      "n_reports_in_pipeline": 2,
+      "n_reports_scored": 0,
+      "windows": {
+        "t5": {
+          "n_reports": 0,
+          "overall_accuracy": null,
+          "overall_dir_acc": null,
+          "by_asset": {}
+        },
+        "t10": {
+          "n_reports": 0,
+          "overall_accuracy": null,
+          "overall_dir_acc": null,
+          "by_asset": {}
+        },
+        "t20": {
+          "n_reports": 0,
+          "overall_accuracy": null,
+          "overall_dir_acc": null,
+          "by_asset": {}
+        }
+      }
+    },
+    "v2.1": {
       "n_reports_in_pipeline": 1,
       "n_reports_scored": 0,
       "windows": {
@@ -979,25 +721,25 @@
   "calibration": {
     "windows": {
       "t5": {
-        "n": 214,
-        "brier": 0.2629,
-        "base_rate": 0.458,
-        "brier_skill_score": -0.059,
-        "ece": 0.1122,
+        "n": 221,
+        "brier": 0.2643,
+        "base_rate": 0.452,
+        "brier_skill_score": -0.067,
+        "ece": 0.1182,
         "bins": [
           {
             "range": "50-60",
-            "n": 134,
-            "mean_conf": 0.538,
-            "hit_rate": 0.47,
-            "gap": -0.068
+            "n": 138,
+            "mean_conf": 0.539,
+            "hit_rate": 0.464,
+            "gap": -0.075
           },
           {
             "range": "60-70",
-            "n": 76,
-            "mean_conf": 0.619,
-            "hit_rate": 0.434,
-            "gap": -0.185
+            "n": 79,
+            "mean_conf": 0.62,
+            "hit_rate": 0.43,
+            "gap": -0.189
           },
           {
             "range": "70-80",
@@ -1009,18 +751,18 @@
         ]
       },
       "t10": {
-        "n": 229,
-        "brier": 0.2659,
-        "base_rate": 0.402,
-        "brier_skill_score": -0.106,
-        "ece": 0.1769,
+        "n": 232,
+        "brier": 0.2658,
+        "base_rate": 0.401,
+        "brier_skill_score": -0.107,
+        "ece": 0.1774,
         "bins": [
           {
             "range": "50-60",
-            "n": 148,
+            "n": 151,
             "mean_conf": 0.538,
-            "hit_rate": 0.372,
-            "gap": -0.166
+            "hit_rate": 0.371,
+            "gap": -0.167
           },
           {
             "range": "60-70",
@@ -1039,18 +781,18 @@
         ]
       },
       "t20": {
-        "n": 235,
-        "brier": 0.2755,
-        "base_rate": 0.349,
-        "brier_skill_score": -0.213,
-        "ece": 0.2223,
+        "n": 240,
+        "brier": 0.2751,
+        "base_rate": 0.346,
+        "brier_skill_score": -0.216,
+        "ece": 0.2245,
         "bins": [
           {
             "range": "50-60",
-            "n": 147,
+            "n": 152,
             "mean_conf": 0.539,
-            "hit_rate": 0.361,
-            "gap": -0.179
+            "hit_rate": 0.355,
+            "gap": -0.183
           },
           {
             "range": "60-70",
@@ -1070,25 +812,25 @@
       }
     },
     "overall": {
-      "n": 678,
-      "brier": 0.2683,
-      "base_rate": 0.401,
-      "brier_skill_score": -0.117,
-      "ece": 0.1687,
+      "n": 693,
+      "brier": 0.2685,
+      "base_rate": 0.398,
+      "brier_skill_score": -0.121,
+      "ece": 0.1714,
       "bins": [
         {
           "range": "50-60",
-          "n": 429,
-          "mean_conf": 0.538,
-          "hit_rate": 0.399,
-          "gap": -0.14
+          "n": 441,
+          "mean_conf": 0.539,
+          "hit_rate": 0.395,
+          "gap": -0.144
         },
         {
           "range": "60-70",
-          "n": 236,
+          "n": 239,
           "mean_conf": 0.62,
-          "hit_rate": 0.39,
-          "gap": -0.23
+          "hit_rate": 0.389,
+          "gap": -0.231
         },
         {
           "range": "70-80",
@@ -1103,38 +845,38 @@
   "calibration_feedback": {
     "windows": {
       "t5": {
-        "n": 160,
-        "brier": 0.2619,
-        "base_rate": 0.444,
-        "brier_skill_score": -0.061,
-        "ece": 0.1105,
+        "n": 167,
+        "brier": 0.2636,
+        "base_rate": 0.437,
+        "brier_skill_score": -0.072,
+        "ece": 0.1186,
         "bins": [
           {
             "range": "50-60",
-            "n": 124,
-            "mean_conf": 0.536,
-            "hit_rate": 0.468,
-            "gap": -0.068
+            "n": 128,
+            "mean_conf": 0.537,
+            "hit_rate": 0.461,
+            "gap": -0.076
           },
           {
             "range": "60-70",
-            "n": 36,
+            "n": 39,
             "mean_conf": 0.617,
-            "hit_rate": 0.361,
-            "gap": -0.256
+            "hit_rate": 0.359,
+            "gap": -0.258
           }
         ]
       },
       "t10": {
-        "n": 176,
-        "brier": 0.2709,
+        "n": 179,
+        "brier": 0.2706,
         "base_rate": 0.352,
         "brier_skill_score": -0.187,
-        "ece": 0.201,
+        "ece": 0.2012,
         "bins": [
           {
             "range": "50-60",
-            "n": 139,
+            "n": 142,
             "mean_conf": 0.536,
             "hit_rate": 0.345,
             "gap": -0.191
@@ -1149,18 +891,18 @@
         ]
       },
       "t20": {
-        "n": 173,
-        "brier": 0.2693,
-        "base_rate": 0.341,
-        "brier_skill_score": -0.198,
-        "ece": 0.2139,
+        "n": 178,
+        "brier": 0.2689,
+        "base_rate": 0.337,
+        "brier_skill_score": -0.203,
+        "ece": 0.217,
         "bins": [
           {
             "range": "50-60",
-            "n": 134,
-            "mean_conf": 0.537,
-            "hit_rate": 0.351,
-            "gap": -0.186
+            "n": 139,
+            "mean_conf": 0.536,
+            "hit_rate": 0.345,
+            "gap": -0.191
           },
           {
             "range": "60-70",
@@ -1173,22 +915,22 @@
       }
     },
     "overall": {
-      "n": 509,
-      "brier": 0.2675,
-      "base_rate": 0.377,
-      "brier_skill_score": -0.139,
-      "ece": 0.177,
+      "n": 524,
+      "brier": 0.2678,
+      "base_rate": 0.374,
+      "brier_skill_score": -0.144,
+      "ece": 0.1802,
       "bins": [
         {
           "range": "50-60",
-          "n": 397,
-          "mean_conf": 0.536,
-          "hit_rate": 0.385,
-          "gap": -0.151
+          "n": 409,
+          "mean_conf": 0.537,
+          "hit_rate": 0.381,
+          "gap": -0.155
         },
         {
           "range": "60-70",
-          "n": 112,
+          "n": 115,
           "mean_conf": 0.617,
           "hit_rate": 0.348,
           "gap": -0.269
@@ -1228,142 +970,142 @@
       ]
     },
     "loosened": {
-      "n": 117,
-      "brier": 0.239,
-      "base_rate": 0.607,
-      "brier_skill_score": -0.002,
-      "ece": 0.0577,
+      "n": 132,
+      "brier": 0.2435,
+      "base_rate": 0.568,
+      "brier_skill_score": 0.007,
+      "ece": 0.0312,
       "bins": [
         {
           "range": "50-60",
-          "n": 100,
-          "mean_conf": 0.547,
-          "hit_rate": 0.61,
-          "gap": 0.063
+          "n": 112,
+          "mean_conf": 0.546,
+          "hit_rate": 0.571,
+          "gap": 0.025
         },
         {
           "range": "60-70",
-          "n": 17,
-          "mean_conf": 0.612,
-          "hit_rate": 0.588,
-          "gap": -0.024
+          "n": 20,
+          "mean_conf": 0.614,
+          "hit_rate": 0.55,
+          "gap": -0.064
         }
       ]
     }
   },
   "calibration_by_conviction_floor": {
     "off": {
-      "n": 117,
-      "brier": 0.239,
-      "base_rate": 0.607,
-      "brier_skill_score": -0.002,
-      "ece": 0.0577,
+      "n": 132,
+      "brier": 0.2435,
+      "base_rate": 0.568,
+      "brier_skill_score": 0.007,
+      "ece": 0.0312,
       "bins": [
         {
           "range": "50-60",
-          "n": 100,
-          "mean_conf": 0.547,
-          "hit_rate": 0.61,
-          "gap": 0.063
+          "n": 112,
+          "mean_conf": 0.546,
+          "hit_rate": 0.571,
+          "gap": 0.025
         },
         {
           "range": "60-70",
-          "n": 17,
-          "mean_conf": 0.612,
-          "hit_rate": 0.588,
-          "gap": -0.024
+          "n": 20,
+          "mean_conf": 0.614,
+          "hit_rate": 0.55,
+          "gap": -0.064
         }
       ]
     }
   },
   "calibration_by_arm": {
     "exogenous": {
-      "n": 18,
-      "brier": 0.2025,
-      "base_rate": 0.167,
-      "brier_skill_score": -0.458,
-      "ece": 0.2611,
+      "n": 25,
+      "brier": 0.2073,
+      "base_rate": 0.2,
+      "brier_skill_score": -0.296,
+      "ece": 0.23,
       "bins": [
         {
           "range": "0-50",
-          "n": 15,
-          "mean_conf": 0.41,
-          "hit_rate": 0.133,
-          "gap": -0.277
+          "n": 21,
+          "mean_conf": 0.414,
+          "hit_rate": 0.19,
+          "gap": -0.224
         },
         {
           "range": "50-60",
-          "n": 3,
-          "mean_conf": 0.517,
-          "hit_rate": 0.333,
-          "gap": -0.183
+          "n": 4,
+          "mean_conf": 0.512,
+          "hit_rate": 0.25,
+          "gap": -0.262
         }
       ]
     },
     "kimi": {
-      "n": 83,
-      "brier": 0.2887,
-      "base_rate": 0.639,
-      "brier_skill_score": -0.251,
-      "ece": 0.2271,
+      "n": 114,
+      "brier": 0.3235,
+      "base_rate": 0.596,
+      "brier_skill_score": -0.344,
+      "ece": 0.2699,
       "bins": [
         {
           "range": "50-60",
-          "n": 4,
+          "n": 5,
           "mean_conf": 0.58,
-          "hit_rate": 0.75,
-          "gap": 0.17
+          "hit_rate": 0.6,
+          "gap": 0.02
         },
         {
           "range": "60-70",
-          "n": 18,
+          "n": 21,
           "mean_conf": 0.67,
-          "hit_rate": 0.611,
-          "gap": -0.059
+          "hit_rate": 0.571,
+          "gap": -0.099
         },
         {
           "range": "70-80",
-          "n": 9,
+          "n": 10,
           "mean_conf": 0.75,
-          "hit_rate": 0.556,
-          "gap": -0.194
+          "hit_rate": 0.6,
+          "gap": -0.15
         },
         {
           "range": "80-90",
-          "n": 8,
+          "n": 14,
           "mean_conf": 0.83,
-          "hit_rate": 0.625,
-          "gap": -0.205
+          "hit_rate": 0.5,
+          "gap": -0.33
         },
         {
           "range": "90-100",
-          "n": 44,
-          "mean_conf": 0.971,
-          "hit_rate": 0.659,
-          "gap": -0.312
+          "n": 64,
+          "mean_conf": 0.976,
+          "hit_rate": 0.625,
+          "gap": -0.351
         }
       ]
     },
     "market": {
-      "n": 678,
-      "brier": 0.2683,
-      "base_rate": 0.401,
-      "brier_skill_score": -0.117,
-      "ece": 0.1687,
+      "n": 693,
+      "brier": 0.2685,
+      "base_rate": 0.398,
+      "brier_skill_score": -0.121,
+      "ece": 0.1714,
       "bins": [
         {
           "range": "50-60",
-          "n": 429,
-          "mean_conf": 0.538,
-          "hit_rate": 0.399,
-          "gap": -0.14
+          "n": 441,
+          "mean_conf": 0.539,
+          "hit_rate": 0.395,
+          "gap": -0.144
         },
         {
           "range": "60-70",
-          "n": 236,
+          "n": 239,
           "mean_conf": 0.62,
-          "hit_rate": 0.39,
-          "gap": -0.23
+          "hit_rate": 0.389,
+          "gap": -0.231
         },
         {
           "range": "70-80",
@@ -1394,203 +1136,203 @@
       "n_bearish": 330
     },
     "loosened": {
-      "n_resolved": 688,
+      "n_resolved": 778,
       "commitment_rate": 0.212,
       "neutral_rate": 0.788,
-      "bullish_rate": 0.196,
-      "bearish_rate": 0.016,
-      "bearish_share_of_directional": 0.075,
+      "bullish_rate": 0.197,
+      "bearish_rate": 0.015,
+      "bearish_share_of_directional": 0.073,
       "decisive_rate": 0.17,
-      "wrong_decisive_rate": 0.067,
-      "right_decisive_rate": 0.103,
-      "net_decisive_edge": 0.036,
-      "hit_rate_when_decisive": 0.607,
-      "n_decisive": 117,
-      "n_directional": 146,
-      "n_bullish": 135,
-      "n_bearish": 11
+      "wrong_decisive_rate": 0.073,
+      "right_decisive_rate": 0.096,
+      "net_decisive_edge": 0.023,
+      "hit_rate_when_decisive": 0.568,
+      "n_decisive": 132,
+      "n_directional": 165,
+      "n_bullish": 153,
+      "n_bearish": 12
     }
   },
   "bias_separation": {
     "overall": {
-      "n": 1927,
-      "n_dates": 114,
+      "n": 2017,
+      "n_dates": 119,
       "buckets": {
         "Bullish": {
-          "n": 495,
-          "mean_z": -0.209,
-          "median_z": -0.24,
-          "mean_pct": -1.295
+          "n": 513,
+          "mean_z": -0.217,
+          "median_z": -0.274,
+          "mean_pct": -1.266
         },
         "Neutral": {
-          "n": 1091,
-          "mean_z": 0.031,
-          "median_z": -0.01,
-          "mean_pct": 0.934
+          "n": 1162,
+          "mean_z": 0.035,
+          "median_z": -0.021,
+          "mean_pct": 1.156
         },
         "Bearish": {
-          "n": 341,
-          "mean_z": 0.204,
-          "median_z": 0.204,
-          "mean_pct": 1.436
+          "n": 342,
+          "mean_z": 0.206,
+          "median_z": 0.211,
+          "mean_pct": 1.432
         }
       },
       "ordering": "inverted",
       "bullish_vs_neutral": {
-        "gap": -0.2395,
+        "gap": -0.2525,
         "p_value": 0.0005,
-        "n_a": 495,
-        "n_b": 1091,
+        "n_a": 513,
+        "n_b": 1162,
         "n_blocks": 6,
-        "ci_lo": -0.5327,
-        "ci_hi": 0.0762,
-        "ci_width": 0.6088
+        "ci_lo": -0.5213,
+        "ci_hi": 0.0307,
+        "ci_width": 0.5519
       },
       "bearish_vs_bullish": {
-        "gap": 0.4131,
+        "gap": 0.4231,
         "p_value": 0.0005,
-        "n_a": 341,
-        "n_b": 495,
+        "n_a": 342,
+        "n_b": 513,
         "n_blocks": 6,
-        "ci_lo": -0.0613,
-        "ci_hi": 0.8314,
-        "ci_width": 0.8927
+        "ci_lo": -0.0195,
+        "ci_hi": 0.8322,
+        "ci_width": 0.8517
       }
     },
     "windows": {
       "t5": {
-        "n": 682,
-        "n_dates": 114,
+        "n": 712,
+        "n_dates": 119,
         "buckets": {
           "Bullish": {
-            "n": 172,
-            "mean_z": -0.145,
-            "median_z": -0.152,
-            "mean_pct": -0.575
+            "n": 180,
+            "mean_z": -0.157,
+            "median_z": -0.156,
+            "mean_pct": -0.587
           },
           "Neutral": {
-            "n": 395,
-            "mean_z": 0.054,
-            "median_z": -0.032,
-            "mean_pct": 0.503
+            "n": 417,
+            "mean_z": 0.056,
+            "median_z": -0.007,
+            "mean_pct": 0.577
           },
           "Bearish": {
             "n": 115,
-            "mean_z": 0.033,
-            "median_z": 0.094,
+            "mean_z": 0.042,
+            "median_z": 0.119,
             "mean_pct": 0.236
           }
         },
         "ordering": "mixed",
         "bullish_vs_neutral": {
-          "gap": -0.1991,
-          "p_value": 0.0485,
-          "n_a": 172,
-          "n_b": 395,
+          "gap": -0.2135,
+          "p_value": 0.0185,
+          "n_a": 180,
+          "n_b": 417,
           "n_blocks": 6,
-          "ci_lo": -0.4306,
-          "ci_hi": 0.0407,
-          "ci_width": 0.4714
+          "ci_lo": -0.4355,
+          "ci_hi": 0.0136,
+          "ci_width": 0.4491
         },
         "bearish_vs_bullish": {
-          "gap": 0.178,
-          "p_value": 0.1709,
+          "gap": 0.1997,
+          "p_value": 0.1274,
           "n_a": 115,
-          "n_b": 172,
+          "n_b": 180,
           "n_blocks": 6,
-          "ci_lo": -0.1464,
-          "ci_hi": 0.4518,
-          "ci_width": 0.5982
+          "ci_lo": -0.0662,
+          "ci_hi": 0.4702,
+          "ci_width": 0.5364
         }
       },
       "t10": {
-        "n": 652,
-        "n_dates": 109,
+        "n": 682,
+        "n_dates": 114,
         "buckets": {
           "Bullish": {
-            "n": 168,
-            "mean_z": -0.195,
-            "median_z": -0.277,
-            "mean_pct": -0.976
+            "n": 172,
+            "mean_z": -0.181,
+            "median_z": -0.299,
+            "mean_pct": -0.934
           },
           "Neutral": {
-            "n": 370,
-            "mean_z": 0.024,
-            "median_z": -0.002,
-            "mean_pct": 0.933
+            "n": 395,
+            "mean_z": 0.018,
+            "median_z": -0.037,
+            "mean_pct": 1.042
           },
           "Bearish": {
-            "n": 114,
-            "mean_z": 0.208,
-            "median_z": 0.126,
-            "mean_pct": 1.216
+            "n": 115,
+            "mean_z": 0.209,
+            "median_z": 0.14,
+            "mean_pct": 1.205
           }
         },
         "ordering": "inverted",
         "bullish_vs_neutral": {
-          "gap": -0.219,
-          "p_value": 0.0425,
-          "n_a": 168,
-          "n_b": 370,
+          "gap": -0.1988,
+          "p_value": 0.068,
+          "n_a": 172,
+          "n_b": 395,
           "n_blocks": 6,
-          "ci_lo": -0.5667,
-          "ci_hi": 0.1354,
-          "ci_width": 0.7021
+          "ci_lo": -0.5263,
+          "ci_hi": 0.1409,
+          "ci_width": 0.6672
         },
         "bearish_vs_bullish": {
-          "gap": 0.403,
-          "p_value": 0.0055,
-          "n_a": 114,
-          "n_b": 168,
+          "gap": 0.3905,
+          "p_value": 0.0045,
+          "n_a": 115,
+          "n_b": 172,
           "n_blocks": 6,
-          "ci_lo": -0.1269,
-          "ci_hi": 0.9272,
-          "ci_width": 1.0542
+          "ci_lo": -0.1367,
+          "ci_hi": 0.9107,
+          "ci_width": 1.0474
         }
       },
       "t20": {
-        "n": 593,
-        "n_dates": 99,
+        "n": 623,
+        "n_dates": 104,
         "buckets": {
           "Bullish": {
-            "n": 155,
-            "mean_z": -0.294,
-            "median_z": -0.268,
-            "mean_pct": -2.441
+            "n": 161,
+            "mean_z": -0.323,
+            "median_z": -0.298,
+            "mean_pct": -2.382
           },
           "Neutral": {
-            "n": 326,
-            "mean_z": 0.01,
-            "median_z": -0.017,
-            "mean_pct": 1.457
+            "n": 350,
+            "mean_z": 0.03,
+            "median_z": -0.04,
+            "mean_pct": 1.976
           },
           "Bearish": {
             "n": 112,
-            "mean_z": 0.377,
-            "median_z": 0.401,
+            "mean_z": 0.37,
+            "median_z": 0.349,
             "mean_pct": 2.892
           }
         },
         "ordering": "inverted",
         "bullish_vs_neutral": {
-          "gap": -0.3047,
-          "p_value": 0.0085,
-          "n_a": 155,
-          "n_b": 326,
+          "gap": -0.3528,
+          "p_value": 0.002,
+          "n_a": 161,
+          "n_b": 350,
           "n_blocks": 5,
-          "ci_lo": -0.6024,
-          "ci_hi": 0.0381,
-          "ci_width": 0.6405
+          "ci_lo": -0.6059,
+          "ci_hi": -0.1024,
+          "ci_width": 0.5035
         },
         "bearish_vs_bullish": {
-          "gap": 0.6709,
+          "gap": 0.6928,
           "p_value": 0.0005,
           "n_a": 112,
-          "n_b": 155,
+          "n_b": 161,
           "n_blocks": 5,
-          "ci_lo": 0.0651,
-          "ci_hi": 1.1528,
-          "ci_width": 1.0878
+          "ci_lo": 0.1576,
+          "ci_hi": 1.1838,
+          "ci_width": 1.0262
         }
       }
     },
@@ -1601,78 +1343,78 @@
         "buckets": {
           "Bullish": {
             "n": 360,
-            "mean_z": -0.36,
-            "median_z": -0.342,
+            "mean_z": -0.368,
+            "median_z": -0.35,
             "mean_pct": -2.526
           },
           "Neutral": {
             "n": 549,
-            "mean_z": -0.142,
-            "median_z": -0.168,
+            "mean_z": -0.154,
+            "median_z": -0.167,
             "mean_pct": -0.982
           },
           "Bearish": {
             "n": 330,
-            "mean_z": 0.204,
-            "median_z": 0.205,
+            "mean_z": 0.206,
+            "median_z": 0.217,
             "mean_pct": 1.401
           }
         },
         "ordering": "inverted",
         "bullish_vs_neutral": {
-          "gap": -0.2178,
-          "p_value": 0.0125,
+          "gap": -0.2144,
+          "p_value": 0.0135,
           "n_a": 360,
           "n_b": 549,
           "n_blocks": 4,
-          "ci_lo": -0.5634,
-          "ci_hi": 0.0759,
-          "ci_width": 0.6392
+          "ci_lo": -0.5608,
+          "ci_hi": 0.0799,
+          "ci_width": 0.6407
         },
         "bearish_vs_bullish": {
-          "gap": 0.564,
+          "gap": 0.5741,
           "p_value": 0.0005,
           "n_a": 330,
           "n_b": 360,
           "n_blocks": 4,
-          "ci_lo": 0.076,
-          "ci_hi": 0.9577,
-          "ci_width": 0.8817
+          "ci_lo": 0.0881,
+          "ci_hi": 0.9682,
+          "ci_width": 0.8801
         }
       },
       "loosened": {
-        "n": 688,
-        "n_dates": 45,
+        "n": 778,
+        "n_dates": 50,
         "buckets": {
           "Bullish": {
-            "n": 135,
-            "mean_z": 0.195,
-            "median_z": -0.048,
-            "mean_pct": 1.988
+            "n": 153,
+            "mean_z": 0.138,
+            "median_z": -0.052,
+            "mean_pct": 1.698
           },
           "Neutral": {
-            "n": 542,
-            "mean_z": 0.206,
-            "median_z": 0.115,
-            "mean_pct": 2.875
+            "n": 613,
+            "mean_z": 0.205,
+            "median_z": 0.104,
+            "mean_pct": 3.072
           },
           "Bearish": {
-            "n": 11,
-            "mean_z": 0.218,
-            "median_z": 0.134,
-            "mean_pct": 2.491
+            "n": 12,
+            "mean_z": 0.207,
+            "median_z": 0.109,
+            "mean_pct": 2.278
           }
         },
         "ordering": "inverted",
         "bullish_vs_neutral": {
-          "gap": -0.0113,
-          "p_value": 0.9295,
-          "n_a": 135,
-          "n_b": 542,
+          "gap": -0.0663,
+          "p_value": 0.4498,
+          "n_a": 153,
+          "n_b": 613,
           "n_blocks": 3,
-          "ci_lo": -0.2589,
-          "ci_hi": 0.256,
-          "ci_width": 0.5149
+          "ci_lo": -0.4232,
+          "ci_hi": 0.1463,
+          "ci_width": 0.5696
         },
         "bearish_vs_bullish": null
       }
@@ -1680,12 +1422,12 @@
     "by_asset": {
       "S&P 500": {
         "Bullish": {
-          "n": 81,
-          "mean_pct": 0.514
+          "n": 91,
+          "mean_pct": 0.336
         },
         "Neutral": {
-          "n": 182,
-          "mean_pct": 1.251
+          "n": 187,
+          "mean_pct": 1.206
         },
         "Bearish": {
           "n": 57,
@@ -1694,12 +1436,12 @@
       },
       "Gold": {
         "Bullish": {
-          "n": 202,
+          "n": 207,
           "mean_pct": -0.071
         },
         "Neutral": {
-          "n": 111,
-          "mean_pct": -0.294
+          "n": 121,
+          "mean_pct": -0.47
         },
         "Bearish": {
           "n": 9,
@@ -1708,12 +1450,12 @@
       },
       "WTI Oil": {
         "Bullish": {
-          "n": 54,
-          "mean_pct": -6.02
+          "n": 55,
+          "mean_pct": -5.854
         },
         "Neutral": {
-          "n": 250,
-          "mean_pct": 0.109
+          "n": 264,
+          "mean_pct": 0.881
         },
         "Bearish": {
           "n": 18,
@@ -1722,12 +1464,12 @@
       },
       "10Y Treasury Yield": {
         "Bullish": {
-          "n": 63,
-          "mean_pct": 0.376
+          "n": 64,
+          "mean_pct": 0.455
         },
         "Neutral": {
-          "n": 208,
-          "mean_pct": 1.114
+          "n": 222,
+          "mean_pct": 1.251
         },
         "Bearish": {
           "n": 51,
@@ -1740,22 +1482,22 @@
           "mean_pct": -0.03
         },
         "Neutral": {
-          "n": 168,
-          "mean_pct": -0.222
+          "n": 182,
+          "mean_pct": -0.249
         },
         "Bearish": {
-          "n": 143,
-          "mean_pct": 0.148
+          "n": 144,
+          "mean_pct": 0.146
         }
       },
       "Bitcoin": {
         "Bullish": {
-          "n": 84,
-          "mean_pct": -4.364
+          "n": 85,
+          "mean_pct": -4.381
         },
         "Neutral": {
-          "n": 172,
-          "mean_pct": 3.502
+          "n": 186,
+          "mean_pct": 3.817
         },
         "Bearish": {
           "n": 63,
@@ -1767,32 +1509,32 @@
       "arm": "market",
       "composition": {
         "market": {
-          "n_reports": 114,
-          "n_calls": 1927,
+          "n_reports": 119,
+          "n_calls": 2017,
           "first_date": "2026-03-13",
-          "last_date": "2026-08-28"
+          "last_date": "2026-09-04"
         },
         "exogenous": {
-          "n_reports": 5,
-          "n_calls": 33,
+          "n_reports": 6,
+          "n_calls": 42,
           "first_date": "2026-07-27",
-          "last_date": "2026-08-24"
+          "last_date": "2026-08-31"
         },
         "kimi": {
-          "n_reports": 20,
-          "n_calls": 240,
+          "n_reports": 25,
+          "n_calls": 330,
           "first_date": "2026-08-03",
-          "last_date": "2026-08-28"
+          "last_date": "2026-09-04"
         }
       },
-      "n_reports_used": 114,
-      "n_reports_total": 139
+      "n_reports_used": 119,
+      "n_reports_total": 150
     },
     "profile_overlap": {
       "baseline|loosened": {
         "n_shared": 0,
         "n_a": 69,
-        "n_b": 45,
+        "n_b": 50,
         "confounded": true,
         "span_a": [
           "2026-03-13",
@@ -1800,7 +1542,7 @@
         ],
         "span_b": [
           "2026-06-29",
-          "2026-08-28"
+          "2026-09-04"
         ]
       }
     },
