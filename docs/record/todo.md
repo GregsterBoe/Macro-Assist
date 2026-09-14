@@ -14,9 +14,10 @@ Conventions:
   reasoning intact, and pull any "carry forward" caveat back up into this file
   as its own entry. A resolved item left here is noise; a lost caveat is worse.
 
-Last reviewed: 2026-09-14 — #23 and #24 added from the Phase 24 draft (both
-convention calls, not code; numbered after the closing pass took #20–#22).
-Earlier the same day, the closing pass (nine items → `resolved.md`: #19 seal
+Last reviewed: 2026-09-14 — #23 and #24 (the Phase 24 convention calls) opened
+from the draft and closed the same day → `resolved.md` (#23 a contradiction is
+red with a pin, ages report-only; #24 the revisit section is enforced, not
+introduced — 18 of 21 ADRs already had it). Earlier the same day, the closing pass (nine items → `resolved.md`: #19 seal
 reused, #21 nothing before Phase 22, #22 no scorer change, #18 Phase 18 closed
 at 18.3, #15 the OR stays as is, #16 already decided, #10 the PIT guard stays
 in the default run, #13 the mean window is now labelled, #4 assessed and #7
@@ -173,52 +174,6 @@ gain `har_scaled` before its first read) all closed 2026-09-14 →
 remains on this phase is not inbox work: the owner's rewrites of H-002–H-007
 (the competence gate, [how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis))
 and WP-23.B's class bar, written before any member is promoted.*
-
----
-
-## Phase 24 — record integrity
-
-*Both items are conventions, not code. The rest of Phase 24 is engineering and
-does not need an entry here; these two change how the repo is written, so they
-are decisions. **Source:** the Phase 24 draft (2026-09-14), assistant-drafted
-from a session walkthrough — not a measurement.*
-
-### Open decision #23 — may a report-only audit finding ever fail CI? (WP-24.D)
-**Where:** `roadmap.md` Phase 24 (WP-24.D) · `CLAUDE.md` ("when two docs
-disagree about status, `active-experiments.md` wins") · planned
-`.macro-assist/record_audit.py`. The precedence rule exists and has no detector.
-WP-24.D proposes one that **prints the disagreeing pair and does not resolve it**,
-on the reasoning that an audit picking a side can silently pick the wrong one —
-which makes the finding report-only, and a report-only finding is one nobody
-reads. **Options:** (1) report-only, printed by `/orient` (WP-24.G) and never red
-— cheap, and depends entirely on the ritual being run; (2) red after a grace
-period, so a contradiction that survives N days blocks CI — forces a resolution
-but can block unrelated work on a doc disagreement; (3) red immediately, with an
-explicit acknowledge-and-record escape (the disagreement is deliberate and the
-reason is written down) — strictest, and the escape hatch is the thing that would
-rot. *Decide before WP-24.D lands; the same call governs WP-24.E's ages, which
-are report-only by construction.*
-
-### Open decision #24 — is a revisit condition mandatory on every ADR? (WP-24.F)
-**Where:** `roadmap.md` Phase 24 (WP-24.F) · `CLAUDE.md` convention #11 ·
-[`../decisions/index.md`](../decisions/index.md) (the page shape). Convention #11
-says *"a page with no costs listed has not been thought through"*;
-[ADR-0009](../decisions/ADR-0009-cut-the-directional-product.md) additionally
-carries a **"Would we revisit it?"** section answered with a *condition* rather
-than a date, and [ADR-0017](../decisions/ADR-0017-bss-floor-left-open.md) is the
-worked case of such a condition coming true and being acted on five days later.
-The proposal is to make the section mandatory and have the audit both check it
-exists and flag conditions that have **become true** — the intended answer to a
-rule written in good faith that later holds progress back. **Open, because it is
-not free:** (a) the 20 existing ADRs would need one retrofitted, and a
-retrofitted condition invented years later is weaker evidence than one written at
-decision time — possibly "not stated at the time" is the honest value for older
-pages; (b) some decisions genuinely have no revisit condition
-([ADR-0001](../decisions/ADR-0001-output-on-an-orphan-branch.md), the orphan
-branch) and forcing prose onto them manufactures a fake one; (c) a machine-checkable
-condition is a narrower thing than a prose one, and only some conditions are
-checkable at all. *Decide the page-shape question first; the audit half is
-downstream of it.*
 
 ---
 

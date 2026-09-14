@@ -96,3 +96,24 @@ Two things this decision deliberately does **not** do:
   the strength of who imports them (the accuracy report and the rebalance),
   although both read like research. The classification follows the import
   graph, not the prose; if either stops being imported by product it moves.
+
+## Would we revisit it?
+
+*Written 2026-09-14, the same day, after `resolved.md` #24 made the section
+enforced rather than advisory.* Only in one of two directions, and neither
+undoes the rule:
+
+- **A `product/` vs `research/` directory split**, once the manifest has been
+  stable for a while and the boundary test has not caught anything for
+  months — at that point the split is mechanical and the manifest becomes the
+  directory listing. This is the change the Decision section defers, not one
+  it rejects.
+- **A research harness the live path genuinely needs** — a module the
+  product must import that is research by nature. That is the case
+  `KNOWN_LEAKS` exists for, and the first honest answer is a pin with a todo
+  number, not an edit to this page. If the set ever holds more than one or
+  two edges for longer than a week, the tiering is wrong, and *that* reopens
+  the classification rule.
+
+Not because the boundary is inconvenient for a single import. That is the
+case the test exists for.

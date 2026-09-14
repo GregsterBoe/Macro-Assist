@@ -16,6 +16,55 @@ questions.
 
 ---
 
+## Phase 24 — record integrity
+
+### RESOLVED 2026-09-14 — #23 a record contradiction is red in CI, with a pin; ages stay report-only
+**Resolution: option (3) — red immediately, with an explicit pin.** WP-24.D's
+contradiction check (board row vs `roadmap.md` entry, `CLAUDE.md` Current-state
+table vs board) fails CI on an unpinned disagreement. A deliberate disagreement
+is pinned in `record_audit.py` the way
+[ADR-0021](../decisions/ADR-0021-product-and-research-are-separated-by-an-import-boundary.md)
+pins an import leak: the pin names the pair, must appear in `todo.md`, and **a
+pin whose contradiction no longer exists is itself red** — the escape hatch
+cannot rot, because rot is what the test looks for. That precedent is one ADR
+old and has already completed a full cycle (two leaks pinned, drained, unpinned —
+#20), which is why the draft's objection to option (3) — "the escape hatch is
+the thing that would rot" — does not hold here. Option (1) is the outcome the
+draft itself names as the risk: a report nobody reads. Option (2)'s grace period
+is a second clock with no owner, and a contradiction that is fine for N days is
+a contradiction that is fine. The audit still **prints the pair and does not
+pick a side** — `CLAUDE.md`'s precedence rule says who wins; the check only
+insists that someone applies it. **Not red:** WP-24.E's ages. They break no rule
+— an old item is information, not a defect — so they are printed by `/orient`
+and never fail anything. The line between the two: red is for a *claim the repo
+makes twice, differently*; report-only is for a number with no threshold.
+
+### RESOLVED 2026-09-14 — #24 the revisit condition is enforced, not introduced; two ADRs retrofitted
+**Resolution: enforce the page shape that already exists.** The draft's premise
+was wrong on inspection: **18 of 21 ADRs already carry `## Would we revisit
+it?`**, and [`decisions/index.md`](../decisions/index.md) has listed it as part
+4 of the page shape all along. "20 existing ADRs would need one retrofitted" is
+two — [ADR-0015](../decisions/ADR-0015-soft-kill-convention.md) and
+[ADR-0021](../decisions/ADR-0021-product-and-research-are-separated-by-an-import-boundary.md),
+both retrofitted the same day and marked as written after the fact.
+[ADR-0017](../decisions/ADR-0017-bss-floor-left-open.md) is superseded; its
+"What needs deciding" *was* the condition and it fired — superseded pages are
+exempt. The "some decisions genuinely have none" worry is answered by the pages
+themselves: ADR-0002, -0010, -0011, -0013 say **"No."** with a reason, and a
+reasoned "No" is a valid value — the section asks for the conditions, and
+"none, because …" is an answer. What the audit does: **(a)** every non-superseded
+ADR has the section, non-empty — presence, like convention #11's costs;
+**(b)** for the *became-true* half, only the machine-checkable subset: a revisit
+section that cites a `todo.md` item, WP or KB id whose referent has since closed
+or landed (ADR-0016 → #7/#8, ADR-0009 → WP-21.E / [KB-027], ADR-0020 → Phase
+22's sealed read) is printed as *"cited condition may have fired"*, report-only.
+Prose conditions ("if GitHub's scheduler became reliable", ADR-0012) are not
+read by a machine and no pretence is made that they are. What this rejects: a
+structured, machine-readable condition field — narrower than the prose, and the
+prose is the point.
+
+---
+
 ## Phase 23 — exploration tier
 
 ### RESOLVED 2026-09-14 — #19 the seal for a promoted distribution-class hypothesis is `SEAL_START` (2018-01-01), reused

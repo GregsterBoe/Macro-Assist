@@ -55,3 +55,13 @@ the KB pointer, and anything a still-open sibling work package depended on.
 The governing rule: **never trim a work package before its result is in the
 Knowledge Base.** Losing the plan is fine once the finding is recorded; losing
 both is how a project forgets what it already tried.
+
+## Would we revisit it?
+
+*Written 2026-09-14, after the fact (`resolved.md` #24); the decision predates
+it.* No. The convention is a direction, not a bet — it only ever costs a
+confusing file listing, and it is what keeps every negative in the Knowledge
+Base reproducible. The one thing that would change it is a **hard-kill** of a
+specific component, and that is already provided for: the Phase 19 and Phase
+20 design docs each specify the procedure, so removal is a documented act
+rather than a reversal of this page.

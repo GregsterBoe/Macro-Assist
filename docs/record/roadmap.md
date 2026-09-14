@@ -810,9 +810,10 @@ the facts and the audit only reads them. Not an auto-fixer — see WP-24.D.
 
 **Drafted by the assistant, 2026-09-14, from a session walkthrough.** The
 work packages are engineering; the two that change a *convention* (24.D's
-precedence handling, 24.F's ADR page shape) are decisions for the owner and are
-logged as [`todo.md`](todo.md) **#23** and **#24** — neither WP ships before its
-entry is decided.
+precedence handling, 24.F's ADR page shape) were owner decisions, logged as
+`todo.md` #23 and #24 and **decided the same day** →
+[`resolved.md`](resolved.md): a contradiction is red with a pin; the revisit
+section is enforced, not introduced. Both WPs are now specified and shippable.
 
 **Order.** 24.A is the first step and stands alone — it is the check that would
 have caught the frozen refit on day one instead of day eleven. Everything after
@@ -864,10 +865,16 @@ disagreeing pair. **Do not resolve it.** `CLAUDE.md` already says who wins; an
 audit that picks a side can silently pick the wrong one, and the whole value here
 is that a human sees two claims next to each other.
 
-That makes this report-only rather than red, which creates the real risk — a
-report nobody reads. Its output must be printed by WP-24.G, not merely logged.
-Whether a report-only finding should ever fail CI is an owner decision, not a
-default → [`todo.md`](todo.md) **#23**, which governs WP-24.E's ages too.
+**Decided 2026-09-14 (`resolved.md` #23): red, with a pin.** An unpinned
+disagreement fails CI. A deliberate one is pinned in `record_audit.py` on the
+[ADR-0021](../decisions/ADR-0021-product-and-research-are-separated-by-an-import-boundary.md)
+pattern — `KNOWN_LEAKS` made general: the pin names the pair, a test asserts it
+appears in `todo.md`, and a pin whose contradiction has gone is itself red, so
+the escape hatch cannot rot. The check still prints the pair and takes no side;
+red only insists that someone applies `CLAUDE.md`'s precedence rule. The
+output is also printed by WP-24.G. Report-only was rejected as the outcome this
+paragraph's first draft named as the risk; a grace period as a second clock
+with no owner.
 
 ### WP-24.E — Ages, from git
 
@@ -875,30 +882,34 @@ Days since each open `todo.md` item was last edited, and since each board row
 last changed. No threshold and no judgment: print a table sorted oldest first.
 The single most likely stale thing in the repo becomes visible on every run,
 which is what the hand-maintained `Last reviewed:` line is trying and failing to
-do.
+do. **Never red** (`resolved.md` #23) — an old item breaks no rule; red is for
+a claim the repo makes twice, differently, and this is a number with no
+threshold.
 
-### WP-24.F — ADR revisit conditions *(convention change — owner's call)*
+### WP-24.F — ADR revisit conditions *(enforce the existing page shape)*
 
-[ADR-0009](../decisions/ADR-0009-cut-the-directional-product.md) carries a
-section most ADRs do not: **"Would we revisit it?"**, answered with a *condition*
-rather than a date. [ADR-0017](../decisions/ADR-0017-bss-floor-left-open.md) is
-the worked example of that condition coming true and being acted on — a decision
-parked with a test pinning it, closed five days later the moment no candidate
-family was on the table.
+Every ADR answers **"Would we revisit it?"** with a *condition* rather than a
+date — [ADR-0009](../decisions/ADR-0009-cut-the-directional-product.md) names
+WP-21.E's capped search; [ADR-0017](../decisions/ADR-0017-bss-floor-left-open.md)
+is the worked example of a condition coming true and being acted on, a decision
+parked with a test pinning it and closed five days later. The draft proposed
+making the section mandatory; on inspection (2026-09-14) it already was —
+[`decisions/index.md`](../decisions/index.md) lists it as part 4 of the page
+shape and **18 of 21 ADRs carry it**. The retrofit was two pages (ADR-0015,
+ADR-0021), done the same day and marked as written after the fact; ADR-0017 is
+superseded and exempt. A reasoned **"No."** is a valid answer — four pages give
+one. Decided as `resolved.md` #24.
 
-Proposal: make the section mandatory, as the sibling of `CLAUDE.md` #11's *"a
-page with no costs listed has not been thought through"*. The audit then checks
-that every ADR has one, and — the useful half — flags any stated condition that
-has **become true**. This is the answer to a rule written in good faith that
-later holds progress back: the rule carries its own expiry trigger, and something
-watches the triggers.
-
-It is not free, which is why it is a decision and not a task: 20 existing ADRs
-would need one retrofitted, a condition invented years after the fact is weaker
-than one written at decision time, some decisions genuinely have none
-([ADR-0001](../decisions/ADR-0001-output-on-an-orphan-branch.md)), and only some
-conditions are machine-checkable at all → [`todo.md`](todo.md) **#24**. The
-page-shape call comes first; the audit half is downstream of it.
+What the audit does, in two halves: **(a)** every non-superseded ADR has the
+section, non-empty — presence, the sibling of `CLAUDE.md` #11's *"a page with
+no costs listed has not been thought through"*; **(b)** a revisit section that
+cites a `todo.md` item, WP or KB id whose referent has since closed or landed
+(ADR-0016 → #7/#8, ADR-0009 → WP-21.E, ADR-0020 → Phase 22's sealed read) is
+printed as *"cited condition may have fired"* — report-only, and the answer to
+a rule written in good faith that later holds progress back. Prose conditions
+("if GitHub's scheduler became reliable") are not read by a machine and the
+audit does not pretend to; a structured condition field was rejected as
+narrower than the prose it would replace.
 
 ### WP-24.G — `/orient`, the session-start ritual
 

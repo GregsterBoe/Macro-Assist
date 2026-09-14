@@ -87,5 +87,10 @@ Copy the shape of any existing page. The parts that matter:
 3. **Consequences** — including the costs. A page with no costs listed has not
    been thought through.
 4. **Would we revisit it?** — the conditions under which this should be reopened.
+   Required on every page that is not superseded (`resolved.md` #24, and
+   checked by `record_audit.py` once WP-24.F lands). A reasoned **"No."** is a
+   valid answer; an empty section is not. Prefer a condition to a date, and
+   cite the todo item, WP or KB entry it hangs on where one exists — that is
+   the part a machine can watch.
 
 Number sequentially. Never renumber. Never delete — supersede, and link both ways.
