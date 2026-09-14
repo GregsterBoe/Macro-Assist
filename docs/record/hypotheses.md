@@ -21,9 +21,11 @@ missing a confound is not finished.
 | # | Status | One line |
 |---|---|---|
 | [H-001](#h-001) | `seen` | The SPF anchor's confidence bins are the first correctly ordered ones ever measured here — artifact expires 2026-10-07 |
-| [H-002](#h-002) | `draft` | The stress-reversion mechanism is conditional on fragility state: stress continues in Elevated tapes, reverts in Normal ones |
+| [H-002](#h-002) | `draft` | The stress-reversion mechanism is conditional on fragility state: stress continues in Elevated tapes, reverts in Normal ones — *explore look 2026-09-14: width half seen, location half not* |
 | [H-003](#h-003) | `draft` | The SPF-vs-SEP gap predicts the *width* of the realized rate path, not its direction |
-| [H-004](#h-004) | `draft` | The published conditioner's dimensions are not the ones that move the distribution; a fragility-state conditioner beats the macro bucket |
+| [H-004](#h-004) | `draft` | The published conditioner's dimensions are not the ones that move the distribution; a fragility-state conditioner beats the macro bucket — *explore look 2026-09-14: structure check failed in direction* |
+| [H-005](#h-005) | `seen` | On the explore slice the published macro bucket is reliably *worse* than not conditioning, and the deficit grows with horizon |
+| [H-006](#h-006) | `seen` | The only conditioner that beats `unconditional` on the explore slice is the S&P's own drawdown bin — and its gain is a narrower interval in calm, not the reversion |
 
 ---
 
@@ -128,6 +130,35 @@ operating point means · `conditional.py` (`assign_bucket`,
 `_MIN_WARMUP`) · `score_distributions.py` (`skill_vs`, `block_bootstrap`,
 `verdict`).
 
+**Explore-tier looks (ledger).** *2026-09-14* — `explore_conditioner.py`, one
+run, one configuration fixed before looking (`DD_EDGES = (−5%, −10%)` from the
+S&P's 252-day high, `MIN_N = 10`, `BURN_IN = 252`), report dates 2010-06-25 →
+2017-12-29 (1,893, all < `SEAL_START`), realized S&P forward change by drawdown
+bin × OR state, 6 cells × 3 horizons; the dose-response rival (drawdown bin
+alone) beside it. Report: `results/explore_conditioner/report.md` (§ *H-002
+structure check*).
+
+- **The width half is seen.** Elevated is wider than Normal in 8 of 9
+  bin × horizon cells; the exception is the calm bin at 5d (1.59 vs 1.61). In
+  both stressed bins it holds at every horizon — 3.71 vs 2.91 and 5.31 vs 3.24
+  at 5d; 8.41 vs 4.22 and 7.59 vs 4.21 at 20d.
+- **The confound is not what explains it.** −5..−10% ∧ Elevated is wider than
+  <−10% ∧ Normal at every horizon (3.71 vs 3.24 · 6.09 vs 3.96 · 8.41 vs 4.21):
+  a deeper drawdown alone does not reproduce the split. On n = 70 and 96 days —
+  two or three episodes each.
+- **The location half is not seen.** Within each stressed bin the Elevated
+  median sits *left* of the Normal one (6 of 6, one tie), but it is still
+  *right* of the unconditional median in 5 of 6 cells (the exception, −5..−10% ∧
+  Elevated at 5d, is +0.30 vs +0.37). Stress in an Elevated tape shows **less
+  reversion and far more dispersion**, not continuation.
+- **As a scored conditioner** (`dd_x_frag`) it does not beat the drawdown bin
+  alone: +0.009 [−0.001, +0.020] on the original three at 5d, negative at 20d.
+  The cells are too thin to pay for their own quantile noise.
+
+What it changes for this entry: the prediction "medians on opposite sides"
+is wrong as written. If the owner rewrites it, the width clause stands and
+the location clause needs a different prediction, or none.
+
 ---
 
 ## H-003 — The SPF-vs-SEP gap predicts the width of the realized rate path {: #h-003 }
@@ -224,6 +255,168 @@ bar. If H-002 is run, this is a sub-table of it.
 
 **Read first.** [KB-028] · [ADR-0016](../decisions/ADR-0016-phase-22-scores-the-distribution-only.md) ·
 `score_distributions.verdict` and the tests that drive each disqualifier.
+
+**Explore-tier looks (ledger).** *2026-09-14* — same run as H-002's. Arm
+`frag_or`: the live OR flag's state (PIT top-decile per channel, 252-reading
+warm-up, daily) as the only bucket dimension, per asset, collapse to
+`unconditional` below `MIN_N`. Variants looked at and reported: `frag_comp` (the
+composite channel alone) and `frag_or_x_nfci` (OR state × NFCI tertile).
+Report: `results/explore_conditioner/report.md` (tables 1–2, § *H-004 structure
+check*).
+
+- **Skill vs `unconditional` is zero.** Pooled over SP500/Gold/WTI: +0.001 /
+  −0.002 / −0.005 at 5 / 10 / 20d, every interval spanning zero. Over all six:
+  −0.003 / −0.007 / −0.015.
+- **The structure check failed in the predicted direction.** The gain was to
+  sit in Elevated and be ~0 in Normal. Measured by the state the report date
+  was in: **Elevated −0.027 [−0.046, −0.013] at 5d, −0.046 [−0.101, −0.008] at
+  10d**; Normal +0.003 / +0.002. The arm loses exactly where the mechanism said
+  it would win.
+- **Why, legibly.** Elevated is 15% of report dates (287 of 1,893). Its quoted
+  interval is wide (P25–P75 3.16 vs 1.79 at 5d) and its median is
+  *right*-shifted (+0.71 vs +0.31): the flag fires mid-selloff and reversion
+  follows. The pinball cost of the wide interval on the days that revert
+  exceeds its gain on the days that continue — the distribution-side face of
+  [KB-031]'s precision ≈ 0.33.
+- `frag_comp` has the same shape, slightly less negative. `frag_or_x_nfci` is
+  reliably worse than `unconditional` at every horizon (−0.013 → −0.070 over
+  all six): the interaction thins the cells.
+
+What it changes for this entry: as written (state × asset, no macro) the
+mechanism does not show on the explore slice. Not closed — it has never been
+read against a bar — but the honest prior dropped, and the reason is the same
+one that makes the flag a good *state* detector and a poor *location* claim.
+
+---
+
+## H-005 — On the explore slice the published macro bucket is reliably worse than not conditioning, and the deficit grows with horizon {: #h-005 }
+
+**Status:** `seen` · 2026-09-14 · draft text by the assistant — the owner's
+rewrite is required before this can be promoted (§6)
+
+**What was seen.** Walking the v2.1 conditioner forward on the explore slice —
+the published bucket (NFCI tertile × curve sign × BAA10Y tertile), known-by-*t*
+history from 2000-08, `MIN_N = 10` with the product's collapse ladder — and
+scoring it exactly as Phase 22 scores, against `unconditional` on the same
+observations:
+
+| pooled skill vs `unconditional` | 5d | 10d | 20d |
+|---|---|---|---|
+| SP500 / Gold / WTI | −0.004 [−0.011, +0.003] | **−0.019 [−0.030, −0.008]** | **−0.029 [−0.051, −0.010]** |
+| all six | **−0.009 [−0.017, −0.001]** | **−0.028 [−0.041, −0.015]** | **−0.053 [−0.081, −0.031]** |
+
+At 20d every asset is negative; the 10Y −0.058 [−0.086, −0.032], DXY −0.076
+[−0.118, −0.035], WTI −0.039 [−0.065, −0.014]. In the sealed vocabulary the
+10d and 20d rows would read `inverted`; here `verdict(sealed=False)` returns
+`exploratory`, which is what they are. Coverage of the quoted P25–P75 is 0.556
+at 5d — wider than nominal on this tape. The deficit lives at the *full* 3D
+level, which quoted on all 1,893 report dates; it is not collapse noise.
+Per year on the S&P at 10d it is negative in five of eight years and positive
+only in 2013, 2014 and 2017 — the three calmest years of the slice (0%, 4%
+and 0% of days more than 5% off the high).
+
+**Where.** `results/explore_conditioner/report.md`, tables 1–2 and § *Where
+`macro`'s deficit lives* · reproduce with
+`python explore_conditioner.py --cached` · inputs fetched 2026-09-14.
+Multiplicity: this arm was one of seven in a single run, all reported.
+
+**Mechanism it would imply.** The three dimensions are slow — they move over
+quarters — and the history behind the table holds about three macro regimes.
+A full bucket's known sample is dominated by the last episode that carried its
+label (2001–02 or 2008–09 for the wide-credit and high-NFCI buckets), so the
+table is a *regime-memory* conditioner with N ≈ 3, not N = 6,811, and a
+distribution that remembers a crisis is penalised at every horizon on a tape
+without one — most at 20 days, where the remembered dispersion is largest.
+
+**The prediction that is not the score.** If this is regime memory, the
+deficit is concentrated in buckets whose known history is dominated by one
+episode and near zero in buckets populated across regimes
+(`NFCI:mid|YC:positive|CREDIT:tight` and its neighbours). Not yet cut — one
+more look, to be counted when taken.
+
+**The confound.** The explore slice is *one* tape: 2010–2017, one bull market,
+no crisis. A conditioner that remembers crises loses on it by construction and
+may well win on 2018–2022, which holds five regimes — and which is the sealed
+slice, the one thing not to look at. Also: this is the v2.1 table walked
+forward, not the note's live record (the note used other tables until
+2026-09-13, [KB-028]); it says nothing about what the note published.
+
+**What would test it.** Nothing new — **Phase 22 is the test**, live and sealed
+from 2026-09-07, first read ~2027-05. The only earlier read is the same
+walk-forward on the 2018+ historical slice under the WP-23.B class bar, which
+needs `todo.md` #19 decided as option (1) and burns that slice for the
+conditioner class. Whether anything changes before then is `todo.md` #21.
+
+**Target-space check.** A conditional distribution against `unconditional`.
+Passes.
+
+**Read first.** [KB-028] (what the table is built on) ·
+[ADR-0016](../decisions/ADR-0016-phase-22-scores-the-distribution-only.md) ·
+`conditional.assign_bucket` and `lookup_distribution` · the report's metadata
+line, before any number ([KB-025]).
+
+---
+
+## H-006 — The only conditioner that beats `unconditional` on the explore slice is the S&P's own drawdown bin, and its gain is a narrower interval in calm {: #h-006 }
+
+**Status:** `seen` · 2026-09-14 · draft text by the assistant — the owner's
+rewrite is required before this can be promoted (§6)
+
+**What was seen.** Of seven arms, one has positive pooled skill with an
+interval clear of zero: `dd_bin`, the S&P's drawdown from its 252-day high in
+three bins (> −5% · −5..−10% · < −10%), applied to every asset. Pooled over
+SP500/Gold/WTI **+0.009 [+0.003, +0.015]** at 5d and **+0.009 [+0.002,
++0.017]** at 10d; on the S&P itself **+0.023 [+0.011, +0.036]** at 5d and
+**+0.027 [+0.009, +0.047]** at 10d — over `MIN_SKILL` with a zero-excluding
+interval, *on the explore slice, which is not a pass*. It beats `trailing_250`
+on the S&P (+0.011 [−0.004, +0.027] at 5d).
+
+Where the gain lives, by the bin the report date was in: **the calm bin**
+(> −5%, 1,536 of 1,893 dates) — pooled +0.007 [+0.004, +0.011] at 5d, S&P
++0.027. In the two stressed bins pooled skill is ~0 or negative with intervals
+straddling zero. Per year the S&P skill is positive in seven of eight,
+*including 2013 and 2017, which had no day more than 5% off the high, and
+2014, which had ten* — years in which the arm all but only quoted its calm bin.
+
+**Where.** `results/explore_conditioner/report.md`, tables 1–2, § *Where
+`dd_bin`'s gain lives*, § *per year* · same run and multiplicity as H-005.
+
+**Mechanism it would imply.** Own-price state is a vol-state proxy. The calm
+bin's known sample (every day since 2000 with the S&P within 5% of its high)
+has a P25–P75 width of ~1.75 at 5d (2000-08 → 2017); `unconditional` over
+the same history carries 2001–02 and 2008 in its quantiles and is 2.34 wide.
+Quoting the narrower interval when the tape is calm is what pays. The reversion median shift [KB-024] describes is *visible* in the
+realized table (after a ≥10% drawdown the 5d median is +1.63% vs +0.29%
+unconditional) but does **not** turn into pinball skill in the stressed bins
+(130 dates ≈ three episodes).
+
+**The prediction that is not the score.** If it is a width effect, a rival that
+knows only realized vol should capture most of it: `har_gaussian` (the
+product's HAR-RV arm, [KB-033]) walked forward on the same dates. If `dd_bin`
+still clears HAR, the own-price state carries something vol does not; if not,
+this entry is [KB-033] restated and closes.
+
+**The confound.** Three. (a) 81% of the explore slice is the calm bin — a
+calm-tape effect measured on a calm tape. (b) For the stressed half, [KB-022]'s
+bull-market confound exactly: every 2010–2017 dip was bought; the sealed slice
+holds 2022, where drawdowns continued. (c) The rival was `unconditional`, not
+the product's vol-state arms — HAR was not in this run.
+
+**What would test it.** Add a walk-forward `har_gaussian` arm to
+`explore_conditioner.py` (from `har_backtest`) and re-read the explore slice
+with HAR as the benchmark — still explore tier, one more counted look. A
+confirm read waits on `todo.md` #19 and the WP-23.B class bar with the
+benchmark set to the best existing vol-state arm.
+
+**Target-space check.** A distribution, and the claim is its *width*. The
+location half — a right-shifted median after a drawdown — is [KB-024]'s
+mechanism wearing a distribution, and it is on the wrong side of
+[ADR-0009](../decisions/ADR-0009-cut-the-directional-product.md). Admissible
+as a width claim only; a directional read is not taken even if it appears.
+
+**Read first.** [KB-033] (HAR-RV, and why a gaussian from a vol forecast is the
+width rival) · [KB-024] and [KB-022] · `numeric_baseline.asset_features`
+(`drawdown`, `DRAWDOWN_WINDOW`) · the report.
 
 ---
 

@@ -19,6 +19,8 @@ ready, its contract, its module surface — and [Research](docs/research/index.m
 — the ladder exploration → confirmation → accepted → product. The boundary
 between them is code: `product_surface.py` + `test_product_boundary.py`
 ([ADR-0021](docs/decisions/ADR-0021-product-and-research-are-separated-by-an-import-boundary.md)).
+Exploration has its own surface: `explore_conditioner.py` on the pre-seal slice,
+output to `docs/record/hypotheses.md`.
 
 | Layer | Path | Is the source of truth for |
 |---|---|---|
@@ -56,10 +58,11 @@ pip install -r .macro-assist/requirements.txt
 # generated output is a separate orphan branch, mounted as a worktree (ADR-0001)
 git fetch origin output && git worktree add results output
 
-pytest .macro-assist/tests/                 # ~840 tests, ~3.7 min
+pytest .macro-assist/tests/                 # ~925 tests, ~3.7 min
 python .macro-assist/collect_and_analyze.py --fetch-only   # no LLM call, no writes
 python .macro-assist/collect_and_analyze.py  # full daily pipeline (costs API money)
 python .macro-assist/score_distributions.py  # the current scorer
+python .macro-assist/explore_conditioner.py --cached  # explore-tier looks, pre-seal slice only
 mkdocs build --strict                        # what CI runs; fails on a broken link
 ```
 
@@ -92,7 +95,12 @@ loses information. Don't archive context a still-open sibling WP depends on.
 measured result gets a KB entry, including "this has no skill". A negative is as
 valuable as a win — it stops the next session re-running a dead end. Format:
 *what we tested → headline → the nuance that's easy to forget → what it changes*,
-with the caveats attached to the headline.
+with the caveats attached to the headline. **Exception: explore-tier looks.** A
+run on the explore slice is not a result — it goes to the
+[hypothesis register](docs/record/hypotheses.md) as a ledger block or a `seen`
+entry, never to the KB, and `verdict(sealed=False)` returns `exploratory` by
+construction ([How we explore](docs/concepts/how-we-explore.md)). Only a
+promoted hypothesis read on the sealed slice earns a KB entry.
 
 **3. Soft-kill: deactivate, never delete** ([ADR-0015](docs/decisions/ADR-0015-soft-kill-convention.md)).
 Remove the stage from `pipeline.yml` and its cron call. The module, its tests,
@@ -120,7 +128,10 @@ a bar. [KB-027] caught exactly this — a `verdict()` that returned "edge" for a
 arm its own pre-registration had disqualified. Disqualifiers are evaluated
 *first*, each with a test asserting it fires ahead of a strong skill number.
 Raising a threshold after seeing a result is a goalpost move; fixing a defect the
-pre-registration already required is not.
+pre-registration already required is not. **The explore tier never reads the
+sealed slice** — `explore_conditioner.py` stops at `numeric_baseline.SEAL_START`
+and a new arm there does too. Which seal governs a promotion is `todo.md` #19;
+the assistant drafts register entries, the owner writes the promoted one.
 
 **8. Docs are the single source.** The markdown under `docs/` generates the site;
 never author the site separately. A second drifting copy of the system
@@ -159,6 +170,7 @@ live path may not import a harness.
 | **Live product** | Conditional return distribution across 6 assets + Fragility Monitor |
 | **Live experiment** | Phase 22 distribution scorer — bar sealed, first honest read ~2027-05 |
 | **Winding down** | The directional scorer, once the last T+20 window resolves ~2026-10-02 |
+| **Exploring** | Phase 23 — harness built, first looks run 2026-09-14 on 2010–2017; register holds H-001 `seen` (artifact expires 2026-10-07), H-002–H-004 `draft`, H-005/H-006 `seen`. Open: `todo.md` #19 (which seal) and #21 (does the H-005 look change anything before Phase 22 reads — default: no) |
 | **Queued** | WP-21.E families 2–3 — bar written ([ADR-0020](docs/decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md)), no family chosen, honest prior low |
 
 The board in [active-experiments.md](docs/record/active-experiments.md) is

@@ -14,7 +14,7 @@ Conventions:
   reasoning intact, and pull any "carry forward" caveat back up into this file
   as its own entry. A resolved item left here is noise; a lost caveat is worse.
 
-Last reviewed: 2026-09-14 (#20 the two product → research imports drained → `resolved.md`; #19 which seal governs a Phase 23 promotion, from the exploration-tier draft; #17 the HAR-RV fit window landed → `resolved.md`; #18 WP-18.4's missing metric, from the archive pass; #16 the CORR shadow flag IMP-7 admitted and did not wire, [KB-032]; #15 the turbulence-only hindsight read from [KB-031],
+Last reviewed: 2026-09-14 (#21 does the explore-tier H-005 look change anything before Phase 22, from the first WP-23.C run; #19 updated — nothing burnt, no seal earlier than 2018; #20 the two product → research imports drained → `resolved.md`; #19 which seal governs a Phase 23 promotion, from the exploration-tier draft; #17 the HAR-RV fit window landed → `resolved.md`; #18 WP-18.4's missing metric, from the archive pass; #16 the CORR shadow flag IMP-7 admitted and did not wire, [KB-032]; #15 the turbulence-only hindsight read from [KB-031],
 open decision; #13 `hy_spread` mean-window caveat from [KB-028]; #14
 IMP-5.3 added from [KB-029] and closed the same day → `resolved.md`, [KB-030]).
 Prior: 2026-09-12 (#12 GitHub Pages closed → `resolved.md`);
@@ -281,9 +281,38 @@ repo; (2) a new seal for the distribution class, later than 2018 so the explore
 surface includes 2018 and 2020 stress — costs holdout regimes; (3) no
 historical seal at all — explore on all history, confirm only on Phase 22's
 live record from 2026-09-07, which pushes any read to ~2027-05 or later.
-*Must be decided before WP-23.C runs anything; the entry that decides it names
-the hypothesis class, not a hypothesis.* Also inside this phase, dated: H-001's
-confound is resolvable from CI artifact `10013945071`, **expires 2026-10-07**.
+*Must be decided before anything is promoted; the entry that decides it names
+the hypothesis class, not a hypothesis.* **Update 2026-09-14:** WP-23.C ran its
+first looks on report dates 2010-06-25 → 2017-12-29 — explore surface under all
+three options, so nothing was burnt; but a seal *earlier* than 2018 is now off
+the table, and the multiplicity ledger those looks left (seven arms, one run,
+all reported) travels with whichever class is promoted first. Also inside this
+phase, dated: H-001's confound is resolvable from CI artifact `10013945071`,
+**expires 2026-10-07**.
+
+### Open decision #21 — the macro bucket walked forward is reliably worse than `unconditional` on the explore slice: does anything change before Phase 22 reads?
+**Where:** [`hypotheses.md`](hypotheses.md) H-005 · `results/explore_conditioner/report.md` ·
+`conditional.assign_bucket` · **Source:** the first WP-23.C run, 2026-09-14 —
+**explore tier, `exploratory` by construction, not a result.** The v2.1
+conditioner (NFCI × curve × BAA10Y, `MIN_N = 10`, collapse as the product)
+walked forward with known-by-*t* history on 2010-06 → 2017-12 scores −0.009 /
+−0.028 / −0.053 against `unconditional` at 5 / 10 / 20d over all six assets,
+intervals clear of zero at every horizon; on the original three, −0.004 /
+−0.019 / −0.029. The mechanism H-005 names is legible (a regime-memory
+conditioner with about three regimes behind it) and the confound is exactly the
+sealed slice (one calm tape here; five regimes there). **The product decision
+is Phase 22's** — sealed from 2026-09-07, first read ~2027-05 — and this look
+must not pre-empt it. What needs a call is whether to wait: **Options:** (1)
+nothing changes; the note keeps publishing the bucket, H-005 stands as the
+recorded prior, Phase 22 answers it — the default, and the only option that
+costs nothing; (2) decide #19 as option (1) and pre-register *one* read of this
+walk-forward on the 2018+ historical slice under the WP-23.B class bar,
+disqualifiers first — an answer years earlier, at the price of burning that
+slice for the whole conditioner class; (3) the same as (1) but the note's
+rendered comparison line names `unconditional` beside the bucket so a reader
+can see both — a presentation change, needs the version discipline in
+`versions.md`. *Not an option:* changing the bucket's dimensions now — that is
+H-004's territory and it failed its own structure check in the same run.
 
 ---
 

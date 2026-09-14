@@ -53,16 +53,20 @@ question. None runs in the pipeline; each is run by hand or by its own
 | Does the HAR-RV forecast beat trailing realized vol? | `har_backtest.py` | Trailing 22-day RV | Only at ≥ 1000 returns — KB-033 |
 | Does a label separate forward returns? | `bias_separation.py` — block permutation | Shuffled labels | Yes, backwards — KB-022; the stress-reversion mechanism |
 | Does the conditional table beat the unconditional one? | `score_distributions.py` *read against its bar* — the scorer itself is product | `unconditional`, `trailing_250` | Sealed. First honest read ~2027-05 |
+| What does a *shadow* conditioner do on the explore slice? | `explore_conditioner.py` — walk-forward quantiles per arm on 2010–2017, scored the Phase 22 way; `verdict(sealed=False)` by construction | `unconditional` | Explore tier only — writes to the [register](../record/hypotheses.md), never the KB. First looks 2026-09-14: H-002/H-004 ledgers, H-005/H-006 seen |
 
 Every instrument carries a positive and a negative control in the test suite
 ([Foundations › Inference §7](../foundations/inference.md#7-controls)).
 
 ## What is in each state now
 
-- **Exploration:** four entries in the [register](../record/hypotheses.md) —
-  one `seen` with a 2026-10-07 deadline, three `draft` awaiting the owner's
-  rewrite. Phase 23 in the [roadmap](../record/roadmap.md) is the harness
-  they would share; nothing runs.
+- **Exploration:** six entries in the [register](../record/hypotheses.md) —
+  H-001 `seen` with a 2026-10-07 deadline; H-002–H-004 `draft` awaiting the
+  owner's rewrite, two of them with a first explore-tier look on the ledger
+  (2026-09-14, both structure checks failed as written); H-005 and H-006 `seen`
+  in that same run. The harness is `explore_conditioner.py` (WP-23.C); the
+  seal decision (WP-23.A, `todo.md` #19) is still open, and what the H-005
+  look means for the product before Phase 22 reads is `todo.md` #21.
 - **Confirmation:** Phase 22 — one sealed read pending. WP-21.E families 2–3
   have a bar and no candidate.
 - **Accepted:** [What we believe](../concepts/what-we-believe.md), rewritten

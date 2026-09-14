@@ -60,6 +60,7 @@ RESEARCH: frozenset[str] = frozenset({
     "numeric_baseline", "input_testing", "aggregator_testing", "companion_testing",
     "fragility_backtest", "regime_backtest", "har_backtest", "backtest",
     "input_ledger", "citation_screen", "synthetic",
+    "explore_conditioner",          # explore-tier shadow conditioners (hypotheses H-002/H-004)
     "exogenous",                    # Phase 19 branch; its emitter is soft-killed
 })
 

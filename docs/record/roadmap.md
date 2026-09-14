@@ -714,17 +714,28 @@ Each bar ships with the tests [the method §10](../concepts/the-method.md#10-a-b
 requires: every disqualifier driven independently, and a planted-signal
 positive control.
 
-### WP-23.C — The shadow-conditioner harness
+### WP-23.C — The shadow-conditioner harness ✅ built 2026-09-14, first looks run
 
-`conditional.build_distribution_table_for_backtest` already builds a
-point-in-time table from historical snapshots; `fragility_or._pit_backtest`
-already produces the PIT state flag on the ETF panel from 2007; `score_distributions`
-already scores quantile forecasts against `unconditional` with the right blocks.
-The harness joins them on the explore slice and emits a report in the
-`numeric_baseline` shape (metadata line first — the [KB-025] check). It returns
-`exploratory` on the explore slice by construction. Owner's competence gate
-([how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis))
-applies before the first promotion.
+`.macro-assist/explore_conditioner.py` (research tier). Walks every arm
+forward on the explore slice — report dates strictly before
+`numeric_baseline.SEAL_START`, known-by-*t* quantiles, `MIN_N = 10` with the
+product's collapse ladder — and scores each the Phase 22 way (`skill_vs`
+against `unconditional`, 21-report-date block bootstrap, coverage, PIT), with
+`verdict(sealed=False)` on every arm so the code, not the reader, returns
+`exploratory`. Eight arms: the published macro bucket, `trailing_250`, the OR
+flag's state, the composite's state, OR × NFCI, the S&P drawdown bin, and
+drawdown × OR — plus the H-002 / H-004 structure checks. Report in the
+`numeric_baseline` shape at `results/explore_conditioner/report.md`; inputs
+cached beside it so `--cached` reproduces the run.
+
+It ran before WP-23.A was decided, deliberately: the 2010-06 → 2017-12 dates it
+read are explore surface under all three of `todo.md` #19's options, so nothing
+was burnt — and a seal earlier than 2018 is now off the table. What it saw is on
+the register: H-002 and H-004 each carry a ledger block (both structure checks
+failed as written), H-005 and H-006 are new `seen` entries. Owner's competence
+gate ([how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis))
+still applies before the first promotion. Next counted look, if any: a
+walk-forward `har_gaussian` arm as H-006's rival.
 
 ### WP-23.D — First promotion
 
