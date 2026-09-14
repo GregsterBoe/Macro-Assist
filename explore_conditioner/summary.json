@@ -1,0 +1,5324 @@
+{
+  "5": {
+    "trailing_250": {
+      "arm": "trailing_250",
+      "horizon": 5,
+      "n": 10280,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5062,
+      "pit_histogram": {
+        "0": 0.242,
+        "1": 0.252,
+        "2": 0.254,
+        "3": 0.252
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.011,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0036,
+            "hi": 0.027,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5272
+        },
+        "Gold": {
+          "skill": -0.0029,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0217,
+            "hi": 0.0154,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.505
+        },
+        "WTI Oil": {
+          "skill": 0.0117,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0093,
+            "hi": 0.0317,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4992
+        },
+        "UST10Y": {
+          "skill": -0.0089,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0199,
+            "hi": 0.0013,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5151
+        },
+        "DXY": {
+          "skill": -0.0073,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0258,
+            "hi": 0.0097,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5008
+        },
+        "Bitcoin": {
+          "skill": 0.0286,
+          "n": 815,
+          "ci": {
+            "lo": 0.0039,
+            "hi": 0.0518,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.4687
+        }
+      },
+      "pooled_skill": {
+        "skill": 0.0066,
+        "ci": {
+          "lo": -0.0042,
+          "hi": 0.0174,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": 0.0053,
+        "ci": {
+          "lo": -0.0036,
+          "hi": 0.014,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "macro": {
+      "arm": "macro",
+      "horizon": 5,
+      "n": 10280,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.556,
+      "pit_histogram": {
+        "0": 0.212,
+        "1": 0.275,
+        "2": 0.281,
+        "3": 0.233
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": -0.0036,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0193,
+            "hi": 0.0111,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.6117
+        },
+        "Gold": {
+          "skill": -0.0049,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0161,
+            "hi": 0.0061,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5066
+        },
+        "WTI Oil": {
+          "skill": -0.0045,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0135,
+            "hi": 0.0047,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5705
+        },
+        "UST10Y": {
+          "skill": -0.0154,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0279,
+            "hi": -0.0043,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5895
+        },
+        "DXY": {
+          "skill": -0.0229,
+          "n": 1893,
+          "ci": {
+            "lo": -0.04,
+            "hi": -0.0065,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5563
+        },
+        "Bitcoin": {
+          "skill": -0.0031,
+          "n": 815,
+          "ci": {
+            "lo": -0.0638,
+            "hi": 0.0522,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.4294
+        }
+      },
+      "pooled_skill": {
+        "skill": -0.0043,
+        "ci": {
+          "lo": -0.0115,
+          "hi": 0.0028,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0091,
+        "ci": {
+          "lo": -0.0172,
+          "hi": -0.0009,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "frag_or": {
+      "arm": "frag_or",
+      "horizon": 5,
+      "n": 10280,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5384,
+      "pit_histogram": {
+        "0": 0.232,
+        "1": 0.275,
+        "2": 0.264,
+        "3": 0.23
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0058,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0128,
+            "hi": 0.0256,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.6033
+        },
+        "Gold": {
+          "skill": -0.0072,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0167,
+            "hi": 0.0021,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5203
+        },
+        "WTI Oil": {
+          "skill": 0.0045,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0035,
+            "hi": 0.0127,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.504
+        },
+        "UST10Y": {
+          "skill": -0.0067,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0212,
+            "hi": 0.0073,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5489
+        },
+        "DXY": {
+          "skill": -0.0043,
+          "n": 1893,
+          "ci": {
+            "lo": -0.023,
+            "hi": 0.0148,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5441
+        },
+        "Bitcoin": {
+          "skill": -0.0093,
+          "n": 815,
+          "ci": {
+            "lo": -0.0187,
+            "hi": -0.0012,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.4724
+        }
+      },
+      "pooled_skill": {
+        "skill": 0.001,
+        "ci": {
+          "lo": -0.0071,
+          "hi": 0.0095,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0028,
+        "ci": {
+          "lo": -0.0082,
+          "hi": 0.0022,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "frag_comp": {
+      "arm": "frag_comp",
+      "horizon": 5,
+      "n": 10280,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5413,
+      "pit_histogram": {
+        "0": 0.231,
+        "1": 0.276,
+        "2": 0.265,
+        "3": 0.228
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0087,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0065,
+            "hi": 0.0246,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.6027
+        },
+        "Gold": {
+          "skill": -0.0048,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0126,
+            "hi": 0.0032,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.524
+        },
+        "WTI Oil": {
+          "skill": 0.0055,
+          "n": 1893,
+          "ci": {
+            "lo": -0.002,
+            "hi": 0.0133,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5008
+        },
+        "UST10Y": {
+          "skill": -0.0021,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0063,
+            "hi": 0.0017,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5578
+        },
+        "DXY": {
+          "skill": 0.0016,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0069,
+            "hi": 0.0099,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5462
+        },
+        "Bitcoin": {
+          "skill": -0.0105,
+          "n": 815,
+          "ci": {
+            "lo": -0.0254,
+            "hi": -0.0012,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.4834
+        }
+      },
+      "pooled_skill": {
+        "skill": 0.0032,
+        "ci": {
+          "lo": -0.0035,
+          "hi": 0.0102,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0003,
+        "ci": {
+          "lo": -0.0053,
+          "hi": 0.0043,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "frag_or_x_nfci": {
+      "arm": "frag_or_x_nfci",
+      "horizon": 5,
+      "n": 10280,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5133,
+      "pit_histogram": {
+        "0": 0.244,
+        "1": 0.262,
+        "2": 0.251,
+        "3": 0.243
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0049,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0189,
+            "hi": 0.0297,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5568
+        },
+        "Gold": {
+          "skill": -0.0192,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0397,
+            "hi": -0.0016,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4955
+        },
+        "WTI Oil": {
+          "skill": -0.004,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0176,
+            "hi": 0.009,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4871
+        },
+        "UST10Y": {
+          "skill": -0.024,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0425,
+            "hi": -0.0063,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5288
+        },
+        "DXY": {
+          "skill": -0.0203,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0486,
+            "hi": 0.0084,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5256
+        },
+        "Bitcoin": {
+          "skill": -0.0122,
+          "n": 815,
+          "ci": {
+            "lo": -0.0478,
+            "hi": 0.0173,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.4503
+        }
+      },
+      "pooled_skill": {
+        "skill": -0.0061,
+        "ci": {
+          "lo": -0.0179,
+          "hi": 0.0055,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0125,
+        "ci": {
+          "lo": -0.0227,
+          "hi": -0.0034,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "dd_bin": {
+      "arm": "dd_bin",
+      "horizon": 5,
+      "n": 10280,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5352,
+      "pit_histogram": {
+        "0": 0.23,
+        "1": 0.272,
+        "2": 0.262,
+        "3": 0.235
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0232,
+          "n": 1893,
+          "ci": {
+            "lo": 0.0113,
+            "hi": 0.0364,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5462
+        },
+        "Gold": {
+          "skill": -0.0015,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0091,
+            "hi": 0.0058,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.523
+        },
+        "WTI Oil": {
+          "skill": 0.005,
+          "n": 1893,
+          "ci": {
+            "lo": 0.0006,
+            "hi": 0.0097,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5468
+        },
+        "UST10Y": {
+          "skill": 0.003,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0052,
+            "hi": 0.0116,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5415
+        },
+        "DXY": {
+          "skill": 0.0027,
+          "n": 1893,
+          "ci": {
+            "lo": -0.002,
+            "hi": 0.0074,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5394
+        },
+        "Bitcoin": {
+          "skill": 0.0002,
+          "n": 815,
+          "ci": {
+            "lo": -0.0062,
+            "hi": 0.0057,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.4871
+        }
+      },
+      "pooled_skill": {
+        "skill": 0.0089,
+        "ci": {
+          "lo": 0.003,
+          "hi": 0.0149,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": 0.0054,
+        "ci": {
+          "lo": 0.0016,
+          "hi": 0.0093,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "dd_x_frag": {
+      "arm": "dd_x_frag",
+      "horizon": 5,
+      "n": 10280,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5183,
+      "pit_histogram": {
+        "0": 0.238,
+        "1": 0.265,
+        "2": 0.253,
+        "3": 0.244
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0241,
+          "n": 1893,
+          "ci": {
+            "lo": 0.0041,
+            "hi": 0.048,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5531
+        },
+        "Gold": {
+          "skill": -0.0007,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0139,
+            "hi": 0.0126,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5267
+        },
+        "WTI Oil": {
+          "skill": 0.0043,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0087,
+            "hi": 0.0175,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4802
+        },
+        "UST10Y": {
+          "skill": -0.0065,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0213,
+            "hi": 0.0084,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5351
+        },
+        "DXY": {
+          "skill": -0.017,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0438,
+            "hi": 0.0066,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5135
+        },
+        "Bitcoin": {
+          "skill": -0.0092,
+          "n": 815,
+          "ci": {
+            "lo": -0.0219,
+            "hi": 0.0013,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.4785
+        }
+      },
+      "pooled_skill": {
+        "skill": 0.0092,
+        "ci": {
+          "lo": -0.0013,
+          "hi": 0.0198,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0008,
+        "ci": {
+          "lo": -0.0094,
+          "hi": 0.0075,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "har_gaussian": {
+      "arm": "har_gaussian",
+      "horizon": 5,
+      "n": 5819,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5742,
+      "pit_histogram": {
+        "0": 0.192,
+        "1": 0.259,
+        "2": 0.315,
+        "3": 0.234
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0034,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0064,
+            "hi": 0.0128,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.6149
+        },
+        "Gold": {
+          "skill": 0.003,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0134,
+            "hi": 0.0179,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5668
+        },
+        "WTI Oil": {
+          "skill": 0.0189,
+          "n": 1893,
+          "ci": {
+            "lo": 0.0072,
+            "hi": 0.03,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5531
+        },
+        "Bitcoin": {
+          "skill": -0.0309,
+          "n": 140,
+          "ci": {
+            "lo": -0.0598,
+            "hi": 0.0194,
+            "n_boot": 2000,
+            "n_blocks": 7
+          },
+          "coverage": 0.4071
+        }
+      },
+      "pooled_skill": {
+        "skill": 0.0085,
+        "ci": {
+          "lo": -0.0001,
+          "hi": 0.0161,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0014,
+        "ci": {
+          "lo": -0.0116,
+          "hi": 0.0085,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "har_scaled": {
+      "arm": "har_scaled",
+      "horizon": 5,
+      "n": 5819,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.4997,
+      "pit_histogram": {
+        "0": 0.259,
+        "1": 0.252,
+        "2": 0.247,
+        "3": 0.241
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0265,
+          "n": 1893,
+          "ci": {
+            "lo": 0.0178,
+            "hi": 0.036,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5156
+        },
+        "Gold": {
+          "skill": 0.0028,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0006,
+            "hi": 0.0065,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5055
+        },
+        "WTI Oil": {
+          "skill": 0.0146,
+          "n": 1893,
+          "ci": {
+            "lo": 0.0062,
+            "hi": 0.0237,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4929
+        },
+        "Bitcoin": {
+          "skill": -0.0029,
+          "n": 140,
+          "ci": {
+            "lo": -0.007,
+            "hi": 0.0002,
+            "n_boot": 2000,
+            "n_blocks": 7
+          },
+          "coverage": 0.3
+        }
+      },
+      "pooled_skill": {
+        "skill": 0.0147,
+        "ci": {
+          "lo": 0.0105,
+          "hi": 0.0193,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": 0.0103,
+        "ci": {
+          "lo": 0.0063,
+          "hi": 0.014,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    }
+  },
+  "10": {
+    "trailing_250": {
+      "arm": "trailing_250",
+      "horizon": 10,
+      "n": 10275,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.4991,
+      "pit_histogram": {
+        "0": 0.241,
+        "1": 0.253,
+        "2": 0.245,
+        "3": 0.26
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0099,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0125,
+            "hi": 0.0328,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5214
+        },
+        "Gold": {
+          "skill": -0.0025,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0339,
+            "hi": 0.0269,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4918
+        },
+        "WTI Oil": {
+          "skill": 0.0029,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0289,
+            "hi": 0.0334,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4844
+        },
+        "UST10Y": {
+          "skill": -0.0052,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0301,
+            "hi": 0.0176,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5082
+        },
+        "DXY": {
+          "skill": -0.013,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0417,
+            "hi": 0.0126,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5071
+        },
+        "Bitcoin": {
+          "skill": 0.0425,
+          "n": 810,
+          "ci": {
+            "lo": -0.0076,
+            "hi": 0.0837,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.458
+        }
+      },
+      "pooled_skill": {
+        "skill": 0.0034,
+        "ci": {
+          "lo": -0.0139,
+          "hi": 0.0199,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": 0.0058,
+        "ci": {
+          "lo": -0.0085,
+          "hi": 0.0191,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "macro": {
+      "arm": "macro",
+      "horizon": 10,
+      "n": 10275,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5497,
+      "pit_histogram": {
+        "0": 0.207,
+        "1": 0.271,
+        "2": 0.278,
+        "3": 0.244
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": -0.0224,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0495,
+            "hi": 0.002,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.6006
+        },
+        "Gold": {
+          "skill": -0.0075,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0267,
+            "hi": 0.0103,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5018
+        },
+        "WTI Oil": {
+          "skill": -0.0265,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0444,
+            "hi": -0.0091,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5584
+        },
+        "UST10Y": {
+          "skill": -0.032,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0552,
+            "hi": -0.0125,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.6091
+        },
+        "DXY": {
+          "skill": -0.0363,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0605,
+            "hi": -0.0133,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5404
+        },
+        "Bitcoin": {
+          "skill": -0.0429,
+          "n": 810,
+          "ci": {
+            "lo": -0.1436,
+            "hi": 0.036,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.4049
+        }
+      },
+      "pooled_skill": {
+        "skill": -0.0188,
+        "ci": {
+          "lo": -0.0305,
+          "hi": -0.0077,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0279,
+        "ci": {
+          "lo": -0.0414,
+          "hi": -0.015,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "frag_or": {
+      "arm": "frag_or",
+      "horizon": 10,
+      "n": 10275,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5318,
+      "pit_histogram": {
+        "0": 0.233,
+        "1": 0.274,
+        "2": 0.257,
+        "3": 0.235
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0095,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0239,
+            "hi": 0.0437,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5969
+        },
+        "Gold": {
+          "skill": -0.0143,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0355,
+            "hi": 0.0045,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5119
+        },
+        "WTI Oil": {
+          "skill": -0.0019,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0125,
+            "hi": 0.0093,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4923
+        },
+        "UST10Y": {
+          "skill": -0.0056,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0234,
+            "hi": 0.0109,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5547
+        },
+        "DXY": {
+          "skill": -0.0191,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0614,
+            "hi": 0.016,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5462
+        },
+        "Bitcoin": {
+          "skill": -0.01,
+          "n": 810,
+          "ci": {
+            "lo": -0.0205,
+            "hi": -0.0004,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.4309
+        }
+      },
+      "pooled_skill": {
+        "skill": -0.0022,
+        "ci": {
+          "lo": -0.0176,
+          "hi": 0.0125,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0069,
+        "ci": {
+          "lo": -0.0187,
+          "hi": 0.0025,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "frag_comp": {
+      "arm": "frag_comp",
+      "horizon": 10,
+      "n": 10275,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5344,
+      "pit_histogram": {
+        "0": 0.233,
+        "1": 0.275,
+        "2": 0.259,
+        "3": 0.233
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0107,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0151,
+            "hi": 0.0359,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5922
+        },
+        "Gold": {
+          "skill": -0.0095,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0235,
+            "hi": 0.0034,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.514
+        },
+        "WTI Oil": {
+          "skill": -0.0012,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0118,
+            "hi": 0.0099,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4913
+        },
+        "UST10Y": {
+          "skill": -0.0025,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0178,
+            "hi": 0.009,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5589
+        },
+        "DXY": {
+          "skill": -0.0094,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0373,
+            "hi": 0.0103,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5499
+        },
+        "Bitcoin": {
+          "skill": -0.0147,
+          "n": 810,
+          "ci": {
+            "lo": -0.0362,
+            "hi": -0.0014,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.4543
+        }
+      },
+      "pooled_skill": {
+        "skill": 0.0,
+        "ci": {
+          "lo": -0.011,
+          "hi": 0.011,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0044,
+        "ci": {
+          "lo": -0.0139,
+          "hi": 0.0041,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "frag_or_x_nfci": {
+      "arm": "frag_or_x_nfci",
+      "horizon": 10,
+      "n": 10275,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5037,
+      "pit_histogram": {
+        "0": 0.246,
+        "1": 0.254,
+        "2": 0.25,
+        "3": 0.251
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": -0.0044,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0469,
+            "hi": 0.0379,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5526
+        },
+        "Gold": {
+          "skill": -0.0374,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0685,
+            "hi": -0.0099,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4955
+        },
+        "WTI Oil": {
+          "skill": -0.0203,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0439,
+            "hi": 0.0016,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4569
+        },
+        "UST10Y": {
+          "skill": -0.0401,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0759,
+            "hi": -0.0088,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5351
+        },
+        "DXY": {
+          "skill": -0.0424,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0913,
+            "hi": 0.0028,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5151
+        },
+        "Bitcoin": {
+          "skill": -0.0146,
+          "n": 810,
+          "ci": {
+            "lo": -0.06,
+            "hi": 0.0249,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.4185
+        }
+      },
+      "pooled_skill": {
+        "skill": -0.0207,
+        "ci": {
+          "lo": -0.0411,
+          "hi": -0.002,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0265,
+        "ci": {
+          "lo": -0.0439,
+          "hi": -0.0106,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "dd_bin": {
+      "arm": "dd_bin",
+      "horizon": 10,
+      "n": 10275,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5346,
+      "pit_histogram": {
+        "0": 0.228,
+        "1": 0.268,
+        "2": 0.266,
+        "3": 0.237
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0271,
+          "n": 1893,
+          "ci": {
+            "lo": 0.0085,
+            "hi": 0.0467,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5235
+        },
+        "Gold": {
+          "skill": -0.0017,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0113,
+            "hi": 0.0074,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5367
+        },
+        "WTI Oil": {
+          "skill": 0.0026,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0024,
+            "hi": 0.0081,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5383
+        },
+        "UST10Y": {
+          "skill": 0.009,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0107,
+            "hi": 0.0281,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.58
+        },
+        "DXY": {
+          "skill": 0.0033,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0047,
+            "hi": 0.0108,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5304
+        },
+        "Bitcoin": {
+          "skill": -0.0076,
+          "n": 810,
+          "ci": {
+            "lo": -0.0232,
+            "hi": 0.005,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.4506
+        }
+      },
+      "pooled_skill": {
+        "skill": 0.0093,
+        "ci": {
+          "lo": 0.002,
+          "hi": 0.017,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": 0.0054,
+        "ci": {
+          "lo": -0.0001,
+          "hi": 0.011,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "dd_x_frag": {
+      "arm": "dd_x_frag",
+      "horizon": 10,
+      "n": 10275,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5115,
+      "pit_histogram": {
+        "0": 0.244,
+        "1": 0.253,
+        "2": 0.258,
+        "3": 0.244
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0155,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0217,
+            "hi": 0.0543,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5689
+        },
+        "Gold": {
+          "skill": -0.0094,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0312,
+            "hi": 0.0111,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5145
+        },
+        "WTI Oil": {
+          "skill": -0.0044,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0235,
+            "hi": 0.0159,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4601
+        },
+        "UST10Y": {
+          "skill": -0.0149,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0437,
+            "hi": 0.0105,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5489
+        },
+        "DXY": {
+          "skill": -0.0359,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0784,
+            "hi": 0.0031,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5013
+        },
+        "Bitcoin": {
+          "skill": -0.0158,
+          "n": 810,
+          "ci": {
+            "lo": -0.038,
+            "hi": 0.001,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.4272
+        }
+      },
+      "pooled_skill": {
+        "skill": 0.0006,
+        "ci": {
+          "lo": -0.0168,
+          "hi": 0.0174,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0108,
+        "ci": {
+          "lo": -0.026,
+          "hi": 0.003,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "har_gaussian": {
+      "arm": "har_gaussian",
+      "horizon": 10,
+      "n": 5819,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5675,
+      "pit_histogram": {
+        "0": 0.19,
+        "1": 0.246,
+        "2": 0.322,
+        "3": 0.243
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": -0.014,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0305,
+            "hi": 0.0023,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.6207
+        },
+        "Gold": {
+          "skill": 0.0039,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0256,
+            "hi": 0.0299,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.561
+        },
+        "WTI Oil": {
+          "skill": 0.017,
+          "n": 1893,
+          "ci": {
+            "lo": 0.0004,
+            "hi": 0.033,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5404
+        },
+        "Bitcoin": {
+          "skill": -0.0387,
+          "n": 140,
+          "ci": {
+            "lo": -0.0934,
+            "hi": 0.0437,
+            "n_boot": 2000,
+            "n_blocks": 7
+          },
+          "coverage": 0.3
+        }
+      },
+      "pooled_skill": {
+        "skill": 0.0023,
+        "ci": {
+          "lo": -0.0112,
+          "hi": 0.015,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.008,
+        "ci": {
+          "lo": -0.0246,
+          "hi": 0.0103,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "har_scaled": {
+      "arm": "har_scaled",
+      "horizon": 10,
+      "n": 5819,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5121,
+      "pit_histogram": {
+        "0": 0.25,
+        "1": 0.264,
+        "2": 0.248,
+        "3": 0.238
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0203,
+          "n": 1893,
+          "ci": {
+            "lo": 0.0097,
+            "hi": 0.032,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5225
+        },
+        "Gold": {
+          "skill": -0.0005,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0056,
+            "hi": 0.005,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5182
+        },
+        "WTI Oil": {
+          "skill": 0.0107,
+          "n": 1893,
+          "ci": {
+            "lo": 0.0012,
+            "hi": 0.0211,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5182
+        },
+        "Bitcoin": {
+          "skill": -0.0015,
+          "n": 140,
+          "ci": {
+            "lo": -0.0109,
+            "hi": 0.0059,
+            "n_boot": 2000,
+            "n_blocks": 7
+          },
+          "coverage": 0.2071
+        }
+      },
+      "pooled_skill": {
+        "skill": 0.0102,
+        "ci": {
+          "lo": 0.0044,
+          "hi": 0.0163,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": 0.0073,
+        "ci": {
+          "lo": 0.0023,
+          "hi": 0.0119,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    }
+  },
+  "20": {
+    "trailing_250": {
+      "arm": "trailing_250",
+      "horizon": 20,
+      "n": 10265,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.4853,
+      "pit_histogram": {
+        "0": 0.246,
+        "1": 0.246,
+        "2": 0.239,
+        "3": 0.269
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0013,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0418,
+            "hi": 0.0433,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5219
+        },
+        "Gold": {
+          "skill": -0.0045,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0607,
+            "hi": 0.0482,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4865
+        },
+        "WTI Oil": {
+          "skill": -0.0114,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0687,
+            "hi": 0.0432,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.486
+        },
+        "UST10Y": {
+          "skill": -0.0242,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0622,
+            "hi": 0.0107,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4966
+        },
+        "DXY": {
+          "skill": -0.041,
+          "n": 1893,
+          "ci": {
+            "lo": -0.1016,
+            "hi": 0.0126,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4807
+        },
+        "Bitcoin": {
+          "skill": 0.0549,
+          "n": 800,
+          "ci": {
+            "lo": -0.0023,
+            "hi": 0.1045,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.3787
+        }
+      },
+      "pooled_skill": {
+        "skill": -0.0049,
+        "ci": {
+          "lo": -0.0406,
+          "hi": 0.0275,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0042,
+        "ci": {
+          "lo": -0.0297,
+          "hi": 0.018,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "macro": {
+      "arm": "macro",
+      "horizon": 20,
+      "n": 10265,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5278,
+      "pit_histogram": {
+        "0": 0.215,
+        "1": 0.256,
+        "2": 0.272,
+        "3": 0.258
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": -0.0362,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0821,
+            "hi": 0.0033,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5996
+        },
+        "Gold": {
+          "skill": -0.011,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0398,
+            "hi": 0.0175,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4844
+        },
+        "WTI Oil": {
+          "skill": -0.0389,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0654,
+            "hi": -0.0143,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5061
+        },
+        "UST10Y": {
+          "skill": -0.0582,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0864,
+            "hi": -0.0316,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.6107
+        },
+        "DXY": {
+          "skill": -0.0757,
+          "n": 1893,
+          "ci": {
+            "lo": -0.1178,
+            "hi": -0.0346,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5388
+        },
+        "Bitcoin": {
+          "skill": -0.0966,
+          "n": 800,
+          "ci": {
+            "lo": -0.2415,
+            "hi": 0.0217,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.29
+        }
+      },
+      "pooled_skill": {
+        "skill": -0.0287,
+        "ci": {
+          "lo": -0.0505,
+          "hi": -0.0096,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0528,
+        "ci": {
+          "lo": -0.0805,
+          "hi": -0.0306,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "frag_or": {
+      "arm": "frag_or",
+      "horizon": 20,
+      "n": 10265,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5095,
+      "pit_histogram": {
+        "0": 0.249,
+        "1": 0.259,
+        "2": 0.25,
+        "3": 0.242
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0235,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0245,
+            "hi": 0.0721,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5996
+        },
+        "Gold": {
+          "skill": -0.0301,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0731,
+            "hi": 0.0053,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4707
+        },
+        "WTI Oil": {
+          "skill": -0.0085,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0255,
+            "hi": 0.009,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.468
+        },
+        "UST10Y": {
+          "skill": -0.0132,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0349,
+            "hi": 0.0066,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5674
+        },
+        "DXY": {
+          "skill": -0.0479,
+          "n": 1893,
+          "ci": {
+            "lo": -0.1056,
+            "hi": -0.0009,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5087
+        },
+        "Bitcoin": {
+          "skill": -0.0116,
+          "n": 800,
+          "ci": {
+            "lo": -0.0368,
+            "hi": 0.0142,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.3513
+        }
+      },
+      "pooled_skill": {
+        "skill": -0.005,
+        "ci": {
+          "lo": -0.0275,
+          "hi": 0.0167,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0146,
+        "ci": {
+          "lo": -0.0339,
+          "hi": 0.0016,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "frag_comp": {
+      "arm": "frag_comp",
+      "horizon": 20,
+      "n": 10265,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5129,
+      "pit_histogram": {
+        "0": 0.247,
+        "1": 0.259,
+        "2": 0.253,
+        "3": 0.24
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0179,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0243,
+            "hi": 0.06,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5948
+        },
+        "Gold": {
+          "skill": -0.0267,
+          "n": 1893,
+          "ci": {
+            "lo": -0.057,
+            "hi": 0.0003,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4749
+        },
+        "WTI Oil": {
+          "skill": -0.0076,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0225,
+            "hi": 0.0069,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.468
+        },
+        "UST10Y": {
+          "skill": -0.0099,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0308,
+            "hi": 0.006,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5784
+        },
+        "DXY": {
+          "skill": -0.0308,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0794,
+            "hi": 0.0027,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5129
+        },
+        "Bitcoin": {
+          "skill": -0.0019,
+          "n": 800,
+          "ci": {
+            "lo": -0.0165,
+            "hi": 0.0159,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.36
+        }
+      },
+      "pooled_skill": {
+        "skill": -0.0055,
+        "ci": {
+          "lo": -0.0247,
+          "hi": 0.0137,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0098,
+        "ci": {
+          "lo": -0.027,
+          "hi": 0.0036,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "frag_or_x_nfci": {
+      "arm": "frag_or_x_nfci",
+      "horizon": 20,
+      "n": 10265,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.4769,
+      "pit_histogram": {
+        "0": 0.26,
+        "1": 0.246,
+        "2": 0.231,
+        "3": 0.264
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": -0.0273,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0928,
+            "hi": 0.037,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5452
+        },
+        "Gold": {
+          "skill": -0.0633,
+          "n": 1893,
+          "ci": {
+            "lo": -0.1291,
+            "hi": -0.0085,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4316
+        },
+        "WTI Oil": {
+          "skill": -0.0583,
+          "n": 1893,
+          "ci": {
+            "lo": -0.112,
+            "hi": -0.0154,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4422
+        },
+        "UST10Y": {
+          "skill": -0.1201,
+          "n": 1893,
+          "ci": {
+            "lo": -0.1845,
+            "hi": -0.0658,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5483
+        },
+        "DXY": {
+          "skill": -0.1029,
+          "n": 1893,
+          "ci": {
+            "lo": -0.1886,
+            "hi": -0.031,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4712
+        },
+        "Bitcoin": {
+          "skill": -0.047,
+          "n": 800,
+          "ci": {
+            "lo": -0.1316,
+            "hi": 0.0229,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.3488
+        }
+      },
+      "pooled_skill": {
+        "skill": -0.0496,
+        "ci": {
+          "lo": -0.0887,
+          "hi": -0.0152,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0698,
+        "ci": {
+          "lo": -0.1049,
+          "hi": -0.0389,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "dd_bin": {
+      "arm": "dd_bin",
+      "horizon": 20,
+      "n": 10265,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5124,
+      "pit_histogram": {
+        "0": 0.238,
+        "1": 0.255,
+        "2": 0.257,
+        "3": 0.25
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.031,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0004,
+            "hi": 0.0627,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5066
+        },
+        "Gold": {
+          "skill": 0.0016,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0154,
+            "hi": 0.0187,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5003
+        },
+        "WTI Oil": {
+          "skill": -0.0068,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0151,
+            "hi": 0.0014,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4987
+        },
+        "UST10Y": {
+          "skill": 0.0119,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0101,
+            "hi": 0.0332,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5917
+        },
+        "DXY": {
+          "skill": 0.0015,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0092,
+            "hi": 0.0122,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5214
+        },
+        "Bitcoin": {
+          "skill": -0.0158,
+          "n": 800,
+          "ci": {
+            "lo": -0.0383,
+            "hi": -0.0007,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.3787
+        }
+      },
+      "pooled_skill": {
+        "skill": 0.0086,
+        "ci": {
+          "lo": -0.0031,
+          "hi": 0.0212,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": 0.0039,
+        "ci": {
+          "lo": -0.0038,
+          "hi": 0.0112,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "dd_x_frag": {
+      "arm": "dd_x_frag",
+      "horizon": 20,
+      "n": 10265,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.4937,
+      "pit_histogram": {
+        "0": 0.254,
+        "1": 0.248,
+        "2": 0.245,
+        "3": 0.253
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.004,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0535,
+            "hi": 0.0611,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5806
+        },
+        "Gold": {
+          "skill": -0.0129,
+          "n": 1893,
+          "ci": {
+            "lo": -0.049,
+            "hi": 0.0214,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.467
+        },
+        "WTI Oil": {
+          "skill": -0.0165,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0489,
+            "hi": 0.0129,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4622
+        },
+        "UST10Y": {
+          "skill": -0.0316,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0685,
+            "hi": 0.0005,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5557
+        },
+        "DXY": {
+          "skill": -0.0561,
+          "n": 1893,
+          "ci": {
+            "lo": -0.1245,
+            "hi": 0.0068,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4686
+        },
+        "Bitcoin": {
+          "skill": -0.0365,
+          "n": 800,
+          "ci": {
+            "lo": -0.0746,
+            "hi": -0.0069,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.3387
+        }
+      },
+      "pooled_skill": {
+        "skill": -0.0085,
+        "ci": {
+          "lo": -0.0357,
+          "hi": 0.0165,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0249,
+        "ci": {
+          "lo": -0.0472,
+          "hi": -0.0062,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "har_gaussian": {
+      "arm": "har_gaussian",
+      "horizon": 20,
+      "n": 5819,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.54,
+      "pit_histogram": {
+        "0": 0.187,
+        "1": 0.236,
+        "2": 0.304,
+        "3": 0.273
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": -0.0436,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0741,
+            "hi": -0.0154,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5837
+        },
+        "Gold": {
+          "skill": 0.0148,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0269,
+            "hi": 0.0544,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5541
+        },
+        "WTI Oil": {
+          "skill": 0.0148,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0123,
+            "hi": 0.0391,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5077
+        },
+        "Bitcoin": {
+          "skill": -0.0483,
+          "n": 140,
+          "ci": {
+            "lo": -0.1013,
+            "hi": 0.0588,
+            "n_boot": 2000,
+            "n_blocks": 7
+          },
+          "coverage": 0.1929
+        }
+      },
+      "pooled_skill": {
+        "skill": -0.0047,
+        "ci": {
+          "lo": -0.026,
+          "hi": 0.0145,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0156,
+        "ci": {
+          "lo": -0.0347,
+          "hi": 0.0074,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "har_scaled": {
+      "arm": "har_scaled",
+      "horizon": 20,
+      "n": 5819,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.4867,
+      "pit_histogram": {
+        "0": 0.267,
+        "1": 0.244,
+        "2": 0.243,
+        "3": 0.246
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0159,
+          "n": 1893,
+          "ci": {
+            "lo": 0.0022,
+            "hi": 0.0314,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5119
+        },
+        "Gold": {
+          "skill": -0.0009,
+          "n": 1893,
+          "ci": {
+            "lo": -0.007,
+            "hi": 0.0058,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5018
+        },
+        "WTI Oil": {
+          "skill": 0.0028,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0093,
+            "hi": 0.0153,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4728
+        },
+        "Bitcoin": {
+          "skill": -0.0049,
+          "n": 140,
+          "ci": {
+            "lo": -0.0165,
+            "hi": 0.0062,
+            "n_boot": 2000,
+            "n_blocks": 7
+          },
+          "coverage": 0.1286
+        }
+      },
+      "pooled_skill": {
+        "skill": 0.0059,
+        "ci": {
+          "lo": -0.0008,
+          "hi": 0.0132,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": 0.0032,
+        "ci": {
+          "lo": -0.0024,
+          "hi": 0.0097,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    }
+  },
+  "har_rival": {
+    "5": {
+      "n_report_dates": 1893,
+      "pairs": {
+        "dd_bin vs unconditional": {
+          "pooled": {
+            "skill": 0.0089,
+            "ci": {
+              "lo": 0.003,
+              "hi": 0.0149,
+              "n_boot": 2000,
+              "n_blocks": 91
+            },
+            "assets": [
+              "SP500",
+              "Gold",
+              "WTI Oil"
+            ]
+          },
+          "SP500": {
+            "skill": 0.0232,
+            "ci": {
+              "lo": 0.0113,
+              "hi": 0.0364,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Gold": {
+            "skill": -0.0015,
+            "ci": {
+              "lo": -0.0091,
+              "hi": 0.0058,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "WTI Oil": {
+            "skill": 0.005,
+            "ci": {
+              "lo": 0.0006,
+              "hi": 0.0097,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Bitcoin": {
+            "skill": 0.011,
+            "ci": {
+              "lo": 0.0021,
+              "hi": 0.0179,
+              "n_boot": 2000,
+              "n_blocks": 7
+            }
+          }
+        },
+        "har_gaussian vs unconditional": {
+          "pooled": {
+            "skill": 0.0085,
+            "ci": {
+              "lo": -0.0001,
+              "hi": 0.0161,
+              "n_boot": 2000,
+              "n_blocks": 91
+            },
+            "assets": [
+              "SP500",
+              "Gold",
+              "WTI Oil"
+            ]
+          },
+          "SP500": {
+            "skill": 0.0034,
+            "ci": {
+              "lo": -0.0064,
+              "hi": 0.0128,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Gold": {
+            "skill": 0.003,
+            "ci": {
+              "lo": -0.0134,
+              "hi": 0.0179,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "WTI Oil": {
+            "skill": 0.0189,
+            "ci": {
+              "lo": 0.0072,
+              "hi": 0.03,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Bitcoin": {
+            "skill": -0.0309,
+            "ci": {
+              "lo": -0.0598,
+              "hi": 0.0194,
+              "n_boot": 2000,
+              "n_blocks": 7
+            }
+          }
+        },
+        "har_scaled vs unconditional": {
+          "pooled": {
+            "skill": 0.0147,
+            "ci": {
+              "lo": 0.0105,
+              "hi": 0.0193,
+              "n_boot": 2000,
+              "n_blocks": 91
+            },
+            "assets": [
+              "SP500",
+              "Gold",
+              "WTI Oil"
+            ]
+          },
+          "SP500": {
+            "skill": 0.0265,
+            "ci": {
+              "lo": 0.0178,
+              "hi": 0.036,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Gold": {
+            "skill": 0.0028,
+            "ci": {
+              "lo": -0.0006,
+              "hi": 0.0065,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "WTI Oil": {
+            "skill": 0.0146,
+            "ci": {
+              "lo": 0.0062,
+              "hi": 0.0237,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Bitcoin": {
+            "skill": -0.0029,
+            "ci": {
+              "lo": -0.007,
+              "hi": 0.0002,
+              "n_boot": 2000,
+              "n_blocks": 7
+            }
+          }
+        },
+        "dd_bin vs har_gaussian": {
+          "pooled": {
+            "skill": 0.0004,
+            "ci": {
+              "lo": -0.0098,
+              "hi": 0.0116,
+              "n_boot": 2000,
+              "n_blocks": 91
+            },
+            "assets": [
+              "SP500",
+              "Gold",
+              "WTI Oil"
+            ]
+          },
+          "SP500": {
+            "skill": 0.0199,
+            "ci": {
+              "lo": 0.0026,
+              "hi": 0.0385,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Gold": {
+            "skill": -0.0046,
+            "ci": {
+              "lo": -0.0248,
+              "hi": 0.0167,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "WTI Oil": {
+            "skill": -0.0142,
+            "ci": {
+              "lo": -0.0247,
+              "hi": -0.0026,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Bitcoin": {
+            "skill": 0.0407,
+            "ci": {
+              "lo": -0.017,
+              "hi": 0.0727,
+              "n_boot": 2000,
+              "n_blocks": 7
+            }
+          }
+        },
+        "dd_bin vs har_scaled": {
+          "pooled": {
+            "skill": -0.0058,
+            "ci": {
+              "lo": -0.0107,
+              "hi": -0.0007,
+              "n_boot": 2000,
+              "n_blocks": 91
+            },
+            "assets": [
+              "SP500",
+              "Gold",
+              "WTI Oil"
+            ]
+          },
+          "SP500": {
+            "skill": -0.0034,
+            "ci": {
+              "lo": -0.0142,
+              "hi": 0.0076,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Gold": {
+            "skill": -0.0044,
+            "ci": {
+              "lo": -0.0119,
+              "hi": 0.0035,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "WTI Oil": {
+            "skill": -0.0097,
+            "ci": {
+              "lo": -0.0167,
+              "hi": -0.0034,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Bitcoin": {
+            "skill": 0.0139,
+            "ci": {
+              "lo": 0.0038,
+              "hi": 0.0242,
+              "n_boot": 2000,
+              "n_blocks": 7
+            }
+          }
+        },
+        "trailing_250 vs har_scaled": {
+          "pooled": {
+            "skill": -0.0082,
+            "ci": {
+              "lo": -0.0192,
+              "hi": 0.0026,
+              "n_boot": 2000,
+              "n_blocks": 91
+            },
+            "assets": [
+              "SP500",
+              "Gold",
+              "WTI Oil"
+            ]
+          },
+          "SP500": {
+            "skill": -0.016,
+            "ci": {
+              "lo": -0.0287,
+              "hi": -0.0032,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Gold": {
+            "skill": -0.0058,
+            "ci": {
+              "lo": -0.024,
+              "hi": 0.0125,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "WTI Oil": {
+            "skill": -0.003,
+            "ci": {
+              "lo": -0.0241,
+              "hi": 0.0181,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Bitcoin": {
+            "skill": 0.0711,
+            "ci": {
+              "lo": -0.0384,
+              "hi": 0.1323,
+              "n_boot": 2000,
+              "n_blocks": 7
+            }
+          }
+        }
+      }
+    },
+    "10": {
+      "n_report_dates": 1893,
+      "pairs": {
+        "dd_bin vs unconditional": {
+          "pooled": {
+            "skill": 0.0093,
+            "ci": {
+              "lo": 0.002,
+              "hi": 0.017,
+              "n_boot": 2000,
+              "n_blocks": 91
+            },
+            "assets": [
+              "SP500",
+              "Gold",
+              "WTI Oil"
+            ]
+          },
+          "SP500": {
+            "skill": 0.0271,
+            "ci": {
+              "lo": 0.0085,
+              "hi": 0.0467,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Gold": {
+            "skill": -0.0017,
+            "ci": {
+              "lo": -0.0113,
+              "hi": 0.0074,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "WTI Oil": {
+            "skill": 0.0026,
+            "ci": {
+              "lo": -0.0024,
+              "hi": 0.0081,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Bitcoin": {
+            "skill": 0.0085,
+            "ci": {
+              "lo": -0.0036,
+              "hi": 0.0151,
+              "n_boot": 2000,
+              "n_blocks": 7
+            }
+          }
+        },
+        "har_gaussian vs unconditional": {
+          "pooled": {
+            "skill": 0.0023,
+            "ci": {
+              "lo": -0.0112,
+              "hi": 0.015,
+              "n_boot": 2000,
+              "n_blocks": 91
+            },
+            "assets": [
+              "SP500",
+              "Gold",
+              "WTI Oil"
+            ]
+          },
+          "SP500": {
+            "skill": -0.014,
+            "ci": {
+              "lo": -0.0305,
+              "hi": 0.0023,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Gold": {
+            "skill": 0.0039,
+            "ci": {
+              "lo": -0.0256,
+              "hi": 0.0299,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "WTI Oil": {
+            "skill": 0.017,
+            "ci": {
+              "lo": 0.0004,
+              "hi": 0.033,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Bitcoin": {
+            "skill": -0.0387,
+            "ci": {
+              "lo": -0.0934,
+              "hi": 0.0437,
+              "n_boot": 2000,
+              "n_blocks": 7
+            }
+          }
+        },
+        "har_scaled vs unconditional": {
+          "pooled": {
+            "skill": 0.0102,
+            "ci": {
+              "lo": 0.0044,
+              "hi": 0.0163,
+              "n_boot": 2000,
+              "n_blocks": 91
+            },
+            "assets": [
+              "SP500",
+              "Gold",
+              "WTI Oil"
+            ]
+          },
+          "SP500": {
+            "skill": 0.0203,
+            "ci": {
+              "lo": 0.0097,
+              "hi": 0.032,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Gold": {
+            "skill": -0.0005,
+            "ci": {
+              "lo": -0.0056,
+              "hi": 0.005,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "WTI Oil": {
+            "skill": 0.0107,
+            "ci": {
+              "lo": 0.0012,
+              "hi": 0.0211,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Bitcoin": {
+            "skill": -0.0015,
+            "ci": {
+              "lo": -0.0109,
+              "hi": 0.0059,
+              "n_boot": 2000,
+              "n_blocks": 7
+            }
+          }
+        },
+        "dd_bin vs har_gaussian": {
+          "pooled": {
+            "skill": 0.0067,
+            "ci": {
+              "lo": -0.0104,
+              "hi": 0.0236,
+              "n_boot": 2000,
+              "n_blocks": 91
+            },
+            "assets": [
+              "SP500",
+              "Gold",
+              "WTI Oil"
+            ]
+          },
+          "SP500": {
+            "skill": 0.0405,
+            "ci": {
+              "lo": 0.0114,
+              "hi": 0.07,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Gold": {
+            "skill": -0.0056,
+            "ci": {
+              "lo": -0.0372,
+              "hi": 0.0257,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "WTI Oil": {
+            "skill": -0.0146,
+            "ci": {
+              "lo": -0.0314,
+              "hi": 0.0027,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Bitcoin": {
+            "skill": 0.0455,
+            "ci": {
+              "lo": -0.0474,
+              "hi": 0.0992,
+              "n_boot": 2000,
+              "n_blocks": 7
+            }
+          }
+        },
+        "dd_bin vs har_scaled": {
+          "pooled": {
+            "skill": -0.0009,
+            "ci": {
+              "lo": -0.0078,
+              "hi": 0.0063,
+              "n_boot": 2000,
+              "n_blocks": 91
+            },
+            "assets": [
+              "SP500",
+              "Gold",
+              "WTI Oil"
+            ]
+          },
+          "SP500": {
+            "skill": 0.0069,
+            "ci": {
+              "lo": -0.0098,
+              "hi": 0.0237,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Gold": {
+            "skill": -0.0012,
+            "ci": {
+              "lo": -0.0121,
+              "hi": 0.0092,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "WTI Oil": {
+            "skill": -0.0082,
+            "ci": {
+              "lo": -0.0169,
+              "hi": -0.0002,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Bitcoin": {
+            "skill": 0.0099,
+            "ci": {
+              "lo": -0.0066,
+              "hi": 0.0223,
+              "n_boot": 2000,
+              "n_blocks": 7
+            }
+          }
+        },
+        "trailing_250 vs har_scaled": {
+          "pooled": {
+            "skill": -0.0068,
+            "ci": {
+              "lo": -0.0245,
+              "hi": 0.0103,
+              "n_boot": 2000,
+              "n_blocks": 91
+            },
+            "assets": [
+              "SP500",
+              "Gold",
+              "WTI Oil"
+            ]
+          },
+          "SP500": {
+            "skill": -0.0106,
+            "ci": {
+              "lo": -0.0315,
+              "hi": 0.0103,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Gold": {
+            "skill": -0.002,
+            "ci": {
+              "lo": -0.0329,
+              "hi": 0.0279,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "WTI Oil": {
+            "skill": -0.0079,
+            "ci": {
+              "lo": -0.0424,
+              "hi": 0.0247,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Bitcoin": {
+            "skill": 0.0931,
+            "ci": {
+              "lo": -0.1095,
+              "hi": 0.2005,
+              "n_boot": 2000,
+              "n_blocks": 7
+            }
+          }
+        }
+      }
+    },
+    "20": {
+      "n_report_dates": 1893,
+      "pairs": {
+        "dd_bin vs unconditional": {
+          "pooled": {
+            "skill": 0.0086,
+            "ci": {
+              "lo": -0.0031,
+              "hi": 0.0212,
+              "n_boot": 2000,
+              "n_blocks": 91
+            },
+            "assets": [
+              "SP500",
+              "Gold",
+              "WTI Oil"
+            ]
+          },
+          "SP500": {
+            "skill": 0.031,
+            "ci": {
+              "lo": -0.0004,
+              "hi": 0.0627,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Gold": {
+            "skill": 0.0016,
+            "ci": {
+              "lo": -0.0154,
+              "hi": 0.0187,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "WTI Oil": {
+            "skill": -0.0068,
+            "ci": {
+              "lo": -0.0151,
+              "hi": 0.0014,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Bitcoin": {
+            "skill": 0.0044,
+            "ci": {
+              "lo": 0.002,
+              "hi": 0.0072,
+              "n_boot": 2000,
+              "n_blocks": 7
+            }
+          }
+        },
+        "har_gaussian vs unconditional": {
+          "pooled": {
+            "skill": -0.0047,
+            "ci": {
+              "lo": -0.026,
+              "hi": 0.0145,
+              "n_boot": 2000,
+              "n_blocks": 91
+            },
+            "assets": [
+              "SP500",
+              "Gold",
+              "WTI Oil"
+            ]
+          },
+          "SP500": {
+            "skill": -0.0436,
+            "ci": {
+              "lo": -0.0741,
+              "hi": -0.0154,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Gold": {
+            "skill": 0.0148,
+            "ci": {
+              "lo": -0.0269,
+              "hi": 0.0544,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "WTI Oil": {
+            "skill": 0.0148,
+            "ci": {
+              "lo": -0.0123,
+              "hi": 0.0391,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Bitcoin": {
+            "skill": -0.0483,
+            "ci": {
+              "lo": -0.1013,
+              "hi": 0.0588,
+              "n_boot": 2000,
+              "n_blocks": 7
+            }
+          }
+        },
+        "har_scaled vs unconditional": {
+          "pooled": {
+            "skill": 0.0059,
+            "ci": {
+              "lo": -0.0008,
+              "hi": 0.0132,
+              "n_boot": 2000,
+              "n_blocks": 91
+            },
+            "assets": [
+              "SP500",
+              "Gold",
+              "WTI Oil"
+            ]
+          },
+          "SP500": {
+            "skill": 0.0159,
+            "ci": {
+              "lo": 0.0022,
+              "hi": 0.0314,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Gold": {
+            "skill": -0.0009,
+            "ci": {
+              "lo": -0.007,
+              "hi": 0.0058,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "WTI Oil": {
+            "skill": 0.0028,
+            "ci": {
+              "lo": -0.0093,
+              "hi": 0.0153,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Bitcoin": {
+            "skill": -0.0049,
+            "ci": {
+              "lo": -0.0165,
+              "hi": 0.0062,
+              "n_boot": 2000,
+              "n_blocks": 7
+            }
+          }
+        },
+        "dd_bin vs har_gaussian": {
+          "pooled": {
+            "skill": 0.012,
+            "ci": {
+              "lo": -0.0123,
+              "hi": 0.0388,
+              "n_boot": 2000,
+              "n_blocks": 91
+            },
+            "assets": [
+              "SP500",
+              "Gold",
+              "WTI Oil"
+            ]
+          },
+          "SP500": {
+            "skill": 0.0715,
+            "ci": {
+              "lo": 0.025,
+              "hi": 0.1164,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Gold": {
+            "skill": -0.0134,
+            "ci": {
+              "lo": -0.0645,
+              "hi": 0.0348,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "WTI Oil": {
+            "skill": -0.022,
+            "ci": {
+              "lo": -0.0516,
+              "hi": 0.0072,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Bitcoin": {
+            "skill": 0.0503,
+            "ci": {
+              "lo": -0.0593,
+              "hi": 0.0968,
+              "n_boot": 2000,
+              "n_blocks": 7
+            }
+          }
+        },
+        "dd_bin vs har_scaled": {
+          "pooled": {
+            "skill": 0.0027,
+            "ci": {
+              "lo": -0.0082,
+              "hi": 0.0138,
+              "n_boot": 2000,
+              "n_blocks": 91
+            },
+            "assets": [
+              "SP500",
+              "Gold",
+              "WTI Oil"
+            ]
+          },
+          "SP500": {
+            "skill": 0.0154,
+            "ci": {
+              "lo": -0.013,
+              "hi": 0.044,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Gold": {
+            "skill": 0.0025,
+            "ci": {
+              "lo": -0.015,
+              "hi": 0.0195,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "WTI Oil": {
+            "skill": -0.0096,
+            "ci": {
+              "lo": -0.021,
+              "hi": 0.0013,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Bitcoin": {
+            "skill": 0.0093,
+            "ci": {
+              "lo": -0.004,
+              "hi": 0.0226,
+              "n_boot": 2000,
+              "n_blocks": 7
+            }
+          }
+        },
+        "trailing_250 vs har_scaled": {
+          "pooled": {
+            "skill": -0.0109,
+            "ci": {
+              "lo": -0.0464,
+              "hi": 0.0205,
+              "n_boot": 2000,
+              "n_blocks": 91
+            },
+            "assets": [
+              "SP500",
+              "Gold",
+              "WTI Oil"
+            ]
+          },
+          "SP500": {
+            "skill": -0.0149,
+            "ci": {
+              "lo": -0.0556,
+              "hi": 0.0229,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Gold": {
+            "skill": -0.0036,
+            "ci": {
+              "lo": -0.06,
+              "hi": 0.05,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "WTI Oil": {
+            "skill": -0.0142,
+            "ci": {
+              "lo": -0.0748,
+              "hi": 0.0438,
+              "n_boot": 2000,
+              "n_blocks": 91
+            }
+          },
+          "Bitcoin": {
+            "skill": 0.0971,
+            "ci": {
+              "lo": -0.1353,
+              "hi": 0.2145,
+              "n_boot": 2000,
+              "n_blocks": 7
+            }
+          }
+        }
+      }
+    }
+  },
+  "width_by_bin": {
+    "5": {
+      "dd-5..-10": {
+        "n_report_dates": 227,
+        "unconditional": 2.69,
+        "trailing_250": 2.671,
+        "dd_bin": 2.879,
+        "har_gaussian": 3.813,
+        "har_scaled": 2.911,
+        "realized_iqr": 2.711
+      },
+      "dd<-10": {
+        "n_report_dates": 130,
+        "unconditional": 2.739,
+        "trailing_250": 2.677,
+        "dd_bin": 4.286,
+        "har_gaussian": 5.197,
+        "har_scaled": 3.986,
+        "realized_iqr": 5.034
+      },
+      "dd>-5": {
+        "n_report_dates": 1536,
+        "unconditional": 2.599,
+        "trailing_250": 2.006,
+        "dd_bin": 1.927,
+        "har_gaussian": 2.441,
+        "har_scaled": 1.852,
+        "realized_iqr": 1.57
+      }
+    },
+    "10": {
+      "dd-5..-10": {
+        "n_report_dates": 227,
+        "unconditional": 3.658,
+        "trailing_250": 3.595,
+        "dd_bin": 3.98,
+        "har_gaussian": 5.392,
+        "har_scaled": 4.177,
+        "realized_iqr": 3.778
+      },
+      "dd<-10": {
+        "n_report_dates": 130,
+        "unconditional": 3.699,
+        "trailing_250": 3.589,
+        "dd_bin": 5.781,
+        "har_gaussian": 7.35,
+        "har_scaled": 5.676,
+        "realized_iqr": 4.313
+      },
+      "dd>-5": {
+        "n_report_dates": 1536,
+        "unconditional": 3.538,
+        "trailing_250": 2.763,
+        "dd_bin": 2.579,
+        "har_gaussian": 3.452,
+        "har_scaled": 2.661,
+        "realized_iqr": 2.332
+      }
+    },
+    "20": {
+      "dd-5..-10": {
+        "n_report_dates": 227,
+        "unconditional": 5.32,
+        "trailing_250": 4.664,
+        "dd_bin": 4.637,
+        "har_gaussian": 7.626,
+        "har_scaled": 6.152,
+        "realized_iqr": 4.823
+      },
+      "dd<-10": {
+        "n_report_dates": 130,
+        "unconditional": 5.415,
+        "trailing_250": 4.66,
+        "dd_bin": 8.368,
+        "har_gaussian": 10.395,
+        "har_scaled": 8.4,
+        "realized_iqr": 6.208
+      },
+      "dd>-5": {
+        "n_report_dates": 1536,
+        "unconditional": 5.148,
+        "trailing_250": 3.864,
+        "dd_bin": 3.651,
+        "har_gaussian": 4.882,
+        "har_scaled": 3.925,
+        "realized_iqr": 3.324
+      }
+    }
+  },
+  "by_state": {
+    "5": {
+      "Elevated": {
+        "n": 1601,
+        "n_report_dates": 287,
+        "pooled": {
+          "skill": -0.0272,
+          "ci": {
+            "lo": -0.046,
+            "hi": -0.0126,
+            "n_boot": 2000,
+            "n_blocks": 14
+          },
+          "assets": [
+            "SP500",
+            "Gold",
+            "WTI Oil",
+            "UST10Y",
+            "DXY",
+            "Bitcoin"
+          ]
+        },
+        "SP500": -0.0303,
+        "Gold": -0.0219,
+        "WTI Oil": -0.0169
+      },
+      "Normal": {
+        "n": 8679,
+        "n_report_dates": 1606,
+        "pooled": {
+          "skill": 0.0027,
+          "ci": {
+            "lo": -0.002,
+            "hi": 0.0076,
+            "n_boot": 2000,
+            "n_blocks": 77
+          },
+          "assets": [
+            "SP500",
+            "Gold",
+            "WTI Oil",
+            "UST10Y",
+            "DXY",
+            "Bitcoin"
+          ]
+        },
+        "SP500": 0.016,
+        "Gold": -0.0041,
+        "WTI Oil": 0.0095
+      }
+    },
+    "10": {
+      "Elevated": {
+        "n": 1598,
+        "n_report_dates": 287,
+        "pooled": {
+          "skill": -0.0456,
+          "ci": {
+            "lo": -0.1012,
+            "hi": -0.0083,
+            "n_boot": 2000,
+            "n_blocks": 14
+          },
+          "assets": [
+            "SP500",
+            "Gold",
+            "WTI Oil",
+            "UST10Y",
+            "DXY",
+            "Bitcoin"
+          ]
+        },
+        "SP500": -0.0055,
+        "Gold": -0.0447,
+        "WTI Oil": -0.0321
+      },
+      "Normal": {
+        "n": 8677,
+        "n_report_dates": 1606,
+        "pooled": {
+          "skill": 0.0017,
+          "ci": {
+            "lo": -0.005,
+            "hi": 0.0088,
+            "n_boot": 2000,
+            "n_blocks": 77
+          },
+          "assets": [
+            "SP500",
+            "Gold",
+            "WTI Oil",
+            "UST10Y",
+            "DXY",
+            "Bitcoin"
+          ]
+        },
+        "SP500": 0.0138,
+        "Gold": -0.0076,
+        "WTI Oil": 0.0046
+      }
+    },
+    "20": {
+      "Elevated": {
+        "n": 1588,
+        "n_report_dates": 287,
+        "pooled": {
+          "skill": -0.0578,
+          "ci": {
+            "lo": -0.1421,
+            "hi": 0.0036,
+            "n_boot": 2000,
+            "n_blocks": 14
+          },
+          "assets": [
+            "SP500",
+            "Gold",
+            "WTI Oil",
+            "UST10Y",
+            "DXY",
+            "Bitcoin"
+          ]
+        },
+        "SP500": 0.0445,
+        "Gold": -0.0992,
+        "WTI Oil": -0.0325
+      },
+      "Normal": {
+        "n": 8677,
+        "n_report_dates": 1606,
+        "pooled": {
+          "skill": -0.0053,
+          "ci": {
+            "lo": -0.0172,
+            "hi": 0.0075,
+            "n_boot": 2000,
+            "n_blocks": 77
+          },
+          "assets": [
+            "SP500",
+            "Gold",
+            "WTI Oil",
+            "UST10Y",
+            "DXY",
+            "Bitcoin"
+          ]
+        },
+        "SP500": 0.0178,
+        "Gold": -0.0137,
+        "WTI Oil": -0.0032
+      }
+    }
+  },
+  "dd_by_bin": {
+    "5": {
+      "dd-5..-10": {
+        "n": 1213,
+        "n_report_dates": 227,
+        "pooled": {
+          "skill": 0.0003,
+          "ci": {
+            "lo": -0.0142,
+            "hi": 0.0192,
+            "n_boot": 1993,
+            "n_blocks": 11
+          },
+          "assets": [
+            "SP500",
+            "Gold",
+            "WTI Oil",
+            "UST10Y",
+            "DXY",
+            "Bitcoin"
+          ]
+        },
+        "SP500": 0.0134,
+        "Gold": 0.0029,
+        "WTI Oil": -0.006
+      },
+      "dd<-10": {
+        "n": 675,
+        "n_report_dates": 130,
+        "pooled": {
+          "skill": -0.0032,
+          "ci": {
+            "lo": -0.0108,
+            "hi": 0.0022,
+            "n_boot": 1796,
+            "n_blocks": 7
+          },
+          "assets": [
+            "SP500",
+            "Gold",
+            "WTI Oil",
+            "UST10Y",
+            "DXY",
+            "Bitcoin"
+          ]
+        },
+        "SP500": 0.0182,
+        "Gold": 0.0003,
+        "WTI Oil": 0.0056
+      },
+      "dd>-5": {
+        "n": 8392,
+        "n_report_dates": 1536,
+        "pooled": {
+          "skill": 0.0071,
+          "ci": {
+            "lo": 0.0035,
+            "hi": 0.0108,
+            "n_boot": 2000,
+            "n_blocks": 74
+          },
+          "assets": [
+            "SP500",
+            "Gold",
+            "WTI Oil",
+            "UST10Y",
+            "DXY",
+            "Bitcoin"
+          ]
+        },
+        "SP500": 0.0269,
+        "Gold": -0.0025,
+        "WTI Oil": 0.0071
+      }
+    },
+    "10": {
+      "dd-5..-10": {
+        "n": 1211,
+        "n_report_dates": 227,
+        "pooled": {
+          "skill": -0.0106,
+          "ci": {
+            "lo": -0.0285,
+            "hi": 0.0198,
+            "n_boot": 1993,
+            "n_blocks": 11
+          },
+          "assets": [
+            "SP500",
+            "Gold",
+            "WTI Oil",
+            "UST10Y",
+            "DXY",
+            "Bitcoin"
+          ]
+        },
+        "SP500": 0.0416,
+        "Gold": -0.0091,
+        "WTI Oil": -0.005
+      },
+      "dd<-10": {
+        "n": 675,
+        "n_report_dates": 130,
+        "pooled": {
+          "skill": -0.0093,
+          "ci": {
+            "lo": -0.0425,
+            "hi": 0.0034,
+            "n_boot": 1796,
+            "n_blocks": 7
+          },
+          "assets": [
+            "SP500",
+            "Gold",
+            "WTI Oil",
+            "UST10Y",
+            "DXY",
+            "Bitcoin"
+          ]
+        },
+        "SP500": 0.0139,
+        "Gold": 0.0012,
+        "WTI Oil": 0.0076
+      },
+      "dd>-5": {
+        "n": 8389,
+        "n_report_dates": 1536,
+        "pooled": {
+          "skill": 0.0074,
+          "ci": {
+            "lo": 0.0014,
+            "hi": 0.0139,
+            "n_boot": 2000,
+            "n_blocks": 74
+          },
+          "assets": [
+            "SP500",
+            "Gold",
+            "WTI Oil",
+            "UST10Y",
+            "DXY",
+            "Bitcoin"
+          ]
+        },
+        "SP500": 0.026,
+        "Gold": -0.0009,
+        "WTI Oil": 0.0035
+      }
+    },
+    "20": {
+      "dd-5..-10": {
+        "n": 1206,
+        "n_report_dates": 227,
+        "pooled": {
+          "skill": -0.0012,
+          "ci": {
+            "lo": -0.0616,
+            "hi": 0.0367,
+            "n_boot": 1993,
+            "n_blocks": 11
+          },
+          "assets": [
+            "SP500",
+            "Gold",
+            "WTI Oil",
+            "UST10Y",
+            "DXY",
+            "Bitcoin"
+          ]
+        },
+        "SP500": 0.1034,
+        "Gold": -0.0203,
+        "WTI Oil": -0.0107
+      },
+      "dd<-10": {
+        "n": 675,
+        "n_report_dates": 130,
+        "pooled": {
+          "skill": -0.0093,
+          "ci": {
+            "lo": -0.0238,
+            "hi": 0.0042,
+            "n_boot": 1796,
+            "n_blocks": 7
+          },
+          "assets": [
+            "SP500",
+            "Gold",
+            "WTI Oil",
+            "UST10Y",
+            "DXY",
+            "Bitcoin"
+          ]
+        },
+        "SP500": -0.0356,
+        "Gold": 0.0176,
+        "WTI Oil": -0.0265
+      },
+      "dd>-5": {
+        "n": 8384,
+        "n_report_dates": 1536,
+        "pooled": {
+          "skill": 0.0053,
+          "ci": {
+            "lo": -0.0022,
+            "hi": 0.0132,
+            "n_boot": 2000,
+            "n_blocks": 74
+          },
+          "assets": [
+            "SP500",
+            "Gold",
+            "WTI Oil",
+            "UST10Y",
+            "DXY",
+            "Bitcoin"
+          ]
+        },
+        "SP500": 0.0255,
+        "Gold": 0.0029,
+        "WTI Oil": -0.0044
+      }
+    }
+  },
+  "macro_by_level": {
+    "5": {
+      "full": {
+        "n_report_dates": 1893,
+        "pooled_all_6": {
+          "skill": -0.0084,
+          "ci": {
+            "lo": -0.0166,
+            "hi": -0.0002,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "assets": [
+            "SP500",
+            "Gold",
+            "WTI Oil",
+            "UST10Y",
+            "DXY",
+            "Bitcoin"
+          ]
+        },
+        "SP500": -0.0036
+      },
+      "parent": {
+        "n_report_dates": 41,
+        "pooled_all_6": {
+          "skill": -0.0866,
+          "ci": {
+            "lo": -0.1408,
+            "hi": 0.1145,
+            "n_boot": 2000,
+            "n_blocks": 2
+          },
+          "assets": [
+            "Bitcoin"
+          ]
+        },
+        "SP500": 0
+      },
+      "all": {
+        "n_report_dates": 25,
+        "pooled_all_6": {
+          "skill": 0.0,
+          "ci": {
+            "lo": 0.0,
+            "hi": 0.0,
+            "n_boot": 2000,
+            "n_blocks": 2
+          },
+          "assets": [
+            "Bitcoin"
+          ]
+        },
+        "SP500": 0
+      }
+    },
+    "10": {
+      "full": {
+        "n_report_dates": 1893,
+        "pooled_all_6": {
+          "skill": -0.0287,
+          "ci": {
+            "lo": -0.043,
+            "hi": -0.015,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "assets": [
+            "SP500",
+            "Gold",
+            "WTI Oil",
+            "UST10Y",
+            "DXY",
+            "Bitcoin"
+          ]
+        },
+        "SP500": -0.0224
+      },
+      "parent": {
+        "n_report_dates": 47,
+        "pooled_all_6": {
+          "skill": -0.0091,
+          "ci": {
+            "lo": -0.0714,
+            "hi": 0.0941,
+            "n_boot": 2000,
+            "n_blocks": 3
+          },
+          "assets": [
+            "Bitcoin"
+          ]
+        },
+        "SP500": 0
+      },
+      "all": {
+        "n_report_dates": 35,
+        "pooled_all_6": {
+          "skill": 0.0,
+          "ci": {
+            "lo": 0.0,
+            "hi": 0.0,
+            "n_boot": 2000,
+            "n_blocks": 2
+          },
+          "assets": [
+            "Bitcoin"
+          ]
+        },
+        "SP500": 0
+      }
+    },
+    "20": {
+      "full": {
+        "n_report_dates": 1893,
+        "pooled_all_6": {
+          "skill": -0.0544,
+          "ci": {
+            "lo": -0.0865,
+            "hi": -0.0289,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "assets": [
+            "SP500",
+            "Gold",
+            "WTI Oil",
+            "UST10Y",
+            "DXY",
+            "Bitcoin"
+          ]
+        },
+        "SP500": -0.0362
+      },
+      "parent": {
+        "n_report_dates": 76,
+        "pooled_all_6": {
+          "skill": -0.0699,
+          "ci": {
+            "lo": -0.1669,
+            "hi": 0.0931,
+            "n_boot": 2000,
+            "n_blocks": 4
+          },
+          "assets": [
+            "Bitcoin"
+          ]
+        },
+        "SP500": 0
+      },
+      "all": {
+        "n_report_dates": 54,
+        "pooled_all_6": {
+          "skill": 0.0,
+          "ci": {
+            "lo": 0.0,
+            "hi": 0.0,
+            "n_boot": 2000,
+            "n_blocks": 3
+          },
+          "assets": [
+            "Bitcoin"
+          ]
+        },
+        "SP500": 0
+      }
+    }
+  },
+  "by_year": {
+    "dd_bin": {
+      "5": {
+        "2010": {
+          "n": 132,
+          "skill": 0.0294,
+          "share_elevated": 0.341,
+          "share_dd_below_5": 0.53
+        },
+        "2011": {
+          "n": 252,
+          "skill": -0.0052,
+          "share_elevated": 0.167,
+          "share_dd_below_5": 0.496
+        },
+        "2012": {
+          "n": 250,
+          "skill": 0.0269,
+          "share_elevated": 0.0,
+          "share_dd_below_5": 0.22
+        },
+        "2013": {
+          "n": 252,
+          "skill": 0.0358,
+          "share_elevated": 0.063,
+          "share_dd_below_5": 0.004
+        },
+        "2014": {
+          "n": 252,
+          "skill": 0.0368,
+          "share_elevated": 0.222,
+          "share_dd_below_5": 0.04
+        },
+        "2015": {
+          "n": 252,
+          "skill": 0.0045,
+          "share_elevated": 0.31,
+          "share_dd_below_5": 0.179
+        },
+        "2016": {
+          "n": 252,
+          "skill": 0.0189,
+          "share_elevated": 0.111,
+          "share_dd_below_5": 0.202
+        },
+        "2017": {
+          "n": 251,
+          "skill": 0.097,
+          "share_elevated": 0.088,
+          "share_dd_below_5": 0.0
+        }
+      },
+      "10": {
+        "2010": {
+          "n": 132,
+          "skill": 0.025,
+          "share_elevated": 0.341,
+          "share_dd_below_5": 0.53
+        },
+        "2011": {
+          "n": 252,
+          "skill": -0.008,
+          "share_elevated": 0.167,
+          "share_dd_below_5": 0.496
+        },
+        "2012": {
+          "n": 250,
+          "skill": 0.0351,
+          "share_elevated": 0.0,
+          "share_dd_below_5": 0.22
+        },
+        "2013": {
+          "n": 252,
+          "skill": 0.0363,
+          "share_elevated": 0.063,
+          "share_dd_below_5": 0.004
+        },
+        "2014": {
+          "n": 252,
+          "skill": 0.0365,
+          "share_elevated": 0.222,
+          "share_dd_below_5": 0.04
+        },
+        "2015": {
+          "n": 252,
+          "skill": 0.0135,
+          "share_elevated": 0.31,
+          "share_dd_below_5": 0.179
+        },
+        "2016": {
+          "n": 252,
+          "skill": 0.0395,
+          "share_elevated": 0.111,
+          "share_dd_below_5": 0.202
+        },
+        "2017": {
+          "n": 251,
+          "skill": 0.0888,
+          "share_elevated": 0.088,
+          "share_dd_below_5": 0.0
+        }
+      }
+    },
+    "macro": {
+      "5": {
+        "2010": {
+          "n": 132,
+          "skill": -0.0777,
+          "share_elevated": 0.341,
+          "share_dd_below_5": 0.53
+        },
+        "2011": {
+          "n": 252,
+          "skill": 0.0061,
+          "share_elevated": 0.167,
+          "share_dd_below_5": 0.496
+        },
+        "2012": {
+          "n": 250,
+          "skill": -0.0358,
+          "share_elevated": 0.0,
+          "share_dd_below_5": 0.22
+        },
+        "2013": {
+          "n": 252,
+          "skill": 0.0172,
+          "share_elevated": 0.063,
+          "share_dd_below_5": 0.004
+        },
+        "2014": {
+          "n": 252,
+          "skill": 0.0188,
+          "share_elevated": 0.222,
+          "share_dd_below_5": 0.04
+        },
+        "2015": {
+          "n": 252,
+          "skill": -0.0076,
+          "share_elevated": 0.31,
+          "share_dd_below_5": 0.179
+        },
+        "2016": {
+          "n": 252,
+          "skill": -0.037,
+          "share_elevated": 0.111,
+          "share_dd_below_5": 0.202
+        },
+        "2017": {
+          "n": 251,
+          "skill": 0.1096,
+          "share_elevated": 0.088,
+          "share_dd_below_5": 0.0
+        }
+      },
+      "10": {
+        "2010": {
+          "n": 132,
+          "skill": -0.1306,
+          "share_elevated": 0.341,
+          "share_dd_below_5": 0.53
+        },
+        "2011": {
+          "n": 252,
+          "skill": -0.0017,
+          "share_elevated": 0.167,
+          "share_dd_below_5": 0.496
+        },
+        "2012": {
+          "n": 250,
+          "skill": -0.0728,
+          "share_elevated": 0.0,
+          "share_dd_below_5": 0.22
+        },
+        "2013": {
+          "n": 252,
+          "skill": 0.0044,
+          "share_elevated": 0.063,
+          "share_dd_below_5": 0.004
+        },
+        "2014": {
+          "n": 252,
+          "skill": 0.0072,
+          "share_elevated": 0.222,
+          "share_dd_below_5": 0.04
+        },
+        "2015": {
+          "n": 252,
+          "skill": -0.0203,
+          "share_elevated": 0.31,
+          "share_dd_below_5": 0.179
+        },
+        "2016": {
+          "n": 252,
+          "skill": -0.06,
+          "share_elevated": 0.111,
+          "share_dd_below_5": 0.202
+        },
+        "2017": {
+          "n": 251,
+          "skill": 0.0914,
+          "share_elevated": 0.088,
+          "share_dd_below_5": 0.0
+        }
+      }
+    },
+    "frag_or": {
+      "5": {
+        "2010": {
+          "n": 132,
+          "skill": -0.0035,
+          "share_elevated": 0.341,
+          "share_dd_below_5": 0.53
+        },
+        "2011": {
+          "n": 252,
+          "skill": -0.0131,
+          "share_elevated": 0.167,
+          "share_dd_below_5": 0.496
+        },
+        "2012": {
+          "n": 250,
+          "skill": 0.0078,
+          "share_elevated": 0.0,
+          "share_dd_below_5": 0.22
+        },
+        "2013": {
+          "n": 252,
+          "skill": 0.0229,
+          "share_elevated": 0.063,
+          "share_dd_below_5": 0.004
+        },
+        "2014": {
+          "n": 252,
+          "skill": 0.0035,
+          "share_elevated": 0.222,
+          "share_dd_below_5": 0.04
+        },
+        "2015": {
+          "n": 252,
+          "skill": -0.0151,
+          "share_elevated": 0.31,
+          "share_dd_below_5": 0.179
+        },
+        "2016": {
+          "n": 252,
+          "skill": 0.024,
+          "share_elevated": 0.111,
+          "share_dd_below_5": 0.202
+        },
+        "2017": {
+          "n": 251,
+          "skill": 0.0588,
+          "share_elevated": 0.088,
+          "share_dd_below_5": 0.0
+        }
+      },
+      "10": {
+        "2010": {
+          "n": 132,
+          "skill": -0.0165,
+          "share_elevated": 0.341,
+          "share_dd_below_5": 0.53
+        },
+        "2011": {
+          "n": 252,
+          "skill": -0.0234,
+          "share_elevated": 0.167,
+          "share_dd_below_5": 0.496
+        },
+        "2012": {
+          "n": 250,
+          "skill": 0.0043,
+          "share_elevated": 0.0,
+          "share_dd_below_5": 0.22
+        },
+        "2013": {
+          "n": 252,
+          "skill": 0.0297,
+          "share_elevated": 0.063,
+          "share_dd_below_5": 0.004
+        },
+        "2014": {
+          "n": 252,
+          "skill": 0.0229,
+          "share_elevated": 0.222,
+          "share_dd_below_5": 0.04
+        },
+        "2015": {
+          "n": 252,
+          "skill": -0.0017,
+          "share_elevated": 0.31,
+          "share_dd_below_5": 0.179
+        },
+        "2016": {
+          "n": 252,
+          "skill": 0.0447,
+          "share_elevated": 0.111,
+          "share_dd_below_5": 0.202
+        },
+        "2017": {
+          "n": 251,
+          "skill": 0.0511,
+          "share_elevated": 0.088,
+          "share_dd_below_5": 0.0
+        }
+      }
+    }
+  },
+  "meta": {
+    "first_date": "2010-06-25",
+    "last_date": "2017-12-29",
+    "n_report_dates": 1893,
+    "n_obs": 30820,
+    "fetched": "2026-09-14",
+    "or_elevated_share": 0.1557
+  },
+  "cells": {
+    "SP500 h=5: drawdown \u00d7 OR state": [
+      {
+        "dd_bin": "dd-5..-10",
+        "or_state": "Elevated",
+        "n": 70,
+        "p25": -1.825,
+        "p50": 0.301,
+        "p75": 1.886,
+        "width": 3.711,
+        "side": "left",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_bin": "dd-5..-10",
+        "or_state": "Normal",
+        "n": 190,
+        "p25": -1.01,
+        "p50": 0.861,
+        "p75": 1.895,
+        "width": 2.905,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_bin": "dd<-10",
+        "or_state": "Elevated",
+        "n": 99,
+        "p25": -1.786,
+        "p50": 0.719,
+        "p75": 3.527,
+        "width": 5.313,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_bin": "dd<-10",
+        "or_state": "Normal",
+        "n": 96,
+        "p25": 0.259,
+        "p50": 2.139,
+        "p75": 3.5,
+        "width": 3.241,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_bin": "dd>-5",
+        "or_state": "Elevated",
+        "n": 131,
+        "p25": 0.021,
+        "p50": 0.775,
+        "p75": 1.614,
+        "width": 1.592,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_bin": "dd>-5",
+        "or_state": "Normal",
+        "n": 1551,
+        "p25": -0.562,
+        "p50": 0.253,
+        "p75": 1.043,
+        "width": 1.605,
+        "side": "left",
+        "uncond_p50": 0.37
+      }
+    ],
+    "SP500 h=5: drawdown alone": [
+      {
+        "dd_bin": "dd-5..-10",
+        "n": 260,
+        "p25": -1.177,
+        "p50": 0.704,
+        "p75": 1.908,
+        "width": 3.085,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_bin": "dd<-10",
+        "n": 195,
+        "p25": -0.821,
+        "p50": 1.632,
+        "p75": 3.527,
+        "width": 4.348,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_bin": "dd>-5",
+        "n": 1682,
+        "p25": -0.532,
+        "p50": 0.288,
+        "p75": 1.108,
+        "width": 1.641,
+        "side": "left",
+        "uncond_p50": 0.37
+      }
+    ],
+    "SP500 h=10: drawdown \u00d7 OR state": [
+      {
+        "dd_bin": "dd-5..-10",
+        "or_state": "Elevated",
+        "n": 70,
+        "p25": -2.376,
+        "p50": 1.434,
+        "p75": 3.708,
+        "width": 6.085,
+        "side": "right",
+        "uncond_p50": 0.685
+      },
+      {
+        "dd_bin": "dd-5..-10",
+        "or_state": "Normal",
+        "n": 190,
+        "p25": -0.847,
+        "p50": 1.444,
+        "p75": 2.742,
+        "width": 3.589,
+        "side": "right",
+        "uncond_p50": 0.685
+      },
+      {
+        "dd_bin": "dd<-10",
+        "or_state": "Elevated",
+        "n": 99,
+        "p25": -1.235,
+        "p50": 1.785,
+        "p75": 4.216,
+        "width": 5.451,
+        "side": "right",
+        "uncond_p50": 0.685
+      },
+      {
+        "dd_bin": "dd<-10",
+        "or_state": "Normal",
+        "n": 96,
+        "p25": 0.985,
+        "p50": 2.897,
+        "p75": 4.942,
+        "width": 3.956,
+        "side": "right",
+        "uncond_p50": 0.685
+      },
+      {
+        "dd_bin": "dd>-5",
+        "or_state": "Elevated",
+        "n": 131,
+        "p25": 0.076,
+        "p50": 1.554,
+        "p75": 2.637,
+        "width": 2.561,
+        "side": "right",
+        "uncond_p50": 0.685
+      },
+      {
+        "dd_bin": "dd>-5",
+        "or_state": "Normal",
+        "n": 1551,
+        "p25": -0.761,
+        "p50": 0.485,
+        "p75": 1.569,
+        "width": 2.33,
+        "side": "left",
+        "uncond_p50": 0.685
+      }
+    ],
+    "SP500 h=10: drawdown alone": [
+      {
+        "dd_bin": "dd-5..-10",
+        "n": 260,
+        "p25": -1.378,
+        "p50": 1.444,
+        "p75": 2.945,
+        "width": 4.323,
+        "side": "right",
+        "uncond_p50": 0.685
+      },
+      {
+        "dd_bin": "dd<-10",
+        "n": 195,
+        "p25": -0.171,
+        "p50": 2.555,
+        "p75": 4.464,
+        "width": 4.635,
+        "side": "right",
+        "uncond_p50": 0.685
+      },
+      {
+        "dd_bin": "dd>-5",
+        "n": 1682,
+        "p25": -0.731,
+        "p50": 0.548,
+        "p75": 1.7,
+        "width": 2.432,
+        "side": "left",
+        "uncond_p50": 0.685
+      }
+    ],
+    "SP500 h=20: drawdown \u00d7 OR state": [
+      {
+        "dd_bin": "dd-5..-10",
+        "or_state": "Elevated",
+        "n": 70,
+        "p25": -2.471,
+        "p50": 2.218,
+        "p75": 5.943,
+        "width": 8.414,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_bin": "dd-5..-10",
+        "or_state": "Normal",
+        "n": 190,
+        "p25": 0.217,
+        "p50": 3.137,
+        "p75": 4.434,
+        "width": 4.217,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_bin": "dd<-10",
+        "or_state": "Elevated",
+        "n": 99,
+        "p25": -0.486,
+        "p50": 3.419,
+        "p75": 7.101,
+        "width": 7.587,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_bin": "dd<-10",
+        "or_state": "Normal",
+        "n": 96,
+        "p25": 1.933,
+        "p50": 3.69,
+        "p75": 6.144,
+        "width": 4.21,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_bin": "dd>-5",
+        "or_state": "Elevated",
+        "n": 131,
+        "p25": -0.081,
+        "p50": 2.011,
+        "p75": 3.93,
+        "width": 4.011,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_bin": "dd>-5",
+        "or_state": "Normal",
+        "n": 1551,
+        "p25": -0.855,
+        "p50": 1.018,
+        "p75": 2.556,
+        "width": 3.412,
+        "side": "left",
+        "uncond_p50": 1.388
+      }
+    ],
+    "SP500 h=20: drawdown alone": [
+      {
+        "dd_bin": "dd-5..-10",
+        "n": 260,
+        "p25": -0.661,
+        "p50": 3.001,
+        "p75": 4.499,
+        "width": 5.16,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_bin": "dd<-10",
+        "n": 195,
+        "p25": 0.798,
+        "p50": 3.645,
+        "p75": 6.47,
+        "width": 5.672,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_bin": "dd>-5",
+        "n": 1682,
+        "p25": -0.83,
+        "p50": 1.069,
+        "p75": 2.648,
+        "width": 3.478,
+        "side": "left",
+        "uncond_p50": 1.388
+      }
+    ],
+    "SP500 h=5: OR state alone": [
+      {
+        "or_state": "Elevated",
+        "n": 300,
+        "p25": -1.033,
+        "p50": 0.708,
+        "p75": 2.125,
+        "width": 3.158,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "or_state": "Normal",
+        "n": 1837,
+        "p25": -0.567,
+        "p50": 0.309,
+        "p75": 1.226,
+        "width": 1.793,
+        "side": "left",
+        "uncond_p50": 0.37
+      }
+    ],
+    "SP500 h=20: OR state alone": [
+      {
+        "or_state": "Elevated",
+        "n": 300,
+        "p25": -0.657,
+        "p50": 2.335,
+        "p75": 4.654,
+        "width": 5.311,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "or_state": "Normal",
+        "n": 1837,
+        "p25": -0.723,
+        "p50": 1.293,
+        "p75": 2.927,
+        "width": 3.65,
+        "side": "left",
+        "uncond_p50": 1.388
+      }
+    ]
+  }
+}
