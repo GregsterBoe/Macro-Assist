@@ -75,6 +75,7 @@ Macro-Assist/
 │   ├── versions.py                  # single source of truth for version constants
 │   ├── bump_version.py              # version bump helper
 │   ├── tag_versions.py              # backfill agent_version onto older reports
+│   ├── record_audit.py              # the record layer's audit, run in CI (Phase 24)
 │   │
 │   ├── fred_data.py                 # FRED fetch + derived series
 │   ├── market_data.py               # yfinance prices, technicals, sector ETFs

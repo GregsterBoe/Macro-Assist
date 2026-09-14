@@ -18,7 +18,7 @@
 # Usage:
 #   ./trigger_pipeline.sh                                   # daily pipeline, source=cron
 #   ./trigger_pipeline.sh --source cron-catchup
-#   ./trigger_pipeline.sh --workflow macro_weekly_refit.yml --source cron-refit
+#   ./trigger_pipeline.sh --workflow macro_weekly_refit.yml --source manual   # one-off refresh between Mondays
 #   ./trigger_pipeline.sh --input asof=2026-08-31 --input force=true
 #   ./trigger_pipeline.sh --dry-run                          # print the request, send nothing
 #

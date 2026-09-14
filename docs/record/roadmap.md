@@ -775,7 +775,7 @@ Result → KB, either way.
 
 ---
 
-## Record Integrity & Session Continuity (Phase 24) — *make the record layer executable* ⏸ DRAFT 2026-09-14
+## Record Integrity & Session Continuity (Phase 24) — *make the record layer executable* 🟡 IN PROGRESS — WP-24.A and 24.B running in CI since 2026-09-14
 
 **Why it exists.** Everywhere a claim could be inflated, this project built a
 mechanism rather than a request: `verdict(sealed=False)` *cannot* return a pass,
@@ -815,23 +815,40 @@ precedence handling, 24.F's ADR page shape) were owner decisions, logged as
 [`resolved.md`](resolved.md): a contradiction is red with a pin; the revisit
 section is enforced, not introduced. Both WPs are now specified and shippable.
 
-**Order.** 24.A is the first step and stands alone — it is the check that would
-have caught the frozen refit on day one instead of day eleven. Everything after
-it is additive and independently shippable.
+**Order.** 24.A is the first step and stands alone. The draft claimed it was
+the check that would have caught the frozen refit on day one; building it showed
+that is false, and the correction is recorded under 24.A — the refit's in-repo
+declaration was fine, the *external service* was rebuilt without its call, and
+nothing inside the repo can see that. **24.B is the check that would have caught
+the refit**, around day nine. Everything after 24.A is additive and
+independently shippable.
 
-### WP-24.A — `record_audit.py` skeleton + the workflow-orphan check *(first step)*
+### WP-24.A — `record_audit.py` skeleton + the workflow-orphan check ✅ SHIPPED 2026-09-14
 
-A new `.macro-assist/record_audit.py`, run in CI. One check to start:
-every file in `.github/workflows/` is either a `needs:`-ordered stage of
-`pipeline.yml`, explicitly `workflow_dispatch`-only, or listed as soft-killed
-([ADR-0015](../decisions/ADR-0015-soft-kill-convention.md)). Anything else is an
-orphan and fails.
+`.macro-assist/record_audit.py` · `tests/test_record_audit.py` (16 tests, each
+finding driven on its own, plus the real checkout asserted clean) · its own
+workflow `record_audit.yml` on every push and PR — it has its own job because
+nothing else in CI runs pytest, and `docs.yml`'s path filter would not fire on a
+workflow change. [ADR-0013](../decisions/ADR-0013-one-pipeline-entry-point.md)
+made enforceable: every workflow is the entry point, a `needs:`-ordered stage of
+it, dispatch-only, CI (push / pull_request — a fourth class the draft missed;
+`docs.yml` and the audit's own workflow are it), or pinned in
+`SOFT_KILLED_WORKFLOWS` on the `KNOWN_LEAKS` pattern — held exactly, so a pin
+whose arm is restored, dropped its `workflow_call`, or has no file is itself
+red. A second check reads the schedule table in `operations.md` and fails on a
+slot that calls anything but `pipeline.yml`. Module classified `TOOLING`.
 
-This is [ADR-0013](../decisions/ADR-0013-one-pipeline-entry-point.md) made
-enforceable. `operations.md` already states the rule the refit was the
-counter-example to — *a new scheduled thing is a new stage, not a new cron entry*
-— and this is that rule with a detector. Exit non-zero on a finding; tests drive
-each finding independently.
+**The premise was wrong, and the code showed it.** Run against the tree from
+just before the 2026-09-11 fix, the workflow check passes: the refit had no
+`schedule:` of its own — it was `workflow_dispatch`-only, with its Sunday call
+in the external service, and the repo's schedule table still listed that slot
+after the service had been rebuilt without it. A repo-vs-world gap; no in-repo
+audit sees it. The schedule-table check goes red on that tree, but only because
+the rule now forbids the slot, not because it can tell whether the service
+honours the table. The header of `record_audit.py` states the limit so nobody
+relies on it. Found and fixed on the way: `operations.md` still described the
+refit as "its own cron call" in three places and `trigger_pipeline.sh`'s usage
+example still showed `cron-refit`.
 
 ### WP-24.B — Artifact liveness
 
@@ -841,9 +858,12 @@ fails when the artifact's last-changed commit exceeds it. First entries:
 `accuracy_summary.json` (weekly). Read the date from **git**, not mtime — a fresh
 clone rewrites mtimes and would make every check pass vacuously.
 
-The pairing is the point: 24.A catches a stage that cannot run, 24.B catches a
-stage that runs and produces nothing. The frozen refit was the first; both were
-invisible.
+The pairing is the point: 24.A catches a stage the repo cannot reach, 24.B
+catches a stage that is reachable and yet produces nothing — including the case
+24.A is blind to by construction, a dispatch-only workflow whose external caller
+went away. **The frozen refit was the second kind**, so this is the check that
+would have caught it (on day nine, at the 8-day threshold); the draft's claim
+that 24.A would have is corrected above.
 
 ### WP-24.C — Referential integrity
 
@@ -930,6 +950,6 @@ pre-registration — was written 2026-09-13 and has **no trigger**. A rule nobod
 is prompted to apply is in the same category as a precedence rule with no
 detector.
 
-**Where (planned):** `.macro-assist/record_audit.py` · `.macro-assist/tests/` ·
-`.github/workflows/docs.yml` (or its own job — 24.A decides) ·
+**Where:** `.macro-assist/record_audit.py` · `.macro-assist/tests/test_record_audit.py` ·
+`.github/workflows/record_audit.yml` (its own job — decided by 24.A) · planned:
 `.claude/skills/orient/`.

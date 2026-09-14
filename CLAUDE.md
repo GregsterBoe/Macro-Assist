@@ -64,6 +64,7 @@ python .macro-assist/collect_and_analyze.py  # full daily pipeline (costs API mo
 python .macro-assist/score_distributions.py  # the current scorer
 python .macro-assist/explore_conditioner.py --cached  # explore-tier looks, pre-seal slice only
 mkdocs build --strict                        # what CI runs; fails on a broken link
+python .macro-assist/record_audit.py         # the record layer's audit; CI runs it on every push (Phase 24)
 ```
 
 `pytest.ini` excludes `-m integration` by default. **`test_point_in_time.py` is
@@ -116,7 +117,11 @@ stay. Restoring is a one-line change.
 **5. One pipeline entry point** ([ADR-0013](docs/decisions/ADR-0013-one-pipeline-entry-point.md)).
 `pipeline.yml` is the only scheduled entry point; stages are `needs:`-ordered
 jobs, not cron offsets. **The date is resolved once** by the `plan` job and
-passed to every stage as `asof` — no stage derives its own.
+passed to every stage as `asof` — no stage derives its own. `record_audit.py`
+fails CI on a workflow with its own `schedule:` or a callable stage nothing
+reaches (WP-24.A); a soft-killed one is pinned in `SOFT_KILLED_WORKFLOWS`. It
+also fails when a stage's artifact stops landing (WP-24.B, `ARTIFACTS`) — a
+new stage that writes something gets a registry line.
 
 **6. Output lives on the orphan branch** ([ADR-0001](docs/decisions/ADR-0001-output-on-an-orphan-branch.md)).
 Code on `main`, everything generated under `results/` on `output`. Scripts read
@@ -171,7 +176,8 @@ live path may not import a harness.
 | **Live experiment** | Phase 22 distribution scorer — bar sealed, first honest read ~2027-05 |
 | **Winding down** | The directional scorer, once the last T+20 window resolves ~2026-10-02 |
 | **Exploring** | Phase 23 — harness built, two looks run 2026-09-14 on 2010–2017; register holds H-001 `closed` (confound resolved, no KB entry), H-002–H-004 `draft`, H-005–H-007 `seen`. Seal decided: `SEAL_START` 2018-01-01 reused for the distribution class (`resolved.md` #19); `har_scaled` is a comparator in WP-23.B's bar, not the scorer's (#22). Nothing open in the inbox for this phase; next is the owner's rewrites, then the class bar |
-| **Queued** | WP-21.E families 2–3 — bar written ([ADR-0020](docs/decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md)), no family chosen, honest prior low. Phase 18 closed 2026-09-14 at 18.3 (its ablation gate had no metric after the cut); Phase 20 dormant. **Phase 24** (record integrity — `record_audit.py`, `/orient`) drafted 2026-09-14, nothing runs; its two convention calls are decided (`resolved.md` #23 contradiction = red with a pin, #24 ADR revisit section enforced), first code step WP-24.A |
+| **Record audit** | Phase 24 — `record_audit.py` in CI since 2026-09-14: WP-24.A workflow orphans + the schedule table; WP-24.B artifact liveness from git (`ARTIFACTS` registry, red past cadence + 1 day; replayed, red on day nine of the frozen refit). Next WP-24.C referential integrity. Convention calls decided (`resolved.md` #23 contradiction = red with a pin, #24 ADR revisit section enforced) |
+| **Queued** | WP-21.E families 2–3 — bar written ([ADR-0020](docs/decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md)), no family chosen, honest prior low. Phase 18 closed 2026-09-14 at 18.3 (its ablation gate had no metric after the cut); Phase 20 dormant |
 
 The board in [active-experiments.md](docs/record/active-experiments.md) is
 authoritative. If this table disagrees with it, the board wins — and fix this

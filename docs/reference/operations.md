@@ -74,13 +74,13 @@ predictions are always committed before they are scored.
 5. Commit `accuracy_summary.json` to Macro-Assist
 6. Copy `accuracy_report.md` to vault (`Economy/Analysis/prediction-accuracy.md`)
 
-### macro_weekly_refit.yml — Sunday 22:00 UTC
+### macro_weekly_refit.yml — stage 5 (Mondays)
 
-Its own cron call rather than a pipeline stage: it has no upstream dependency and
-runs the night before Monday's pipeline, which picks up the fresh models. A
-missed refit is not silent-but-fatal the way a missed daily note is — the models
-just stay a week old and the next Sunday call refreshes them — so it has no
-catch-up call.
+A pipeline stage since 2026-09-11, ordered after `scoring` and [running last on
+purpose](#everything-rides-one-call). Until then it had its own Sunday cron call
+on the reasoning that it has no upstream dependency; that call was the one thing
+the rebuilt cron never reached, and the table froze for eleven days. Still
+dispatchable standalone, which is how a one-off refresh is done between Mondays.
 
 1. Checkout Macro-Assist
 2. Run `refit_models.py` (FRED + market data from 2000-08, distribution rebuild; HMM refit only if re-enabled)
@@ -93,6 +93,19 @@ Independent of the pipeline. Renders `docs/` with MkDocs Material on any push to
 the result to GitHub Pages. Pull requests build but do not deploy: `mkdocs build
 --strict` fails on a broken internal link, so a doc move that leaves a dangling
 reference is caught in review.
+
+### record_audit.yml — the record audit
+
+Independent of the pipeline. Runs `.macro-assist/record_audit.py` on every push
+to `main` and every pull request, then its tests. The audit reads the workflows,
+the docs and the git history and exits non-zero on a red finding; it writes
+nothing. What it checks is listed in the script's header and grows with Phase
+24; today it is the workflow-orphan rule [above](#everything-rides-one-call)
+and the [artifact-liveness rule](#a-reachable-stage-that-produces-nothing)
+below. It is the only CI job that runs any of the test suite — the pipeline
+stages do not, and `docs.yml` only renders. It checks out with
+`fetch-depth: 0` because the liveness rule reads commit dates; on a shallow
+clone the audit refuses rather than passing vacuously.
 
 **Publishing requires Pages to be switched on once**, by a repo admin, in one of
 two ways. *Done on this repo 2026-09-12* — the recipes below are kept for a fresh
@@ -196,8 +209,8 @@ And what does **not** run on any schedule — dispatch-only, by choice:
 `numeric_baseline.yml` (WP-21's harness, run per experiment), `exo_slice_smoke.yml`
 and `kimi_arm_smoke.yml` (both arms soft-killed, [ADR-0015](../decisions/ADR-0015-soft-kill-convention.md)),
 and `macro_weekly_refit.yml` standalone, which is how a one-off refresh is done
-between Mondays. `docs.yml` triggers on pushes touching `docs/`, so it needs no
-schedule.
+between Mondays. `docs.yml` and `record_audit.yml` trigger on pushes and pull
+requests, so they need no schedule.
 
 **The rule this section exists to state: a new scheduled thing is a new stage,
 not a new cron entry.** The weekly refit was the counter-example. It had its own
@@ -209,6 +222,17 @@ the six-asset universe [WP-22.A](../record/roadmap.md) had already shipped simpl
 never landed — the table kept serving three assets and the note kept printing
 "no conditional base rate" for the other three. It was found by reading commit
 dates, not from an alert.
+
+**The rule has a detector since 2026-09-14.** `record_audit.py` (WP-24.A) fails
+CI on a workflow with its own `schedule:`, on a `workflow_call` workflow no
+pipeline stage reaches unless it is pinned soft-killed
+([ADR-0015](../decisions/ADR-0015-soft-kill-convention.md)), on a stage without
+`needs:`, and on a row of the schedule table above that calls anything but
+`pipeline.yml`. What it cannot see is the external service itself — a slot the
+service has and the table does not, or the reverse, which is exactly how the
+refit froze — so the table is the declaration the audit holds you to, and the
+artifact's age in git ([below](#a-reachable-stage-that-produces-nothing)) is
+the backstop for the gap it cannot close.
 
 That is the same dropped-run failure that moved this project off GitHub's
 scheduler in the first place, arriving through a different door: not a late run
@@ -225,6 +249,46 @@ moving it first would look correct and change nothing. The fresh table therefore
 takes effect on the *next* pipeline run, a one-business-day lag on a weekly refit
 of slow macro series. That is point-in-time safe either way: a table fit at a
 prior date is exactly what `score_distributions.py` assumes it is reading.
+
+### A reachable stage that produces nothing
+
+The other half of the detector (WP-24.B, same day). `record_audit.py` carries a
+registry, `ARTIFACTS`, of every live track's output — the path, the branch the
+stage pushes it to, and the cadence it is owed — and fails CI when the
+artifact's **last-changed commit** is older than that cadence plus a day of
+grace:
+
+| Artifact | Branch | Written by | Red after |
+|---|---|---|---|
+| `.macro-assist/data/conditional_distributions.json` | `main` | stage 5 · weekly refit | 8 days |
+| `.macro-assist/data/accuracy_summary.json` | `main` | stage 3 · weekly scoring | 8 days |
+| `dist_scores_summary.json` | `output` | stage 3 · weekly scoring | 8 days |
+| `*/*-macro.md` — the note, any month | `output` | stage 2 · daily note | 4 days |
+
+Three things about how it reads are deliberate. The date is the **commit
+date**, never the file's mtime — a fresh clone stamps every file with the
+clone time and would pass for ever. It reads `origin/<branch>` when that ref is
+fetched and the local branch otherwise, never `HEAD` — a pull request cut two
+weeks ago does not carry the refits that landed since and must not fail for
+them. And a **shallow clone is refused**: at depth 1 every path's last commit
+is the clone boundary, which is the mtime problem in another coat.
+
+The pairing with the workflow rule is the point. The workflow rule catches a
+stage the repo cannot reach; this one catches a stage that is reachable and
+yet produces nothing — including the case the workflow rule is blind to by
+construction, a dispatch-only workflow whose external caller went away. The
+frozen refit was that second kind. Replayed against the real history
+(`--now 2026-09-08`), this rule goes red on day nine, three days before the
+freeze was found by reading commit dates.
+
+A track that stops is red here until its registry entry is removed — on
+purpose, the same shape as a soft-kill pin. `accuracy_summary.json` is the
+first one due: it keeps landing after the directional scorer's closure banner
+(~2026-10-02) because `summarize_accuracy.py` rewrites it weekly; if that step
+is ever retired, retire the entry with it.
+
+`python .macro-assist/record_audit.py --now 2026-09-08` reads ages as of a
+date, seeing only commits up to it, so a past week can be replayed honestly.
 
 ### The backstop
 
@@ -273,7 +337,6 @@ rate limits with backoff, and explains the auth errors it will not retry:
 # crontab -e, with MACRO_ASSIST_TOKEN exported for cron (e.g. in the crontab itself)
 23 6  * * 1-5  /path/to/Macro-Assist/trigger_pipeline.sh --source cron-primary
 47 10 * * 1-5  /path/to/Macro-Assist/trigger_pipeline.sh --source cron-catchup
-0  22 * * 0    /path/to/Macro-Assist/trigger_pipeline.sh --workflow macro_weekly_refit.yml --source cron-refit
 ```
 
 **On an HTTP-only service** (cron-job.org, EasyCron, Zapier, a Cloudflare Worker)
@@ -290,8 +353,7 @@ Content-Type: application/json
 {"ref": "main", "inputs": {"source": "cron-primary"}}
 ```
 
-Swap `pipeline.yml` for `macro_weekly_refit.yml` in the URL for the refit slot.
-Send input values as **strings** (`"force": "true"`, not `true`) — GitHub coerces
+Every slot calls `pipeline.yml`; there is no second URL to configure. Send input values as **strings** (`"force": "true"`, not `true`) — GitHub coerces
 them to the type the workflow declares. Any input the workflow exposes can be
 passed the same way: `asof`, `force`, `pf_reset`, `weekly`. (`kimi_n` was removed
 with the kimi stage in WP-21.F.)
