@@ -239,8 +239,10 @@ none of the proposals would have found — IMP-5.
 
 ## IMP-5 — Composite degradation: the calibrated cut only applies to the calibrated composite
 
-**Status:** ✅ **CLOSED 2026-09-13.** IMP-5.1–5.2 shipped → [KB-029]; IMP-5.3
-**negative** → [KB-030] — the static cut stays.
+**Status:** ✅ **CLOSED 2026-09-18** (reopened 2026-09-18 for IMP-5.4).
+IMP-5.1–5.2 shipped → [KB-029]; IMP-5.3 **negative** → [KB-030] — the static
+cut stays; IMP-5.4 shipped → [KB-034] — the fallback's own failure is now
+visible and a degraded streak is red.
 
 **Finding.** The composite's first-ever live Elevated (2026-08-13 → 08-19, five
 days, 59–62 vs the 56.5 cut) was a data-feed artifact: yfinance's `^VIX3M`
@@ -271,6 +273,22 @@ Detail and the counterfactual in [KB-029].
   lost outright, Dec 2018 / Mar 2022 by a hair. The static cut stays; the two
   flags in the note are on two methods **for a measured reason**. Harness:
   `python fragility_backtest.py pit-cut`.
+- [x] **IMP-5.4 — A fallback is not a fix unless its own failure is visible →
+  [KB-034].** `vix_term` went missing again on 2026-09-16 *with IMP-5.2's CBOE
+  fallback in place* and published three `Unavailable` readings; every check was
+  green and a human caught it on day three. IMP-5.1 held perfectly — no false
+  Elevated, the OR channel masked itself — but nothing recorded *which* feed had
+  died (`fetch_cboe_index` returned `None` for a 403, an outage and a renamed
+  column alike; `vix_term_backwardation` returned `None` for absent, stale and
+  non-overlapping alike), and nothing escalated. Shipped: `vix_term_reason` +
+  `degraded_detail`; `cboe_error` + one retry; `freshen_vol_indices(report=...)`
+  naming each leg's source, staleness, last date and error; both in the JSONL and
+  the WARN line; and `feed_audit.py` as the daily stage's **last** step — after
+  the note is written and published — exiting 1 once the live degraded streak
+  passes 2. Replayed on 09-14 → 09-18 it is red on the 18th. The root cause of
+  that outage stays unknown by construction (it predates the instrumentation);
+  whether a third feed tier is warranted is `todo.md` #26, deliberately held
+  until the next failure attributes itself.
 
 ## IMP-6 — Precision at held recall: the aggregator question, asked honestly
 

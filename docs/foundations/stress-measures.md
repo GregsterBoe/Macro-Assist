@@ -176,6 +176,15 @@ becomes ~90 % variance trend — a different distribution, on which 56.5 no
 longer means the 90th percentile. The cut-points are only meaningful on the
 distribution they were fitted to.
 
+**Why a degraded reading also says *which feed* died** (IMP-5.4, KB-034): the
+first version of the rule above recorded only that a component was missing.
+When `vix_term` dropped out again in September 2026 — with the issuer fallback
+already in place — the record could not distinguish "the vendor returned
+nothing" from "the leg is stale" from "the fallback itself failed", and the
+monitor sat unlabelled for three days with every check green. A degradation
+rule that cannot be diagnosed is half a rule; a fallback whose own failure is
+invisible is not a fallback.
+
 **Why the cuts are static** (KB-030): an expanding point-in-time cut sounds
 more honest, but the composite's first year is 2008, so the early "90th
 percentile" is a GFC percentile and two crises per horizon are lost. The

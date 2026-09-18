@@ -51,6 +51,7 @@ realized_variance_trend(close)          -> dict   primary
 correlation_tightening(histories)       -> dict   primary
 absorption_ratio(histories)             -> dict   primary (WP-16.A.6, shadow)
 vix_term_backwardation(vix, vix3m)      -> dict   primary
+vix_term_reason(vix, vix3m)             -> str    why the above is None
 level_acceleration(series)              -> dict   secondary (HY / NFCI)
 lag1_autocorrelation(close)             -> dict   experimental
 fragility_index(histories, ...)         -> dict   composite
@@ -228,6 +229,47 @@ def correlation_tightening(
     }
 
 
+def _vix_term_ratio(
+    vix: pd.Series,
+    vix3m: pd.Series,
+    max_stale: int = _VIX3M_MAX_STALE,
+) -> tuple[Optional[pd.Series], Optional[str]]:
+    """(ratio, None) when the term structure is computable, else (None, reason).
+
+    The single place the four ways this component can fail are distinguished.
+    `vix_term_backwardation` throws the reason away (its contract is
+    Optional[dict]); `vix_term_reason` is what keeps it, so a degraded reading
+    can say WHICH feed died instead of only that one did — three days of
+    `Unavailable` in September 2026 were unattributable for exactly that reason
+    (IMP-5.4, and KB-029 before it).
+    """
+    vix = pd.Series(vix).astype(float).dropna() if vix is not None else None
+    vix3m = pd.Series(vix3m).astype(float).dropna() if vix3m is not None else None
+    if vix is None or len(vix) == 0:
+        return None, "vix series absent"
+    if vix3m is None or len(vix3m) == 0:
+        return None, "vix3m series absent (yfinance empty and the CBOE fallback did not fill it)"
+    n_after = int((vix.index > vix3m.index[-1]).sum())
+    if n_after > max_stale:
+        return None, (f"vix3m stale — last observation {vix3m.index[-1].date()}, "
+                      f"{n_after} vix observations after it (max {max_stale})")
+    ratio = (vix / vix3m).dropna()
+    if len(ratio) < 5:
+        return None, (f"only {len(ratio)} shared vix/vix3m dates (need 5) — "
+                      "the two legs barely overlap")
+    return ratio, None
+
+
+def vix_term_reason(
+    vix: Optional[pd.Series],
+    vix3m: Optional[pd.Series],
+    max_stale: int = _VIX3M_MAX_STALE,
+) -> Optional[str]:
+    """Why `vix_term_backwardation` would return None for these inputs, or None
+    when it would return a score. Diagnosis only — computes no component."""
+    return _vix_term_ratio(vix, vix3m, max_stale)[1]
+
+
 def vix_term_backwardation(
     vix: pd.Series,
     vix3m: pd.Series,
@@ -242,18 +284,10 @@ def vix_term_backwardation(
     Returns None if either series is missing or too short, or if `vix3m` has
     stopped updating — more than `max_stale` VIX observations lie after its
     last date (a stale leg would freeze the ratio window, not track it).
+    `vix_term_reason` names which of those it was.
     """
-    if vix is None or vix3m is None:
-        return None
-    vix = pd.Series(vix).astype(float).dropna()
-    vix3m = pd.Series(vix3m).astype(float).dropna()
-    if len(vix) == 0 or len(vix3m) == 0:
-        return None
-    n_after = int((vix.index > vix3m.index[-1]).sum())
-    if n_after > max_stale:
-        return None
-    ratio = (vix / vix3m).dropna()
-    if len(ratio) < 5:
+    ratio, _reason = _vix_term_ratio(vix, vix3m, max_stale)
+    if ratio is None:
         return None
     tail = ratio.iloc[-min(window, len(ratio)):]
     persistence = float((tail > 1.0).mean())
@@ -539,6 +573,9 @@ def fragility_index(
         weights    : the renormalised weights actually applied
         degraded   : [required component names that are missing]; [] when the
                      composite is on its calibrated footing
+        degraded_detail : {name: why it could not be computed} for the names in
+                     `degraded`, where the component can say (IMP-5.4). Empty
+                     when nothing is degraded.
     None if no component could be computed.
     """
     w = dict(weights or DEFAULT_WEIGHTS)
@@ -629,6 +666,20 @@ def fragility_index(
     # fitted to. Report the number, withhold the calibrated label (KB-029).
     degraded = [k for k in _LABEL_REQUIRES if k not in components and w.get(k, 0.0) > 0.0]
 
+    # ...and say WHY, where the component can tell us. `degraded` alone made the
+    # September 2026 recurrence unattributable: three consecutive Unavailable
+    # readings with no record of whether yfinance was empty, the leg was stale,
+    # or the CBOE fallback had failed (IMP-5.4).
+    detail: dict[str, str] = {}
+    for name in degraded:
+        if name == "vix_term":
+            reason = vix_term_reason(histories.get("vix"), histories.get("vix3m"))
+            if reason:
+                detail[name] = reason
+        elif name == "variance_trend":
+            detail[name] = (f"no non-vol asset had enough history "
+                            f"({len([k for k in histories if k not in _VOL_KEYS])} supplied)")
+
     return {
         "composite":  composite,
         "label":      "Unavailable" if degraded else _label(composite),
@@ -636,6 +687,7 @@ def fragility_index(
         "components": components,
         "weights":    norm_w,
         "degraded":   degraded,
+        "degraded_detail": detail,
     }
 
 

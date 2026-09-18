@@ -58,6 +58,18 @@ Does not require `ANTHROPIC_API_KEY` or `VAULT_PAT`.
 2. Install Python dependencies
 3. Run `collect_and_analyze.py` (fetch → analyze → write note to vault)
 4. Copy note to `results/` in Macro-Assist and commit back
+5. Run `feed_audit.py` — the fragility feed gate (IMP-5.4, [KB-034])
+
+Step 5 is **last on purpose**. It exits non-zero when the Fragility Monitor has
+been `Unavailable` for more than two consecutive readings, which turns the day's
+run red and sends the notification GitHub already sends for a failed run. By the
+time it can fail, the note is written, pushed to the vault and published to
+`output`, so a dead vol feed costs a notification and never the day's note —
+and re-running the failed job is harmless, because the note stage no-ops on a
+note that already exists. One degraded day stays a `WARN`: it is a vendor
+hiccup that self-heals, and an alarm on day one would cry wolf. Two in a row is
+a feed that is not coming back on its own, which is the shape both the 2026-07
+and 2026-09 outages had.
 
 ### macro_weekly_scoring.yml — stage 3 (Mondays)
 
@@ -280,6 +292,31 @@ construction, a dispatch-only workflow whose external caller went away. The
 frozen refit was that second kind. Replayed against the real history
 (`--now 2026-09-08`), this rule goes red on day nine, three days before the
 freeze was found by reading commit dates.
+
+### An artifact that lands and is unusable
+
+The shape neither rule above can see, and the one that cost three days in
+September 2026 ([KB-034]). The Fragility Monitor's `vix_term` leg went missing
+on 2026-09-16 and the composite published `Unavailable` — no calibrated label —
+on the 16th, the 17th and the 18th. Nothing was late: the note was written each
+day, the artifact landed on time, every workflow was reachable, and the liveness
+rule above was satisfied by a file that exists. The only sign was a `WARN` line
+in a passing Action, which is to say no sign at all.
+
+So the daily stage's last step reads the readings back out of
+`results/quant_context_log/` and goes red on a *streak* of degraded ones
+(`feed_audit.py`, above). It is deliberately not part of `record_audit.py`: that
+script runs on push and pull request, and a feed that dies on a Wednesday with
+no commits that week would wait for someone to push before anything noticed. A
+daily failure needs a daily runner, and the pipeline is the only thing in this
+repo that runs every day.
+
+The gate reports the cause the failing run recorded, which is nothing for a
+reading written before the instrumentation existed. To ask the feeds
+themselves — why is `vix_term` missing *right now* — run
+`python .macro-assist/feed_audit.py --probe`: it fetches the vol legs, prints
+each leg's source, staleness and error, and names the reason the term structure
+cannot be computed. It costs network, so it is opt-in and never part of the gate.
 
 A track that stops is red here until its registry entry is removed — on
 purpose, the same shape as a soft-kill pin. `accuracy_summary.json` is the

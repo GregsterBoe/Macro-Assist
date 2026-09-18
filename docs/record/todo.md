@@ -158,6 +158,35 @@ artifacts and stay in the log as written, superseded by the KB entry. Anyone
 reading the composite's live record across that window must know this. (#14
 itself — the label cut's method — closed negative → `resolved.md`, [KB-030].)
 
+**Extended 2026-09-18 → [KB-034]:** 2026-09-16, 09-17 and 09-18 carry **no
+calibrated composite at all** — `vix_term` missing, label `Unavailable`, the OR
+`comp` channel masked. Unlike the July–September window these are not "correct
+by coincidence"; they are absent readings, and the cause was not recorded by
+those runs. They are kept as written and are not part of any live Elevated
+record.
+
+### Open decision #26 — does the vol term structure need a second issuer feed?
+**Source:** [KB-034]. The fallback chain is one deep: yfinance's `^VIX3M`, then
+CBOE's own `VIX3M_History.csv`. It has now failed twice in two months
+(2026-07-17, yfinance; 2026-09-16, both — cause unrecorded, see below), each
+time costing the composite its calibrated label for days at a stretch. A third
+tier would remove the single point of failure; it also adds a feed to keep
+honest, and a source whose vendor convention differs from CBOE's would put a
+subtly different series under the same component name — the [KB-029] failure
+in a new costume.
+
+**What is decided before anything is built:** whether a candidate feed is
+admitted is a *parity* question, not an availability one — its VIX3M must
+reproduce CBOE's own file on the overlap to the published precision, on a
+window that includes a backwardation episode, before it may ever serve the
+live component. No parity, no admission, however fresh it is.
+
+**What to wait for first:** the instrumentation shipped with [KB-034] means the
+next failure names itself. One recorded cause is worth more than a guess at
+which tier to add — a 403 from a CDN, a renamed column and a parked file each
+argue for a different remedy, and two of the three are fixed in the existing
+client. Do not add a feed before the next occurrence is attributed.
+
 *#15 (the turbulence-only hindsight read) and #16 (the CORR shadow flag) closed
 2026-09-14 → [`resolved.md`](resolved.md); the track is forward observation only
 and the next OR-admission bar carries the lead clause. #18 (WP-18.4's missing

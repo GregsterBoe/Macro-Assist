@@ -141,3 +141,16 @@ jobs:
           set -e
           cd macro-assist
           bash .macro-assist/ci_publish_results.sh "macro: $(date -u +%Y-%m-%d) daily intelligence note"
+
+      # IMP-5.4 — the fragility feed gate. DELIBERATELY THE LAST STEP: the note
+      # is already written, pushed to the vault and published above, so a red
+      # job here costs nothing but a notification, which is the entire point.
+      # [KB-029]'s fix made a dead vol feed impossible to mistake for a signal
+      # but left it invisible; `vix_term` then went missing again on 2026-09-16
+      # and published three `Unavailable` readings with every check green. This
+      # step turns the third one red. One degraded day stays a WARN.
+      - name: Fragility feed gate
+        run: |
+          cd macro-assist
+          python .macro-assist/feed_audit.py \
+            ${{ inputs.asof && format('--asof {0}', inputs.asof) || '' }}

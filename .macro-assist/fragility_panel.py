@@ -15,6 +15,7 @@ Contents
 Feeds
     fetch_histories(period, start)          -> dict   the traded assets + VIX/VIX3M (yfinance)
     fetch_cboe_index(symbol)                -> Series CBOE's own CSV for a vol index
+    cboe_error(symbol)                      -> str    why the last such fetch failed
     freshen_vol_indices(histories, ...)     -> dict   splice CBOE under a stale VIX/VIX3M leg (KB-029)
     fetch_sector_etfs(start, ...)           -> DataFrame  the live nine-sector SPDR panel (IMP-4.2, KB-020)
 The walk
@@ -247,23 +248,53 @@ _CBOE_URL = "https://cdn.cboe.com/api/global/us_indices/daily_prices/{symbol}_Hi
 _CBOE_TIMEOUT = 20
 
 
-def fetch_cboe_index(symbol: str, timeout: int = _CBOE_TIMEOUT) -> Optional[pd.Series]:
+# The fallback's own failure used to be invisible: `fetch_cboe_index` returned
+# None for a 403, a CDN outage, a renamed column and a parked file alike, and
+# `freshen_vol_indices` then left the leg as it found it. The composite went
+# `Unavailable` and nothing anywhere said which feed had died. This dict holds
+# the last failure per symbol so the caller can report one (IMP-5.4). It is a
+# diagnostic, never control flow — nothing reads it to decide anything.
+_LAST_CBOE_ERROR: dict[str, str] = {}
+
+# One retry, because the observed failures are transient far more often than
+# structural. Two attempts and a named reason is the whole budget: a feed that
+# is genuinely down should be reported, not hammered.
+_CBOE_ATTEMPTS = 2
+
+
+def fetch_cboe_index(symbol: str, timeout: int = _CBOE_TIMEOUT,
+                     attempts: int = _CBOE_ATTEMPTS) -> Optional[pd.Series]:
     """Daily Close for a CBOE index (e.g. 'VIX3M') from CBOE's own CSV, as a
     tz-naive Series indexed by date. None on any failure — the caller decides
-    whether the yfinance leg is fresh enough to stand alone."""
+    whether the yfinance leg is fresh enough to stand alone. The reason for a
+    failure is recorded in `_LAST_CBOE_ERROR[symbol]` and cleared on success;
+    `cboe_error(symbol)` reads it."""
     import io
     import urllib.request
 
-    try:
-        with urllib.request.urlopen(_CBOE_URL.format(symbol=symbol), timeout=timeout) as resp:
-            df = pd.read_csv(io.StringIO(resp.read().decode("utf-8")))
-        df.columns = [c.strip().upper() for c in df.columns]
-        out = pd.Series(df["CLOSE"].astype(float).to_numpy(),
-                        index=pd.to_datetime(df["DATE"]), name=symbol)
-        out = out[~out.index.duplicated(keep="last")].sort_index().dropna()
-        return out if len(out) else None
-    except Exception:
-        return None
+    last: Optional[str] = None
+    for _attempt in range(max(1, attempts)):
+        try:
+            with urllib.request.urlopen(_CBOE_URL.format(symbol=symbol), timeout=timeout) as resp:
+                df = pd.read_csv(io.StringIO(resp.read().decode("utf-8")))
+            df.columns = [c.strip().upper() for c in df.columns]
+            out = pd.Series(df["CLOSE"].astype(float).to_numpy(),
+                            index=pd.to_datetime(df["DATE"]), name=symbol)
+            out = out[~out.index.duplicated(keep="last")].sort_index().dropna()
+            if len(out):
+                _LAST_CBOE_ERROR.pop(symbol, None)
+                return out
+            last = "CBOE csv parsed but held no usable Close rows"
+        except Exception as exc:   # noqa: BLE001 — the reason is the product here
+            last = f"{type(exc).__name__}: {exc}"
+    _LAST_CBOE_ERROR[symbol] = last or "unknown failure"
+    return None
+
+
+def cboe_error(symbol: str) -> Optional[str]:
+    """The last recorded failure for `symbol`, or None if its last fetch worked
+    (or none has been attempted in this process)."""
+    return _LAST_CBOE_ERROR.get(symbol)
 
 
 def freshen_vol_indices(
@@ -271,34 +302,70 @@ def freshen_vol_indices(
     anchor: str = "sp500",
     max_stale: int = 5,
     fetch: "Callable[[str], Optional[pd.Series]]" = fetch_cboe_index,
+    report: Optional[dict] = None,
 ) -> dict:
     """Splice CBOE's own history under any VIX / VIX3M leg that is missing or
     has fallen more than `max_stale` anchor observations behind the anchor's
     last date. Legs that are fresh are left exactly as fetched, so on a normal
-    day this is a no-op and the backtest is unchanged. Never raises."""
+    day this is a no-op and the backtest is unchanged. Never raises.
+
+    Pass a dict as `report` to have the outcome per leg written into it:
+    `{leg: {"source": "yfinance"|"cboe"|"none", "stale_obs": int|None,
+    "last": "YYYY-MM-DD"|None, "error": str|None}}`. The splice behaves
+    identically whether or not a report is asked for — this is the record of
+    what happened, which the live path had no way to produce before IMP-5.4.
+    """
     out = dict(histories)
     anchor_s = out.get(anchor)
     if anchor_s is None or len(anchor_s) == 0:
+        if report is not None:
+            report["anchor"] = {"source": "none", "stale_obs": None, "last": None,
+                                "error": f"anchor '{anchor}' absent — no leg could be judged stale"}
         return out
     anchor_idx = pd.Series(anchor_s).index
     for name, symbol in _CBOE_SYMBOLS.items():
         cur = out.get(name)
-        stale = cur is None or len(cur) == 0 or \
-            int((anchor_idx > pd.Series(cur).index[-1]).sum()) > max_stale
+        stale_obs = None
+        if cur is not None and len(cur):
+            stale_obs = int((anchor_idx > pd.Series(cur).index[-1]).sum())
+        stale = stale_obs is None or stale_obs > max_stale
         if not stale:
+            _note(report, name, "yfinance", stale_obs, out[name], None)
             continue
         try:
             cboe = fetch(symbol)
-        except Exception:
+        except Exception as exc:   # noqa: BLE001 — an injected fetch may raise
             cboe = None
+            _LAST_CBOE_ERROR[symbol] = f"{type(exc).__name__}: {exc}"
         if cboe is None:
+            # The leg stays as it was found — missing, or stale and therefore
+            # about to be treated as missing. This is the branch that produced
+            # three silent Unavailable days in September 2026.
+            _note(report, name, "yfinance" if cur is not None and len(cur) else "none",
+                  stale_obs, cur, cboe_error(symbol) or "CBOE fallback returned no data")
             continue
         if cur is not None and len(cur) and pd.Series(cur).index[0] < cboe.index[0]:
             # keep the older yfinance history where CBOE's file does not reach
             head = pd.Series(cur)[pd.Series(cur).index < cboe.index[0]]
             cboe = pd.concat([head, cboe])
         out[name] = cboe.astype(float)
+        _note(report, name, "cboe",
+              int((anchor_idx > cboe.index[-1]).sum()), out[name], None)
     return out
+
+
+def _note(report: Optional[dict], leg: str, source: str,
+          stale_obs: Optional[int], series, error: Optional[str]) -> None:
+    """Record one leg's outcome in `report`. No-op when no report was asked for."""
+    if report is None:
+        return
+    last = None
+    try:
+        if series is not None and len(series):
+            last = str(pd.Series(series).index[-1].date())
+    except Exception:   # noqa: BLE001 — a report must never break a fetch
+        last = None
+    report[leg] = {"source": source, "stale_obs": stale_obs, "last": last, "error": error}
 
 
 def fetch_histories(period: str = "max", start: str | None = "2008-01-01") -> dict:

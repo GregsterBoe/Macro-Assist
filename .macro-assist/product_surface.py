@@ -41,6 +41,9 @@ PRODUCT: frozenset[str] = frozenset({
     "market_data", "fred_data", "calendar_events", "youtube_data",
     "parse_positions", "schemas", "assets", "versions",
     "pipeline_common", "pipeline_config",
+    # the daily feed gate (stage 2's last step, IMP-5.4) — reads the quant log
+    # the note just wrote and fails the run on a feed that has stopped
+    "feed_audit",
     # the weekly scorecard and accuracy report (stage 3). The scorer is product —
     # it publishes what the note is held to; the *read* of its verdict is research.
     "score_distributions", "score_predictions", "summarize_accuracy",
