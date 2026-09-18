@@ -98,18 +98,32 @@ Does not require `ANTHROPIC_API_KEY` or `VAULT_PAT`.
 2. Install Python dependencies
 3. Run `collect_and_analyze.py` (fetch → analyze → write note to vault)
 4. Copy note to `results/` in Macro-Assist and commit back
-5. Run `feed_audit.py` — the fragility feed gate (IMP-5.4, [KB-034])
 
-Step 5 is **last on purpose**. It exits non-zero when the Fragility Monitor has
-been `Unavailable` for more than two consecutive readings, which turns the day's
-run red and sends the notification GitHub already sends for a failed run. By the
-time it can fail, the note is written, pushed to the vault and published to
-`output`, so a dead vol feed costs a notification and never the day's note —
-and re-running the failed job is harmless, because the note stage no-ops on a
-note that already exists. One degraded day stays a `WARN`: it is a vendor
-hiccup that self-heals, and an alarm on day one would cry wolf. Two in a row is
-a feed that is not coming back on its own, which is the shape both the 2026-07
-and 2026-09 outages had.
+The fragility feed gate is **not** a step here — see `feed_gate` below.
+
+### feed_gate — the fragility feed gate (IMP-5.4, [KB-034])
+
+Its own job in `pipeline.yml`, `needs: [plan, daily]`. It exits non-zero when
+the Fragility Monitor has been `Unavailable` for more than two consecutive
+readings, turning the run red and sending the notification GitHub already sends
+for a failed run. One degraded day stays a `WARN` — a vendor hiccup that
+self-heals, and an alarm on day one would cry wolf. Two in a row is a feed that
+is not coming back on its own, the shape both the 2026-07 and 2026-09 outages
+had.
+
+**Why a job and not a step of stage 2.** It shipped as the daily stage's last
+step, reasoning that the note is already written and published by then, so a red
+gate "costs nothing but a notification". That was wrong, and a Monday would have
+proved it: a failing step fails the job, `scoring` requires
+`needs.daily.result == 'success'`, and `rebalance` requires `scoring` — so a
+dead vol feed would have skipped the week's scorecard and the paper-portfolio
+rebalance, neither of which touches the vol legs. As a sibling job it still
+reddens the run while `daily.result` stays `success` and every weekly stage
+proceeds. `test_pipeline_modes.py` pins the shape.
+
+It needs no `pip install`: `feed_audit.audit()` is stdlib plus
+`pipeline_common`, and the probe imports (pandas, yfinance) are function-local.
+It does mount `results/`, since the readings it audits live on the output branch.
 
 ### macro_weekly_scoring.yml — stage 3 (Mondays)
 
@@ -343,7 +357,7 @@ day, the artifact landed on time, every workflow was reachable, and the liveness
 rule above was satisfied by a file that exists. The only sign was a `WARN` line
 in a passing Action, which is to say no sign at all.
 
-So the daily stage's last step reads the readings back out of
+So a dedicated pipeline job, `feed_gate`, reads the readings back out of
 `results/quant_context_log/` and goes red on a *streak* of degraded ones
 (`feed_audit.py`, above). It is deliberately not part of `record_audit.py`: that
 script runs on push and pull request, and a feed that dies on a Wednesday with

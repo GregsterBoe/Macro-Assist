@@ -237,6 +237,41 @@ jobs:
       force: ${{ inputs.force || false }}
     secrets: inherit
 
+  # ── The fragility feed gate (IMP-5.4). ──────────────────────────────────────
+  # ITS OWN JOB, AND THAT IS THE WHOLE POINT. It shipped as the last *step* of
+  # `daily`, on the reasoning that the note is already written and published by
+  # then, so a red gate "costs nothing but a notification". That was wrong: a
+  # failing step fails the job, `scoring` requires
+  # `needs.daily.result == 'success'`, and `rebalance` requires `scoring` — so a
+  # dead vol feed on a Monday would have skipped the week's scorecard and the
+  # paper-portfolio rebalance. A `vix_term` outage has nothing to do with either.
+  #
+  # As a sibling job it still turns the RUN red, which is the notification the
+  # gate exists to send, while `daily.result` stays `success` and every weekly
+  # stage proceeds. Gated on `daily` succeeding because a failed note writes no
+  # reading, and judging yesterday's log twice tells nobody anything new.
+  #
+  # Needs no pip install: `feed_audit.audit()` is stdlib plus `pipeline_common`,
+  # and the probe imports (pandas, yfinance) are function-local. It does need
+  # `results/`, since the readings it audits live on the output branch.
+  feed_gate:
+    name: 2b · fragility feed gate
+    needs: [plan, daily]
+    if: >-
+      ${{ !cancelled()
+          && inputs.mode != 'validate'
+          && needs.daily.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Mount output branch at results/
+        run: bash .macro-assist/ci_mount_output.sh
+      - name: Audit the fragility feed
+        run: python .macro-assist/feed_audit.py --asof ${{ needs.plan.outputs.asof }}
+
   # ── Stages 3 (exogenous arm) and 4 (kimi arm) were REMOVED 2026-09-04. ───────
   # Both emitted a Bias/Confidence table, and v1.6 cut that product from the main
   # note [KB-024]. Kimi's whole question was whether ensemble agreement could

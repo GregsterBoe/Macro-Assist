@@ -3079,7 +3079,7 @@ benchmarks, MSE, calibration) is the harness output.
 2026-09-18 note · **Fix:** `fragility.py` (`vix_term_reason`,
 `degraded_detail`), `fragility_panel.py` (CBOE failure reason + one retry,
 `freshen_vol_indices(report=...)`), `quant_context.py` (cause in the JSONL and
-the log line), new `feed_audit.py` + a last step in `macro_daily.yml`. Zero LLM
+the log line), new `feed_audit.py` + the `feed_gate` job in `pipeline.yml`. Zero LLM
 cost.
 
 **What we looked at.** The 2026-09-18 note's Fragility Monitor read
@@ -3140,8 +3140,12 @@ to alarm but *when*.
 - **A degraded streak is now red.** `feed_audit.py` reads the readings back out
   of the quant log and exits 1 when the latest is degraded and the run of
   degraded readings ending at it exceeds `MAX_DEGRADED_STREAK = 2`. It is the
-  **last step of the daily stage**, after the note is written, pushed to the
-  vault and published — so it costs a notification and never the note. Replayed
+  **`feed_gate` job**, after the note is written, pushed to the vault and
+  published — so it costs a notification and never the note. It is a *job* and
+  not a step of `daily` for a reason found before merge: a failing step fails
+  that job, `scoring` requires `daily.result == 'success'` and `rebalance`
+  requires `scoring`, so a dead vol feed on a Monday would have skipped the
+  week's scorecard and the paper-portfolio rebalance. Replayed
   against 09-14 → 09-18 it is green on the 15th, WARN on the 16th and 17th, and
   red on the 18th (`test_the_september_2026_outage_goes_red_on_day_three`).
 - **Stage 1 now checks the vol legs at all.** It never did: the data check

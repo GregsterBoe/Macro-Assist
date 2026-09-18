@@ -21,14 +21,21 @@ degraded for more than `MAX_DEGRADED_STREAK` consecutive readings, which turns
 the day's pipeline run red and sends the notification GitHub already sends for
 a failed run.
 
-WHY IT RUNS *AFTER* THE NOTE, NOT BEFORE
+WHY IT IS ITS OWN JOB, AFTER THE NOTE
 
 A dead vol feed must not cost the day's note. Everything else in the note is
 independent of it, and the Fragility Monitor block already says `Unavailable`
-in plain words. So this is the daily stage's last step, after the note is
-written, pushed to the vault and published to the output branch: by the time it
-can fail, the day's work is safely on disk. Re-running the failed job is
-harmless — the note stage no-ops on an existing note.
+in plain words. So this runs as `feed_gate` in pipeline.yml, needing `daily`:
+by the time it can fail, the note is written, pushed to the vault and published
+to the output branch.
+
+It began as the last *step* of the daily stage, which was a defect. A failing
+step fails the job; `scoring` requires `needs.daily.result == 'success'` and
+`rebalance` requires `scoring`; so a dead vol feed on a Monday would have
+skipped the week's scorecard and the paper-portfolio rebalance — neither of
+which has anything to do with the vol legs. As a sibling job it still turns the
+RUN red, which is the notification this exists to send, and every weekly stage
+proceeds. Re-running the failed job is harmless.
 
 THE THRESHOLD IS 2, NOT 1
 
