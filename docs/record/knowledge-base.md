@@ -3144,6 +3144,19 @@ to alarm but *when*.
   vault and published — so it costs a notification and never the note. Replayed
   against 09-14 → 09-18 it is green on the 15th, WARN on the 16th and 17th, and
   red on the 18th (`test_the_september_2026_outage_goes_red_on_day_three`).
+- **Stage 1 now checks the vol legs at all.** It never did: the data check
+  stayed green through all three days because `build_quant_context()` succeeds
+  with a degraded composite. It runs the same probe, reports each leg, and
+  `--strict-feeds` makes a dead leg fail it.
+- **A day can be re-validated without being rewritten.** `pipeline.yml` takes
+  `mode: validate` — plan + stage 1, strict vol legs, nothing written: no LLM
+  call, no note, no commit, no quant-log line. The alternative had been
+  `--force` on a full run, which costs an LLM call and overwrites a published
+  note to learn one fact. All four writing stages carry the guard explicitly,
+  because `refit` is not gated on `scoring.result` and `!cancelled()` runs a job
+  after a skipped dependency — skipping stage 2 alone would have let a Monday
+  validate run commit a refit to `main`. `test_pipeline_modes.py` is that
+  assertion, and it fails on the first draft.
 
 **What it changes.**
 - **IMP-5 reopens as IMP-5.4 and closes again here.** Its two shipped items

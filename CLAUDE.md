@@ -67,6 +67,7 @@ mkdocs build --strict                        # what CI runs; fails on a broken l
 python .macro-assist/record_audit.py         # the record layer's audit; CI runs it on every push (Phase 24)
 python .macro-assist/feed_audit.py           # the fragility feed gate; stage 2's last step (IMP-5.4)
 python .macro-assist/feed_audit.py --probe   # ...and why vix_term is missing right now (needs network)
+python .macro-assist/collect_and_analyze.py --fetch-only --strict-feeds  # validate the day's data, write nothing
 ```
 
 `pytest.ini` excludes `-m integration` by default. **`test_point_in_time.py` is

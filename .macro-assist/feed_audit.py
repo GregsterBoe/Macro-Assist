@@ -211,6 +211,25 @@ def probe() -> tuple[int, list[tuple[str, str, str]]]:
     return 1, lines
 
 
+def check_lines(result: tuple[int, list[tuple[str, str, str]]],
+                strict: bool) -> tuple[list[tuple[str, str, str]], bool]:
+    """Map a `probe()` result onto the data check's log lines and whether it
+    should fail the run.
+
+    The whole strictness rule, in one pure function so it can be read and
+    tested without a network: a dead vol leg is a `WARN` on a normal stage-1
+    run — it costs the composite its calibrated label, never the day's note —
+    and a `FAIL` only when the run was dispatched to answer for it
+    (`--strict-feeds`, which `pipeline.yml mode=validate` passes).
+    """
+    code, lines = result
+    out = [("CHECK", "FAIL" if (level == "FAIL" and strict) else
+                     ("WARN" if level == "FAIL" else level),
+            f"Fragility feeds: {msg}")
+           for _section, level, msg in lines]
+    return out, bool(code) and strict
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--log-dir", default=str(QUANT_LOG_DIR),

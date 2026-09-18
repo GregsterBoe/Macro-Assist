@@ -2,9 +2,21 @@ name: Data Fetch Check
 
 on:
   # Scheduled as stage 1 of .github/workflows/pipeline.yml. Still dispatchable
-  # on its own for an ad-hoc check that the upstream sources are alive.
+  # on its own for an ad-hoc check that the upstream sources are alive — which
+  # is also how you ask "is the vol feed back yet?" without writing a note.
+  # Prefer `pipeline.yml` with mode=validate: same run, one entry point.
   workflow_call:
+    inputs:
+      strict_feeds:
+        description: "Fail the run on a dead fragility vol leg (default: warn only)"
+        type: boolean
+        default: false
   workflow_dispatch:
+    inputs:
+      strict_feeds:
+        description: "Fail the run on a dead fragility vol leg (default: warn only)"
+        type: boolean
+        default: false
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -35,4 +47,6 @@ jobs:
           SUPADATA_API_KEY: ${{ secrets.SUPADATA_API_KEY }}
           # No ANTHROPIC_API_KEY — LLM is never called in --fetch-only mode
           # No VAULT_ROOT — fetch check does not write any files
-        run: python macro-assist/.macro-assist/collect_and_analyze.py --fetch-only
+        run: |
+          python macro-assist/.macro-assist/collect_and_analyze.py --fetch-only \
+            ${{ inputs.strict_feeds && '--strict-feeds' || '' }}

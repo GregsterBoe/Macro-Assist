@@ -46,9 +46,49 @@ that resolved `asof` — not from the wall clock — and are overridable via the
 Each stage also keeps its own `workflow_dispatch` with its full input set, so any
 one of them can still be run standalone from the Actions tab.
 
+### Re-running a day just to validate the data
+
+`pipeline.yml` takes a `mode` input. `full` (the default, and what the cron
+caller sends) is the whole pipeline. **`validate` runs `plan` and stage 1 only**
+— every fetch, every source and the fragility vol legs — and writes nothing: no
+LLM call, no note in the vault, no commit to `main` or `output`, not even a
+quant-log line. It is how you ask *is the data good yet?* on a day whose note
+has already been written.
+
+Before it existed the only answer was `--force` on a full run, which costs an
+LLM call and overwrites a published note to learn one fact.
+
+| | `mode: full` | `mode: validate` |
+|---|---|---|
+| plan, stage 1 data check | runs | runs |
+| stages 2–5 | run | **skipped** |
+| a dead fragility vol leg | `WARN` — never blocks the note | **fails the run** |
+| writes | note, vault, `output`, `main` | nothing |
+
+Every stage that writes carries the `mode != 'validate'` guard **explicitly**,
+and that is not belt-and-braces: `refit` is deliberately not gated on
+`scoring.result` (a failed note must not stop the models being rebuilt) and
+`!cancelled()` lets a job run after a *skipped* dependency, so skipping stage 2
+alone would still let a Monday validate run commit a refit to `main`.
+`test_pipeline_modes.py` asserts the guard on each of the four.
+
+Dispatch it from the Actions tab on `Macro Pipeline` → Run workflow → mode
+`validate`. The run is labelled `· VALIDATE (no note)` in the run list so it
+cannot be mistaken for a real one. Stage 1 is also dispatchable on its own
+(`Data Fetch Check`, with the same `strict_feeds` toggle), but prefer the
+pipeline: one entry point (ADR-0013).
+
 ### macro_data_check.yml — stage 1
 
 Runs before the daily note as an early warning. Calls `collect_and_analyze.py --fetch-only` — no LLM, no file writes. Checks all data sources and exits non-zero if any critical source fails.
+
+Since IMP-5.4 it also checks the **fragility vol legs** — the one source it
+could not see before. `vix_term` went missing on 2026-09-16 and this stage
+stayed green for three days, because `build_quant_context()` succeeds perfectly
+well with a degraded composite. It now runs the same probe as
+`feed_audit.py --probe` (one implementation, not two) and reports each leg's
+source, staleness and error. `--strict-feeds` promotes that from `WARN` to a
+failure; `mode: validate` is what passes it.
 
 Does not require `ANTHROPIC_API_KEY` or `VAULT_PAT`.
 

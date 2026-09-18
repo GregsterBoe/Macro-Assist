@@ -285,7 +285,11 @@ Detail and the counterfactual in [KB-029].
   naming each leg's source, staleness, last date and error; both in the JSONL and
   the WARN line; and `feed_audit.py` as the daily stage's **last** step — after
   the note is written and published — exiting 1 once the live degraded streak
-  passes 2. Replayed on 09-14 → 09-18 it is red on the 18th. The root cause of
+  passes 2. Replayed on 09-14 → 09-18 it is red on the 18th. Stage 1 also gained
+  the vol-leg check it never had (it stayed green through all three days), and
+  `pipeline.yml` gained **`mode: validate`** — plan + stage 1 with strict vol
+  legs, writing nothing — so a day can be re-checked without an LLM call or a
+  rewritten note. The root cause of
   that outage stays unknown by construction (it predates the instrumentation);
   whether a third feed tier is warranted is `todo.md` #26, deliberately held
   until the next failure attributes itself.

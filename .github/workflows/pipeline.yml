@@ -67,7 +67,7 @@ name: Macro Pipeline
 
 # Every run is now a dispatch, so the run list would otherwise be an
 # undifferentiated column of "Macro Pipeline". Name it by who asked and for when.
-run-name: "Macro Pipeline · ${{ inputs.source || 'schedule-backstop' }}${{ inputs.asof && format(' · {0}', inputs.asof) || '' }}"
+run-name: "Macro Pipeline · ${{ inputs.source || 'schedule-backstop' }}${{ inputs.asof && format(' · {0}', inputs.asof) || '' }}${{ inputs.mode == 'validate' && ' · VALIDATE (no note)' || '' }}"
 
 on:
   # BACKSTOP, NOT THE TRIGGER. Late on purpose: both external calls (06:23 and
@@ -103,6 +103,11 @@ on:
         type: choice
         options: [auto, "yes", "no"]
         default: auto
+      mode:
+        description: "full = the whole pipeline · validate = stage 1 only, no note, no LLM call"
+        type: choice
+        options: [full, validate]
+        default: full
       source:
         description: "Who asked for this run (labels the run; no effect on what runs)"
         type: string
@@ -182,10 +187,18 @@ jobs:
             echo "| started (UTC) | \`$(date -u +%Y-%m-%d\ %H:%M)\` |"
             echo "| trigger | \`${{ github.event_name }}\` (source: \`$SOURCE\`) |"
             echo "| weekly stages | \`$WEEKLY\` — $REASON |"
+            echo "| mode | \`${{ inputs.mode || 'full' }}\` |"
             echo ""
-            echo "Daily: data_check → daily"
-            if [ "$WEEKLY" = "true" ]; then
-              echo "Weekly: + scoring, rebalance, refit"
+            if [ "${{ inputs.mode }}" = "validate" ]; then
+              echo "**Mode: validate** — stage 1 only. No LLM call, no note, no commit."
+              echo ""
+              echo "Runs: data_check (strict vol legs)"
+              echo "Skipped: daily, scoring, rebalance, refit"
+            else
+              echo "Daily: data_check → daily"
+              if [ "$WEEKLY" = "true" ]; then
+                echo "Weekly: + scoring, rebalance, refit"
+              fi
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -193,11 +206,31 @@ jobs:
     name: 1 · data check
     needs: plan
     uses: ./.github/workflows/macro_data_check.yml
+    with:
+      # A dead fragility vol leg is a WARN on a normal run — it costs the
+      # composite its calibrated label, never the day's note. On a run
+      # dispatched *to ask about it* (mode=validate) it is the answer, so it
+      # decides the run's colour.
+      strict_feeds: ${{ inputs.mode == 'validate' }}
     secrets: inherit
 
   daily:
     name: 2 · daily note
     needs: [plan, data_check]
+    # VALIDATE MODE STOPS HERE. `mode: validate` re-runs stage 1 — every fetch,
+    # every source, and the fragility vol legs — and writes nothing: no LLM
+    # call, no note in the vault, no commit to `output`. It is the answer to
+    # "is the data good yet?" on a day whose note has already been written, and
+    # it exists because the alternative was `--force` on a full run, which costs
+    # an LLM call and overwrites a published note to learn one fact.
+    #
+    # Every stage below carries the same guard, explicitly. Skipping this job
+    # is NOT enough on its own: `refit` is deliberately not gated on
+    # `scoring.result` (a failed note must not stop the models being rebuilt),
+    # and `!cancelled()` lets a job run after a *skipped* dependency — so on a
+    # Monday a validate run would otherwise reach stage 5 and commit a refit to
+    # `main`. "Writes nothing" has to be stated at each stage that writes.
+    if: ${{ inputs.mode != 'validate' }}
     uses: ./.github/workflows/macro_daily.yml
     with:
       asof: ${{ needs.plan.outputs.asof }}
@@ -232,6 +265,7 @@ jobs:
     # macro_weekly_scoring.yml — not this stage.
     if: >-
       ${{ !cancelled()
+          && inputs.mode != 'validate'
           && needs.plan.outputs.weekly == 'true'
           && needs.daily.result == 'success' }}
     uses: ./.github/workflows/macro_weekly_scoring.yml
@@ -242,6 +276,7 @@ jobs:
     needs: [plan, scoring]
     if: >-
       ${{ !cancelled()
+          && inputs.mode != 'validate'
           && needs.plan.outputs.weekly == 'true'
           && needs.scoring.result == 'success' }}
     uses: ./.github/workflows/portfolio_rebalance.yml
@@ -277,8 +312,11 @@ jobs:
   refit:
     name: 5 · weekly model refit
     needs: [plan, scoring]
+    # `inputs.mode` first: this stage commits to `main` and is NOT gated on
+    # `scoring.result`, so it is the one job a skipped `daily` would not stop.
     if: >-
       ${{ !cancelled()
+          && inputs.mode != 'validate'
           && needs.plan.outputs.weekly == 'true' }}
     uses: ./.github/workflows/macro_weekly_refit.yml
     with:

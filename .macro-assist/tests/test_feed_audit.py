@@ -219,3 +219,50 @@ def test_probe_reports_a_dead_fetch_rather_than_crashing(monkeypatch):
     code, lines = probe()
     assert code == 1
     assert any(lvl == "FAIL" for _, lvl, _ in lines)
+
+
+# ---------------------------------------------------------------------------
+# check_lines — the strictness rule the data check applies to a probe result.
+# A dead vol leg must never fail stage 1 on a normal run (it would block the
+# day's note over a feed the note does not depend on); it must fail a run that
+# was dispatched to ask whether the feed is back.
+# ---------------------------------------------------------------------------
+
+_PROBE_DEAD = (1, [("PROBE", "INFO", "fetched 6 series: ..."),
+                   ("PROBE", "WARN", "vix3m: source=none — HTTPError: 403"),
+                   ("PROBE", "FAIL", "vix_term cannot be computed — vix3m series absent")])
+_PROBE_OK = (0, [("PROBE", "INFO", "fetched 7 series: ..."),
+                 ("PROBE", "OK", "vix3m: source=cboe, last=2026-09-18"),
+                 ("PROBE", "OK", "vix_term computes from these feeds")])
+
+
+def test_a_dead_leg_only_warns_on_a_normal_run():
+    from feed_audit import check_lines
+    lines, failed = check_lines(_PROBE_DEAD, strict=False)
+    assert failed is False                       # the note must still be written
+    assert "FAIL" not in [lvl for _, lvl, _ in lines]
+    assert all(msg.startswith("Fragility feeds: ") for _, _, msg in lines)
+
+
+def test_a_dead_leg_fails_a_run_dispatched_to_ask_about_it():
+    from feed_audit import check_lines
+    lines, failed = check_lines(_PROBE_DEAD, strict=True)
+    assert failed is True
+    assert any(lvl == "FAIL" for _, lvl, _ in lines)
+    # The cause still rides along — a red run that does not say why is no better
+    # than the silent WARN this replaced.
+    assert any("403" in msg for _, _, msg in lines)
+
+
+@pytest.mark.parametrize("strict", [True, False])
+def test_a_healthy_probe_never_fails_either_way(strict):
+    from feed_audit import check_lines
+    lines, failed = check_lines(_PROBE_OK, strict=strict)
+    assert failed is False
+    assert {lvl for _, lvl, _ in lines} <= {"OK", "INFO"}
+
+
+def test_check_lines_are_addressed_to_the_data_check():
+    from feed_audit import check_lines
+    lines, _ = check_lines(_PROBE_DEAD, strict=False)
+    assert {sec for sec, _, _ in lines} == {"CHECK"}
