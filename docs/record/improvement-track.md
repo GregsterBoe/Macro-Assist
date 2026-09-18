@@ -289,10 +289,16 @@ Detail and the counterfactual in [KB-029].
   the vol-leg check it never had (it stayed green through all three days), and
   `pipeline.yml` gained **`mode: validate`** — plan + stage 1 with strict vol
   legs, writing nothing — so a day can be re-checked without an LLM call or a
-  rewritten note. The root cause of
-  that outage stays unknown by construction (it predates the instrumentation);
-  whether a third feed tier is warranted is `todo.md` #26, deliberately held
-  until the next failure attributes itself.
+  rewritten note. **Cause found the same day → [KB-034] addendum:** yfinance's
+  `^VIX3M` returns nothing at ~06:04 UTC and current data at 16:24 UTC, three
+  mornings running — intermittent, not the [KB-029] upstream stop — and the CBOE
+  fallback has never once succeeded in production (it short-circuits on a fresh
+  leg, so 09-16 was its first live call). `todo.md` #26 is
+  reframed around that cause: retry the primary, let the 10:47 UTC catch-up call
+  re-check the feeds (it no-ops on an existing note today), or move the run —
+  all cheaper than a new feed, and all blocked on `feed_audit.py --probe-cboe`
+  coming back green from CI, since until it does the vol legs have no working
+  fallback at all.
 
 ## IMP-6 — Precision at held recall: the aggregator question, asked honestly
 

@@ -44,6 +44,7 @@ Run:
     python .macro-assist/feed_audit.py --max-streak 3
     python .macro-assist/feed_audit.py --warn-only     # report, never exit 1
     python .macro-assist/feed_audit.py --probe         # why is it missing RIGHT NOW (network)
+    python .macro-assist/feed_audit.py --probe-cboe    # does the issuer fallback work AT ALL
 """
 from __future__ import annotations
 
@@ -173,6 +174,40 @@ def audit(log_dir: Path = QUANT_LOG_DIR,
     return 1, lines
 
 
+def probe_cboe() -> tuple[int, list[tuple[str, str, str]]]:
+    """Fetch CBOE's own CSV for each vol leg directly, bypassing the freshness
+    short-circuit `freshen_vol_indices` applies.
+
+    This exists because the fallback is only invoked when a leg is already
+    stale or missing — `if not stale: continue` — so on a normal day it is
+    never exercised and a broken fallback looks exactly like a working one.
+    The record bears that out: CBOE's first three live invocations
+    (2026-09-16..18) all failed, and there is no run on file where it
+    succeeded. A fallback nobody can test is a fallback nobody should count on.
+
+    Exit 1 if either leg cannot be fetched. Costs one CSV per leg.
+    """
+    from fragility_panel import _CBOE_SYMBOLS, cboe_error, fetch_cboe_index
+
+    lines: list[tuple[str, str, str]] = []
+    failed = False
+    for leg, symbol in sorted(_CBOE_SYMBOLS.items()):
+        series = fetch_cboe_index(symbol)
+        if series is None or len(series) == 0:
+            failed = True
+            lines.append(("PROBE", "FAIL",
+                          f"CBOE {symbol}: unavailable — {cboe_error(symbol) or 'no data'}"))
+            continue
+        lines.append(("PROBE", "OK",
+                      f"CBOE {symbol}: {len(series)} rows, last {series.index[-1].date()} "
+                      f"= {float(series.iloc[-1]):.2f}"))
+    lines.append(("PROBE", "FAIL" if failed else "OK",
+                  "the issuer fallback is NOT usable — a stale yfinance leg has nothing "
+                  "behind it" if failed else
+                  "the issuer fallback is usable — a stale yfinance leg would be covered"))
+    return (1 if failed else 0), lines
+
+
 def probe() -> tuple[int, list[tuple[str, str, str]]]:
     """Fetch the vol legs live and report what each one did — the answer to
     "why is `vix_term` missing *right now*", without waiting for tomorrow's
@@ -243,9 +278,15 @@ def main() -> int:
     parser.add_argument("--probe", action="store_true",
                         help="fetch the vol legs live and say why vix_term is missing "
                              "right now (costs network; not part of the daily gate)")
+    parser.add_argument("--probe-cboe", action="store_true",
+                        help="fetch CBOE's own CSV directly — the only way to find out "
+                             "whether the fallback works, since it is never invoked "
+                             "while yfinance is fresh")
     args = parser.parse_args()
 
-    if args.probe:
+    if args.probe_cboe:
+        code, lines = probe_cboe()
+    elif args.probe:
         code, lines = probe()
     else:
         asof = date.fromisoformat(args.asof) if args.asof else None

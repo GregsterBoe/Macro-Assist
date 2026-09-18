@@ -58,7 +58,7 @@ pip install -r .macro-assist/requirements.txt
 # generated output is a separate orphan branch, mounted as a worktree (ADR-0001)
 git fetch origin output && git worktree add results output
 
-pytest .macro-assist/tests/                 # ~925 tests, ~3.7 min
+pytest .macro-assist/tests/                 # ~1000 tests, ~4.5 min
 python .macro-assist/collect_and_analyze.py --fetch-only   # no LLM call, no writes
 python .macro-assist/collect_and_analyze.py  # full daily pipeline (costs API money)
 python .macro-assist/score_distributions.py  # the current scorer
@@ -67,6 +67,7 @@ mkdocs build --strict                        # what CI runs; fails on a broken l
 python .macro-assist/record_audit.py         # the record layer's audit; CI runs it on every push (Phase 24)
 python .macro-assist/feed_audit.py           # the fragility feed gate; stage 2's last step (IMP-5.4)
 python .macro-assist/feed_audit.py --probe   # ...and why vix_term is missing right now (needs network)
+python .macro-assist/feed_audit.py --probe-cboe  # does the issuer fallback work AT ALL (never exercised in prod)
 python .macro-assist/collect_and_analyze.py --fetch-only --strict-feeds  # validate the day's data, write nothing
 ```
 
@@ -177,7 +178,7 @@ live path may not import a harness.
 | **Version** | **v2.1** (2026-09-13; first note 2026-09-14) — the measured line; 1.x predicted direction |
 | **Live product** | Conditional return distribution across 6 assets + Fragility Monitor |
 | **Live experiment** | Phase 22 distribution scorer — bar sealed, first honest read ~2027-05 |
-| **Watch** | The Fragility Monitor's `vix_term` leg has been missing since 2026-09-16 — the composite publishes no calibrated label ([KB-034]). The fix shipped is instrumentation (the next failure names its own cause) plus a daily gate (`feed_audit.py`, stage 2's last step, red past two consecutive degraded readings); the **root cause is still unknown**. `todo.md` #26 holds the "second issuer feed?" decision until one failure attributes itself |
+| **Watch** | The Fragility Monitor's `vix_term` leg was missing 2026-09-16 → 09-18 — no calibrated label on those three readings ([KB-034]). **Cause found:** yfinance's `^VIX3M` returns nothing at ~06:04 UTC (when the note runs) and current data at 16:24 UTC the same day. Shipped: instrumentation, a daily gate (`feed_audit.py`, stage 2's last step, red past two consecutive degraded readings) and `pipeline.yml mode=validate`. **Open and blocking:** CBOE's fallback has never once succeeded in production — it short-circuits while yfinance is fresh, so it was untested until it was needed. Run `feed_audit.py --probe-cboe` from CI before treating the legs as having any fallback. `todo.md` #26 |
 | **Winding down** | The directional scorer, once the last T+20 window resolves ~2026-10-02 |
 | **Exploring** | Phase 23 — harness built, two looks run 2026-09-14 on 2010–2017; register holds H-001 `closed` (confound resolved, no KB entry), H-002–H-004 `draft`, H-005–H-007 `seen`. Seal decided: `SEAL_START` 2018-01-01 reused for the distribution class (`resolved.md` #19); `har_scaled` is a comparator in WP-23.B's bar, not the scorer's (#22). Nothing open in the inbox for this phase; next is the owner's rewrites, then the class bar |
 | **Record audit** | Phase 24 — `record_audit.py` in CI since 2026-09-14: WP-24.A workflow orphans + the schedule table; WP-24.B artifact liveness from git (`ARTIFACTS` registry, red past cadence + 1 day; replayed, red on day nine of the frozen refit). Next WP-24.C referential integrity. Convention calls decided (`resolved.md` #23 contradiction = red with a pin, #24 ADR revisit section enforced) |

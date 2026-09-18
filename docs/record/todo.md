@@ -165,10 +165,45 @@ by coincidence"; they are absent readings, and the cause was not recorded by
 those runs. They are kept as written and are not part of any live Elevated
 record.
 
-### Open decision #26 — does the vol term structure need a second issuer feed?
+### Open decision #26 — the vol term structure's feed: retry, reschedule, or a second source?
+**Reframed 2026-09-18** once the cause was found (→ [KB-034] addendum). The
+original question below — "does it need a second issuer feed?" — is kept for its
+parity rule, but it is probably the **wrong question**: `^VIX3M` returns nothing
+from yfinance at ~06:04 UTC and current data at 16:24 UTC the same day, three
+mornings running. A second issuer does not address a feed that works ten hours
+later.
+
+**What is actually open, cheapest first:**
+1. **Retry the yfinance leg.** `_fetch_fragility_histories` and
+   `market_data._ticker_snapshot` each make one attempt and treat an empty frame
+   as absent. The CBOE client already retries once; the primary does not.
+2. **Let the 10:47 UTC catch-up call re-check the feeds.** It runs today and
+   no-ops, because stages skip when the day's note already exists — so the one
+   mechanism built for "the early run failed" cannot help a run that *succeeded*
+   with a hole in it.
+3. **Move the run.** 06:04 UTC is 02:04 ET; nothing about the note needs that
+   hour.
+4. A second issuer feed — only if 1–3 fail, and under the parity rule below.
+
+**Blocking all four: does the fallback we already have work at all?** CBOE's
+first three live invocations failed and there is **no run on file where it has
+ever succeeded** — it short-circuits while yfinance is fresh, so it had never
+been exercised before 09-16. `feed_audit.py --probe-cboe` answers this directly
+from the Actions runner. Until it is green, the vol legs have no fallback, and
+adding a *third* tier behind a second one that does not work would be building
+on sand.
+
+**Also carried:** `market_data`'s `vix3m` has no fallback on any path —
+`vix_term_ratio` vanished from the LLM payload on all three days and no
+mechanism covers it.
+
+---
+
+### The original question, kept for its admission rule — a second issuer feed
 **Source:** [KB-034]. The fallback chain is one deep: yfinance's `^VIX3M`, then
 CBOE's own `VIX3M_History.csv`. It has now failed twice in two months
-(2026-07-17, yfinance; 2026-09-16, both — cause unrecorded, see below), each
+(2026-07-17, a genuine two-month upstream stop; 2026-09-16, an intermittent
+empty response at one hour of the day, with CBOE failing to cover it), each
 time costing the composite its calibrated label for days at a stretch. A third
 tier would remove the single point of failure; it also adds a feed to keep
 honest, and a source whose vendor convention differs from CBOE's would put a
@@ -181,11 +216,10 @@ reproduce CBOE's own file on the overlap to the published precision, on a
 window that includes a backwardation episode, before it may ever serve the
 live component. No parity, no admission, however fresh it is.
 
-**What to wait for first:** the instrumentation shipped with [KB-034] means the
-next failure names itself. One recorded cause is worth more than a guess at
-which tier to add — a 403 from a CDN, a renamed column and a parked file each
-argue for a different remedy, and two of the three are fixed in the existing
-client. Do not add a feed before the next occurrence is attributed.
+**What to wait for first:** ~~the instrumentation shipped with [KB-034] means the
+next failure names itself~~ — *superseded 2026-09-18: the cause was found from
+the payload previews the same day, and it is not a case a new feed would fix.
+Work items 1–4 above first.*
 
 *#15 (the turbulence-only hindsight read) and #16 (the CORR shadow flag) closed
 2026-09-14 → [`resolved.md`](resolved.md); the track is forward observation only

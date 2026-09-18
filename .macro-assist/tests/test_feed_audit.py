@@ -266,3 +266,51 @@ def test_check_lines_are_addressed_to_the_data_check():
     from feed_audit import check_lines
     lines, _ = check_lines(_PROBE_DEAD, strict=False)
     assert {sec for sec, _, _ in lines} == {"CHECK"}
+
+
+# ---------------------------------------------------------------------------
+# --probe-cboe: the fallback is only invoked when a leg is already stale, so on
+# a normal day it is never exercised and a broken one is indistinguishable from
+# a working one. Its first three live invocations (2026-09-16..18) all failed
+# and the record holds no run where it succeeded — hence a way to ask directly.
+# ---------------------------------------------------------------------------
+
+def test_probe_cboe_is_green_when_both_legs_come_back(monkeypatch):
+    import pandas as pd
+    import fragility_panel
+    from feed_audit import probe_cboe
+
+    idx = pd.date_range("2026-09-01", periods=10, freq="B")
+    monkeypatch.setattr(fragility_panel, "fetch_cboe_index",
+                        lambda sym, **k: pd.Series(21.5, index=idx, name=sym))
+    code, lines = probe_cboe()
+    assert code == 0
+    blob = " ".join(msg for _, _, msg in lines)
+    assert "VIX3M" in blob and str(idx[-1].date()) in blob
+    assert "is usable" in blob
+
+
+def test_probe_cboe_fails_and_names_the_error(monkeypatch):
+    import fragility_panel
+    from feed_audit import probe_cboe
+
+    monkeypatch.setattr(fragility_panel, "fetch_cboe_index", lambda sym, **k: None)
+    monkeypatch.setattr(fragility_panel, "cboe_error", lambda sym: "URLError: 403 Forbidden")
+    code, lines = probe_cboe()
+    assert code == 1
+    blob = " ".join(msg for _, _, msg in lines)
+    assert "403" in blob
+    assert "NOT usable" in blob
+
+
+def test_probe_cboe_fails_when_only_one_leg_is_missing(monkeypatch):
+    import pandas as pd
+    import fragility_panel
+    from feed_audit import probe_cboe
+
+    idx = pd.date_range("2026-09-01", periods=10, freq="B")
+    monkeypatch.setattr(
+        fragility_panel, "fetch_cboe_index",
+        lambda sym, **k: pd.Series(21.5, index=idx, name=sym) if sym == "VIX" else None)
+    code, _lines = probe_cboe()
+    assert code == 1, "VIX3M is the leg that matters — a half-working fallback is not one"
