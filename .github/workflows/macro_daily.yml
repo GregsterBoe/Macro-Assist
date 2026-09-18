@@ -141,3 +141,11 @@ jobs:
           set -e
           cd macro-assist
           bash .macro-assist/ci_publish_results.sh "macro: $(date -u +%Y-%m-%d) daily intelligence note"
+
+      # The fragility feed gate (IMP-5.4) is NOT a step here — it is its own job
+      # in pipeline.yml, `feed_gate`. It was a step, and that was a defect: a
+      # failing step fails this job, `scoring` requires
+      # `needs.daily.result == 'success'`, and `rebalance` requires `scoring` —
+      # so a dead vol feed on a Monday would have silently skipped the week's
+      # scorecard and the portfolio rebalance. Neither has anything to do with
+      # the vol legs. See pipeline.yml.

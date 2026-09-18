@@ -106,6 +106,19 @@ _FRAG_TICKERS: dict[str, str] = {
 }
 
 
+# The last vol-leg splice outcome, per leg (see
+# fragility_panel.freshen_vol_indices, which fills it). Process-lifetime, like
+# `_OR_MODE_CACHE` below: the fetch happens once per run and the log path reads
+# the result afterwards.
+_FEED_REPORT: dict = {}
+
+
+def vol_feed_report() -> dict:
+    """The last vol-leg splice outcome per leg, as recorded by the live fetch.
+    `{}` before any fetch in this process. Diagnostic only."""
+    return dict(_FEED_REPORT)
+
+
 def _fragility_mode() -> str:
     """Resolve the active fragility mode from the environment (default 'log')."""
     mode = os.getenv(_FRAGILITY_MODE_ENV, "").strip().lower()
@@ -138,11 +151,16 @@ def _fetch_fragility_histories(period: str = "1y") -> dict:
     # A stale VIX3M leg is worse than a missing one: the ratio aligns on shared
     # dates, so the term-structure component would silently freeze. Splice
     # CBOE's own history under either vol leg that has fallen behind (KB-029).
+    # The splice's own outcome is recorded — when it cannot fill the leg, that
+    # is the thing the next reader needs to know, and until IMP-5.4 nothing
+    # kept it.
+    _FEED_REPORT.clear()
     try:
         from fragility_panel import freshen_vol_indices
-        out = freshen_vol_indices(out)
-    except Exception:
-        pass
+        out = freshen_vol_indices(out, report=_FEED_REPORT)
+    except Exception as exc:   # noqa: BLE001 — a feed report must never break the fetch
+        _FEED_REPORT["splice"] = {"source": "none", "stale_obs": None, "last": None,
+                                  "error": f"{type(exc).__name__}: {exc}"}
     return out
 
 
@@ -351,6 +369,17 @@ def collect_quant_raw(
                 "degraded":   list(frag.get("degraded") or []),
                 "mode":       _fragility_mode(),
             }
+            # Why, not just what. A degraded reading whose cause is not logged
+            # cannot be diagnosed after the fact — the September 2026 recurrence
+            # of KB-029 left three days of `Unavailable` with nothing to read
+            # (IMP-5.4). Both keys are omitted on a healthy day.
+            detail = frag.get("degraded_detail") or {}
+            if detail:
+                raw["fragility"]["degraded_detail"] = dict(detail)
+            feed = vol_feed_report()
+            if feed and (frag.get("degraded") or any(
+                    (v or {}).get("source") != "yfinance" for v in feed.values())):
+                raw["fragility"]["feed"] = feed
     except Exception:
         pass
 
@@ -736,6 +765,28 @@ def _or_state_str(or_raw: dict) -> str:
     return f"FIRING ({fired})" if fired else "FIRING"
 
 
+def _degraded_why(frag: dict) -> str:
+    """The cause clause for a degraded reading's log line: the per-component
+    reason, then the vol-leg feed outcomes that explain it. '' when the run
+    recorded neither (a reading logged before IMP-5.4, or a component that
+    cannot say)."""
+    bits: list[str] = []
+    for name, reason in (frag.get("degraded_detail") or {}).items():
+        bits.append(f"{name}: {reason}")
+    for leg, rec in (frag.get("feed") or {}).items():
+        rec = rec or {}
+        part = f"{leg} from {rec.get('source', '?')}"
+        if rec.get("last"):
+            part += f" (last {rec['last']}"
+            if rec.get("stale_obs") is not None:
+                part += f", {rec['stale_obs']} obs behind"
+            part += ")"
+        if rec.get("error"):
+            part += f" — {rec['error']}"
+        bits.append(part)
+    return f" [{'; '.join(bits)}]" if bits else ""
+
+
 def fragility_log_lines(raw: Optional[dict]) -> list[tuple[str, str, str]]:
     """Render the fragility readings in `raw` as (section, level, message) tuples
     for the pipeline logger. Returns [] when the run produced no reading.
@@ -756,6 +807,7 @@ def fragility_log_lines(raw: Optional[dict]) -> list[tuple[str, str, str]]:
         msg = f"composite {comp_str} [{label}], trend {trend}"
         if degraded:
             msg += f" — DEGRADED: {', '.join(degraded)} missing, label withheld"
+            msg += _degraded_why(frag)
         drivers = _raw_driver_strs(frag, limit=3)
         if drivers:
             msg += f" — top drivers: {', '.join(drivers)}"

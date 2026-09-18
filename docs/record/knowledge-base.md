@@ -3069,3 +3069,158 @@ benchmarks, MSE, calibration) is the harness output.
   read is `har_backtest.py`.
 - **`what-we-believe.md`'s open-questions table** loses its "WP-17.5 — not
   started" row; the answer is here.
+
+---
+
+## KB-034 — KB-029's fix held and its fallback did not: `vix_term` went missing again on 2026-09-16 and published three `Unavailable` readings with every check green (IMP-5.4)
+
+**Date:** 2026-09-18 · **Branch:** `main` · **Source:**
+`results/quant_context_log/2026-09-11 → 09-18` (the live shadow record) and the
+2026-09-18 note · **Fix:** `fragility.py` (`vix_term_reason`,
+`degraded_detail`), `fragility_panel.py` (CBOE failure reason + one retry,
+`freshen_vol_indices(report=...)`), `quant_context.py` (cause in the JSONL and
+the log line), new `feed_audit.py` + the `feed_gate` job in `pipeline.yml`. Zero LLM
+cost.
+
+**What we looked at.** The 2026-09-18 note's Fragility Monitor read
+`24/100 — Unavailable (vix_term missing — calibrated label withheld)`. The
+question was whether [KB-029] had regressed.
+
+### Headline — the fix worked, the fallback failed, and nothing said so
+
+| date | label | degraded | effective weights |
+|---|---|---|---|
+| 2026-09-11 | Resilient | — | 0.53 / 0.06 / 0.41 |
+| 2026-09-14 | Resilient | `[]` | 0.53 / 0.06 / 0.41 |
+| 2026-09-15 | Resilient | `[]` | 0.53 / 0.06 / 0.41 |
+| **2026-09-16** | **Unavailable** | **`['vix_term']`** | **0.90 / 0.10** |
+| **2026-09-17** | **Unavailable** | **`['vix_term']`** | **0.90 / 0.10** |
+| **2026-09-18** | **Unavailable** | **`['vix_term']`** | **0.90 / 0.10** |
+
+1. **[KB-029]'s first half held.** The composite did exactly what it was rebuilt
+   to do: renormalised, kept the number, refused the label, masked itself out of
+   the OR `comp` channel (`channels.comp.value: null` on all three days). There
+   is no repeat of the August false Elevated — this outage produced no signal at
+   all, which is the correct behaviour.
+2. **[KB-029]'s second half did not.** `freshen_vol_indices` — CBOE's own CSV
+   spliced under a stale or missing leg — was on the live path and did not fill
+   the leg on any of the three days. **Which of its failure modes fired is not
+   recoverable from the record**, because nothing recorded it:
+   `fetch_cboe_index` returned `None` for a 403, a CDN outage, a renamed column
+   and a parked file alike, and `vix_term_backwardation` returned `None` for an
+   absent leg, a stale leg and a non-overlapping pair alike.
+3. **Nothing alarmed.** The daily run logged its `DEGRADED` WARN all three days —
+   a line in a passing Action. Every check was green; the pipeline is green when
+   the note is written, and the note *was* written. It was caught by a human
+   reading the note on day three.
+
+**The nuance that is easy to forget.** A degraded reading is not a failed run,
+so no existing gate could see it: the note publishes, the artifact lands on
+time, and WP-24.B's liveness check is satisfied by a file that exists. The
+failure shape is "the artifact landed and is unusable", which the record layer
+had no detector for. Also: one degraded day genuinely is a vendor hiccup that
+self-heals, so a day-one alarm would cry wolf — the question was never *whether*
+to alarm but *when*.
+
+**What was changed.**
+- **The component says which feed died.** `vix_term_reason(vix, vix3m)` returns
+  the reason `vix_term_backwardation` would return `None` — absent leg, stale
+  leg (with its last date and how many VIX observations lie after it), or too
+  few shared dates. `fragility_index` carries it as `degraded_detail`.
+- **The fallback says why it failed.** `fetch_cboe_index` records the exception
+  per symbol (`cboe_error`) and retries once — the observed failures are
+  transient more often than structural, and two attempts is the whole budget.
+  `freshen_vol_indices(report=...)` reports each vol leg's outcome: source
+  (`yfinance` / `cboe` / `none`), how far behind it is, its last date, and the
+  error that left it that way. The splice behaves identically with or without a
+  report.
+- **Both reach the record.** `raw["fragility"]["degraded_detail"]` and
+  `["feed"]` go into the JSONL; the Action log's WARN line carries the same
+  clause. Omitted entirely on a healthy day.
+- **A degraded streak is now red.** `feed_audit.py` reads the readings back out
+  of the quant log and exits 1 when the latest is degraded and the run of
+  degraded readings ending at it exceeds `MAX_DEGRADED_STREAK = 2`. It is the
+  **`feed_gate` job**, after the note is written, pushed to the vault and
+  published — so it costs a notification and never the note. It is a *job* and
+  not a step of `daily` for a reason found before merge: a failing step fails
+  that job, `scoring` requires `daily.result == 'success'` and `rebalance`
+  requires `scoring`, so a dead vol feed on a Monday would have skipped the
+  week's scorecard and the paper-portfolio rebalance. Replayed
+  against 09-14 → 09-18 it is green on the 15th, WARN on the 16th and 17th, and
+  red on the 18th (`test_the_september_2026_outage_goes_red_on_day_three`).
+- **Stage 1 now checks the vol legs at all.** It never did: the data check
+  stayed green through all three days because `build_quant_context()` succeeds
+  with a degraded composite. It runs the same probe, reports each leg, and
+  `--strict-feeds` makes a dead leg fail it.
+- **A day can be re-validated without being rewritten.** `pipeline.yml` takes
+  `mode: validate` — plan + stage 1, strict vol legs, nothing written: no LLM
+  call, no note, no commit, no quant-log line. The alternative had been
+  `--force` on a full run, which costs an LLM call and overwrites a published
+  note to learn one fact. All four writing stages carry the guard explicitly,
+  because `refit` is not gated on `scoring.result` and `!cancelled()` runs a job
+  after a skipped dependency — skipping stage 2 alone would have let a Monday
+  validate run commit a refit to `main`. `test_pipeline_modes.py` is that
+  assertion, and it fails on the first draft.
+
+**What it changes.**
+- **IMP-5 reopens as IMP-5.4 and closes again here.** Its two shipped items
+  stand; what was missing was that a fallback is not a fix unless its own
+  failure is visible.
+- **The live record 2026-09-16 → 09-18 carries no calibrated composite.** Those
+  three readings are kept as written, with no label, and are not part of any
+  live Elevated record. The composite has still never fired Elevated live.
+- **The root cause was found the same day, from the payload previews — see the
+  addendum below.** It is not the failure shape this entry first assumed.
+- Not a version bump: instrumentation and a gate; the note publishes nothing new
+  (its `Unavailable` line is unchanged).
+
+### Addendum, same day — the cause, and a correction
+
+A `mode: validate` run at **16:24 UTC on 2026-09-18** came back completely
+healthy: `vix3m: source=yfinance, last=2026-09-18, 0 obs behind the anchor`,
+`vix_term computes`. The same day's note, generated at **06:04 UTC**, had no
+`vix_term` at all. That sent us to `results/llm_payload_preview/`, which records
+`vix_term_ratio` from the *market-data* fetch — a second, independent path to
+the same ticker:
+
+| note date (all generated 06:03–06:04 UTC) | `vix_term_ratio` in the payload |
+|---|---|
+| 09-08 → 09-15 | 0.745, 0.765, 0.801, 0.869, 0.771, 0.833 — **present and moving** |
+| 09-16, 09-17, 09-18 | **absent — no `vix3m` key at all** |
+
+**The cause: yfinance's `^VIX3M` returns nothing at ~06:04 UTC and current data
+at 16:24 UTC, on the same day, three mornings running.** Not the [KB-029] shape
+at all. It is not a stale leg, and it is not a frozen series — the ratio was
+moving right up to 09-15, so the symbol was live; it is an **empty response at
+one hour of the day**, in both the 90-day market fetch and the 1-year fragility
+fetch, while `^VIX` in the same loop succeeds.
+
+**Two corrections to the entry above.**
+
+1. *"The CBOE splice was working on 09-14 and 09-15 and stopped on the 16th"* is
+   **wrong**, and the mechanism says why: `freshen_vol_indices` short-circuits on
+   a fresh leg (`if not stale: continue`), so on 09-14 and 09-15 it was **never
+   invoked**. 09-16 was its **first live invocation** — and it failed, then
+   failed twice more. There is no run on file where the CBOE fallback has ever
+   successfully filled a leg in production. A fallback that is only reachable
+   once the primary is already dead is a fallback nobody can test, and this one
+   was untested for exactly that reason.
+2. The failure shape is *intermittent and time-of-day-bound*, not an upstream
+   stop. [KB-029] was a genuine two-month outage of the symbol; this is not.
+
+**What it changes.**
+- **`todo.md` #26 is reframed, and its original question is probably the wrong
+  one.** "Add a second issuer feed" does not address a feed that works ten hours
+  later. The live candidates are now: retry the yfinance leg; let the 10:47 UTC
+  catch-up call actually re-check the feeds (today it no-ops on an existing
+  note); or move the run. All three are cheaper than a new feed and none of them
+  was visible before the cause was.
+- **Whether the issuer fallback works at all is now the open question**, and it
+  is answerable: `feed_audit.py --probe-cboe` fetches CBOE's CSV directly,
+  bypassing the freshness short-circuit. Until it comes back green from the
+  Actions runner, the vol legs should be treated as having **no** fallback.
+- **`market_data`'s `vix3m` has no fallback of any kind** — `vix_term_ratio`
+  silently vanished from the LLM payload on all three days, on a path
+  `freshen_vol_indices` does not cover. Nobody noticed that either.
+- The instrumentation shipped above did not find this; the payload previews did.
+  What it buys is that the *next* occurrence names itself without the dig.

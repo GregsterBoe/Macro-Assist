@@ -289,6 +289,72 @@ def test_freshen_leaves_a_stale_leg_alone_when_cboe_fails():
 
 
 # ---------------------------------------------------------------------------
+# IMP-5.4 — the splice reports what it did. The September-2026 recurrence was
+# a failure of this branch (the leg stayed stale, CBOE did not fill it) and the
+# run kept no record of it at all, so three Unavailable days could not be
+# diagnosed after the fact. `report` is that record. The splice itself behaves
+# identically whether or not one is asked for — every assertion above still
+# holds with a report attached.
+# ---------------------------------------------------------------------------
+
+def _stale_vix3m_histories():
+    idx = pd.date_range("2026-01-01", periods=100, freq="B")
+    return idx, {"sp500": pd.Series(1.0, index=idx), "vix": pd.Series(20.0, index=idx),
+                 "vix3m": pd.Series(21.0, index=idx[:60])}
+
+
+def test_freshen_report_names_the_fresh_leg_and_its_source():
+    idx = pd.date_range("2026-01-01", periods=100, freq="B")
+    h = {"sp500": pd.Series(1.0, index=idx), "vix": pd.Series(20.0, index=idx),
+         "vix3m": pd.Series(21.0, index=idx)}
+    rep = {}
+    freshen_vol_indices(h, fetch=lambda sym: None, report=rep)
+    assert rep["vix3m"] == {"source": "yfinance", "stale_obs": 0,
+                            "last": str(idx[-1].date()), "error": None}
+
+
+def test_freshen_report_records_a_successful_splice():
+    idx, h = _stale_vix3m_histories()
+    cboe = pd.Series(22.0, index=idx[30:])
+    rep = {}
+    out = freshen_vol_indices(h, fetch=lambda sym: cboe, report=rep)
+    assert rep["vix3m"]["source"] == "cboe"
+    assert rep["vix3m"]["last"] == str(idx[-1].date())
+    assert rep["vix3m"]["error"] is None
+    assert out["vix3m"].index[-1] == idx[-1]
+
+
+def test_freshen_report_records_the_failure_that_left_the_leg_stale():
+    idx, h = _stale_vix3m_histories()
+    rep = {}
+    out = freshen_vol_indices(h, fetch=lambda sym: None, report=rep)
+    # The outcome the live path had no way to report: how far behind the leg
+    # was, when it last updated, and that the fallback did not fill it.
+    assert rep["vix3m"]["stale_obs"] == 40
+    assert rep["vix3m"]["last"] == str(idx[59].date())
+    assert rep["vix3m"]["error"]
+    assert out["vix3m"].equals(h["vix3m"])         # behaviour unchanged by reporting
+
+
+def test_freshen_report_survives_a_fetch_that_raises():
+    idx, h = _stale_vix3m_histories()
+    rep = {}
+
+    def _boom(_sym):
+        raise RuntimeError("cdn 403")
+
+    out = freshen_vol_indices(h, fetch=_boom, report=rep)
+    assert "403" in rep["vix3m"]["error"]
+    assert out["vix3m"].equals(h["vix3m"])
+
+
+def test_freshen_report_names_an_absent_anchor():
+    rep = {}
+    freshen_vol_indices({"vix": pd.Series(20.0)}, fetch=lambda sym: None, report=rep)
+    assert "anchor" in rep and rep["anchor"]["error"]
+
+
+# ---------------------------------------------------------------------------
 # IMP-5.3 — the PIT Elevated cut and its gate (result: FAIL, KB-030; the static
 # cut stays; this harness is the reproducible record of why)
 # ---------------------------------------------------------------------------

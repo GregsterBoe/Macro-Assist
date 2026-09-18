@@ -278,11 +278,17 @@ tags: [macro, daily-note, economics]
 # Entry point
 # ---------------------------------------------------------------------------
 
-def _run_fetch_check() -> int:
+def _run_fetch_check(strict_feeds: bool = False) -> int:
     """
     Run every data-fetch function and report pass/fail for each source.
     Returns 0 if all critical sources succeeded, 1 if any failed.
     Does NOT call the LLM — safe to run without ANTHROPIC_API_KEY.
+
+    `strict_feeds` promotes a vol-leg failure from WARN to a hard failure. It
+    is off in the pipeline's stage 1, where a dead `vix3m` must never block the
+    day's note, and on when the run was dispatched to answer *is the feed back
+    yet* (`pipeline.yml` mode=validate). Same check either way — only what it
+    costs differs.
     """
     today = datetime.now(timezone.utc)
     _t0   = time.monotonic()
@@ -398,6 +404,22 @@ def _run_fetch_check() -> int:
         except Exception as e:
             _log("CHECK", "WARN", f"Quant context: {e}")
 
+    # --- Fragility vol legs (IMP-5.4) ---
+    # The one source the check could not see. `vix_term` went missing on
+    # 2026-09-16 and stage 1 stayed green for three days, because nothing here
+    # looked at the VIX / VIX3M legs — build_quant_context() above succeeds with
+    # a degraded composite. This is the same probe `feed_audit.py --probe` runs,
+    # so there is one implementation of the diagnosis, not two.
+    try:
+        from feed_audit import check_lines, probe
+        _feed_lines, _feed_failed = check_lines(probe(), strict_feeds)
+        for _sec, _lvl, _msg in _feed_lines:
+            _log(_sec, _lvl, _msg)
+        if _feed_failed:
+            failures.append("Fragility vol legs")
+    except Exception as e:
+        _log("CHECK", "WARN", f"Fragility feeds: {e}")
+
     _elapsed = int(time.monotonic() - _t0)
     if failures:
         _log("CHECK", "FAIL", f"FAILED sources: {failures} ({_elapsed}s)")
@@ -436,10 +458,13 @@ def main():
                              "pipeline so a delayed run still writes the right day")
     parser.add_argument("--fetch-only", action="store_true",
                         help="run data fetch checks only — no LLM call, no note written")
+    parser.add_argument("--strict-feeds", action="store_true",
+                        help="with --fetch-only: a dead fragility vol leg fails the run "
+                             "instead of warning (what pipeline.yml mode=validate passes)")
     args = parser.parse_args()
 
     if args.fetch_only:
-        sys.exit(_run_fetch_check())
+        sys.exit(_run_fetch_check(strict_feeds=args.strict_feeds))
 
     today = _resolve_asof(args.asof)
     _t0   = time.monotonic()

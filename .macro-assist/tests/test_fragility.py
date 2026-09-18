@@ -16,6 +16,7 @@ from fragility import (
     correlation_tightening,
     absorption_ratio,
     vix_term_backwardation,
+    vix_term_reason,
     level_acceleration,
     lag1_autocorrelation,
     fragility_index,
@@ -249,10 +250,12 @@ def _with_vol(histories: dict, n: int = 250, seed: int = 1, backwardation: bool 
 def test_index_output_keys_and_ranges():
     result = fragility_index(_with_vol(_make_histories()))
     assert result is not None
-    assert set(result.keys()) == {"composite", "label", "trend", "components", "weights", "degraded"}
+    assert set(result.keys()) == {"composite", "label", "trend", "components", "weights",
+                                  "degraded", "degraded_detail"}
     assert 0.0 <= result["composite"] <= 100.0
     assert result["label"] in {"Resilient", "Normal", "Elevated"}
     assert result["degraded"] == []
+    assert result["degraded_detail"] == {}
     assert result["trend"] in {"Rising", "Stable", "Falling"}
     # Renormalised weights over available components sum to ~1.
     assert abs(sum(result["weights"].values()) - 1.0) < 1e-9
@@ -327,6 +330,65 @@ def test_stale_vix3m_degrades_rather_than_freezing():
     assert "vix_term" not in result["components"]
     assert result["label"] == "Unavailable"
     assert result["degraded"] == ["vix_term"]
+
+
+# ---------------------------------------------------------------------------
+# Attribution (IMP-5.4): `degraded` says the label is withheld; it does not say
+# WHICH feed died. Three consecutive Unavailable readings in September 2026
+# (09-16..09-18) were unattributable after the fact for exactly that reason —
+# nothing recorded whether yfinance was empty, the leg was stale, or the CBOE
+# fallback had failed. Each of those is now a distinct, asserted reason.
+# ---------------------------------------------------------------------------
+
+def test_vix_term_reason_is_none_when_the_component_computes():
+    h = _with_vol(_make_histories(), backwardation=True)
+    assert vix_term_reason(h["vix"], h["vix3m"]) is None
+    assert vix_term_backwardation(h["vix"], h["vix3m"]) is not None
+
+
+def test_vix_term_reason_names_an_absent_leg():
+    h = _with_vol(_make_histories())
+    reason = vix_term_reason(h["vix"], None)
+    assert reason is not None and "vix3m" in reason and "absent" in reason
+    assert "vix series absent" == vix_term_reason(None, h["vix3m"])
+
+
+def test_vix_term_reason_names_a_stale_leg_with_its_last_date():
+    h = _with_vol(_make_histories())
+    h["vix3m"] = h["vix3m"].iloc[:-30]
+    reason = vix_term_reason(h["vix"], h["vix3m"])
+    assert reason is not None and "stale" in reason
+    # The reason carries the two numbers a human needs to act: how far behind,
+    # and since when.
+    assert str(h["vix3m"].index[-1].date()) in reason
+    assert "30 vix observations after it" in reason
+
+
+def test_vix_term_reason_names_a_non_overlapping_pair():
+    h = _with_vol(_make_histories())
+    # Fresh by the staleness rule (its last date is the anchor's), but only
+    # three dates in common — a different failure with a different fix.
+    h["vix3m"] = h["vix3m"].iloc[[-5, -3, -1]]
+    reason = vix_term_reason(h["vix"], h["vix3m"])
+    assert reason is not None and "shared vix/vix3m dates" in reason
+
+
+def test_degraded_detail_carries_the_reason_into_the_reading():
+    h = _with_vol(_make_histories())
+    h["vix3m"] = h["vix3m"].iloc[:-30]
+    result = fragility_index(h)
+    assert result["degraded"] == ["vix_term"]
+    assert "stale" in result["degraded_detail"]["vix_term"]
+
+
+def test_degraded_detail_distinguishes_absent_from_stale():
+    h = _with_vol(_make_histories())
+    absent = fragility_index({k: v for k, v in h.items() if k != "vix3m"})
+    stale = dict(h, vix3m=h["vix3m"].iloc[:-30])
+    stale = fragility_index(stale)
+    assert absent["degraded"] == stale["degraded"] == ["vix_term"]
+    # Same `degraded` list, different diagnosis — which is the whole point.
+    assert absent["degraded_detail"]["vix_term"] != stale["degraded_detail"]["vix_term"]
 
 
 def test_index_deterministic():

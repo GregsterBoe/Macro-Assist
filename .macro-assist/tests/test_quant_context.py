@@ -720,6 +720,27 @@ class TestFragilityLogLines:
         assert "[Unavailable]" in msg
         assert "DEGRADED: vix_term missing" in msg
 
+    # IMP-5.4 — and says WHY. The 2026-09-16..18 recurrence logged the line
+    # above three times with nothing to distinguish "yfinance empty" from
+    # "CBOE fallback failed", which is what a human needed to act on.
+    def test_degraded_reading_names_the_cause_when_the_run_recorded_one(self):
+        raw = {"fragility": {**_RAW_DEGRADED["fragility"],
+                             "degraded_detail": {"vix_term": "vix3m series absent"},
+                             "feed": {"vix3m": {"source": "none", "stale_obs": None,
+                                                "last": None,
+                                                "error": "HTTPError: 403"}}}}
+        (_, level, msg), = fragility_log_lines(raw)
+        assert level == "WARN"
+        assert "vix_term: vix3m series absent" in msg
+        assert "vix3m from none" in msg and "403" in msg
+
+    def test_degraded_reading_without_a_cause_logs_as_before(self):
+        # Readings written before IMP-5.4 carry no detail; the line must not
+        # grow an empty bracket for them.
+        (_, _, msg), = fragility_log_lines(_RAW_DEGRADED)
+        # Nothing is inserted between the "missing" clause and the drivers.
+        assert "vix_term missing, label withheld — top drivers" in msg
+
 
 class TestBuildFragilitySnapshot:
 
