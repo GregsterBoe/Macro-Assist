@@ -5,9 +5,14 @@ name: Record Audit
 # a red finding; it never writes. Today: every workflow is the pipeline entry
 # point, a stage of it, dispatch-only, CI, or pinned soft-killed (ADR-0013,
 # ADR-0015); the external schedule table in operations.md names only
-# pipeline.yml; and every live track's artifact (ARTIFACTS in the script) has
+# pipeline.yml; every live track's artifact (ARTIFACTS in the script) has
 # a last-changed commit younger than its cadence — on main and on the output
-# branch, both of which fetch-depth: 0 brings in.
+# branch, both of which fetch-depth: 0 brings in; every KB / ADR / WP id and
+# todo/resolved pointer cited under docs/ resolves and ADR numbering is
+# contiguous and never deleted; and every phase's status is one class across
+# the board, the roadmap and CLAUDE.md's Current-state table. It also prints,
+# report-only, the days since each open todo.md item and each board row was
+# last edited, oldest first.
 #
 # The same checks run in the test suite (test_record_audit.py asserts this
 # checkout is clean); this workflow is the copy that runs on every push and
@@ -36,9 +41,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # WP-24.B (and later 24.E) read ages from git history, not mtimes,
-          # on origin/main and origin/output. The audit refuses a shallow
-          # clone outright — every age would be the clone boundary's.
+          # WP-24.B and 24.E read ages from git history, not mtimes, on
+          # origin/main and origin/output; WP-24.C reads ADR deletions
+          # from HEAD's history. The audit refuses a shallow clone outright
+          # — every age would be the clone boundary's.
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:

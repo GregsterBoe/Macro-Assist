@@ -27,6 +27,33 @@ returning Findings; `audit()` runs them all.
                                git, never mtime — a fresh clone rewrites
                                mtimes and would pass vacuously; a shallow
                                clone is refused for the same reason.
+  referential-       WP-24.C   Every KB-###, ADR-#### and WP-##.x cited under
+  integrity                    docs/ (and CLAUDE.md) resolves; ADR numbering
+                               is contiguous, unique and never deleted from
+                               history (convention #11); the inbox holds one
+                               item per number and none that resolved.md also
+                               holds; every `todo.md #N` / `resolved.md #N`
+                               pointer lands. `mkdocs build --strict` covers
+                               links; this covers the identifiers that are
+                               not links. Two pins, held exactly:
+                               RESERVED_KB_NUMBERS and KNOWN_ITEM_COLLISIONS.
+  contradictions     WP-24.D   Every phase's status is one class (open /
+                               dormant / closed, read from the record's own
+                               markers) wherever the record states it: the
+                               board, the roadmap's heading and phase table,
+                               CLAUDE.md's Current-state table; and that
+                               table's version row is versions.py's. Prints
+                               the disagreeing pair and never picks a side —
+                               CLAUDE.md says who wins. Red with a pin
+                               (resolved #23): KNOWN_CONTRADICTIONS names the
+                               pair against an open todo.md item, and a pin
+                               whose sources agree again is itself red.
+  ages               WP-24.E   Not a check: days since each open todo.md
+                               item and each board row was last edited, per
+                               line from `git blame`, printed oldest first.
+                               No threshold, never red — an old item breaks
+                               no rule (resolved #23). The hand-written
+                               `Last reviewed:` line, computed.
 
 The two workflow checks and the liveness check are a pair. 24.A catches a stage
 the repo cannot reach; it cannot see a dispatch-only workflow whose *external*
@@ -38,12 +65,17 @@ that produces nothing. At the 8-day threshold it would have gone red on
 
 A finding is `red` (exit 1) or report-only (printed, never fails — resolved
 #23 draws the line: red is for a claim the repo makes twice, differently;
-report-only is for a number with no threshold). WP-24.A has only red findings.
+report-only is for a number with no threshold). WP-24.A has only red findings;
+24.C's one report-only is a `todo.md #N` pointer whose item has since resolved —
+the pointer still lands, in the other file. 24.D's is a pinned contradiction:
+still printed, so the pair stays visible while its todo item is open. 24.E
+returns a table (`ages()`), not findings; the runner prints it before them and
+`--now` replays it the same way.
 
 Run:
     python .macro-assist/record_audit.py             # exit 1 on any red finding
     python .macro-assist/record_audit.py --root PATH
-    python .macro-assist/record_audit.py --now 2026-09-08   # ages as of a date
+    python .macro-assist/record_audit.py --now 2026-09-08   # artifact and record ages as of a date
 """
 from __future__ import annotations
 
@@ -396,10 +428,552 @@ def check_artifact_liveness(
 
 
 # ---------------------------------------------------------------------------
+# WP-24.C — referential integrity
+# ---------------------------------------------------------------------------
+
+DOCS_DIR = Path("docs")
+RECORD_DIR = DOCS_DIR / "record"
+DECISIONS_DIR = DOCS_DIR / "decisions"
+KNOWLEDGE_BASE = RECORD_DIR / "knowledge-base.md"
+ROADMAPS = (RECORD_DIR / "roadmap.md", RECORD_DIR / "roadmap-archive.md")
+TODO = RECORD_DIR / "todo.md"
+RESOLVED = RECORD_DIR / "resolved.md"
+# CLAUDE.md is read alongside docs/: its Current-state table is held to the
+# board by rule, and it cites the same identifiers.
+EXTRA_DOCS = (Path("CLAUDE.md"),)
+
+# A KB number that was reserved and never written stays a dangling mention in
+# the KB's own prose; it is pinned rather than silently allowed, and held
+# exactly. 008 was reserved for the loosened-vs-baseline A/B that the cut made
+# moot (knowledge-base.md, under KB-011).
+RESERVED_KB_NUMBERS: frozenset[str] = frozenset({"008"})
+
+# An inbox number that heads an open item in todo.md *and* a resolved one in
+# resolved.md. #7 was numbered twice while the inbox numbered per section
+# (Phase 22's open decision and the carried accuracy finding); the carried one
+# closed 2026-09-14 under "#7 (carried)" and the maintenance log calls the
+# duplicate gone, so the pin records that reading. Held exactly: when the
+# open #7 closes, this pin is red until it is removed.
+KNOWN_ITEM_COLLISIONS: frozenset[str] = frozenset({"7"})
+
+_KB_RE = re.compile(r"\bKB-(\d{3})\b")
+_KB_HEADING_RE = re.compile(r"^##+ +KB-(\d{3})\b", re.M)
+_ADR_RE = re.compile(r"\bADR-(\d{4})\b")
+_ADR_FILE_RE = re.compile(r"^ADR-(\d{4})-.*\.md$")
+_WP_RE = re.compile(r"\bWP-(\d{1,2}\.[A-Za-z0-9]+)")
+_ITEM_HEADING_RE = re.compile(r"^### [^\n]*?#(\d+[a-z]?)\b", re.M)
+_RESOLVED_HEADING_RE = re.compile(r"^### (?:RESOLVED|DONE) [^\n]*?#(\d+[a-z]?)\b", re.M)
+# "`todo.md` #17", "todo.md (#12", "[`resolved.md`](resolved.md) #15",
+# "`resolved.md`, #18", "resolved.md: #19" — the pointer forms the record uses
+_TODO_REF_RE = re.compile(r"`?todo\.md`?(?:\]\(todo\.md\))?[\s,:(*]{0,4}#(\d+[a-z]?)\b")
+_RESOLVED_REF_RE = re.compile(r"`?resolved\.md`?(?:\]\(resolved\.md\))?[\s,:(*]{0,4}#(\d+[a-z]?)\b")
+
+
+def _record_docs(root: Path) -> list[Path]:
+    docs = sorted((root / DOCS_DIR).rglob("*.md")) if (root / DOCS_DIR).is_dir() else []
+    return docs + [root / p for p in EXTRA_DOCS if (root / p).is_file()]
+
+
+def _adr_files(root: Path) -> dict[str, list[str]]:
+    """ADR number → the file names that carry it (more than one is a dupe)."""
+    out: dict[str, list[str]] = {}
+    if (root / DECISIONS_DIR).is_dir():
+        for p in sorted((root / DECISIONS_DIR).iterdir()):
+            m = _ADR_FILE_RE.match(p.name)
+            if m:
+                out.setdefault(m.group(1), []).append(p.name)
+    return out
+
+
+def _deleted_adrs(root: Path) -> dict[str, str]:
+    """ADR number → short hash of a commit in HEAD's history that removed a
+    file carrying it. `--no-renames` so a renumbering shows as a deletion of
+    the old number; a slug rename keeps the number and is not reported."""
+    log = _git(root, "log", "--diff-filter=D", "--no-renames", "--format=%x1e%h", "--name-only",
+               "--", f"{DECISIONS_DIR.as_posix()}/ADR-*.md")
+    out: dict[str, str] = {}
+    for block in (log or "").split("\x1e"):
+        lines = [ln for ln in block.splitlines() if ln.strip()]
+        if not lines:
+            continue
+        sha, names = lines[0], lines[1:]
+        for name in names:
+            m = _ADR_FILE_RE.match(Path(name).name)
+            if m:
+                out.setdefault(m.group(1), sha)
+    return out
+
+
+def _line_of(text: str, pos: int) -> int:
+    return text.count("\n", 0, pos) + 1
+
+
+def check_referential_integrity(root: Path) -> list[Finding]:
+    """Every KB-###, ADR-#### and WP-##.x cited under docs/ (and CLAUDE.md)
+    resolves; ADR numbering is contiguous, unique and never deleted; the inbox
+    and its resolved list do not both hold one number, and every `todo.md #N`
+    / `resolved.md #N` pointer lands. `mkdocs build --strict` covers links;
+    this covers the identifiers that are not links."""
+    check = "referential-integrity"
+    out: list[Finding] = []
+
+    kb_text = (root / KNOWLEDGE_BASE).read_text(encoding="utf-8") if (root / KNOWLEDGE_BASE).is_file() else ""
+    kb_defined = set(_KB_HEADING_RE.findall(kb_text))
+    roadmap_text = "\n".join((root / p).read_text(encoding="utf-8") for p in ROADMAPS if (root / p).is_file())
+    wp_defined = set(_WP_RE.findall(roadmap_text))
+    adr_files = _adr_files(root)
+    todo_text = (root / TODO).read_text(encoding="utf-8") if (root / TODO).is_file() else ""
+    resolved_text = (root / RESOLVED).read_text(encoding="utf-8") if (root / RESOLVED).is_file() else ""
+    todo_headings = _ITEM_HEADING_RE.findall(todo_text)
+    todo_open = set(todo_headings)
+    resolved_items = set(_RESOLVED_HEADING_RE.findall(resolved_text))
+
+    # -- one number, one open item. The inbox numbered per section until
+    #    2026-09-11 and carried two open #7s from 09-08 to 09-13.
+    for n in sorted({n for n in todo_headings if todo_headings.count(n) > 1}, key=lambda s: (len(s), s)):
+        out.append(Finding(check, TODO.as_posix(),
+                           f"#{n} heads {todo_headings.count(n)} open items in todo.md — one number, one item"))
+
+    # -- ADR numbering: contiguous from 0001, one file per number, never deleted
+    if adr_files:
+        numbers = sorted(int(n) for n in adr_files)
+        for n in range(1, numbers[-1] + 1):
+            if f"{n:04d}" not in adr_files:
+                out.append(Finding(check, DECISIONS_DIR.as_posix(),
+                                   f"ADR numbering has a gap at ADR-{n:04d} — convention #11 (sequential, never renumber)"))
+        for n, names in sorted(adr_files.items()):
+            if len(names) > 1:
+                out.append(Finding(check, DECISIONS_DIR.as_posix(),
+                                   f"ADR-{n} has {len(names)} files: {', '.join(names)}"))
+    for n, sha in sorted(_deleted_adrs(root).items()):
+        if n not in adr_files:
+            out.append(Finding(check, DECISIONS_DIR.as_posix(),
+                               f"ADR-{n} was deleted in history ({sha}) and no file carries the number now — "
+                               f"convention #11 (supersede, never delete)"))
+
+    # -- pins, held exactly
+    for n in sorted(RESERVED_KB_NUMBERS):
+        if n in kb_defined:
+            out.append(Finding(check, KNOWLEDGE_BASE.as_posix(),
+                               f"RESERVED_KB_NUMBERS pins KB-{n} but the KB now defines it — remove the pin"))
+    for n in sorted(KNOWN_ITEM_COLLISIONS, key=lambda s: (len(s), s)):
+        if not (n in todo_open and n in resolved_items):
+            out.append(Finding(check, TODO.as_posix(),
+                               f"KNOWN_ITEM_COLLISIONS pins #{n} but it no longer heads both an open and a "
+                               f"resolved item — remove the pin"))
+    for n in sorted(todo_open & resolved_items - KNOWN_ITEM_COLLISIONS, key=lambda s: (len(s), s)):
+        out.append(Finding(check, TODO.as_posix(),
+                           f"#{n} heads an open item in todo.md and a resolved one in resolved.md — "
+                           f"one number, two items; the single inbox cannot be both"))
+
+    # -- citations
+    for path in _record_docs(root):
+        rel = path.relative_to(root).as_posix()
+        text = path.read_text(encoding="utf-8")
+        stale: list[str] = []
+        for m in _KB_RE.finditer(text):
+            n = m.group(1)
+            if n not in kb_defined and n not in RESERVED_KB_NUMBERS:
+                out.append(Finding(check, f"{rel}:{_line_of(text, m.start())}",
+                                   f"KB-{n} is cited and knowledge-base.md has no such entry"))
+        for m in _ADR_RE.finditer(text):
+            n = m.group(1)
+            if n not in adr_files:
+                out.append(Finding(check, f"{rel}:{_line_of(text, m.start())}",
+                                   f"ADR-{n} is cited and docs/decisions/ has no such file"))
+        if path not in (root / p for p in ROADMAPS):
+            for m in _WP_RE.finditer(text):
+                n = m.group(1)
+                if n not in wp_defined:
+                    out.append(Finding(check, f"{rel}:{_line_of(text, m.start())}",
+                                       f"WP-{n} is cited and neither roadmap.md nor roadmap-archive.md names it"))
+        for m in _TODO_REF_RE.finditer(text):
+            n = m.group(1)
+            if n in todo_open:
+                continue
+            if n in resolved_items:
+                stale.append(f"#{n}")
+            else:
+                out.append(Finding(check, f"{rel}:{_line_of(text, m.start())}",
+                                   f"todo.md #{n} heads no item in todo.md or resolved.md"))
+        for m in _RESOLVED_REF_RE.finditer(text):
+            n = m.group(1)
+            if n not in resolved_items:
+                out.append(Finding(check, f"{rel}:{_line_of(text, m.start())}",
+                                   f"resolved.md #{n} heads no resolved item"))
+        if stale and path != root / RESOLVED:
+            # the pointer still lands — the item exists, in the other file —
+            # so this is not a broken reference; it is printed so the next
+            # housekeeping pass can redirect it
+            uniq = sorted(set(stale), key=lambda s: (len(s), s))
+            out.append(Finding(check, rel,
+                               f"cites todo.md {', '.join(uniq)} — resolved since; the pointer now lands in resolved.md",
+                               red=False))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# WP-24.D — contradiction surfacing
+# ---------------------------------------------------------------------------
+
+BOARD = RECORD_DIR / "active-experiments.md"
+ROADMAP = RECORD_DIR / "roadmap.md"
+VERSIONS_PY = Path(".macro-assist") / "versions.py"
+
+# A phase whose status the board and the roadmap (or CLAUDE.md) state
+# differently, on purpose, for now. Keyed by the subject the finding prints
+# ("Phase 24"), valued by the open todo.md item that carries the disagreement
+# — resolved #23: the pin names the pair and must appear in todo.md. Held
+# exactly: a pin whose sources agree again, or whose item is not open, is red.
+# The audit prints the pair either way and takes no side — CLAUDE.md says who
+# wins; red only insists that someone applies it.
+KNOWN_CONTRADICTIONS: dict[str, str] = {}
+
+# The status vocabulary is the record's own markers. Everything the check
+# compares is the coarse class; "🟢 SHIPPED" and "🟡 IN PROGRESS" are one
+# claim worded twice, "🟡 IN PROGRESS" and "⏸ Draft" are two claims.
+_OPEN, _DORMANT, _CLOSED = "open", "dormant", "closed"
+_MARKER_CLASS = {"🟢": _OPEN, "🟡": _OPEN, "🔍": _OPEN,
+                 "⏸": _DORMANT,
+                 "✅": _CLOSED, "❌": _CLOSED}
+_MARKER_RE = re.compile("[" + "".join(_MARKER_CLASS) + "]")
+_PHASE_RE = re.compile(r"\bPhase (\d+)\b")
+# CLAUDE.md's Current-state table is prose: the class is the status word in
+# the clause that follows "Phase N" — up to the next ";", ".", "|" or "Phase
+# N", with parenthesised and backticked spans removed first (they hold asides
+# and identifiers, not the row's claim). No such word means the row names the
+# phase as current.
+_ASIDE_RE = re.compile(r"\([^()\n]*\)|`[^`\n]*`")
+_CLAUSE_SPLIT_RE = re.compile(r"[;|]|\.(?!\d)|(?=\bPhase \d)")
+_CLOSED_WORDS = re.compile(r"\b(?:closed|complete|completed|resolved|done)\b", re.I)
+_DORMANT_WORDS = re.compile(r"\b(?:dormant|paused|soft-killed|draft|drafted|queued|backlog|winding down)\b", re.I)
+_BOARD_HEADING_RE = re.compile(r"^### (.*)$", re.M)
+_BOARD_BULLET_RE = re.compile(r"^- \*\*((?:[^*\n]|\*(?!\*))+)\*\*([^\n]*)$", re.M)
+_ROADMAP_PHASE_HEADING_RE = re.compile(r"^## [^\n]*\(Phase (\d+)\)[^\n]*$", re.M)
+_ROADMAP_TABLE_ROW_RE = re.compile(r"^\| (\d+) \|[^\n|]*\|([^\n|]*)\|", re.M)
+_CURRENT_STATE_RE = re.compile(r"^## Current state\n(.*?)(?=^## |\Z)", re.M | re.S)
+_ROW_LABEL_RE = re.compile(r"\| \*\*([^*\n]+)\*\* \|")
+_VERSION_ROW_RE = re.compile(r"^\| \*\*Version\*\* \|[^\n]*?\b(v\d+\.\d+)\b", re.M)
+_PIPELINE_VERSION_RE = re.compile(r'^PIPELINE_VERSION(?:\s*:\s*str)?\s*=\s*"(v\d+\.\d+)"', re.M)
+
+
+@dataclass(frozen=True)
+class _Claim:
+    where: str      # "docs/record/roadmap.md:53"
+    cls: str        # _OPEN / _DORMANT / _CLOSED
+    text: str       # the status as written, for the printout
+
+
+def _status_text(line: str, start: int) -> str:
+    tail = line[start:].strip().rstrip("|").strip()
+    return tail if len(tail) <= 90 else tail[:87].rstrip() + "…"
+
+
+def _marker_claim(rel: str, text: str, line_start: int, id_end: int, line: str) -> _Claim | None:
+    m = _MARKER_RE.search(line, id_end)
+    if not m:
+        return None
+    return _Claim(f"{rel}:{_line_of(text, line_start)}", _MARKER_CLASS[m.group()], _status_text(line, m.start()))
+
+
+def board_claims(root: Path) -> dict[str, list[_Claim]]:
+    """Phase → status claims on the board: every `### …` heading and every
+    `- **…**` bullet whose bold span names a Phase, classed by the first
+    status marker after the name. A heading or bullet with no marker claims
+    nothing."""
+    path = root / BOARD
+    if not path.is_file():
+        return {}
+    text = path.read_text(encoding="utf-8")
+    rel = BOARD.as_posix()
+    out: dict[str, list[_Claim]] = {}
+    for m in _BOARD_HEADING_RE.finditer(text):
+        p = _PHASE_RE.search(m.group(1))
+        if p:
+            c = _marker_claim(rel, text, m.start(), 4 + p.end(), m.group(0))
+            if c:
+                out.setdefault(p.group(1), []).append(c)
+    for m in _BOARD_BULLET_RE.finditer(text):
+        p = _PHASE_RE.search(m.group(1))
+        if p:
+            c = _marker_claim(rel, text, m.start(), 4 + p.end(), m.group(0))
+            if c:
+                out.setdefault(p.group(1), []).append(c)
+    return out
+
+
+def roadmap_claims(root: Path) -> dict[str, list[_Claim]]:
+    """Phase → status claims in roadmap.md: the phase's `## … (Phase N) …`
+    heading and its row in the phase table, each classed by its first marker."""
+    path = root / ROADMAP
+    if not path.is_file():
+        return {}
+    text = path.read_text(encoding="utf-8")
+    rel = ROADMAP.as_posix()
+    out: dict[str, list[_Claim]] = {}
+    for m in _ROADMAP_PHASE_HEADING_RE.finditer(text):
+        c = _marker_claim(rel, text, m.start(), m.end(1) - m.start(), m.group(0))
+        if c:
+            out.setdefault(m.group(1), []).append(c)
+    for m in _ROADMAP_TABLE_ROW_RE.finditer(text):
+        c = _marker_claim(rel, text, m.start(), m.start(2) - m.start(), m.group(0))
+        if c:
+            out.setdefault(m.group(1), []).append(c)
+    return out
+
+
+def claude_md_claims(root: Path) -> dict[str, list[_Claim]]:
+    """Phase → status claims in CLAUDE.md's Current-state table, by the
+    clause rule above."""
+    path = root / EXTRA_DOCS[0]
+    if not path.is_file():
+        return {}
+    text = path.read_text(encoding="utf-8")
+    sec = _CURRENT_STATE_RE.search(text)
+    if not sec:
+        return {}
+    out: dict[str, list[_Claim]] = {}
+    for m in _PHASE_RE.finditer(text, sec.start(1), sec.end(1)):
+        line_end = text.find("\n", m.end())
+        line_end = len(text) if line_end < 0 else line_end
+        clause = _CLAUSE_SPLIT_RE.split(_ASIDE_RE.sub(" ", text[m.end():line_end]), maxsplit=1)[0]
+        if _CLOSED_WORDS.search(clause):
+            cls = _CLOSED
+        elif _DORMANT_WORDS.search(clause):
+            cls = _DORMANT
+        else:
+            cls = _OPEN
+        line_start = text.rfind("\n", 0, m.start()) + 1
+        label = _ROW_LABEL_RE.match(text, line_start)
+        where = f"CLAUDE.md:{_line_of(text, m.start())}" + (f" ({label.group(1)} row)" if label else "")
+        out.setdefault(m.group(1), []).append(_Claim(where, cls, _status_text(text[m.start():line_end], 0)))
+    return out
+
+
+def check_contradictions(root: Path) -> list[Finding]:
+    """Every phase's status is one class wherever the record states it — the
+    board, the roadmap's heading and phase table, CLAUDE.md's Current-state
+    table — and CLAUDE.md's version row is `versions.py`'s. Prints the
+    disagreeing pair; never picks a side."""
+    check = "contradictions"
+    out: list[Finding] = []
+
+    claims: dict[str, list[_Claim]] = {}
+    for source in (board_claims, roadmap_claims, claude_md_claims):
+        for phase, cs in source(root).items():
+            claims.setdefault(phase, []).extend(cs)
+
+    todo_text = (root / TODO).read_text(encoding="utf-8") if (root / TODO).is_file() else ""
+    open_items = set(_ITEM_HEADING_RE.findall(todo_text))
+
+    for phase in sorted(claims, key=int):
+        subject = f"Phase {phase}"
+        cs = claims[phase]
+        classes = {c.cls for c in cs}
+        pinned = KNOWN_CONTRADICTIONS.get(subject)
+        if len(classes) <= 1:
+            if pinned is not None:
+                out.append(Finding(check, subject,
+                                   f"KNOWN_CONTRADICTIONS pins it to todo.md #{pinned} but every source now agrees "
+                                   f"({', '.join(sorted(classes)) or 'no claim'}) — remove the pin"))
+            continue
+        pair = "; ".join(f'{c.where} says "{c.text}"' for c in cs)
+        if pinned is None:
+            out.append(Finding(check, subject,
+                               f"{pair} — CLAUDE.md says who wins; apply it, or pin the pair in "
+                               f"KNOWN_CONTRADICTIONS against an open todo.md item"))
+        elif pinned not in open_items:
+            out.append(Finding(check, subject,
+                               f"{pair} — pinned to todo.md #{pinned}, which heads no open item; "
+                               f"the pin must appear in todo.md (resolved #23)"))
+        else:
+            out.append(Finding(check, subject, f"{pair} — pinned, todo.md #{pinned}", red=False))
+
+    claude_md = root / EXTRA_DOCS[0]
+    versions_py = root / VERSIONS_PY
+    if claude_md.is_file() and versions_py.is_file():
+        text = claude_md.read_text(encoding="utf-8")
+        sec = _CURRENT_STATE_RE.search(text)
+        row = _VERSION_ROW_RE.search(sec.group(1)) if sec else None
+        code = _PIPELINE_VERSION_RE.search(versions_py.read_text(encoding="utf-8"))
+        if row and code and row.group(1) != code.group(1):
+            where = f"CLAUDE.md:{_line_of(text, sec.start(1) + row.start())}"
+            out.append(Finding(check, where,
+                               f"the Current-state table says {row.group(1)} and versions.py says "
+                               f"{code.group(1)} — bump_version.py does not edit CLAUDE.md"))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# WP-24.E — ages, from git
+# ---------------------------------------------------------------------------
+
+# Not a check. Days since each open todo.md item and each board row was last
+# edited, oldest first — no threshold, so nothing here is ever red (resolved
+# #23: an old item breaks no rule). The runner prints the table before the
+# findings; /orient (WP-24.G) prints it at turn 1. The date is per line from
+# `git blame`, so an item's age is its youngest line's; whitespace-only and
+# moved-within-the-file changes are not edits (-w -M), a line moved in from
+# another file is one — the consolidation of 2026-09-04 → 09-11 is that
+# young, and so is everything it moved.
+#
+# The board's rows are its `###` sections and the `- **…**` bullets under
+# "Queued / dormant"; the changelog table and "Recently closed" are not rows
+# — a closed row is finished, not stale.
+
+_AGED_BOARD_SECTIONS = ("## Active", "## Queued / dormant")
+_H2_RE = re.compile(r"^## ", re.M)
+_H3_RE = re.compile(r"^### (.*)$", re.M)
+_ZERO_SHA = "0" * 40
+
+
+@dataclass(frozen=True)
+class Age:
+    subject: str          # "todo.md #26" / "board: Phase 24 — …"
+    days: float
+    when: datetime        # the youngest line's committer date
+    what: str             # "abc1234 subject", or "uncommitted"
+
+    def __str__(self) -> str:
+        return f"{self.days:6.1f}  {self.subject:<62}  {self.when:%Y-%m-%d}  {self.what}"
+
+
+def _blame(root: Path, rel: str, rev: str | None) -> list[tuple[datetime, str]] | None:
+    """(committer date, "hash subject") per line of `rel` — at `rev`, or the
+    working tree when rev is None (an uncommitted line dates from now)."""
+    args = ["blame", "--porcelain", "-w", "-M"]
+    if rev is not None:
+        args.append(rev)
+    out = _git(root, *args, "--", rel)
+    if out is None:
+        return None
+    meta: dict[str, dict[str, str]] = {}
+    lines: list[tuple[datetime, str]] = []
+    it = iter(out.split("\n"))
+    for head in it:
+        if not head:
+            continue
+        sha = head.split(" ", 1)[0]
+        for field in it:
+            if field.startswith("\t"):
+                break
+            key, _, val = field.partition(" ")
+            meta.setdefault(sha, {})[key] = val
+        m = meta.get(sha, {})
+        if sha == _ZERO_SHA:
+            lines.append((datetime.now(timezone.utc), "uncommitted"))
+        else:
+            when = datetime.fromtimestamp(int(m["committer-time"]), timezone.utc)
+            lines.append((when, f"{sha[:7]} {m.get('summary', '')}"))
+    return lines
+
+
+def _text_at(root: Path, rel: str, rev: str | None) -> str | None:
+    if rev is None:
+        path = root / rel
+        return path.read_text(encoding="utf-8") if path.is_file() else None
+    return _git(root, "show", f"{rev}:{rel}")
+
+
+def _short(name: str, n: int = 52) -> str:
+    name = name.strip(" —-*")
+    return name if len(name) <= n else name[:n - 1] + "…"
+
+
+def _row_name(heading: str) -> str:
+    """A board row's name: its heading up to the first status marker."""
+    m = _MARKER_RE.search(heading)
+    return _short(heading[:m.start()] if m else heading)
+
+
+def _item_name(heading: str, n: str) -> str:
+    """An inbox item's name: its number and the title after the dash."""
+    _, dash, title = heading.partition(" — ")
+    return _short(f"#{n} — {title}" if dash else f"#{n}", 52)
+
+
+def _todo_spans(text: str) -> list[tuple[str, int, int]]:
+    """(subject, first line, last line) of each `### … #N` item: the heading
+    through the line before the next numbered `###` or any `##` heading, so
+    an unnumbered sub-heading stays with its item."""
+    lines = text.split("\n")
+    spans = []
+    for i, line in enumerate(lines):
+        m = _ITEM_HEADING_RE.match(line)
+        if not m:
+            continue
+        end = next((j for j in range(i + 1, len(lines))
+                    if lines[j].startswith("## ") or _ITEM_HEADING_RE.match(lines[j])), len(lines)) - 1
+        spans.append((f"todo.md {_item_name(line[4:], m.group(1))}", i, end))
+    return spans
+
+
+def _board_spans(text: str) -> list[tuple[str, int, int]]:
+    """(subject, first line, last line) of each board row inside the aged
+    sections: a `###` section through the line before the next heading, or a
+    top-level `- **…**` bullet through its continuation lines."""
+    lines = text.split("\n")
+    spans = []
+    section = None
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if line.startswith("## "):
+            section = line.strip() if line.strip() in _AGED_BOARD_SECTIONS else None
+            i += 1
+            continue
+        if section is None:
+            i += 1
+            continue
+        if line.startswith("### "):
+            end = next((j for j in range(i + 1, len(lines))
+                        if lines[j].startswith("## ") or lines[j].startswith("### ")), len(lines)) - 1
+            spans.append((f"board: {_row_name(line[4:])}", i, end))
+            i = end + 1
+            continue
+        if (m := _BOARD_BULLET_RE.match(line)):
+            end = next((j for j in range(i + 1, len(lines))
+                        if not lines[j].startswith("  ") or not lines[j].strip()), len(lines)) - 1
+            spans.append((f"board: {_row_name(m.group(1))}", i, end))
+            i = end + 1
+            continue
+        i += 1
+    return spans
+
+
+def ages(root: Path, *, now: datetime | None = None) -> list[Age]:
+    """Every open todo.md item and every board row with the days since its
+    youngest line was committed, oldest first. Empty when git cannot answer
+    (no repository, a shallow clone — 24.B is red there)."""
+    if now is None:
+        now = datetime.now(timezone.utc)
+        rev = None
+    else:
+        rev = _git(root, "rev-list", "-1", f"--until={now.isoformat()}", "HEAD")
+        if not rev:
+            return []
+    if _git(root, "rev-parse", "--is-shallow-repository") != "false":
+        return []
+    out: list[Age] = []
+    for rel, spans_of in ((str(TODO), _todo_spans), (str(BOARD), _board_spans)):
+        text = _text_at(root, rel, rev)
+        if text is None:
+            continue
+        blame = _blame(root, rel, rev)
+        if blame is None:
+            continue
+        for subject, first, last in spans_of(text):
+            when, what = max(blame[first:last + 1], key=lambda t: t[0])
+            out.append(Age(subject, max(0.0, (now - when).total_seconds() / 86400), when, what))
+    return sorted(out, key=lambda a: (-a.days, a.subject))
+
+
+# ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
 
-CHECKS = (check_workflow_orphans, check_schedule_table, check_artifact_liveness)
+CHECKS = (check_workflow_orphans, check_schedule_table, check_artifact_liveness,
+          check_referential_integrity, check_contradictions)
 
 
 def audit(root: Path, *, now: datetime | None = None) -> list[Finding]:
@@ -425,7 +999,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Audit the record layer; exit 1 on a red finding.")
     ap.add_argument("--root", type=Path, default=_repo_root(), help="repo root (default: this checkout)")
     ap.add_argument("--now", type=_parse_now, default=None,
-                    help="read artifact ages as of this date/time instead of now (YYYY-MM-DD or ISO 8601, UTC)")
+                    help="read artifact and record ages as of this date/time instead of now (YYYY-MM-DD or ISO 8601, UTC)")
     args = ap.parse_args(argv)
     root = args.root.resolve()
 
@@ -434,6 +1008,14 @@ def main(argv: list[str] | None = None) -> int:
     print("workflows:")
     for name, cls in sorted(classes.items(), key=lambda kv: (kv[1], kv[0])):
         print(f"  {cls:<14} {name}")
+
+    table = ages(root, now=args.now)
+    print()
+    print("ages — days since last edit, oldest first (WP-24.E; never red):")
+    for a in table:
+        print(f"  {a}")
+    if not table:
+        print("  (unreadable — not a git repository, a shallow clone, or nothing before --now)")
 
     findings = audit(root, now=args.now)
     reds = [f for f in findings if f.red]

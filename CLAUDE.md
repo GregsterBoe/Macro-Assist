@@ -46,7 +46,10 @@ Inside `docs/record/`:
 
 **When two docs disagree about status, `active-experiments.md` wins.** When a
 board row and a detailed doc disagree about substance, the detailed doc wins —
-fix the row.
+fix the row. `record_audit.py` fails CI on a phase whose status the board, the
+roadmap and this file's Current-state table do not state as one class (WP-24.D);
+it prints the pair and does not pick — apply the rule above, or pin the pair
+in `KNOWN_CONTRADICTIONS` against an open `todo.md` item.
 
 ---
 
@@ -159,7 +162,8 @@ emitted, so the suite stayed green while production parsed nothing. Copy a real
 line out of `results/` rather than composing a plausible one.
 
 **11. ADRs: number sequentially, never renumber, never delete.** Supersede and
-link both ways. See [the index](docs/decisions/index.md) for the page shape — a
+link both ways; `record_audit.py` fails CI on a gap, a duplicate number or a
+deletion in history (WP-24.C). See [the index](docs/decisions/index.md) for the page shape — a
 page with no costs listed has not been thought through.
 
 **12. Product never imports research** ([ADR-0021](docs/decisions/ADR-0021-product-and-research-are-separated-by-an-import-boundary.md)).
@@ -181,7 +185,7 @@ live path may not import a harness.
 | **Watch** | The Fragility Monitor's `vix_term` leg was missing 2026-09-16 → 09-18 — no calibrated label on those three readings ([KB-034]). **Cause found:** yfinance's `^VIX3M` returns nothing at ~06:04 UTC (when the note runs) and current data at 16:24 UTC the same day. Shipped: instrumentation, a daily gate (`feed_audit.py`, pipeline job `feed_gate`, red past two consecutive degraded readings without blocking the weekly stages) and `pipeline.yml mode=validate`. **Open and blocking:** CBOE's fallback has never once succeeded in production — it short-circuits while yfinance is fresh, so it was untested until it was needed. Run `feed_audit.py --probe-cboe` from CI before treating the legs as having any fallback. `todo.md` #26 |
 | **Winding down** | The directional scorer, once the last T+20 window resolves ~2026-10-02 |
 | **Exploring** | Phase 23 — harness built, two looks run 2026-09-14 on 2010–2017; register holds H-001 `closed` (confound resolved, no KB entry), H-002–H-004 `draft`, H-005–H-007 `seen`. Seal decided: `SEAL_START` 2018-01-01 reused for the distribution class (`resolved.md` #19); `har_scaled` is a comparator in WP-23.B's bar, not the scorer's (#22). Nothing open in the inbox for this phase; next is the owner's rewrites, then the class bar |
-| **Record audit** | Phase 24 — `record_audit.py` in CI since 2026-09-14: WP-24.A workflow orphans + the schedule table; WP-24.B artifact liveness from git (`ARTIFACTS` registry, red past cadence + 1 day; replayed, red on day nine of the frozen refit). Next WP-24.C referential integrity. Convention calls decided (`resolved.md` #23 contradiction = red with a pin, #24 ADR revisit section enforced) |
+| **Record audit** | Phase 24 — `record_audit.py` in CI since 2026-09-14: WP-24.A workflow orphans + the schedule table; WP-24.B artifact liveness from git (`ARTIFACTS` registry, red past cadence + 1 day; replayed, red on day nine of the frozen refit); WP-24.C referential integrity since 2026-09-21 (every KB/ADR/WP id and `todo.md`/`resolved.md` pointer resolves, ADR numbering contiguous and never deleted; pins `RESERVED_KB_NUMBERS`, `KNOWN_ITEM_COLLISIONS`); WP-24.D contradiction surfacing since 2026-09-21 (a phase's status is one class across the board, roadmap and this table; the Version row matches `versions.py`; prints the pair, never picks a side; pin `KNOWN_CONTRADICTIONS` → open `todo.md` item); WP-24.E ages since 2026-09-21 (days since each open `todo.md` item and board row was last edited, from `git blame`, oldest first — printed, never red). Next WP-24.F. Convention calls decided (`resolved.md` #23 contradiction = red with a pin, #24 ADR revisit section enforced) |
 | **Queued** | WP-21.E families 2–3 — bar written ([ADR-0020](docs/decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md)), no family chosen, honest prior low. Phase 18 closed 2026-09-14 at 18.3 (its ablation gate had no metric after the cut); Phase 20 dormant |
 
 The board in [active-experiments.md](docs/record/active-experiments.md) is

@@ -167,11 +167,15 @@ to `main` and every pull request, then its tests. The audit reads the workflows,
 the docs and the git history and exits non-zero on a red finding; it writes
 nothing. What it checks is listed in the script's header and grows with Phase
 24; today it is the workflow-orphan rule [above](#everything-rides-one-call)
-and the [artifact-liveness rule](#a-reachable-stage-that-produces-nothing)
-below. It is the only CI job that runs any of the test suite — the pipeline
+the [artifact-liveness rule](#a-reachable-stage-that-produces-nothing), the
+[referential-integrity rule](#the-identifiers-that-are-not-links) and the
+[contradiction rule](#a-claim-the-repo-makes-twice-differently) below, plus
+the [ages table](#the-ages-computed), which is printed and never fails.
+It is the only CI job that runs any of the test suite — the pipeline
 stages do not, and `docs.yml` only renders. It checks out with
-`fetch-depth: 0` because the liveness rule reads commit dates; on a shallow
-clone the audit refuses rather than passing vacuously.
+`fetch-depth: 0` because the liveness rule and the ages table read commit
+dates and the ADR rule reads deletions; on a shallow clone the audit refuses
+rather than passing vacuously.
 
 **Publishing requires Pages to be switched on once**, by a repo admin, in one of
 two ways. *Done on this repo 2026-09-12* — the recipes below are kept for a fresh
@@ -378,8 +382,109 @@ first one due: it keeps landing after the directional scorer's closure banner
 (~2026-10-02) because `summarize_accuracy.py` rewrites it weekly; if that step
 is ever retired, retire the entry with it.
 
-`python .macro-assist/record_audit.py --now 2026-09-08` reads ages as of a
-date, seeing only commits up to it, so a past week can be replayed honestly.
+`python .macro-assist/record_audit.py --now 2026-09-08` reads ages — the
+artifacts' and the [record's](#the-ages-computed) — as of a date, seeing only
+commits up to it, so a past week can be replayed honestly.
+
+### The identifiers that are not links
+
+`mkdocs build --strict` fails on a broken *link*. The record also cites by
+identifier — `[KB-024]`, `ADR-0013`, `WP-24.C`, `` `todo.md` #26 `` — and a
+dangling one renders fine. `check_referential_integrity` (WP-24.C) reads every
+page under `docs/` and `CLAUDE.md` and goes red on:
+
+| Identifier | Must resolve to |
+|---|---|
+| `KB-###` | a `## KB-###` heading in `knowledge-base.md` |
+| `ADR-####` | a file in `docs/decisions/`; the files are numbered contiguously from 0001, one per number, and none has been deleted in `HEAD`'s history (convention #11 — a slug rename keeps its number and is fine) |
+| `WP-##.x` | any mention in `roadmap.md` or `roadmap-archive.md` — the two files that define work packages |
+| `todo.md #N` | an item heading in `todo.md`; if it heads a `RESOLVED` entry in `resolved.md` instead the pointer still lands and the finding is **report-only**, one line per page, for the next housekeeping pass |
+| `resolved.md #N` | a `RESOLVED` / `DONE` heading in `resolved.md` |
+
+And on the inbox's own shape: one number, one open item; no number that heads
+an open item *and* a resolved one. The inbox numbered per section until
+2026-09-11 and carried two open `#7`s from 09-08 to 09-13 — replayed, the
+check is red on every one of those trees.
+
+Two pins, each held exactly (a pin whose condition has gone is itself red):
+`RESERVED_KB_NUMBERS` for KB-008, reserved for an A/B the cut made moot and
+named in the KB's prose without an entry; `KNOWN_ITEM_COLLISIONS` for `#7`,
+the one number the inbox and `resolved.md` both hold — Phase 22's open
+decision and the carried accuracy finding closed as "#7 (carried)".
+
+### A claim the repo makes twice, differently
+
+`CLAUDE.md` says who wins when two docs disagree about status — the board —
+and until 2026-09-21 nothing checked whether they did. `check_contradictions`
+(WP-24.D) reads every place the record states a **phase's** status and goes
+red when they are not one class:
+
+| Source | Where the status is read |
+|---|---|
+| `active-experiments.md` | every `### …` heading and every `- **…**` bullet whose bold span names `Phase N`; the first status marker after the name |
+| `roadmap.md` | the `## … (Phase N) …` heading, and the phase's row in the phase table; the first marker in each |
+| `CLAUDE.md` | every `Phase N` in the **Current state** table; the status *word* in the clause after the name (up to the next `;`, `.`, `\|` or `Phase N`, with parenthesised and backticked spans removed first). No word means the row calls the phase current |
+
+The classes are the record's own markers: 🟢 🟡 🔍 are **open**, ⏸ is
+**dormant**, ✅ ❌ are **closed**. `🟢 SHIPPED` beside `🟡 IN PROGRESS` is
+one claim worded twice; `🟡 IN PROGRESS` beside `⏸ Draft` is two claims. A
+heading with no marker claims nothing. The same rule holds the table's
+**Version** row to `versions.py` — `bump_version.py` does not edit
+`CLAUDE.md`. Work packages are out of scope on purpose: the board files
+`WP-21.E` as ✅ for family 1 and ⏸ for families 2–3, which is right and would
+read as a contradiction to a check that only sees the identifier.
+
+The finding prints every claim with its `file:line` and **takes no side** —
+red only insists that someone applies the precedence rule (`resolved.md`
+#23). A disagreement kept on purpose is pinned in `KNOWN_CONTRADICTIONS`,
+subject → the open `todo.md` item that carries it; the pair is still printed,
+report-only, and the pin is held exactly: a pinned phase whose sources agree
+again, or whose item is not open, is red.
+
+**Found on the first run**, 2026-09-21: the roadmap's phase table still said
+`⏸ Draft` for Phase 24 a week after the board, the roadmap's own heading and
+`CLAUDE.md` said in progress — through the 24.A, 24.B and 24.C passes, each of
+which edited the file. Replayed on every record commit since 2026-09-13 the
+check is red from 2c47688 (24.B shipped, 09-14) to HEAD, and for two commits
+on 09-14 (6bd8310, 7107428) on Phase 23, whose roadmap heading said `⏸ DRAFT`
+after the board had it at 🔍 with the harness run. Both fixed by hand; the
+pin table is empty.
+
+### The ages, computed
+
+`todo.md` carries a hand-written `Last reviewed:` line. On 2026-09-21 it said
+2026-09-14; the file had been edited on 09-18. The audit prints, on every run,
+what that line is trying to say — **the days since each open `todo.md` item
+and each board row was last edited**, oldest first (WP-24.E):
+
+```
+ages — days since last edit, oldest first (WP-24.E; never red):
+    17.1  board: IMP-4 — OR-of-channels fragility flag        2026-09-04  d80054b WP-21.F/G: stand down …
+    12.9  todo.md #7 — Target Range: nominal coverage, and …  2026-09-08  890c248 WP-22.C: the pre-registered bar …
+    10.2  todo.md #11 — optional further split of `llm_ana…   2026-09-11  05b432c Split todo.md, and make it the single inbox …
+     3.1  todo.md #26 — the vol term structure's feed: ret…   2026-09-18  7cc1f78 Find the vix_term cause …
+```
+
+| Row | Its text |
+|---|---|
+| `todo.md #N` | every `### … #N` heading, through the line before the next numbered `###` or any `##` — an unnumbered sub-heading stays with its item |
+| `board: …` | every `###` section under **Active** and every `- **…**` bullet under **Queued / dormant**, with its continuation lines; named by the heading up to its first status marker |
+
+The date is per line from `git blame`, so a row's age is its **youngest
+line's** — the commit named is the one that last touched any part of it.
+Whitespace-only changes and blocks moved within the file are not edits
+(`-w -M`); a line moved in from another file is one, which is why nothing in
+the table predates the record's consolidation (`todo.md` was split out on
+2026-09-11, the board restructured on 09-08). An uncommitted edit is zero days
+old and says `uncommitted`. The changelog table and **Recently closed** are
+not rows — a closed row is finished, not stale. `--now` blames the file as it
+stood at that date, so the table replays like the artifact ages do; before
+the file existed at its current path it is empty.
+
+**Never red** — `resolved.md` #23 draws the line: an old item breaks no rule.
+Replayed to 2026-09-13, the table led with the carried `#7`, `#4` and `#5` at
+19 days, and the 2026-09-14 pass closed the first two by hand; they had led
+it since the inbox was split out. `/orient` (WP-24.G) prints it at turn 1.
 
 ### The backstop
 
