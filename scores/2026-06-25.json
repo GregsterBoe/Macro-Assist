@@ -7,7 +7,7 @@
   "model": "unknown",
   "base_rate_first": "unknown",
   "prune_rules": "unknown",
-  "scored_at": "2026-09-14",
+  "scored_at": "2026-09-21",
   "windows": {
     "t5": {
       "eval_date": "2026-07-02",
@@ -24,10 +24,10 @@
         "Gold": {
           "bias": "Bullish",
           "confidence": 57,
-          "entry_price": 4030.5,
-          "eval_price": 4112.7002,
+          "entry_price": 4047.6001,
+          "eval_price": 4125.7002,
           "eval_date": "2026-07-02",
-          "pct_change": 2.039,
+          "pct_change": 1.93,
           "score": 1.0
         },
         "WTI Oil": {
@@ -87,10 +87,10 @@
         "Gold": {
           "bias": "Bullish",
           "confidence": 57,
-          "entry_price": 4030.5,
-          "eval_price": 4130.6001,
+          "entry_price": 4047.6001,
+          "eval_price": 4140.7998,
           "eval_date": "2026-07-09",
-          "pct_change": 2.484,
+          "pct_change": 2.303,
           "score": 1.0
         },
         "WTI Oil": {
@@ -150,10 +150,10 @@
         "Gold": {
           "bias": "Bullish",
           "confidence": 57,
-          "entry_price": 4030.5,
-          "eval_price": 4046.6001,
+          "entry_price": 4047.6001,
+          "eval_price": 4050.2,
           "eval_date": "2026-07-23",
-          "pct_change": 0.399,
+          "pct_change": 0.064,
           "score": 0.5
         },
         "WTI Oil": {

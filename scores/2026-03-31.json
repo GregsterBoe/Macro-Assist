@@ -7,7 +7,7 @@
   "model": "unknown",
   "base_rate_first": "unknown",
   "prune_rules": "unknown",
-  "scored_at": "2026-09-14",
+  "scored_at": "2026-09-21",
   "windows": {
     "t5": {
       "eval_date": "2026-04-07",
@@ -25,10 +25,10 @@
           "bias": "Bullish",
           "confidence": 70,
           "entry_price": 4647.6001,
-          "eval_price": 4657.1001,
+          "eval_price": 4684.7002,
           "eval_date": "2026-04-07",
-          "pct_change": 0.204,
-          "score": 0.5
+          "pct_change": 0.798,
+          "score": 1.0
         },
         "WTI Oil": {
           "bias": "Neutral",
@@ -69,7 +69,7 @@
       },
       "summary": {
         "n_scored": 6,
-        "accuracy": 0.417
+        "accuracy": 0.5
       }
     },
     "t10": {
@@ -88,9 +88,9 @@
           "bias": "Bullish",
           "confidence": 70,
           "entry_price": 4647.6001,
-          "eval_price": 4825.0,
+          "eval_price": 4850.1001,
           "eval_date": "2026-04-14",
-          "pct_change": 3.817,
+          "pct_change": 4.357,
           "score": 1.0
         },
         "WTI Oil": {
@@ -151,9 +151,9 @@
           "bias": "Bullish",
           "confidence": 70,
           "entry_price": 4647.6001,
-          "eval_price": 4591.5,
+          "eval_price": 4608.3999,
           "eval_date": "2026-04-28",
-          "pct_change": -1.207,
+          "pct_change": -0.843,
           "score": 0.0
         },
         "WTI Oil": {

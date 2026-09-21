@@ -7,7 +7,7 @@
   "model": "unknown",
   "base_rate_first": "unknown",
   "prune_rules": "unknown",
-  "scored_at": "2026-09-14",
+  "scored_at": "2026-09-21",
   "windows": {
     "t5": {
       "eval_date": "2026-08-03",
@@ -33,16 +33,16 @@
         "Gold": {
           "bias": "Bearish",
           "confidence": 35,
-          "entry_price": 4074.5,
-          "eval_price": 4033.7,
+          "entry_price": 4077.0,
+          "eval_price": 4090.5,
           "eval_date": "2026-08-03",
-          "pct_change": -1.001,
-          "score": 1.0
+          "pct_change": 0.331,
+          "score": 0.5
         }
       },
       "summary": {
         "n_scored": 3,
-        "accuracy": 0.5
+        "accuracy": 0.333
       }
     },
     "t10": {
@@ -69,10 +69,10 @@
         "Gold": {
           "bias": "Bearish",
           "confidence": 35,
-          "entry_price": 4074.5,
-          "eval_price": 4361.7998,
+          "entry_price": 4077.0,
+          "eval_price": 4419.7002,
           "eval_date": "2026-08-10",
-          "pct_change": 7.051,
+          "pct_change": 8.406,
           "score": 0.0
         }
       },
@@ -105,10 +105,10 @@
         "Gold": {
           "bias": "Bearish",
           "confidence": 35,
-          "entry_price": 4074.5,
-          "eval_price": 4640.7998,
+          "entry_price": 4077.0,
+          "eval_price": 4697.7998,
           "eval_date": "2026-08-24",
-          "pct_change": 13.899,
+          "pct_change": 15.227,
           "score": 0.0
         }
       },

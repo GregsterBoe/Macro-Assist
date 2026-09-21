@@ -7,7 +7,7 @@
   "model": "claude-opus-4-8",
   "base_rate_first": "on",
   "prune_rules": "on",
-  "scored_at": "2026-09-14",
+  "scored_at": "2026-09-21",
   "windows": {
     "t5": {
       "eval_date": "2026-08-26",
@@ -24,10 +24,10 @@
         "Gold": {
           "bias": "Bullish",
           "confidence": 57,
-          "entry_price": 4489.3999,
-          "eval_price": 4598.2002,
+          "entry_price": 4545.2998,
+          "eval_price": 4653.2998,
           "eval_date": "2026-08-26",
-          "pct_change": 2.423,
+          "pct_change": 2.376,
           "score": 1.0
         },
         "WTI Oil": {
@@ -87,10 +87,10 @@
         "Gold": {
           "bias": "Bullish",
           "confidence": 57,
-          "entry_price": 4489.3999,
-          "eval_price": 4366.2998,
+          "entry_price": 4545.2998,
+          "eval_price": 4414.6001,
           "eval_date": "2026-09-02",
-          "pct_change": -2.742,
+          "pct_change": -2.875,
           "score": 0.0
         },
         "WTI Oil": {
@@ -127,6 +127,69 @@
           "eval_price": 77300.4766,
           "eval_date": "2026-09-02",
           "pct_change": 11.599,
+          "score": 0.5
+        }
+      },
+      "summary": {
+        "n_scored": 6,
+        "accuracy": 0.417
+      }
+    },
+    "t20": {
+      "eval_date": "2026-09-16",
+      "assets": {
+        "S&P 500": {
+          "bias": "Neutral",
+          "confidence": 58,
+          "entry_price": 7707.98,
+          "eval_price": 7551.8101,
+          "eval_date": "2026-09-16",
+          "pct_change": -2.026,
+          "score": 0.5
+        },
+        "Gold": {
+          "bias": "Bullish",
+          "confidence": 57,
+          "entry_price": 4545.2998,
+          "eval_price": 4387.5,
+          "eval_date": "2026-09-16",
+          "pct_change": -3.472,
+          "score": 0.0
+        },
+        "WTI Oil": {
+          "bias": "Neutral",
+          "confidence": 60,
+          "entry_price": 85.83,
+          "eval_price": 102.43,
+          "eval_date": "2026-09-16",
+          "pct_change": 19.341,
+          "score": 0.5
+        },
+        "10Y Treasury Yield": {
+          "bias": "Bullish",
+          "confidence": 51,
+          "entry_price": 4.653,
+          "eval_price": 5.006,
+          "eval_date": "2026-09-16",
+          "pct_change": 7.587,
+          "score": 1.0
+        },
+        "DXY": {
+          "bias": "Bearish",
+          "confidence": 51,
+          "entry_price": 98.83,
+          "eval_price": 100.31,
+          "eval_date": "2026-09-16",
+          "pct_change": 1.498,
+          "score": 0.0
+        },
+        "Bitcoin": {
+          "bias": "Neutral",
+          "confidence": 54,
+          "entry_price": 69266.1875,
+          "eval_price": 76150.3203,
+          "eval_date": "2026-09-16",
+          "pct_change": 9.939,
           "score": 0.5
         }
       },
