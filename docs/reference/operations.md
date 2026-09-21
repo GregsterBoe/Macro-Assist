@@ -165,15 +165,18 @@ reference is caught in review.
 Independent of the pipeline. Runs `.macro-assist/record_audit.py` on every push
 to `main` and every pull request, then its tests. The audit reads the workflows,
 the docs and the git history and exits non-zero on a red finding; it writes
-nothing. What it checks is listed in the script's header and grows with Phase
-24; today it is the workflow-orphan rule [above](#everything-rides-one-call)
+nothing. What it checks is listed in the script's header — Phase 24 built it
+and closed 2026-09-21 with every work package shipped; a new check is a
+new work package, not a continuation. Today it is the workflow-orphan rule [above](#everything-rides-one-call)
 the [artifact-liveness rule](#a-reachable-stage-that-produces-nothing), the
 [referential-integrity rule](#the-identifiers-that-are-not-links), the
 [contradiction rule](#a-claim-the-repo-makes-twice-differently) and the
 [ADR revisit rule](#a-decision-whose-condition-may-have-come-true) below,
 plus the [ages table](#the-ages-computed), which is printed and never fails.
-It is the only CI job that runs any of the test suite — the pipeline
-stages do not, and `docs.yml` only renders. It checks out with
+The same readers feed [`/orient`](#orient-the-session-start-ritual), the
+session-start screen, which the job's test step also covers. It is the only
+CI job that runs any of the test suite — the pipeline stages do not, and
+`docs.yml` only renders. It checks out with
 `fetch-depth: 0` because the liveness rule, the ages table and the revisit
 rule read commit dates and the ADR numbering rule reads deletions; on a
 shallow clone the audit refuses rather than passing vacuously.
@@ -531,6 +534,51 @@ last edited. Replayed to 2026-09-12 the check is red on exactly the two pages
 `resolved.md` #24 dealt with, ADR-0015 (retrofitted 09-14) and ADR-0017
 (superseded 09-13); the test suite asserts that replay. `--now` reads the
 pages, the record and the blame at that date.
+
+### `/orient` — the session-start ritual
+
+Every rule above has a reader problem: the board wins on status, the owner
+writes a promoted hypothesis, a contradiction is not fixed by picking a side —
+and none of it helps a session that never opened the page it is written on.
+`record_audit.py` gave the rules detectors; `/orient` (WP-24.G, shipped
+2026-09-21) gives the detectors a moment. It is a skill at
+`.claude/skills/orient/SKILL.md` that runs `python .macro-assist/orient.py`
+and shows the output in full at turn 1, before any work is proposed. The
+script reads; it never writes. One screen, five blocks:
+
+| Block | What it prints | From |
+|---|---|---|
+| **BOARD** | the board's *Right now*, its latest changelog row, every **Active** row with its `Next:` line and every **Queued / dormant** row — each with the days since it was last edited and the commit that did it | `active-experiments.md`, ages (24.E) |
+| **INBOX** | every open `todo.md` item, oldest first, with its age and last commit | `todo.md`, ages (24.E) |
+| **AUDIT** | `record_audit.py`'s findings and its red / report-only summary, with a count per check so that `contradictions 0` is visible rather than absent | `audit()` (24.A–D, 24.F reds) |
+| **ADR REVISIT** | the report-only lines of the [revisit rule](#a-decision-whose-condition-may-have-come-true): a decision whose cited condition closed after its section was last edited, or `none` | 24.F |
+| **COMPETENCE GATE** | printed whenever the register holds an entry in `draft`, `seen` or `proposed` — a state whose next transition is `promoted`, and that transition is the owner's: the pending entries, then the bullets of [how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis) as the page has them today | `hypotheses.md`, `how-we-explore.md` |
+
+The last block is the reason the skill exists. §6 — the owner writes the
+pre-registration of a promoted hypothesis, and can answer six questions
+without the assistant first — was written 2026-09-13 with no trigger, and a
+rule nobody is prompted to apply is in the same category as a precedence rule
+with no detector. The questions are read from the page, not copied into the
+script (convention #8), so editing §6 edits the screen. The skill's own text
+tells the session what each block changes: a `RED` line is a failing CI check
+and comes first; an ADR REVISIT line means re-read the decision before
+touching what it decided; a gate block means draft register entries, never
+the promoted text; the board's `next:` lines are what each track waits on,
+not instructions.
+
+**What it printed on the first run**, 2026-09-21: twelve board rows, the
+oldest 17 days (IMP-4 and the paper portfolio, both untouched since the
+2026-09-04 stand-down); ten open inbox items led by `#7` at 13 days; the
+audit's `0 red, 8 report-only` (the 24.C pointers that now land in
+`resolved.md`); no revisit condition; and the gate, because H-002–H-007 all
+wait on the owner's rewrite — the first time the six questions have been put
+in front of a session by anything other than a reader's memory.
+
+Without git history (a shallow clone, a plain directory) the ages and the
+audit's dated checks are unreadable and the screen says so; the board, the
+inbox and the gate still print. `python .macro-assist/orient.py` is the whole
+of it — the skill adds only the instruction to run it first and to show the
+result whole.
 
 ### The backstop
 

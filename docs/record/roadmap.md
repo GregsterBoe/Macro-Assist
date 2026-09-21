@@ -71,7 +71,7 @@ Measured results live in `knowledge-base.md`.
 | 21 | Directional product validation → **the cut (v1.6)** | ✅ Closed 2026-09-04 — [KB-024]. WP-21.E bounded search: family 1 (VIX term structure) resolved **negative** 2026-09-08 → [KB-027]; 2 of 3 families remain, bar for them written 2026-09-13 ([ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md)) |
 | 22 | Scoring the distribution product | 🟢 Open 2026-09-08 — the scorer follows the v1.6 cut. A/B shipped; the bar is sealed, first read ~2027-05 |
 | 23 | Exploration tier — the generation side of the method | 🔍 Open 2026-09-13 — harness built, two explore looks run 2026-09-14; seal decided (`SEAL_START` reused); next is the owner's rewrites, then the WP-23.B class bar |
-| 24 | Record integrity & session continuity | 🟡 In progress 2026-09-14 — `record_audit.py` in CI: 24.A/B (workflow orphans, artifact liveness) since 2026-09-14, 24.C–F (referential integrity, contradictions, ages, ADR revisit conditions) since 2026-09-21; next 24.G `/orient`. This row said ⏸ Draft for a week after the board went Active — 24.D's first red |
+| 24 | Record integrity & session continuity | ✅ Closed 2026-09-21 — every work package shipped: `record_audit.py` in CI (24.A/B since 2026-09-14, 24.C–F since 2026-09-21) and `/orient` (24.G); detail archived. The row said ⏸ Draft for a week after the board went Active — 24.D's first red |
 
 The v1.5 **system-state snapshot** that used to open this file was archived on the
 same pass; `README.md` is the maintained system reference.
@@ -775,261 +775,36 @@ Result → KB, either way.
 
 ---
 
-## Record Integrity & Session Continuity (Phase 24) — *make the record layer executable* 🟡 IN PROGRESS — WP-24.A–F running in CI (24.A/B since 2026-09-14, 24.C–F since 2026-09-21)
+## Record Integrity & Session Continuity (Phase 24) ✅ CLOSED 2026-09-21 — every work package shipped
 
-**Why it exists.** Everywhere a claim could be inflated, this project built a
-mechanism rather than a request: `verdict(sealed=False)` *cannot* return a pass,
-`--require-<family>` fails a run that silently dropped its arm, the workflow
-**pins** `--seal-start` so the boundary lands in the run log and not only in
-whichever revision was checked out. The **record layer** — the four docs that
-carry meaning across sessions — is the one place that still runs on good
-intentions. `CLAUDE.md` states a precedence rule ("when two docs disagree about
-status, `active-experiments.md` wins") with **no detector**; `todo.md` carries a
-hand-written `Last reviewed:` line; convention #11's "never renumber, never
-delete" is a sentence.
+*Detail archived 2026-09-21 → [roadmap-archive.md](roadmap-archive.md);
+decisions in [`resolved.md`](resolved.md) #23 and #24. The checks keep
+running: `record_audit.py` on every push and PR (`record_audit.yml`), and
+`/orient` at turn 1.*
 
-The cost is already measured. The 2026-09-11 maintenance pass found the weekly
-refit unreachable: the conditional table had frozen at **2026-08-31**, *"no run
-failed, no check went red"*, WP-22.A's six-asset universe never landed, and the
-note kept printing "no conditional base rate" for three assets. It was **found by
-reading commit dates**. That is the same failure as the exogenous gate going
-*"unreadable rather than failed"* and as the three days when the pipeline
-published a product no scorer measured — a track that can no longer answer its
-question, with nothing watching.
+Everywhere a claim could be inflated, the project had built a mechanism rather
+than a request — except in the record layer, which ran on good intentions. The
+2026-09-11 maintenance pass found the weekly refit frozen for eleven days with
+*"no run failed, no check went red"*, by reading commit dates. Phase 24 gave
+the record's rules detectors: the audit reads, prints, exits non-zero, and never
+repairs. Not a research track — no seal, no bar, no KB entry, no version bump.
 
-So the axis is not progress, and not correctness. A wrong result is productive
-here: it gets a KB entry and closes a question. The axis is **readability** — for
-each open track, can it still answer its question, and when?
+| WP | Verdict |
+|---|---|
+| **24.A — Workflow orphans + the schedule table** | ✅ 2026-09-14. Every workflow is the entry point, a `needs:`-ordered stage of it, dispatch-only, CI, or pinned soft-killed (`SOFT_KILLED_WORKFLOWS`, held exactly); the `operations.md` schedule table names only `pipeline.yml`. The draft's premise was wrong: the frozen refit had no in-repo defect — the external cron was rebuilt without its call — so 24.A could not have caught it. |
+| **24.B — Artifact liveness** | ✅ 2026-09-14. `ARTIFACTS` registry: each live track's output has a last-changed *commit* younger than its cadence + 1 day, read from git on the branch the stage pushes to, never mtime; a shallow clone is refused. Replayed, red on 2026-09-08 — day nine of the frozen refit, three days before it was found by hand. **This is the check that would have caught the refit.** |
+| **24.C — Referential integrity** | ✅ 2026-09-21. Every KB / ADR / WP id and `todo.md` / `resolved.md` pointer cited under `docs/` and `CLAUDE.md` resolves; ADR numbering contiguous, unique, never deleted from history (convention #11); one open item per number. Two pins, held exactly: `RESERVED_KB_NUMBERS` (008), `KNOWN_ITEM_COLLISIONS` (#7). A pointer whose item has since resolved is report-only. |
+| **24.D — Contradiction surfacing** | ✅ 2026-09-21. A phase's status is one class across the board, the roadmap's heading and table, and `CLAUDE.md`'s Current-state table; the Version row is `versions.py`'s. Prints the pair, never picks a side; **red with a pin** (`resolved.md` #23, `KNOWN_CONTRADICTIONS` → open `todo.md` item). Its first red was this table's own row, ⏸ Draft for a week after the board went Active. |
+| **24.E — Ages, from git** | ✅ 2026-09-21. Days since each open `todo.md` item and each board row was last edited, per line from `git blame -w -M`, oldest first — a table, never red (#23: an old item breaks no rule). The hand-written `Last reviewed:` line, computed. |
+| **24.F — ADR revisit conditions** | ✅ 2026-09-21. Every non-superseded ADR carries a non-empty `## Would we revisit it?` — red, enforced not introduced (`resolved.md` #24; a reasoned "No." is an answer). A section citing a `todo.md` item / WP / KB entry / Phase that closed *after* the section was last edited prints "cited condition may have fired", report-only; prose conditions are not read. First run clean; replayed to 09-12, red on exactly ADR-0015 and ADR-0017. |
+| **24.G — `/orient`** | ✅ 2026-09-21. `.claude/skills/orient/SKILL.md` → `orient.py`: one screen at turn 1 — the board with ages, the open inbox oldest first, the audit with a per-check count, 24.F's revisit lines, and the owner's competence gate ([how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis), read from the page) whenever a register entry is `draft` / `seen` / `proposed`. §6 was written 2026-09-13 with no trigger; this is it. |
 
-**What it is not.** Not a research track: no seal, no pre-registered bar, no KB
-entry expected — nothing here measures the world, so [the method](../concepts/the-method.md)'s
-machinery does not apply and invoking it would be cargo cult. Not a change to the
-published note, the sealed table or `pipeline.yml`, so **no version bump**
-(convention #9 — not a capability change). Not a new source of truth: the docs own
-the facts and the audit only reads them. Not an auto-fixer — see WP-24.D.
-
-**Drafted by the assistant, 2026-09-14, from a session walkthrough.** The
-work packages are engineering; the two that change a *convention* (24.D's
-precedence handling, 24.F's ADR page shape) were owner decisions, logged as
-`todo.md` #23 and #24 and **decided the same day** →
-[`resolved.md`](resolved.md): a contradiction is red with a pin; the revisit
-section is enforced, not introduced. 24.D, 24.E and 24.F shipped as decided; 24.G remains.
-
-**Order.** 24.A is the first step and stands alone; 24.B shipped the same day, 24.C–F a week later. The draft claimed it was
-the check that would have caught the frozen refit on day one; building it showed
-that is false, and the correction is recorded under 24.A — the refit's in-repo
-declaration was fine, the *external service* was rebuilt without its call, and
-nothing inside the repo can see that. **24.B is the check that would have caught
-the refit**, around day nine. Everything after 24.A is additive and
-independently shippable.
-
-### WP-24.A — `record_audit.py` skeleton + the workflow-orphan check ✅ SHIPPED 2026-09-14
-
-`.macro-assist/record_audit.py` · `tests/test_record_audit.py` (16 tests, each
-finding driven on its own, plus the real checkout asserted clean) · its own
-workflow `record_audit.yml` on every push and PR — it has its own job because
-nothing else in CI runs pytest, and `docs.yml`'s path filter would not fire on a
-workflow change. [ADR-0013](../decisions/ADR-0013-one-pipeline-entry-point.md)
-made enforceable: every workflow is the entry point, a `needs:`-ordered stage of
-it, dispatch-only, CI (push / pull_request — a fourth class the draft missed;
-`docs.yml` and the audit's own workflow are it), or pinned in
-`SOFT_KILLED_WORKFLOWS` on the `KNOWN_LEAKS` pattern — held exactly, so a pin
-whose arm is restored, dropped its `workflow_call`, or has no file is itself
-red. A second check reads the schedule table in `operations.md` and fails on a
-slot that calls anything but `pipeline.yml`. Module classified `TOOLING`.
-
-**The premise was wrong, and the code showed it.** Run against the tree from
-just before the 2026-09-11 fix, the workflow check passes: the refit had no
-`schedule:` of its own — it was `workflow_dispatch`-only, with its Sunday call
-in the external service, and the repo's schedule table still listed that slot
-after the service had been rebuilt without it. A repo-vs-world gap; no in-repo
-audit sees it. The schedule-table check goes red on that tree, but only because
-the rule now forbids the slot, not because it can tell whether the service
-honours the table. The header of `record_audit.py` states the limit so nobody
-relies on it. Found and fixed on the way: `operations.md` still described the
-refit as "its own cron call" in three places and `trigger_pipeline.sh`'s usage
-example still showed `cron-refit`.
-
-### WP-24.B — Artifact liveness ✅ SHIPPED 2026-09-14
-
-`check_artifact_liveness` in `record_audit.py`, driven by an `ARTIFACTS`
-registry — path, the branch the stage pushes to, the cadence owed, the stage
-that owes it. Red when the artifact's last-changed **commit** is older than
-cadence + 1 day. Four entries, one per live track: the conditional table and
-`accuracy_summary.json` on `main` (weekly, 8 days), `dist_scores_summary.json`
-and the daily note (`*/*-macro.md`) on `output` (8 days / 4 days). Eleven
-tests on synthetic git repositories, each finding driven on its own; the real
-checkout is asserted for *shape* only (every entry resolves to something
-written on its branch), so a bad pipeline week turns the CI audit red and not
-the unit suite.
-
-Three reading rules, each with a test that would fail without it: the date is
-the **commit** date, never mtime (a fresh clone rewrites mtimes); the ref is
-`origin/<branch>`, never `HEAD` (a PR branch cut two weeks ago must not fail
-for refits it does not carry); a **shallow clone is refused** rather than
-passing vacuously (`record_audit.yml` checks out with `fetch-depth: 0`).
-`--now DATE` limits the git walk with `--until`, so a replay is honest.
-
-**The claim above, checked.** Replayed against the real history: quiet on
-2026-09-07; **red on 2026-09-08** — `conditional_distributions.json` last
-changed 8.5 days ago on `main` (0d12737, the 2026-08-31 refit); still red
-2026-09-11; clear 2026-09-12. Day nine, three days before the freeze was found
-by hand. The same replay is `test_the_frozen_refit_replayed`.
-
-A stopped track stays red until its registry line is removed — the pin shape
-again, deliberately. `accuracy_summary.json` keeps landing past the directional
-scorer's ~2026-10-02 banner because `summarize_accuracy.py` rewrites
-`generated_at` weekly, so no entry is due to retire yet. Documented in
-[Operations › A reachable stage that produces nothing](../reference/operations.md#a-reachable-stage-that-produces-nothing).
-
-### WP-24.C — Referential integrity ✅ SHIPPED 2026-09-21
-
-`check_referential_integrity` in `record_audit.py`. Every `KB-###`, `ADR-####`
-and `WP-##.x` cited under `docs/` and in `CLAUDE.md` resolves — to a KB heading,
-a file in `docs/decisions/`, a mention in `roadmap.md` or `roadmap-archive.md`.
-ADR numbering is contiguous from 0001, one file per number, and no number has
-been deleted from `HEAD`'s history (`git log --diff-filter=D --no-renames`, so
-a renumbering shows as a deletion and a slug rename does not) — convention #11
-enforced. The inbox holds one open item per number and none that `resolved.md`
-also holds; every `` `todo.md` #N `` and `` `resolved.md` #N `` pointer lands.
-One report-only shape: a `todo.md #N` whose item has since resolved — the
-pointer still lands, in the other file, so it is printed per page for the next
-housekeeping pass (eight pages today) and never fails. Twelve tests on a
-synthetic docs tree, one defect at a time; the real checkout is asserted clean
-(this check does not depend on the date, so it joins the 24.A checks there).
-
-**What it found.** No dangling KB, ADR or WP identifier anywhere in the record.
-Two things it could not pass without naming: **KB-008** is mentioned in the
-KB's prose as a reserved number and was never written (pinned,
-`RESERVED_KB_NUMBERS`), and **#7** heads both Phase 22's open Target Range
-decision and the carried accuracy finding closed 2026-09-14 as "#7 (carried)"
-(pinned, `KNOWN_ITEM_COLLISIONS`). Both pins are held exactly — a pin whose
-condition has gone is itself red. Replayed against the trees from 2026-09-08
-to 09-13, the check is red on each: the inbox carried **two open `#7`s** for
-those six days, the duplicate the 09-14 maintenance pass closed by hand.
-Documented in [Operations › The identifiers that are not links](../reference/operations.md#the-identifiers-that-are-not-links).
-
-### WP-24.D — Contradiction surfacing ✅ SHIPPED 2026-09-21 *(report, never repair)*
-
-`check_contradictions` in `record_audit.py`. Every place the record states a
-phase's status is read — the board's headings and bullets, the roadmap's
-`## … (Phase N)` heading and its phase-table row, every `Phase N` in
-`CLAUDE.md`'s Current-state table — and classed by the record's own markers
-(🟢 🟡 🔍 open, ⏸ dormant, ✅ ❌ closed; in `CLAUDE.md`, the status word in
-the clause after the name). Two classes for one phase is red; wording within
-a class is not. The finding prints every claim with its `file:line` and
-**takes no side** — `CLAUDE.md` says who wins, red only insists that someone
-applies it. `CLAUDE.md`'s Version row is held to `versions.py` the same way
-(`bump_version.py` does not edit it). Work packages are out of scope, on
-purpose: the board files WP-21.E as ✅ for family 1 and ⏸ for families 2–3.
-
-**Decided 2026-09-14 (`resolved.md` #23): red, with a pin.** Built as decided:
-`KNOWN_CONTRADICTIONS` maps the subject to the open `todo.md` item that
-carries the disagreement; the pair is still printed, report-only; a pin whose
-sources agree again, or whose item is not open, is itself red. Eight tests on
-a synthetic board + roadmap + `CLAUDE.md`; the real checkout is asserted
-clean, and a test asserts every pin names an open item.
-
-**What it found — on the first run.** The roadmap's phase table still said
-**`⏸ Draft`** for Phase 24 a week after the board went Active on 24.A, while
-the roadmap's own heading and `CLAUDE.md` said in progress. The 24.A, 24.B and
-24.C passes each edited this file and none saw it. Replayed on every record
-commit since 2026-09-13: red from 2c47688 (24.B shipped, 09-14) to HEAD; and
-red for two commits on 09-14 on **Phase 23**, whose roadmap heading said
-`⏸ DRAFT` after the board had it at 🔍 with the harness run — the closing
-pass fixed that one by hand the same day without a detector. Both rows fixed;
-the pin table is empty. Documented in
-[Operations › A claim the repo makes twice, differently](../reference/operations.md#a-claim-the-repo-makes-twice-differently).
-
-### WP-24.E — Ages, from git ✅ SHIPPED 2026-09-21 *(a table, never a finding)*
-
-`ages()` in `record_audit.py`, printed by the runner before the findings.
-Days since each open `todo.md` item (every `### … #N` heading through the
-next numbered one) and each board row (the **Active** sections, the
-**Queued / dormant** bullets) was last edited, oldest first, with the commit
-that did it. The date is per line from `git blame`, so a row's age is its
-youngest line's; whitespace and moves within the file are not edits (`-w
--M`), a line moved in from another file is, an uncommitted line is zero days
-old. `--now` blames the file as it stood then, so it replays. Not a check: it
-returns no `Finding`, and **never red** as decided (`resolved.md` #23) — an
-old item breaks no rule. Eight tests on a synthetic repo with pinned dates;
-the real checkout is asserted for shape (every open item has a row).
-
-**What the first run showed.** `todo.md`'s hand-written `Last reviewed:` line
-said 2026-09-14 while the file's last edit was 09-18 — the line the table
-replaces, failing on the day the table shipped. Oldest on 2026-09-21: the
-IMP-4 and Phase 20 board rows, untouched since the 09-04 stand-down (17
-days); then `#7` Target Range coverage (13 days); five items (`#1b`, `#2b`,
-`#3b`, `#6b`, `#11`) unedited since the inbox was split out on 09-11. Replayed to 09-13,
-the table led with the carried `#7`, `#4` and `#5` at 19 days, and the 09-14
-pass closed the first two by hand. Nothing predates the consolidation, by
-construction. Documented in
-[Operations › The ages, computed](../reference/operations.md#the-ages-computed).
-
-### WP-24.F — ADR revisit conditions ✅ SHIPPED 2026-09-21 *(enforce the existing page shape)*
-
-Every ADR answers **"Would we revisit it?"** with a *condition* rather than a
-date — [ADR-0009](../decisions/ADR-0009-cut-the-directional-product.md) names
-WP-21.E's capped search; [ADR-0017](../decisions/ADR-0017-bss-floor-left-open.md)
-is the worked example of a condition coming true and being acted on, a decision
-parked with a test pinning it and closed five days later. The draft proposed
-making the section mandatory; on inspection (2026-09-14) it already was —
-[`decisions/index.md`](../decisions/index.md) lists it as part 4 of the page
-shape and **18 of 21 ADRs carry it**. The retrofit was two pages (ADR-0015,
-ADR-0021), done the same day and marked as written after the fact; ADR-0017 is
-superseded and exempt. A reasoned **"No."** is a valid answer — four pages give
-one. Decided as `resolved.md` #24.
-
-`check_adr_revisit`, in two halves. **(a)** Every ADR whose Status row does not
-say *Superseded* has the section, non-empty — **red**; presence, the sibling of
-`CLAUDE.md` #11's *"a page with no costs listed has not been thought through"*.
-**(b)** A revisit section that cites a `todo.md` item (a bare `#N` in a section
-naming `todo.md`), a WP, a KB entry or a Phase whose record heading is
-**younger than the section** — the item resolved, the WP's every marked
-roadmap heading closed-class, the phase's every status claim closed-class, the
-entry landed, all after the section's youngest line — is printed as *"cited
-condition may have fired"*, **report-only**. The dates are per line from
-`git blame`, as in 24.E, and the comparison is the point: ADR-0009 cites
-[KB-027] as the result it already absorbed, its section is younger than the
-entry, and nothing prints; editing the section clears the line. A marker
-inside an italic `*( … )*` aside is the aside's, not the heading's — WP-21.E's
-heading says ✅ for family 1 without closing the package. Prose conditions
-("if GitHub's scheduler became reliable") are not read by a machine and the
-audit does not pretend to; a structured condition field was rejected as
-narrower than the prose it would replace. `--now` replays: pages, record and
-blame all read at that date.
-
-**Seven tests** on a synthetic repo with pinned dates — missing / empty
-section red and a superseded page exempt, four kinds of referent closing after
-the section and none before it, editing the section clearing the note and
-`--now` restoring it, a bare `#N` only an inbox pointer where `todo.md` is
-named, no git history reads as undated — and on the real tree: clean today,
-and replayed to 2026-09-12 red on exactly ADR-0015 and ADR-0017, the two pages
-`resolved.md` #24 dealt with. **What the first run showed:** nothing to print —
-20 pages carry the section, ADR-0017 is exempt, and no cited referent has moved
-since its section was last edited (ADR-0016 → #7/#8 both open; ADR-0020 →
-Phase 22 open; ADR-0015 → Phase 19 dormant). The rule is in
-[Operations](../reference/operations.md#a-decision-whose-condition-may-have-come-true).
-
-### WP-24.G — `/orient`, the session-start ritual
-
-`.claude/` currently holds two settings files and nothing else: **no skills, no
-commands.** A skill is the one artifact guaranteed to be in context when it is
-relevant, rather than depending on a session happening to read the right file —
-which makes this the cheapest continuity win available.
-
-`/orient` prints, at turn 1 of any session: the board; the audit output including
-24.D's contradictions and 24.E's ages; open `todo.md` items oldest first; any ADR
-revisit condition now true; and, when a promotion is pending, the four
-competence-gate questions from
-[how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis).
-
-That last line is the point of the phase in miniature. §6 — the anti-helicopter
-rule, the one that makes the owner rather than the assistant author a
-pre-registration — was written 2026-09-13 and has **no trigger**. A rule nobody
-is prompted to apply is in the same category as a precedence rule with no
-detector.
-
-**Where:** `.macro-assist/record_audit.py` · `.macro-assist/tests/test_record_audit.py` ·
-`.github/workflows/record_audit.yml` (its own job — decided by 24.A) · planned:
-`.claude/skills/orient/`.
+**What is still live:** `record_audit.py` (six checks + the ages table, 62
+tests) and `orient.py` (5 tests) under `record_audit.yml`; the four pins, each
+red when no longer needed; the `/orient` skill; and two conventions it made
+enforceable — `CLAUDE.md` #5 (one entry point, artifact liveness) and #11 (ADR
+numbering, the revisit section). Rules in
+[Operations](../reference/operations.md#record_audityml-the-record-audit).
+**What it did not do, on purpose:** repair anything, read prose conditions, or
+give an age a threshold. Re-opens only for a new check — a new stage that
+writes something gets an `ARTIFACTS` line, not a work package.

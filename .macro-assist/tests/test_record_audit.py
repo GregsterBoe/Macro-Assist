@@ -1117,3 +1117,192 @@ def test_every_adr_carries_the_section_or_is_superseded():
     then = ra.check_adr_revisit(_REPO, now=datetime(2026, 9, 12, tzinfo=timezone.utc))
     assert sorted(f.subject for f in then if f.red) == [
         "docs/decisions/ADR-0015-soft-kill-convention.md", "docs/decisions/ADR-0017-bss-floor-left-open.md"]
+
+
+# ---------------------------------------------------------------------------
+# WP-24.G — /orient
+# ---------------------------------------------------------------------------
+
+import orient  # noqa: E402  (the module under test for this section)
+
+ORIENT_TODO = """# TODO
+
+### Open decision #3 — an old call
+
+Body of three.
+
+### Carried finding #5b — a caveat
+
+Body of five.
+"""
+ORIENT_BOARD = """# Board
+
+**Right now:** Phase 32's clock is what is
+running. Nothing else.
+
+### Changelog — newest first
+
+| Date | What |
+|---|---|
+| **2026-08-20** *(latest)* | **Something moved.** Detail with a [link](x.md) and `code`. |
+| **2026-08-01** | **Older.** |
+
+## Active
+
+### Phase 32 — Something 🟢 LIVE
+- **Tests:** a question.
+- **Next:** wait for [KB-001] to **move**.
+- **Where:** here.
+
+## Queued / dormant
+
+- **Phase 31 — dormant** ⏸ — with a continuation
+  line under it.
+"""
+ORIENT_REGISTER = """# Register
+
+| Id | Status | Claim |
+|---|---|---|
+| [H-001](#h-001) | `closed` | Done — *pointer kept* |
+| [H-002](#h-002) | `draft` | A [linked](x.md) claim — *explore look: half seen* |
+| [H-003](#h-003) | `seen` | Another claim |
+"""
+ORIENT_HOW = """# How we explore
+
+## 5. The bar precedes the candidate
+
+- not a gate question
+
+## 6. The owner writes the hypothesis
+
+Prose first.
+
+- Trace one number back to
+  the line that rendered it ([ADR-0002](../decisions/ADR-0002-b.md)).
+- Say what `SEAL_START` is.
+
+None of these is hard.
+
+## 7. The target space
+
+- not one either
+"""
+ORIENT_CITES = "\n## Would we revisit it?\n\nOnly once Phase 32 closes, or if #3 in `todo.md` resolves.\n"
+
+
+@pytest.fixture
+def oriented(repo: Path) -> Path:
+    """A record with two open items (#3 edited 20 days before T0, #5b two
+    days before), a board with one Active and one Queued row, a register
+    holding a draft and a seen entry, and two ADRs — one citing Phase 32 and
+    #3. The full audit is clean on it."""
+    t = T0 - timedelta(days=20)
+    for rel, text in (("docs/record/todo.md", ORIENT_TODO), ("docs/record/resolved.md", REVISIT_RESOLVED),
+                      ("docs/record/knowledge-base.md", REVISIT_KB), ("docs/record/roadmap.md", REVISIT_ROADMAP),
+                      ("docs/record/active-experiments.md", ORIENT_BOARD),
+                      ("docs/record/hypotheses.md", ORIENT_REGISTER),
+                      ("docs/concepts/how-we-explore.md", ORIENT_HOW)):
+        _commit_text(repo, rel, text, t, "record")
+    _adr(repo, 1, "a", date=T0 - timedelta(days=10))
+    _adr(repo, 2, "b", revisit=ORIENT_CITES, date=T0 - timedelta(days=10))
+    _commit_text(repo, "docs/record/todo.md", ORIENT_TODO.replace("Body of five.", "Body of five, revised."),
+                 T0 - timedelta(days=2), "revise five")
+    return repo
+
+
+def _blocks(text: str) -> dict[str, str]:
+    """The rendered output split at its capitalised block headings."""
+    out: dict[str, str] = {}
+    key = "HEAD"
+    for line in text.splitlines():
+        if line and not line.startswith(" ") and line.split(" ")[0].isupper():
+            key = line.split(" ")[0]
+            out[key] = line + "\n"
+        else:
+            out[key] = out.get(key, "") + line + "\n"
+    return out
+
+
+def test_orient_prints_the_board_the_inbox_the_audit_and_the_gate(oriented):
+    b = _blocks(orient.render(oriented, now=T0))
+    assert set(b) == {"HEAD", "BOARD", "INBOX", "AUDIT", "ADR", "COMPETENCE"}
+    # the board: "Right now" joined, the latest changelog row's bold lead, each
+    # row with its age, the Active row's Next line rendered as prose
+    assert "Right now: Phase 32's clock is what is running. Nothing else." in b["BOARD"]
+    assert "Latest:    2026-08-20 — Something moved." in b["BOARD"]
+    assert "    Phase 32 — Something 🟢 LIVE  [20 d, " in b["BOARD"]
+    assert "      next: wait for [KB-001] to move." in b["BOARD"]
+    assert "    Phase 31 — dormant ⏸  [20 d, " in b["BOARD"]
+    # the inbox, oldest first, with the age and the commit that made it
+    inbox = [l for l in b["INBOX"].splitlines()[1:] if l.strip()]
+    assert [l.split()[2] for l in inbox] == ["#3", "#5b"]
+    assert inbox[0].startswith("     20 d  #3 — an old call")
+    assert inbox[1].startswith("      2 d  #5b — a caveat") and inbox[1].endswith("revise five")
+    # the audit: every check counted, so a zero is visible
+    assert b["AUDIT"].startswith("AUDIT — record_audit.py: 0 red, 0 report-only  (workflow-orphans 0 · "
+                                 "schedule-table 0 · artifact-liveness 0 · referential-integrity 0 · "
+                                 "contradictions 0 · adr-revisit 0)\n  clean\n")
+    assert b["ADR"].strip().splitlines()[1:] == ["  none"]
+    # the gate: the pending entries, then §6's bullets as the page has them
+    gate = b["COMPETENCE"].splitlines()
+    assert gate[0].startswith("COMPETENCE GATE — a promotion is pending")
+    assert gate[1:3] == ["  H-002 `draft` — A linked claim", "  H-003 `seen` — Another claim"]
+    assert gate[4:] == ["    1. Trace one number back to the line that rendered it (ADR-0002).",
+                        "    2. Say what SEAL_START is."]
+
+
+def test_a_red_finding_and_a_fired_condition_are_shown_where_they_belong(oriented):
+    # ADR-0001 loses its section (red, in AUDIT); Phase 32 closes after
+    # ADR-0002's section was written (report-only, in ADR REVISIT)
+    _adr(oriented, 1, "a", revisit="", date=T0 - timedelta(days=5), msg="drop the section")
+    _commit_text(oriented, "docs/record/roadmap.md",
+                 REVISIT_ROADMAP.replace("(Phase 32) 🟢 OPEN", "(Phase 32) ✅ CLOSED").replace("| 🟢 Open |", "| ✅ Closed |"),
+                 T0 - timedelta(days=5), "close 32")
+    _commit_text(oriented, "docs/record/active-experiments.md",
+                 ORIENT_BOARD.replace("## Active", "## Recently closed").replace("🟢 LIVE", "✅ CLOSED"),
+                 T0 - timedelta(days=5), "close 32")
+    b = _blocks(orient.render(oriented, now=T0))
+    assert "  Active:\n    (none)\n" in b["BOARD"]
+    assert b["AUDIT"].startswith("AUDIT — record_audit.py: 1 red, 1 report-only")
+    assert "adr-revisit 2" in b["AUDIT"].splitlines()[0]
+    assert b["AUDIT"].splitlines()[1].startswith("  RED   adr-revisit  docs/decisions/ADR-0001-a.md — no `## Would we revisit it?`")
+    assert "note" not in b["AUDIT"]
+    assert b["ADR"].splitlines()[1].startswith("  docs/decisions/ADR-0002-b.md:15 — cites Phase 32, closed (")
+    assert "cited condition may have fired" in b["ADR"]
+
+
+def test_the_gate_is_silent_once_nothing_waits_on_the_owner(oriented):
+    _commit_text(oriented, "docs/record/hypotheses.md",
+                 ORIENT_REGISTER.replace("`draft`", "`promoted`").replace("`seen`", "`closed`"), T0, "promote")
+    assert orient.pending_promotions(oriented) == []
+    b = _blocks(orient.render(oriented, now=T0))
+    assert b["COMPETENCE"].strip() == ("COMPETENCE GATE — no promotion pending (the register holds no draft / "
+                                       "seen / proposed entry)")
+
+
+def test_orient_reads_where_git_cannot_and_says_so(tmp_path, monkeypatch):
+    """No history: the board still prints (without ages), the inbox says why
+    it is empty, and nothing raises."""
+    monkeypatch.setattr(ra, "ARTIFACTS", ())
+    _doc(tmp_path, "docs/record/active-experiments.md", ORIENT_BOARD)
+    _doc(tmp_path, "docs/record/todo.md", ORIENT_TODO)
+    text = orient.render(tmp_path, now=T0)
+    assert "(not a git repository)" in text.splitlines()[0]
+    assert "    Phase 32 — Something 🟢 LIVE\n" in text
+    assert "  (unreadable — not a git repository or a shallow clone; ages need history)" in text
+    assert "RED   workflow-orphans" in text     # the audit still runs and still fails there
+
+
+def test_orient_on_this_checkout_and_the_skill_that_runs_it():
+    """The real tree renders, with the questions §6 actually lists, and the
+    skill file names the script — the pair is what WP-24.G ships."""
+    text = orient.render(_REPO)
+    assert "COMPETENCE GATE" in text and "AUDIT — record_audit.py" in text
+    questions = orient.gate_questions(_REPO)
+    assert len(questions) >= 4 and any("SEAL_START" in q for q in questions)
+    for q in questions:
+        assert f" {q}" in text
+    skill = (_REPO / ".claude" / "skills" / "orient" / "SKILL.md").read_text(encoding="utf-8")
+    assert skill.startswith("---\nname: orient\n")
+    assert "python .macro-assist/orient.py" in skill
+    assert (_REPO / ".macro-assist" / "orient.py").is_file()

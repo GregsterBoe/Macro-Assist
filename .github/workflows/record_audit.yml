@@ -18,8 +18,9 @@ name: Record Audit
 # edited.
 #
 # The same checks run in the test suite (test_record_audit.py asserts this
-# checkout is clean); this workflow is the copy that runs on every push and
-# pull request, because nothing else in CI runs pytest.
+# checkout is clean, and covers orient.py — what /orient prints at turn 1,
+# WP-24.G); this workflow is the copy that runs on every push and pull
+# request, because nothing else in CI runs pytest.
 #
 # This file is itself classified by the check it runs: push / pull_request
 # triggers make it CI, and it carries no `schedule:` — the audit would flag

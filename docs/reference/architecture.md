@@ -76,6 +76,7 @@ Macro-Assist/
 │   ├── bump_version.py              # version bump helper
 │   ├── tag_versions.py              # backfill agent_version onto older reports
 │   ├── record_audit.py              # the record layer's audit, run in CI (Phase 24)
+│   ├── orient.py                    # what /orient prints at turn 1 (.claude/skills/orient/)
 │   │
 │   ├── fred_data.py                 # FRED fetch + derived series
 │   ├── market_data.py               # yfinance prices, technicals, sector ETFs
@@ -133,6 +134,7 @@ Macro-Assist/
 │   ├── ci_publish_results.sh        # commit & push results/ in CI
 │   └── requirements.txt
 │
+├── .claude/skills/orient/           # the /orient skill — the session-start ritual (WP-24.G)
 ├── .github/workflows/               # see Operations
 ├── data/
 │   ├── tr_positions.csv             # Trade Republic export (optional, gitignored)
