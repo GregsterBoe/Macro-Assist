@@ -54,6 +54,16 @@ returning Findings; `audit()` runs them all.
                                No threshold, never red — an old item breaks
                                no rule (resolved #23). The hand-written
                                `Last reviewed:` line, computed.
+  adr-revisit        WP-24.F   Every ADR that is not superseded carries a
+                               non-empty `## Would we revisit it?` — part 4
+                               of the page shape, enforced (resolved #24); a
+                               reasoned "No." is an answer. Report-only: a
+                               revisit section citing a todo.md item, WP, KB
+                               entry or Phase whose record heading is younger
+                               than the section — resolved, closed or landed
+                               since it was last edited — is printed as
+                               "cited condition may have fired". Prose
+                               conditions are not read.
 
 The two workflow checks and the liveness check are a pair. 24.A catches a stage
 the repo cannot reach; it cannot see a dispatch-only workflow whose *external*
@@ -70,12 +80,14 @@ report-only is for a number with no threshold). WP-24.A has only red findings;
 the pointer still lands, in the other file. 24.D's is a pinned contradiction:
 still printed, so the pair stays visible while its todo item is open. 24.E
 returns a table (`ages()`), not findings; the runner prints it before them and
-`--now` replays it the same way.
+`--now` replays it the same way. 24.F's report-only is a revisit condition whose
+cited referent closed after the section was last edited — the page has not been
+re-read since; editing it (even to say "and it did not fire") clears the line.
 
 Run:
     python .macro-assist/record_audit.py             # exit 1 on any red finding
     python .macro-assist/record_audit.py --root PATH
-    python .macro-assist/record_audit.py --now 2026-09-08   # artifact and record ages as of a date
+    python .macro-assist/record_audit.py --now 2026-09-08   # artifact and record ages, and ADR conditions, as of a date
 """
 from __future__ import annotations
 
@@ -676,15 +688,14 @@ def _marker_claim(rel: str, text: str, line_start: int, id_end: int, line: str) 
     return _Claim(f"{rel}:{_line_of(text, line_start)}", _MARKER_CLASS[m.group()], _status_text(line, m.start()))
 
 
-def board_claims(root: Path) -> dict[str, list[_Claim]]:
+def board_claims(root: Path, *, rev: str | None = None) -> dict[str, list[_Claim]]:
     """Phase → status claims on the board: every `### …` heading and every
     `- **…**` bullet whose bold span names a Phase, classed by the first
     status marker after the name. A heading or bullet with no marker claims
-    nothing."""
-    path = root / BOARD
-    if not path.is_file():
+    nothing. At `rev` when given (24.F replays), else the working tree."""
+    text = _text_at(root, BOARD.as_posix(), rev)
+    if text is None:
         return {}
-    text = path.read_text(encoding="utf-8")
     rel = BOARD.as_posix()
     out: dict[str, list[_Claim]] = {}
     for m in _BOARD_HEADING_RE.finditer(text):
@@ -702,13 +713,12 @@ def board_claims(root: Path) -> dict[str, list[_Claim]]:
     return out
 
 
-def roadmap_claims(root: Path) -> dict[str, list[_Claim]]:
+def roadmap_claims(root: Path, *, rev: str | None = None) -> dict[str, list[_Claim]]:
     """Phase → status claims in roadmap.md: the phase's `## … (Phase N) …`
     heading and its row in the phase table, each classed by its first marker."""
-    path = root / ROADMAP
-    if not path.is_file():
+    text = _text_at(root, ROADMAP.as_posix(), rev)
+    if text is None:
         return {}
-    text = path.read_text(encoding="utf-8")
     rel = ROADMAP.as_posix()
     out: dict[str, list[_Claim]] = {}
     for m in _ROADMAP_PHASE_HEADING_RE.finditer(text):
@@ -969,17 +979,230 @@ def ages(root: Path, *, now: datetime | None = None) -> list[Age]:
 
 
 # ---------------------------------------------------------------------------
+# WP-24.F — ADR revisit conditions
+# ---------------------------------------------------------------------------
+
+# Part 4 of the page shape (decisions/index.md), enforced rather than
+# introduced (resolved #24): every ADR that is not superseded carries
+# `## Would we revisit it?`, non-empty — presence, the sibling of convention
+# #11's "a page with no costs listed has not been thought through". A
+# reasoned "No." is an answer; a superseded page's replacement is its answer.
+#
+# The became-true half reads only what a machine can. A revisit section that
+# cites a todo.md item, a WP, a KB entry or a Phase whose record heading is
+# *younger* than the section — the item resolved, the WP or phase marked
+# closed, the KB entry landed, all after the section was last edited — is
+# printed as "cited condition may have fired", report-only. The date
+# comparison, per line from `git blame` as in 24.E, is what keeps it quiet:
+# ADR-0009 names [KB-027] as the result it already absorbed, not a condition
+# still pending, and its section is younger than that entry. Prose
+# conditions ("if GitHub's scheduler became reliable") are not read, and a
+# structured condition field was rejected as narrower than the prose.
+
+_REVISIT_HEADING = "## Would we revisit it?"
+_REVISIT_RE = re.compile(r"^## Would we revisit it\?[ \t]*$", re.M)
+_ADR_STATUS_RE = re.compile(r"^\| \*\*Status\*\* \|([^\n]*)", re.M)
+_SUPERSEDED_RE = re.compile(r"\bsuperseded\b", re.I)
+_HEADING_LINE_RE = re.compile(r"^#{2,4} [^\n]*$", re.M)
+# "#7 and #8 in [todo.md](../record/todo.md)" — a bare item number, read as
+# an inbox pointer only in a section that names todo.md
+_BARE_ITEM_RE = re.compile(r"(?<![\w-])#(\d+[a-z]?)\b")
+# "*(family 1 ✅ RESOLVED 2026-09-08 — …)*" on WP-21.E's heading is about
+# family 1; the heading's own marker is the first one outside such an aside
+# (which may itself hold a markdown link's parentheses — the aside ends at
+# the first `)*`)
+_ITALIC_ASIDE_RE = re.compile(r"\*\([^\n]*?\)\*")
+
+
+@dataclass(frozen=True)
+class _Referent:
+    what: str                 # "resolved" / "closed" / "landed"
+    where: str                # "docs/record/resolved.md:165"
+    when: datetime | None     # blame date of that heading line; None when git cannot say
+
+
+class _Dater:
+    """Blame date of a line, per file, blamed once; None where git cannot answer."""
+
+    def __init__(self, root: Path, rev: str | None):
+        self.root, self.rev = root, rev
+        self.ok = _git(root, "rev-parse", "--is-shallow-repository") == "false"
+        self._cache: dict[str, list[tuple[datetime, str]] | None] = {}
+
+    def lines(self, rel: str) -> list[tuple[datetime, str]] | None:
+        if not self.ok:
+            return None
+        if rel not in self._cache:
+            self._cache[rel] = _blame(self.root, rel, self.rev)
+        return self._cache[rel]
+
+    def at(self, rel: str, line: int) -> datetime | None:
+        blame = self.lines(rel)
+        return blame[line - 1][0] if blame and line <= len(blame) else None
+
+    def youngest(self, rel: str, first: int, last: int) -> datetime | None:
+        blame = self.lines(rel)
+        return max(t for t, _ in blame[first - 1:last]) if blame and first <= len(blame) else None
+
+
+def _adr_paths(root: Path, rev: str | None) -> list[str]:
+    if rev is None:
+        return [f"{DECISIONS_DIR.as_posix()}/{name}" for names in _adr_files(root).values() for name in names]
+    listing = _git(root, "ls-tree", "--name-only", rev, "--", f"{DECISIONS_DIR.as_posix()}/") or ""
+    return sorted(p for p in listing.splitlines() if _ADR_FILE_RE.match(Path(p).name))
+
+
+def _revisit_section(text: str) -> tuple[int, int, str] | None:
+    """(heading line, last non-blank line, body) of `## Would we revisit
+    it?`; the section runs to the next `## ` heading or the end of the page."""
+    m = _REVISIT_RE.search(text)
+    if not m:
+        return None
+    nxt = _H2_RE.search(text, m.end())
+    body = text[m.end():nxt.start() if nxt else len(text)]
+    first = _line_of(text, m.start())
+    return first, first + len(body.rstrip().split("\n")) - 1, body
+
+
+def _youngest_referent(what: str, spots: list[tuple[str, int]], dater: _Dater) -> _Referent:
+    dated = [(dater.at(rel, line), rel, line) for rel, line in spots]
+    when, rel, line = max(dated, key=lambda t: (t[0] is not None, t[0] or datetime.min.replace(tzinfo=timezone.utc)))
+    return _Referent(what, f"{rel}:{line}", when)
+
+
+def _closed_referents(root: Path, rev: str | None, dater: _Dater) -> dict[str, _Referent]:
+    """Cited id → the record heading that closes it, dated. Only ids whose
+    referent has closed or landed appear: a resolved item that no longer
+    heads an open one, a WP whose every marked heading in the roadmaps is
+    closed-class, a phase whose every status claim is, a KB entry that
+    exists."""
+    out: dict[str, _Referent] = {}
+
+    todo_text = _text_at(root, TODO.as_posix(), rev) or ""
+    resolved_text = _text_at(root, RESOLVED.as_posix(), rev) or ""
+    todo_open = set(_ITEM_HEADING_RE.findall(todo_text))
+    spots: dict[str, list[tuple[str, int]]] = {}
+    for m in _RESOLVED_HEADING_RE.finditer(resolved_text):
+        spots.setdefault(m.group(1), []).append((RESOLVED.as_posix(), _line_of(resolved_text, m.start())))
+    for n, where in spots.items():
+        if n not in todo_open:
+            out[f"todo.md #{n}"] = _youngest_referent("resolved", where, dater)
+
+    kb_text = _text_at(root, KNOWLEDGE_BASE.as_posix(), rev) or ""
+    for m in _KB_HEADING_RE.finditer(kb_text):
+        out.setdefault(f"KB-{m.group(1)}",
+                       _youngest_referent("landed", [(KNOWLEDGE_BASE.as_posix(), _line_of(kb_text, m.start()))], dater))
+
+    claims: dict[str, list[tuple[str, str, int]]] = {}
+    for rel in ROADMAPS:
+        text = _text_at(root, rel.as_posix(), rev) or ""
+        for h in _HEADING_LINE_RE.finditer(text):
+            line = _ITALIC_ASIDE_RE.sub("", h.group(0))
+            for w in _WP_RE.finditer(line):
+                mk = _MARKER_RE.search(line, w.end())
+                if mk:
+                    claims.setdefault(w.group(1), []).append(
+                        (_MARKER_CLASS[mk.group()], rel.as_posix(), _line_of(text, h.start())))
+    for wp, cs in claims.items():
+        if all(cls == _CLOSED for cls, _, _ in cs):
+            out[f"WP-{wp}"] = _youngest_referent("closed", [(rel, line) for _, rel, line in cs], dater)
+
+    phases: dict[str, list[_Claim]] = {}
+    for src in (board_claims(root, rev=rev), roadmap_claims(root, rev=rev)):
+        for n, cs in src.items():
+            phases.setdefault(n, []).extend(cs)
+    for n, cs in phases.items():
+        if all(c.cls == _CLOSED for c in cs):
+            where = [(c.where.rsplit(":", 1)[0], int(c.where.rsplit(":", 1)[1])) for c in cs]
+            out[f"Phase {n}"] = _youngest_referent("closed", where, dater)
+    return out
+
+
+def _cited(body: str) -> list[str]:
+    """The ids a revisit section cites — KB, WP, Phase, then inbox items — each kind in order of mention, once."""
+    ids: list[str] = []
+    for m in _KB_RE.finditer(body):
+        ids.append(f"KB-{m.group(1)}")
+    for m in _WP_RE.finditer(body):
+        ids.append(f"WP-{m.group(1)}")
+    for m in _PHASE_RE.finditer(body):
+        ids.append(f"Phase {m.group(1)}")
+    if "todo.md" in body:
+        for m in _BARE_ITEM_RE.finditer(body):
+            ids.append(f"todo.md #{m.group(1)}")
+    return list(dict.fromkeys(ids))
+
+
+def check_adr_revisit(root: Path, *, now: datetime | None = None) -> list[Finding]:
+    """Every ADR that is not superseded has a non-empty `## Would we revisit
+    it?` (red); a revisit section citing an id whose record heading is
+    younger than the section — resolved, closed or landed since it was last
+    edited — is printed as "cited condition may have fired" (report-only)."""
+    check = "adr-revisit"
+    out: list[Finding] = []
+    rev = None
+    if now is not None:
+        rev = _git(root, "rev-list", "-1", f"--until={now.isoformat()}", "HEAD")
+        if not rev:
+            return []
+    paths = _adr_paths(root, rev)
+    if not paths:
+        return []
+    dater = _Dater(root, rev)
+    referents: dict[str, _Referent] | None = None
+
+    for rel in paths:
+        text = _text_at(root, rel, rev) or ""
+        status = _ADR_STATUS_RE.search(text)
+        if status and _SUPERSEDED_RE.search(status.group(1)):
+            continue
+        sec = _revisit_section(text)
+        if sec is None:
+            out.append(Finding(check, rel,
+                               f"no `{_REVISIT_HEADING}` section — part 4 of the page shape (decisions/index.md); "
+                               f"a reasoned \"No.\" is an answer, an absent section is not (resolved #24)"))
+            continue
+        first, last, body = sec
+        if not body.strip():
+            out.append(Finding(check, f"{rel}:{first}",
+                               f"`{_REVISIT_HEADING}` is empty — a reasoned \"No.\" is an answer, "
+                               f"an empty section is not (resolved #24)"))
+            continue
+        cited = _cited(body)
+        if not cited:
+            continue
+        if referents is None:
+            referents = _closed_referents(root, rev, dater)
+        edited = dater.youngest(rel, first, last)
+        for cid in cited:
+            ref = referents.get(cid)
+            if ref is None:
+                continue
+            if ref.when is not None and edited is not None:
+                if ref.when <= edited:
+                    continue
+                dates = (f"{ref.when:%Y-%m-%d}, after the section was last edited {edited:%Y-%m-%d}")
+            else:
+                dates = "undated — no git history to say which came first"
+            out.append(Finding(check, f"{rel}:{first}",
+                               f"cites {cid}, {ref.what} ({ref.where}) {dates} — cited condition may have fired",
+                               red=False))
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
 
 CHECKS = (check_workflow_orphans, check_schedule_table, check_artifact_liveness,
-          check_referential_integrity, check_contradictions)
+          check_referential_integrity, check_contradictions, check_adr_revisit)
+_DATED_CHECKS = (check_artifact_liveness, check_adr_revisit)   # the ones `--now` replays
 
 
 def audit(root: Path, *, now: datetime | None = None) -> list[Finding]:
     out: list[Finding] = []
     for check in CHECKS:
-        if check is check_artifact_liveness:
+        if check in _DATED_CHECKS:
             out.extend(check(root, now=now))
         else:
             out.extend(check(root))
@@ -999,7 +1222,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Audit the record layer; exit 1 on a red finding.")
     ap.add_argument("--root", type=Path, default=_repo_root(), help="repo root (default: this checkout)")
     ap.add_argument("--now", type=_parse_now, default=None,
-                    help="read artifact and record ages as of this date/time instead of now (YYYY-MM-DD or ISO 8601, UTC)")
+                    help="read artifact and record ages, and ADR revisit conditions, as of this date/time instead of now (YYYY-MM-DD or ISO 8601, UTC)")
     args = ap.parse_args(argv)
     root = args.root.resolve()
 

@@ -33,6 +33,13 @@ edited, per line from `git blame`, oldest first — a table, never a finding.
 Driven from a synthetic repo with pinned commit dates and an explicit clock;
 the real checkout is asserted for shape only (every open item has a row).
 
+WP-24.F: every ADR that is not superseded carries a non-empty `## Would we
+revisit it?` (red); a revisit section citing a todo.md item, WP, KB entry or
+Phase whose record heading is younger than the section is report-only. Driven
+from a synthetic repo with pinned commit dates; the real checkout is asserted
+clean today and, replayed to 2026-09-12, red on exactly the two pages
+resolved #24 retrofitted or exempted.
+
 All pure unit tests — no network. The liveness and ADR-history tests shell
 out to `git`.
 
@@ -452,7 +459,7 @@ ROADMAP = "# Roadmap\n\n### WP-30.A — open work\n\nSee [KB-002] and ADR-0002.\
 ARCHIVE = "# Archive\n\n1. **WP-29.B — done.** (→ KB-001)\n"
 TODO_MD = "# TODO\n\n### Open decision #3 — a call\n\n### Carried finding #5b — a caveat\n"
 RESOLVED_MD = "# Resolved\n\n### RESOLVED 2026-09-14 — #1 the first\n\n### DONE 2026-08-24 — #2 the second\n"
-ADR = "# ADR-{n:04d} — {title}\n\nSupersedes nothing.\n"
+ADR = "# ADR-{n:04d} — {title}\n\nSupersedes nothing.\n\n## Would we revisit it?\n\nNo.\n"
 
 
 def _doc(repo: Path, rel: str, text: str) -> Path:
@@ -932,3 +939,181 @@ def test_every_open_item_and_live_row_has_an_age():
         assert any(s.startswith(f"todo.md #{n} ") or s == f"todo.md #{n}" for s in subjects), n
     assert any(s.startswith("board: Phase 22") for s in subjects)
     assert [a.days for a in table] == sorted((a.days for a in table), reverse=True)
+
+
+# ---------------------------------------------------------------------------
+# WP-24.F — ADR revisit conditions
+# ---------------------------------------------------------------------------
+
+REVISIT_TODO = "# TODO\n\n### Open decision #3 — a call\n\nbody\n"
+REVISIT_RESOLVED = "# Resolved\n\n### RESOLVED 2026-08-01 — #1 the first\n\ntext\n"
+REVISIT_KB = "# KB\n\n## KB-001 — first\n\ntext\n"
+REVISIT_ROADMAP = """# Roadmap
+
+## Something (Phase 32) 🟢 OPEN
+
+| # | Phase | Status |
+|---|---|---|
+| 32 | Something | 🟢 Open |
+
+### WP-30.A — open work 🟡 IN PROGRESS
+
+### WP-29.B — done ✅ *(2026-08-01)*
+
+### WP-28.C — partial *(family 1 ✅ RESOLVED — see [ADR-0002](../decisions/ADR-0002-b.md); two remain)*
+"""
+REVISIT_BOARD = "# Board\n\n## Active\n\n### Phase 32 — Something 🟢 LIVE\n- **Where:** here.\n"
+ADR_PAGE = """# ADR-{n:04d} — {title}
+
+| | |
+|---|---|
+| **Status** | {status} |
+
+## Context
+
+text
+
+## Decision
+
+text
+{revisit}"""
+REVISIT_NO = "\n## Would we revisit it?\n\nNo. The reason is here.\n"
+REVISIT_CITES = """
+## Would we revisit it?
+
+Only through WP-30.A, or if [KB-002] lands, or once Phase 32 closes. WP-29.B
+and [KB-001] are the results this already rests on; WP-28.C is partial. See
+open decisions #1 and #3 in [todo.md](../record/todo.md).
+"""
+
+
+def _adr(root: Path, n: int, title: str, *, status: str = "Accepted", revisit: str = REVISIT_NO,
+         date: datetime, msg: str = "adr") -> None:
+    _commit_text(root, f"docs/decisions/ADR-{n:04d}-{title}.md",
+                 ADR_PAGE.format(n=n, title=title, status=status, revisit=revisit), date, msg)
+
+
+@pytest.fixture
+def revisit(repo: Path) -> Path:
+    """The record written 20 days before T0 — #1 resolved, #3 open, KB-001,
+    WP-29.B done, WP-30.A open, WP-28.C partial, Phase 32 open — and three
+    ADRs 10 days before it: one says "No.", one cites all of the above, one
+    is superseded and has no section. Clean by construction."""
+    t = T0 - timedelta(days=20)
+    for rel, text in (("docs/record/todo.md", REVISIT_TODO), ("docs/record/resolved.md", REVISIT_RESOLVED),
+                      ("docs/record/knowledge-base.md", REVISIT_KB), ("docs/record/roadmap.md", REVISIT_ROADMAP),
+                      ("docs/record/active-experiments.md", REVISIT_BOARD)):
+        _commit_text(repo, rel, text, t, "record")
+    t = T0 - timedelta(days=10)
+    _adr(repo, 1, "a", date=t)
+    _adr(repo, 2, "b", revisit=REVISIT_CITES, date=t)
+    _adr(repo, 3, "c", status="**Superseded** by ADR-0002", revisit="", date=t)
+    return repo
+
+
+def _rv(repo: Path, now: datetime | None = None) -> list[ra.Finding]:
+    return ra.check_adr_revisit(repo, now=now)
+
+
+def _cited_in(findings: list[ra.Finding]) -> set[str]:
+    return {f.message.split("cites ", 1)[1].split(",", 1)[0] for f in findings if not f.red}
+
+
+def _close_everything(repo: Path, date: datetime) -> None:
+    """#3 resolved, KB-002 landed, WP-30.A shipped, Phase 32 closed — at `date`."""
+    _commit_text(repo, "docs/record/todo.md", "# TODO\n\nnothing open\n", date, "close 3")
+    _commit_text(repo, "docs/record/resolved.md",
+                 REVISIT_RESOLVED + "\n### RESOLVED 2026-09-01 — #3 the call\n\ntext\n", date, "close 3")
+    _commit_text(repo, "docs/record/knowledge-base.md", REVISIT_KB + "\n## KB-002 — second\n\ntext\n", date, "kb 2")
+    _commit_text(repo, "docs/record/roadmap.md",
+                 REVISIT_ROADMAP.replace("WP-30.A — open work 🟡 IN PROGRESS", "WP-30.A — open work ✅ SHIPPED")
+                 .replace("(Phase 32) 🟢 OPEN", "(Phase 32) ✅ CLOSED").replace("| 🟢 Open |", "| ✅ Closed |"),
+                 date, "close 32")
+    _commit_text(repo, "docs/record/active-experiments.md",
+                 REVISIT_BOARD.replace("## Active", "## Recently closed").replace("🟢 LIVE", "✅ CLOSED"),
+                 date, "close 32")
+
+
+def test_a_consistent_record_has_no_revisit_findings(revisit):
+    assert _rv(revisit) == []
+
+
+def test_a_missing_or_empty_section_is_red_and_a_superseded_page_is_exempt(revisit):
+    _adr(revisit, 1, "a", revisit="", date=T0 - timedelta(days=1))
+    (red,) = _reds(_rv(revisit))
+    assert red.startswith("docs/decisions/ADR-0001-a.md: no `## Would we revisit it?` section")
+    assert "part 4 of the page shape" in red and "resolved #24" in red
+    _adr(revisit, 1, "a", revisit="\n## Would we revisit it?\n\n\n", date=T0 - timedelta(days=1))
+    (red,) = _reds(_rv(revisit))
+    assert red.startswith("docs/decisions/ADR-0001-a.md:15: `## Would we revisit it?` is empty")
+    # ADR-0003 has no section and is superseded — nothing, in either state
+    assert not [f for f in _rv(revisit) if "ADR-0003" in f.subject]
+
+
+def test_a_referent_that_closed_after_the_section_was_edited_is_report_only(revisit):
+    _close_everything(revisit, T0 - timedelta(days=5))
+    findings = _rv(revisit)
+    assert _reds(findings) == []
+    assert _cited_in(findings) == {"todo.md #3", "KB-002", "WP-30.A", "Phase 32"}
+    by = {f.message.split("cites ", 1)[1].split(",", 1)[0]: f for f in findings}
+    assert all(f.subject == "docs/decisions/ADR-0002-b.md:15" for f in findings)
+    assert by["todo.md #3"].message == (
+        "cites todo.md #3, resolved (docs/record/resolved.md:7) 2026-08-26, after the section was "
+        "last edited 2026-08-21 — cited condition may have fired")
+    assert "landed (docs/record/knowledge-base.md:7)" in by["KB-002"].message
+    assert "closed (docs/record/roadmap.md:9)" in by["WP-30.A"].message
+    assert "closed (docs/record/active-experiments.md:5)" in by["Phase 32"].message
+    # WP-29.B, KB-001 and #1 closed before the section was written: the page
+    # already knows; WP-28.C's ✅ is inside an aside about family 1, so the WP
+    # is not read as closed at all
+    refs = ra._closed_referents(revisit, None, ra._Dater(revisit, None))
+    assert "WP-29.B" in refs and "WP-28.C" not in refs and "todo.md #1" in refs
+
+
+def test_editing_the_section_clears_the_note_and_now_replays_it(revisit):
+    _close_everything(revisit, T0 - timedelta(days=5))
+    assert len(_rv(revisit)) == 4
+    _adr(revisit, 2, "b", revisit=REVISIT_CITES.replace("Only through", "Still only through"),
+         date=T0 - timedelta(days=1), msg="re-read")
+    assert _rv(revisit) == []
+    assert _cited_in(_rv(revisit, now=T0 - timedelta(days=3))) == {"todo.md #3", "KB-002", "WP-30.A", "Phase 32"}
+    assert _rv(revisit, now=T0 - timedelta(days=7)) == []          # before anything closed
+    assert _rv(revisit, now=T0 - timedelta(days=25)) == []         # before the ADRs existed
+
+
+def test_a_bare_item_number_is_an_inbox_pointer_only_where_todo_md_is_named(revisit):
+    _close_everything(revisit, T0 - timedelta(days=5))
+    _adr(revisit, 2, "b", revisit="\n## Would we revisit it?\n\nSee #3 and PR #1.\n", date=T0 - timedelta(days=8))
+    assert _rv(revisit) == []
+    _adr(revisit, 2, "b", revisit="\n## Would we revisit it?\n\nSee #3 in `todo.md`.\n", date=T0 - timedelta(days=8))
+    assert _cited_in(_rv(revisit)) == {"todo.md #3"}
+
+
+def test_without_git_history_the_citation_is_undated_and_presence_still_holds(tmp_path):
+    _doc(tmp_path, "docs/record/todo.md", "# TODO\n")
+    _doc(tmp_path, "docs/record/resolved.md", REVISIT_RESOLVED)
+    _doc(tmp_path, "docs/decisions/ADR-0001-a.md",
+         ADR_PAGE.format(n=1, title="a", status="Accepted",
+                         revisit="\n## Would we revisit it?\n\nIf `todo.md` #1 ever closes.\n"))
+    _doc(tmp_path, "docs/decisions/ADR-0002-b.md", ADR_PAGE.format(n=2, title="b", status="Accepted", revisit=""))
+    findings = ra.check_adr_revisit(tmp_path)
+    assert _reds(findings) == ["docs/decisions/ADR-0002-b.md: no `## Would we revisit it?` section — part 4 of the "
+                               "page shape (decisions/index.md); a reasoned \"No.\" is an answer, an absent section "
+                               "is not (resolved #24)"]
+    (note,) = [f for f in findings if not f.red]
+    assert "cites todo.md #1, resolved (docs/record/resolved.md:3) undated" in note.message
+
+
+def test_every_adr_carries_the_section_or_is_superseded():
+    """On the real checkout: clean today; replayed to 2026-09-12, red on
+    exactly the two pages resolved #24 dealt with — ADR-0015 (retrofitted
+    09-14) and ADR-0017 (superseded 09-13)."""
+    assert _reds(ra.check_adr_revisit(_REPO)) == []
+    pages = [p for p in (_REPO / ra.DECISIONS_DIR).iterdir() if ra._ADR_FILE_RE.match(p.name)]
+    superseded = {p.name for p in pages
+                  if ra._SUPERSEDED_RE.search(ra._ADR_STATUS_RE.search(p.read_text()).group(1))}
+    assert superseded == {"ADR-0017-bss-floor-left-open.md"}
+    assert all(ra._revisit_section(p.read_text()) for p in pages if p.name not in superseded)
+    then = ra.check_adr_revisit(_REPO, now=datetime(2026, 9, 12, tzinfo=timezone.utc))
+    assert sorted(f.subject for f in then if f.red) == [
+        "docs/decisions/ADR-0015-soft-kill-convention.md", "docs/decisions/ADR-0017-bss-floor-left-open.md"]

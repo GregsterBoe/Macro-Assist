@@ -10,9 +10,12 @@ name: Record Audit
 # branch, both of which fetch-depth: 0 brings in; every KB / ADR / WP id and
 # todo/resolved pointer cited under docs/ resolves and ADR numbering is
 # contiguous and never deleted; and every phase's status is one class across
-# the board, the roadmap and CLAUDE.md's Current-state table. It also prints,
-# report-only, the days since each open todo.md item and each board row was
-# last edited, oldest first.
+# the board, the roadmap and CLAUDE.md's Current-state table; and every ADR
+# that is not superseded carries a non-empty "Would we revisit it?" section.
+# It also prints, report-only, the days since each open todo.md item and each
+# board row was last edited, oldest first, and any ADR revisit section whose
+# cited todo item / WP / KB entry / phase closed after the section was last
+# edited.
 #
 # The same checks run in the test suite (test_record_audit.py asserts this
 # checkout is clean); this workflow is the copy that runs on every push and
@@ -41,8 +44,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # WP-24.B and 24.E read ages from git history, not mtimes, on
-          # origin/main and origin/output; WP-24.C reads ADR deletions
+          # WP-24.B, 24.E and 24.F read dates from git history, not mtimes,
+          # on origin/main and origin/output; WP-24.C reads ADR deletions
           # from HEAD's history. The audit refuses a shallow clone outright
           # — every age would be the clone boundary's.
           fetch-depth: 0

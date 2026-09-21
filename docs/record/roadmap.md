@@ -71,7 +71,7 @@ Measured results live in `knowledge-base.md`.
 | 21 | Directional product validation → **the cut (v1.6)** | ✅ Closed 2026-09-04 — [KB-024]. WP-21.E bounded search: family 1 (VIX term structure) resolved **negative** 2026-09-08 → [KB-027]; 2 of 3 families remain, bar for them written 2026-09-13 ([ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md)) |
 | 22 | Scoring the distribution product | 🟢 Open 2026-09-08 — the scorer follows the v1.6 cut. A/B shipped; the bar is sealed, first read ~2027-05 |
 | 23 | Exploration tier — the generation side of the method | 🔍 Open 2026-09-13 — harness built, two explore looks run 2026-09-14; seal decided (`SEAL_START` reused); next is the owner's rewrites, then the WP-23.B class bar |
-| 24 | Record integrity & session continuity | 🟡 In progress 2026-09-14 — `record_audit.py` in CI: 24.A/B (workflow orphans, artifact liveness) since 2026-09-14, 24.C/D/E (referential integrity, contradictions, ages) since 2026-09-21; next 24.F revisit conditions. This row said ⏸ Draft for a week after the board went Active — 24.D's first red |
+| 24 | Record integrity & session continuity | 🟡 In progress 2026-09-14 — `record_audit.py` in CI: 24.A/B (workflow orphans, artifact liveness) since 2026-09-14, 24.C–F (referential integrity, contradictions, ages, ADR revisit conditions) since 2026-09-21; next 24.G `/orient`. This row said ⏸ Draft for a week after the board went Active — 24.D's first red |
 
 The v1.5 **system-state snapshot** that used to open this file was archived on the
 same pass; `README.md` is the maintained system reference.
@@ -775,7 +775,7 @@ Result → KB, either way.
 
 ---
 
-## Record Integrity & Session Continuity (Phase 24) — *make the record layer executable* 🟡 IN PROGRESS — WP-24.A–E running in CI (24.A/B since 2026-09-14, 24.C/D/E since 2026-09-21)
+## Record Integrity & Session Continuity (Phase 24) — *make the record layer executable* 🟡 IN PROGRESS — WP-24.A–F running in CI (24.A/B since 2026-09-14, 24.C–F since 2026-09-21)
 
 **Why it exists.** Everywhere a claim could be inflated, this project built a
 mechanism rather than a request: `verdict(sealed=False)` *cannot* return a pass,
@@ -813,9 +813,9 @@ work packages are engineering; the two that change a *convention* (24.D's
 precedence handling, 24.F's ADR page shape) were owner decisions, logged as
 `todo.md` #23 and #24 and **decided the same day** →
 [`resolved.md`](resolved.md): a contradiction is red with a pin; the revisit
-section is enforced, not introduced. 24.D and 24.E shipped as decided; 24.F is specified and shippable.
+section is enforced, not introduced. 24.D, 24.E and 24.F shipped as decided; 24.G remains.
 
-**Order.** 24.A is the first step and stands alone; 24.B shipped the same day, 24.C–E a week later. The draft claimed it was
+**Order.** 24.A is the first step and stands alone; 24.B shipped the same day, 24.C–F a week later. The draft claimed it was
 the check that would have caught the frozen refit on day one; building it showed
 that is false, and the correction is recorded under 24.A — the refit's in-repo
 declaration was fine, the *external service* was rebuilt without its call, and
@@ -966,7 +966,7 @@ pass closed the first two by hand. Nothing predates the consolidation, by
 construction. Documented in
 [Operations › The ages, computed](../reference/operations.md#the-ages-computed).
 
-### WP-24.F — ADR revisit conditions *(enforce the existing page shape)*
+### WP-24.F — ADR revisit conditions ✅ SHIPPED 2026-09-21 *(enforce the existing page shape)*
 
 Every ADR answers **"Would we revisit it?"** with a *condition* rather than a
 date — [ADR-0009](../decisions/ADR-0009-cut-the-directional-product.md) names
@@ -980,16 +980,36 @@ ADR-0021), done the same day and marked as written after the fact; ADR-0017 is
 superseded and exempt. A reasoned **"No."** is a valid answer — four pages give
 one. Decided as `resolved.md` #24.
 
-What the audit does, in two halves: **(a)** every non-superseded ADR has the
-section, non-empty — presence, the sibling of `CLAUDE.md` #11's *"a page with
-no costs listed has not been thought through"*; **(b)** a revisit section that
-cites a `todo.md` item, WP or KB id whose referent has since closed or landed
-(ADR-0016 → #7/#8, ADR-0009 → WP-21.E, ADR-0020 → Phase 22's sealed read) is
-printed as *"cited condition may have fired"* — report-only, and the answer to
-a rule written in good faith that later holds progress back. Prose conditions
+`check_adr_revisit`, in two halves. **(a)** Every ADR whose Status row does not
+say *Superseded* has the section, non-empty — **red**; presence, the sibling of
+`CLAUDE.md` #11's *"a page with no costs listed has not been thought through"*.
+**(b)** A revisit section that cites a `todo.md` item (a bare `#N` in a section
+naming `todo.md`), a WP, a KB entry or a Phase whose record heading is
+**younger than the section** — the item resolved, the WP's every marked
+roadmap heading closed-class, the phase's every status claim closed-class, the
+entry landed, all after the section's youngest line — is printed as *"cited
+condition may have fired"*, **report-only**. The dates are per line from
+`git blame`, as in 24.E, and the comparison is the point: ADR-0009 cites
+[KB-027] as the result it already absorbed, its section is younger than the
+entry, and nothing prints; editing the section clears the line. A marker
+inside an italic `*( … )*` aside is the aside's, not the heading's — WP-21.E's
+heading says ✅ for family 1 without closing the package. Prose conditions
 ("if GitHub's scheduler became reliable") are not read by a machine and the
 audit does not pretend to; a structured condition field was rejected as
-narrower than the prose it would replace.
+narrower than the prose it would replace. `--now` replays: pages, record and
+blame all read at that date.
+
+**Seven tests** on a synthetic repo with pinned dates — missing / empty
+section red and a superseded page exempt, four kinds of referent closing after
+the section and none before it, editing the section clearing the note and
+`--now` restoring it, a bare `#N` only an inbox pointer where `todo.md` is
+named, no git history reads as undated — and on the real tree: clean today,
+and replayed to 2026-09-12 red on exactly ADR-0015 and ADR-0017, the two pages
+`resolved.md` #24 dealt with. **What the first run showed:** nothing to print —
+20 pages carry the section, ADR-0017 is exempt, and no cited referent has moved
+since its section was last edited (ADR-0016 → #7/#8 both open; ADR-0020 →
+Phase 22 open; ADR-0015 → Phase 19 dormant). The rule is in
+[Operations](../reference/operations.md#a-decision-whose-condition-may-have-come-true).
 
 ### WP-24.G — `/orient`, the session-start ritual
 

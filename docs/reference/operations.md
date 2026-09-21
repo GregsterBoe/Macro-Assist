@@ -168,14 +168,15 @@ the docs and the git history and exits non-zero on a red finding; it writes
 nothing. What it checks is listed in the script's header and grows with Phase
 24; today it is the workflow-orphan rule [above](#everything-rides-one-call)
 the [artifact-liveness rule](#a-reachable-stage-that-produces-nothing), the
-[referential-integrity rule](#the-identifiers-that-are-not-links) and the
-[contradiction rule](#a-claim-the-repo-makes-twice-differently) below, plus
-the [ages table](#the-ages-computed), which is printed and never fails.
+[referential-integrity rule](#the-identifiers-that-are-not-links), the
+[contradiction rule](#a-claim-the-repo-makes-twice-differently) and the
+[ADR revisit rule](#a-decision-whose-condition-may-have-come-true) below,
+plus the [ages table](#the-ages-computed), which is printed and never fails.
 It is the only CI job that runs any of the test suite — the pipeline
 stages do not, and `docs.yml` only renders. It checks out with
-`fetch-depth: 0` because the liveness rule and the ages table read commit
-dates and the ADR rule reads deletions; on a shallow clone the audit refuses
-rather than passing vacuously.
+`fetch-depth: 0` because the liveness rule, the ages table and the revisit
+rule read commit dates and the ADR numbering rule reads deletions; on a
+shallow clone the audit refuses rather than passing vacuously.
 
 **Publishing requires Pages to be switched on once**, by a repo admin, in one of
 two ways. *Done on this repo 2026-09-12* — the recipes below are kept for a fresh
@@ -383,8 +384,10 @@ first one due: it keeps landing after the directional scorer's closure banner
 is ever retired, retire the entry with it.
 
 `python .macro-assist/record_audit.py --now 2026-09-08` reads ages — the
-artifacts' and the [record's](#the-ages-computed) — as of a date, seeing only
-commits up to it, so a past week can be replayed honestly.
+artifacts' and the [record's](#the-ages-computed) — and the
+[ADR revisit conditions](#a-decision-whose-condition-may-have-come-true) as
+of a date, seeing only commits up to it, so a past week can be replayed
+honestly.
 
 ### The identifiers that are not links
 
@@ -485,6 +488,49 @@ the file existed at its current path it is empty.
 Replayed to 2026-09-13, the table led with the carried `#7`, `#4` and `#5` at
 19 days, and the 2026-09-14 pass closed the first two by hand; they had led
 it since the inbox was split out. `/orient` (WP-24.G) prints it at turn 1.
+
+### A decision whose condition may have come true
+
+Every ADR ends with **"Would we revisit it?"** — part 4 of the page shape in
+[`decisions/index.md`](../decisions/index.md#adding-a-decision), a *condition*
+rather than a date. `check_adr_revisit` (WP-24.F) enforces the section it
+already had (`resolved.md` #24) and watches the part of it a machine can read:
+
+| | What is read | Finding |
+|---|---|---|
+| **Presence** | every ADR whose **Status** row does not say *Superseded* has a `## Would we revisit it?` heading with text under it | **red** — the sibling of convention #11's *"a page with no costs listed has not been thought through"*. A reasoned **"No."** is an answer; an empty section is not. A superseded page is exempt: its replacement is its answer |
+| **Cited condition** | every `[KB-###]`, `WP-##.x` and `Phase N` the section names, and every bare `#N` in a section that names `todo.md` | **report-only** — *"cited condition may have fired"* when the referent has closed or landed **after the section was last edited** |
+
+A referent has closed when: the item heads a `RESOLVED` entry in
+`resolved.md` and no open one in `todo.md`; every heading in the two roadmaps
+that names the WP carries a closed-class marker (✅ ❌ — the classes are the
+[contradiction rule's](#a-claim-the-repo-makes-twice-differently), and a
+marker inside an italic `*( … )*` aside is about the aside, which is how
+`WP-21.E`'s heading says ✅ for family 1 without closing the package); every
+status claim for the phase on the board and in the roadmap is closed-class; or
+the KB entry exists. The dates are per line from `git blame`, as in the
+[ages table](#the-ages-computed): the referent's heading line against the
+section's youngest line. **That comparison is what keeps the check quiet.**
+[ADR-0009](../decisions/ADR-0009-cut-the-directional-product.md) names
+`[KB-027]` as the result it already absorbed, not a condition still pending —
+its section is younger than the entry, and nothing prints. Editing the section
+clears the line, even to say *"and it did not fire"*: the point is that the
+page has been re-read since the thing it hangs on moved.
+
+What is not read: prose. *"If GitHub's scheduler became reliable"*
+([ADR-0012](../decisions/ADR-0012-external-cron-with-backstop.md)) is a
+condition no machine evaluates, and the audit does not pretend to; a
+structured condition field was rejected as narrower than the prose it would
+replace (`resolved.md` #24). A cited id is also only a *proxy* for the
+condition — ADR-0015 names Phase 19's design doc for its hard-kill procedure,
+and Phase 19 closing would print a line the page then answers in a sentence.
+
+**Found on the first run**, 2026-09-21: nothing — 20 pages carry the section,
+ADR-0017 is superseded, and no cited referent has moved since its section was
+last edited. Replayed to 2026-09-12 the check is red on exactly the two pages
+`resolved.md` #24 dealt with, ADR-0015 (retrofitted 09-14) and ADR-0017
+(superseded 09-13); the test suite asserts that replay. `--now` reads the
+pages, the record and the blame at that date.
 
 ### The backstop
 

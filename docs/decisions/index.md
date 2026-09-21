@@ -87,10 +87,15 @@ Copy the shape of any existing page. The parts that matter:
 3. **Consequences** — including the costs. A page with no costs listed has not
    been thought through.
 4. **Would we revisit it?** — the conditions under which this should be reopened.
-   Required on every page that is not superseded (`resolved.md` #24, and
-   checked by `record_audit.py` once WP-24.F lands). A reasoned **"No."** is a
-   valid answer; an empty section is not. Prefer a condition to a date, and
-   cite the todo item, WP or KB entry it hangs on where one exists — that is
-   the part a machine can watch.
+   Required on every page that is not superseded (`resolved.md` #24); since
+   2026-09-21 `record_audit.py` fails CI on a page without it (WP-24.F). A
+   reasoned **"No."** is a valid answer; an empty section is not. Prefer a
+   condition to a date, and cite the todo item, WP, KB entry or phase it
+   hangs on where one exists — that is the part a machine can watch: when
+   the cited referent closes or lands after the section was last edited, the
+   audit prints *"cited condition may have fired"*, and re-reading the page
+   (and editing it, even to say the condition did not fire) clears the line.
+   How it reads the page is in
+   [Operations](../reference/operations.md#a-decision-whose-condition-may-have-come-true).
 
 Number sequentially. Never renumber. Never delete — supersede, and link both ways.
