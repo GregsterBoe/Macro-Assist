@@ -138,22 +138,113 @@ def _compute_net_liquidity(raw_series: dict) -> dict | None:
 _FRED_RATE_LIMIT_KEYWORDS = ("too many requests", "rate limit", "429")
 _FRED_INTER_REQUEST_DELAY = 0.6    # seconds between FRED calls — 16 series = ~10s, safely under 120/min
 
+# Messages FRED returns for a request that will never succeed however often it
+# is repeated: an unknown series id, an unregistered key, a malformed argument.
+# Consulted only when no HTTP status code survived (see `_fred_status_code`).
+_FRED_PERMANENT_KEYWORDS = ("does not exist", "api_key", "is not a valid",
+                            "not registered")
+
+# The 4xx codes that describe the moment rather than the request, so repeating
+# it unchanged can succeed: 408 request timeout, 429 too many requests.
+_FRED_TRANSIENT_CLIENT_CODES = frozenset({408, 429})
+
+
+def _fred_status_code(exc: BaseException) -> int | None:
+    """The HTTP status behind a failed FRED call, if it can still be recovered.
+
+    `fredapi` catches `HTTPError` and re-raises `ValueError(root.get('message'))`,
+    which throws the status code away. Raising inside an `except` block sets
+    `__context__` to the original error, so the `HTTPError` — and its `.code` —
+    is usually still reachable one link down the chain.
+    """
+    seen = 0
+    cur: BaseException | None = exc
+    while cur is not None and seen < 5:      # bounded: chains can be cyclic
+        code = getattr(cur, "code", None)
+        if isinstance(code, int):
+            return code
+        cur = cur.__cause__ or cur.__context__
+        seen += 1
+    return None
+
+
+def _describe_fred_error(exc: BaseException) -> str:
+    """A one-line description of a failed FRED call that can be acted on.
+
+    The 2026-09-22 06:00 run logged `series FEDFUNDS (fed_funds_rate)
+    unavailable: None` and aborted the day's pipeline. The text was literally
+    "None" because FRED's error body carried no `message` attribute and
+    `fredapi` re-raises `ValueError(root.get('message'))` — so the log named
+    neither the status code nor the failure. Recover the code where it survives
+    and always name the exception type, so the next failure is diagnosable from
+    the log alone.
+    """
+    detail = f"{type(exc).__name__}: {exc}"
+    code = _fred_status_code(exc)
+    return f"HTTP {code} — {detail}" if code is not None else detail
+
+
+def _fred_error_is_permanent(exc: BaseException) -> bool:
+    """Would repeating this exact request fail in exactly the same way?
+
+    The default is False. A needless retry costs seconds; a wrong "permanent"
+    verdict on a critical series costs the day's note (2026-09-22).
+    """
+    code = _fred_status_code(exc)
+    if code is not None:
+        # Every 4xx is a request FRED will reject identically on attempt two —
+        # except the two that describe the *moment* rather than the request:
+        # 408 (the request timed out) and 429 (too many, too fast). 5xx and
+        # anything else is the server having a bad minute.
+        return 400 <= code < 500 and code not in _FRED_TRANSIENT_CLIENT_CODES
+    return any(kw in str(exc).lower() for kw in _FRED_PERMANENT_KEYWORDS)
+
 
 def _fred_get_with_retry(fred: Fred, series_id: str, observation_start: str,
                          max_retries: int = 3) -> pd.Series:
-    """Fetch a FRED series; retries with exponential backoff on rate-limit errors."""
+    """Fetch a FRED series, retrying anything that is not definitively permanent.
+
+    This predicate used to be the other way round: it retried only when the
+    error *text* matched a rate-limit keyword, and re-raised everything else on
+    the first attempt. Two failures follow from that, and on the 2026-09-22
+    06:00 UTC run (Actions run 35692953937) both fired at once:
+
+    * a transient 5xx or dropped connection — the common FRED failure, and what
+      happened that morning — got no retry at all; and
+    * the text it matched on is frequently `None` (see `_describe_fred_error`),
+      so even a genuine 429 was caught only by luck.
+
+    `fed_funds_rate` is on `_CRITICAL_FRED`, so the pipeline aborted and no note
+    was published, over a *monthly* series whose value could not have changed
+    that day. The rule is now opt-out: retry unless the error is known to be
+    permanent, and let the caller's own error handling deal with the rest.
+
+    This is the policy `trigger_pipeline.sh` already applies to the dispatch
+    call it makes — retry transport failures, 429 and 5xx; never retry auth or
+    not-found.
+    """
     for attempt in range(max_retries + 1):
         try:
             return fred.get_series(series_id, observation_start=observation_start).dropna()
         except Exception as exc:
-            is_rate_limit = any(kw in str(exc).lower() for kw in _FRED_RATE_LIMIT_KEYWORDS)
-            if is_rate_limit and attempt < max_retries:
-                wait = 10 * (2 ** attempt)   # 10s → 20s → 40s
-                _log("FRED", "WARN",
-                     f"{series_id} rate-limited — waiting {wait}s (attempt {attempt + 1}/{max_retries})")
-                time.sleep(wait)
-                continue
-            raise
+            if _fred_error_is_permanent(exc) or attempt >= max_retries:
+                raise
+            # A rate limit needs the window to actually roll over; a 5xx
+            # usually clears in seconds. Waiting 70s per series on a FRED-wide
+            # wobble would delay the note by ~20 minutes across 17 series.
+            code = _fred_status_code(exc)
+            rate_limited = code == 429 or (
+                code is None
+                and any(kw in str(exc).lower() for kw in _FRED_RATE_LIMIT_KEYWORDS)
+            )
+            wait = (10 * (2 ** attempt)) if rate_limited else (2 * (2 ** attempt))
+            _log("FRED", "WARN",
+                 f"{series_id} {'rate-limited' if rate_limited else 'transient failure'} "
+                 f"({_describe_fred_error(exc)}) — waiting {wait}s "
+                 f"(attempt {attempt + 1}/{max_retries})")
+            time.sleep(wait)
+    # Unreachable: the loop either returns or raises on its final attempt.
+    raise AssertionError(f"retry loop fell through for {series_id}")
 
 
 def _mean_window(series: pd.Series) -> dict:
@@ -190,7 +281,7 @@ def fetch_quant_inputs(fred: Fred) -> dict:
             series = _fred_get_with_retry(fred, series_id, observation_start)
             time.sleep(_FRED_INTER_REQUEST_DELAY)
         except Exception as e:
-            _log("FRED", "WARN", f"quant input {series_id} ({name}) unavailable: {e}")
+            _log("FRED", "WARN", f"quant input {series_id} ({name}) unavailable: {_describe_fred_error(e)}")
             continue
         latest      = series.iloc[-1]
         prev        = series.iloc[-2] if len(series) > 1 else latest
@@ -222,7 +313,7 @@ def fetch_fred_data(fred: Fred) -> dict:
             series = _fred_get_with_retry(fred, series_id, observation_start)
             time.sleep(_FRED_INTER_REQUEST_DELAY)
         except Exception as e:
-            _log("FRED", "WARN", f"series {series_id} ({name}) unavailable: {e}")
+            _log("FRED", "WARN", f"series {series_id} ({name}) unavailable: {_describe_fred_error(e)}")
             _failed.append(name)
             continue
         latest = series.iloc[-1]

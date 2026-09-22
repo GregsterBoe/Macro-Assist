@@ -22,6 +22,23 @@
 #   ./trigger_pipeline.sh --input asof=2026-08-31 --input force=true
 #   ./trigger_pipeline.sh --dry-run                          # print the request, send nothing
 #
+# THE RUN'S DATE
+# This script sends `asof` explicitly, resolved once from the UTC clock at the
+# moment it starts. Without it, `plan` has to guess which day a run belongs to,
+# and it guesses from a cutoff: a run landing before 06:00 UTC is treated as the
+# *previous* day's slot, delivered late. Every observed primary call has landed
+# at 06:00:31-06:00:41 UTC, which leaves that guess about 31 seconds of margin —
+# and on the wrong side of it the run silently writes to yesterday's date, finds
+# yesterday's note already there, no-ops, and leaves today with no note at all
+# and every check green. A caller that knows what day it is should say so, which
+# is what `plan`'s header has always invited it to do.
+#
+# Pass `--input asof=YYYY-MM-DD` to override — an explicit date always wins, so
+# a late catch-up for a previous day still works. `--no-asof` restores the old
+# behaviour and lets `plan` guess. Only `pipeline.yml` is given a date: it is
+# the only workflow that guesses one, and most of the rest do not declare an
+# `asof` input (GitHub 422s a dispatch carrying an undeclared input).
+#
 # Environment:
 #   MACRO_ASSIST_TOKEN  (or GH_TOKEN)   required — fine-grained PAT for this repo
 #                                       with Actions: read and write.
@@ -39,6 +56,7 @@ WORKFLOW="pipeline.yml"
 REF="main"
 SOURCE="cron"
 DRY_RUN=0
+PIN_ASOF=1
 INPUTS=()
 
 # Print the header comment block above as the help text (stops at the first
@@ -52,6 +70,7 @@ while [ $# -gt 0 ]; do
     --source)   SOURCE="${2:?--source needs a value}";     shift 2 ;;
     --input)    INPUTS+=("${2:?--input needs key=value}"); shift 2 ;;
     --dry-run)  DRY_RUN=1; shift ;;
+    --no-asof)  PIN_ASOF=0; shift ;;
     -h|--help)  usage; exit 0 ;;
     *) echo "error: unknown argument '$1' (try --help)" >&2; exit 2 ;;
   esac
@@ -68,6 +87,22 @@ fi
 json_escape() {
   printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\t/\\t/g' | tr -d '\n\r'
 }
+
+# Resolve the date once, here, from the same clock the caller is scheduled on.
+# Done before the retry loop below on purpose: a dispatch retried across UTC
+# midnight must still carry the date the run was *asked* for.
+#
+# Only `pipeline.yml` — it is the only workflow that *guesses* the date (its
+# `plan` job), and it is the only one on the cron path. Most of the others do
+# not declare an `asof` input at all, and GitHub rejects the whole dispatch
+# with a 422 for an input the workflow does not declare, so sending it
+# unconditionally would break `--workflow macro_weekly_refit.yml`.
+for kv in ${INPUTS+"${INPUTS[@]}"}; do
+  case "$kv" in asof=*) PIN_ASOF=0 ;; esac
+done
+if [ "$PIN_ASOF" -eq 1 ] && [ "$WORKFLOW" = "pipeline.yml" ]; then
+  INPUTS+=("asof=$(date -u +%Y-%m-%d)")
+fi
 
 BODY="{\"ref\":\"$(json_escape "$REF")\",\"inputs\":{\"source\":\"$(json_escape "$SOURCE")\""
 for kv in ${INPUTS+"${INPUTS[@]}"}; do
