@@ -629,6 +629,18 @@ rate limits with backoff, and explains the auth errors it will not retry:
 47 10 * * 1-5  /path/to/Macro-Assist/trigger_pipeline.sh --source cron-catchup
 ```
 
+`trigger_pipeline.sh` also **sends the run's date explicitly** (`asof`, resolved
+once from the UTC clock when it starts, and only for `pipeline.yml`). Without
+it, `plan` falls back to guessing from a cutoff — a run landing before 06:00 UTC
+is read as the previous day's slot — and every observed primary dispatch has
+landed at 06:00:31-06:00:41 UTC, roughly 31 seconds from the wrong side of that
+guess. On the wrong side the run writes to yesterday's date, finds yesterday's
+note already there, no-ops, and leaves today with no note and every check green.
+Pass `--input asof=YYYY-MM-DD` to override (an explicit date always wins, so a
+late catch-up for a previous day still works), or `--no-asof` to let `plan`
+guess. **An HTTP-only caller that cannot compute a date relies on the guess** —
+send `asof` yourself if your service can, and keep the call at or after 06:23.
+
 **On an HTTP-only service** (cron-job.org, EasyCron, Zapier, a Cloudflare Worker)
 — configure one job per row of the table above:
 

@@ -14,7 +14,13 @@ Conventions:
   reasoning intact, and pull any "carry forward" caveat back up into this file
   as its own entry. A resolved item left here is noise; a lost caveat is worse.
 
-Last reviewed: 2026-09-14 — #23 and #24 (the Phase 24 convention calls) opened
+Last reviewed: 2026-09-22 — #27 and #28 opened from the 06:00 pipeline failure
+(Actions run 35692953937): the catch-up call that has never fired, and the
+critical-series abort that cost a note over an unchanged monthly series. The
+retry defect under that failure was fixed the same day, not carried here. #26
+work item 2 corrected — it assumed the catch-up runs.
+
+Before that: 2026-09-14 — #23 and #24 (the Phase 24 convention calls) opened
 from the draft and closed the same day → `resolved.md` (#23 a contradiction is
 red with a pin, ages report-only; #24 the revisit section is enforced, not
 introduced — 18 of 21 ADRs already had it). Earlier the same day, the closing pass (nine items → `resolved.md`: #19 seal
@@ -143,9 +149,110 @@ deliverable. Belongs with the §9 quarter read, not a mid-flight reporting tweak
 
 ## Pipeline / accuracy
 
-*Nothing open. #13 (the ≤3-year mean labelled five) landed 2026-09-14 and the
-below-chance headline accuracy (#7, carried) was answered by the cut itself —
-both in [`resolved.md`](resolved.md). #7 and #8 above are the Phase 22 items.*
+*#13 (the ≤3-year mean labelled five) landed 2026-09-14 and the below-chance
+headline accuracy (#7, carried) was answered by the cut itself — both in
+[`resolved.md`](resolved.md). #7 and #8 above are the Phase 22 items.*
+
+### Open decision #27 — the catch-up call has never once fired
+**Where:** `docs/reference/operations.md:257-258` (the schedule table) ·
+`.github/workflows/pipeline.yml` header, *THE CATCH-UP CALL* ·
+[ADR-0012](../decisions/ADR-0012-external-cron-with-backstop.md):50, which
+rests on it · `todo.md` #26 work item 2, which is built on it.
+**Source:** the 2026-09-22 06:00 UTC run (Actions run 35692953937) failed at
+stage 1 and published no note; the day was recovered by a hand-dispatched run
+at 12:48.
+
+The record says the external service calls `pipeline.yml` twice each weekday —
+`23 6` as `cron-primary` and `47 10` as `cron-catchup`. Across **all 39
+pipeline runs since 2026-08-28 there is not one run with `source=cron-catchup`**:
+every day carries exactly one `cron-primary` and one `schedule-backstop`. The
+catch-up is documented, is the justification for several design choices, and
+does not exist.
+
+Two things follow, and neither is a bug fix:
+
+1. **The recovery story is wrong wherever it is written.** The workflow header
+   argues the catch-up "fills the gap unattended" on a day the primary never
+   landed. On 2026-09-22 the primary landed and *failed*, and nothing filled
+   the gap. The only surviving net is the `schedule:` backstop at 14:37 — which
+   is GitHub's scheduler, the mechanism ADR-0013 moved off for being
+   undeliverable, and which has in fact been delivered between 17:44 and 19:41
+   on every observed day. Recovery was ~12 hours away, by a route the repo does
+   not trust.
+2. **#26 work item 2 rests on it.** "Let the 10:47 UTC catch-up call re-check
+   the feeds" cannot be assessed until the call exists. Its stated limitation
+   (it no-ops when the day's note is already written) is real but secondary to
+   its not running at all.
+
+**The decision:** install the second crontab line, or delete the claim from
+`operations.md`, `pipeline.yml`'s header and ADR-0012 and say plainly that the
+`schedule:` backstop is the only net. Not both, and not silence — the present
+state is a documented safety net that nobody is watching for.
+
+Whichever way it goes, **ADR-0012's `## Would we revisit it?` should be read
+again**: it hedges only the direction where GitHub's scheduler becomes
+reliable, and says nothing about the external caller being incompletely
+installed — which is the direction that actually cost a note. Per convention
+#11 the person who re-reads it edits that section; this item is not licence to
+rewrite it.
+
+**Adjacent, same evidence, cheap to settle at the same time:** the primary is
+documented at `23 6` and every observed dispatch has landed at 06:00:31-06:00:41
+UTC, so the crontab on the host is on `0 6`, not `23 6`. The 31-second gap
+against `plan`'s date cutoff is closed from the caller's side (`trigger_pipeline.sh`
+now pins `asof`; `test_trigger_asof.py`), so this is no longer load-bearing —
+but the table and the host still disagree, and whichever is wrong should move.
+
+### Carried finding #28 — a critical series that is merely *unreachable* takes the whole note down
+**Where:** `.macro-assist/collect_and_analyze.py:95` (`_CRITICAL_FRED`) and
+`validate_data` at :99 · `.github/workflows/pipeline.yml` `daily` (`needs:
+[plan, data_check]`, no `always()`).
+**Source:** the same 2026-09-22 run. `validate_data` aborts when a
+`_CRITICAL_FRED` key is absent from the fetched dict, and absent means *not
+fetched today* — the dict is built from scratch each run and nothing is carried
+forward.
+
+What was actually missing that morning was `fed_funds_rate`: **a monthly
+series, dated month-start**, whose value could not have changed between the
+06:00 failure and the 12:48 rerun that used it. The pipeline discarded a day's
+note over a number it already had the previous day, because it could not
+re-download it.
+
+The retry defect underneath this is fixed (`_fred_get_with_retry` is opt-out
+now, `test_fred_retry.py`), which makes the abort much rarer. It does not make
+it right: a long enough FRED outage still costs the note, and the note does not
+need a *fresh* fed funds rate to be sound.
+
+**What is open — a design call, not a fix.** "Critical" currently means "the
+analysis is unsound without a freshly fetched value". It should probably mean
+"unsound without a value". Separating those means carrying the last known good
+observation forward from the previous run's snapshot for the slow-moving
+critical series, and aborting only when nothing is available at all.
+
+**What has to be decided before anything is built:**
+- **Which series may be carried, and for how long.** `fed_funds_rate` and `cpi`
+  are monthly; `treasury_10y` is daily and a stale one is a different claim.
+  A carry window per frequency, not one number.
+- **How it is marked.** A carried value must be visible as carried — a
+  `carried_forward` flag beside the existing `days_stale`, surfaced in the note
+  and the input ledger. There is no look-ahead risk (a carried value is
+  strictly backward-looking, so `test_point_in_time.py` is unaffected), but a
+  scored history that silently contains a stale number is the [KB-029] failure
+  in a new costume: correct-looking readings that nobody can later tell apart
+  from real ones.
+- **Whether the scorer may read a carried day at all**, or whether those days
+  are excluded the way the 2026-09-16 → 09-18 `Unavailable` composites are
+  (#14b).
+
+**The posture this would match** is already in the repo: the fragility feed
+gate degrades and reports rather than blocking — on 2026-09-18 it went red
+*and the note was still written* (IMP-5.4, [KB-034]). The data check is the one
+gate left that takes the whole day down.
+
+**Worth noting for scale:** 2026-09-22 was a Tuesday, so only the daily note
+was lost. `scoring`, `rebalance` and `refit` all sit downstream of `daily`; the
+same failure on a Monday takes the week's scorecard, the paper-portfolio
+rebalance and the model refit with it.
 
 ---
 
@@ -177,10 +284,12 @@ later.
 1. **Retry the yfinance leg.** `_fetch_fragility_histories` and
    `market_data._ticker_snapshot` each make one attempt and treat an empty frame
    as absent. The CBOE client already retries once; the primary does not.
-2. **Let the 10:47 UTC catch-up call re-check the feeds.** It runs today and
-   no-ops, because stages skip when the day's note already exists — so the one
-   mechanism built for "the early run failed" cannot help a run that *succeeded*
-   with a hole in it.
+2. **Let the 10:47 UTC catch-up call re-check the feeds.** ~~It runs today and
+   no-ops~~ — *corrected 2026-09-22: it does not run at all. No pipeline run
+   since 2026-08-28 carries `source=cron-catchup` (→ #27).* The limitation
+   below still applies once it exists: stages skip when the day's note already
+   exists, so the one mechanism built for "the early run failed" cannot help a
+   run that *succeeded* with a hole in it.
 3. **Move the run.** 06:04 UTC is 02:04 ET; nothing about the note needs that
    hour.
 4. A second issuer feed — only if 1–3 fail, and under the parity rule below.

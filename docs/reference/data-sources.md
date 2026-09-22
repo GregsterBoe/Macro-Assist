@@ -32,6 +32,24 @@ Fetched via `fredapi`. 5-year history pulled per series to enable historical con
 
 **Derived:** `yield_curve_spread` = 10Y − 2Y (computed inline). `net_liquidity` = (WALCL/1000) − WTREGEN − RRPONTSYD; WoW/MoM % and 4-week rolling trend computed.
 
+**When a series fails to fetch,** `fred_data._fred_get_with_retry` retries it
+unless the error is *known* to be permanent — an unknown series id, an
+unregistered key, any 4xx other than 429. Transient failures (5xx, dropped
+connections, timeouts) back off 2s → 4s → 8s; a rate limit backs off
+10s → 20s → 40s, since it needs the window to roll over. A series that still
+fails is logged with its HTTP status and omitted, and `validate_data` aborts the
+run only if the missing key is in `_CRITICAL_FRED` (`fed_funds_rate`,
+`treasury_10y`, `cpi`).
+
+The rule used to be the other way round — retry only errors whose *text* matched
+a rate-limit keyword — and on 2026-09-22 that cost a day's note. `fredapi`
+re-raises every HTTP error as `ValueError(root.get('message'))`; FRED's error
+body carried no `message`, so the exception's text was the literal string
+`"None"`, no keyword matched, and a transient failure on `fed_funds_rate`
+re-raised on the first attempt and aborted the pipeline. Whether a critical
+series should be able to abort the note at all is [`todo.md`
+#28](../record/todo.md).
+
 ## Market Data
 
 90-day history fetched via `yfinance` to support technical indicators. 1-year history fetched separately for S&P 500 (200dMA). A separate 5-year history (`fetch_vol_histories`, `VOL_HISTORY_PERIOD`) is fetched for the four HAR-RV assets — the vol forecast is fit on that, never on the 90d series. A `vix_term_ratio` (VIX / VIX3M) is computed to distinguish acute stress (backwardation) from anticipated volatility (contango).
