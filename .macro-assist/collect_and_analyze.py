@@ -30,7 +30,8 @@ from pipeline_common import (
 )
 from fred_data import (
     FRED_SERIES, FRED_SERIES_FREQUENCY, _NET_LIQ_KEYS, QUANT_FRED_SERIES,
-    _compute_net_liquidity, _fred_get_with_retry, fetch_fred_data, fetch_quant_inputs,
+    _compute_net_liquidity, _fred_get_with_retry, carry_forward, fetch_fred_data,
+    fetch_quant_inputs, write_fred_snapshot,
 )
 from market_data import (
     MARKET_TICKERS, MARKET_LABELS, SECTOR_TICKERS, SECTOR_LABELS,
@@ -59,7 +60,8 @@ __all__ = [
     "_STRUCTURED_OUTPUT_AVAILABLE",
     # FRED
     "FRED_SERIES", "FRED_SERIES_FREQUENCY", "_NET_LIQ_KEYS", "QUANT_FRED_SERIES",
-    "_compute_net_liquidity", "_fred_get_with_retry", "fetch_fred_data", "fetch_quant_inputs",
+    "_compute_net_liquidity", "_fred_get_with_retry", "carry_forward", "fetch_fred_data",
+    "fetch_quant_inputs", "write_fred_snapshot",
     # market / sector / technicals / COT
     "MARKET_TICKERS", "MARKET_LABELS", "SECTOR_TICKERS", "SECTOR_LABELS",
     "SECTOR_PE_REFERENCE", "SECTOR_HOLDINGS", "_TECHNICAL_ASSETS",
@@ -97,17 +99,41 @@ _CRITICAL_FRED   = ["fed_funds_rate", "treasury_10y", "cpi"]
 _CRITICAL_MARKET = ["sp500", "vix", "gold"]
 
 
-def validate_data(fred_data: dict, market_data: dict) -> None:
-    """Abort on missing critical series; log OK otherwise."""
+def validate_data(fred_data: dict, market_data: dict, asof=None) -> None:
+    """Abort on missing critical series; log OK otherwise.
+
+    "Critical" means **the analysis is unsound without a value** — not without a
+    freshly fetched one. A slow-moving critical series that could not be
+    downloaded today is carried forward from the last snapshot inside its window
+    and marked as carried; the abort is reserved for a series with no value
+    available at all. See `fred_data.carry_forward` for the three decisions that
+    bound this, and todo #28 for why: on 2026-09-22 the day's note was discarded
+    over a *monthly* series whose value could not have changed that morning.
+
+    `fred_data` is mutated in place when something is carried. `asof` is the
+    run's date — passed, never re-read from the clock (ADR-0013).
+    """
+    if asof is None:
+        asof = datetime.now(timezone.utc).date()
+    elif isinstance(asof, datetime):
+        asof = asof.date()
+
+    carried = carry_forward(fred_data, _CRITICAL_FRED, asof)
+
     missing_f = [k for k in _CRITICAL_FRED   if k not in fred_data]
     missing_m = [k for k in _CRITICAL_MARKET if k not in market_data]
     if missing_f or missing_m:
         if missing_f:
-            _log("VALIDATE", "FAIL", f"critical FRED series missing: {', '.join(missing_f)}")
+            _log("VALIDATE", "FAIL", f"critical FRED series missing, and nothing to carry: {', '.join(missing_f)}")
         if missing_m:
             _log("VALIDATE", "FAIL", f"critical market data missing: {', '.join(missing_m)}")
         sys.exit("Aborting — critical data unavailable.")
-    _log("VALIDATE", "OK", "core data integrity check passed")
+    if carried:
+        _log("VALIDATE", "WARN",
+             f"core data integrity check passed — {len(carried)} series carried forward: "
+             f"{', '.join(carried)}")
+    else:
+        _log("VALIDATE", "OK", "core data integrity check passed")
 
 
 # ---------------------------------------------------------------------------
@@ -328,7 +354,10 @@ def _run_fetch_check(strict_feeds: bool = False) -> int:
 
     # --- Validation ---
     try:
-        validate_data(fred_data, market_data)
+        # `--fetch-only` writes nothing, so it never lays down a snapshot — but
+        # it must apply the same carry rule, or `data_check` would still red on
+        # a series the day's note would happily have carried.
+        validate_data(fred_data, market_data, asof=today)
         _log("CHECK", "OK", "Validation: passed")
     except Exception as e:
         _log("CHECK", "FAIL", f"Validation: {e}")
@@ -494,7 +523,14 @@ def main():
         _log("VOLHIST", "WARN", f"vol history skipped: {type(_vh_exc).__name__}: {_vh_exc}")
         vol_histories = {}
 
-    validate_data(fred_data, market_data)
+    validate_data(fred_data, market_data, asof=today)
+
+    # The snapshot a LATER run may carry from (todo #28). Written after
+    # validation so a run that aborted on genuinely absent data leaves no
+    # record suggesting otherwise, and before the LLM call so a failure there
+    # still leaves tomorrow a usable fallback. Carried entries are excluded by
+    # `write_fred_snapshot`, so a carry can never chain.
+    write_fred_snapshot(fred_data, today.date() if isinstance(today, datetime) else today)
 
     # VIX term structure ratio: > 1.0 = backwardation (acute stress), < 1.0 = contango (calm)
     if "vix" in market_data and "vix3m" in market_data:
@@ -554,6 +590,18 @@ def main():
                         "date": today.strftime("%Y-%m-%d"),
                         "time": today.strftime("%H:%M:%S"),
                         **_raw,
+                        # todo #28. Which critical inputs this reading was
+                        # conditioned on but did NOT fetch today, and how old
+                        # each one's source snapshot was. Recorded, not acted
+                        # on: whether the Phase 22 scorer may read a carried
+                        # day is a question for its first read (~2027-05), and
+                        # answering it now would be guessing with no data. An
+                        # empty dict is the normal case and says so explicitly.
+                        "carried_forward": {
+                            k: v.get("carried_from")
+                            for k, v in fred_data.items()
+                            if isinstance(v, dict) and v.get("carried_forward")
+                        },
                     }) + "\n")
                 _log("QUANT_LOG", "OK", f"raw outputs → {_qlog_path.name}")
         except Exception as _ql_exc:

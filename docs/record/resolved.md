@@ -16,6 +16,111 @@ questions.
 
 ---
 
+## Pipeline / accuracy
+
+### RESOLVED 2026-09-22 — #28 "critical" now means *without a value*, not *without a freshly fetched one*
+**Resolution: carry a slow-moving critical series forward, marked, for seven
+days; abort only when nothing is available at all.** Implemented the same day in
+`fred_data` (`write_fred_snapshot`, `carry_forward`) and
+`collect_and_analyze.validate_data`, with `test_fred_carry.py`.
+
+The three decisions the finding said had to be made first, and what they were:
+
+**Which series, and for how long — monthly only, seven days.** `fed_funds_rate`
+and `cpi` are monthly and month-dated; carrying one for a week cannot invent a
+move it did not make. `treasury_10y` is daily and is **not** carryable at any
+window — yesterday's 10Y published as today's is a different claim, and the note
+would be asserting it. Its absence still costs the note, deliberately. The
+frequency is read from the snapshot that recorded it, not from today's
+`FRED_SERIES_FREQUENCY`, so reclassifying a series later cannot retroactively
+license a carry that was never allowed when it was written.
+
+**How it is marked — `carried_forward` and `carried_from` beside the existing
+`days_stale`, and into `results/quant_context_log/`.** The finding proposed the
+input ledger as the second surface; that was dropped because it has not been
+written since 2026-06-27 (Phase 18 closed), and a marking surface nobody
+generates is not a marking surface. The quant log is written every day. There is
+no look-ahead risk — a carried value is strictly backward-looking, so
+`test_point_in_time.py` is unaffected, and a test pins that a future-dated
+snapshot is never read.
+
+**Whether the scorer may read a carried day — deferred to Phase 22's first read,
+and that is the carried caveat → `todo.md` #29.** Recording the flag costs
+nothing and preserves every option; changing what a sealed scorer reads does
+not.
+
+**One fact the finding did not have:** there was no prior-run snapshot to carry
+*from*. `fred_data` was never persisted — only the note, the LLM payload preview
+and the quant log land daily. So the fix had to write
+`results/fred_snapshot/<asof>.json` first. A carried entry is excluded from the
+snapshot it would otherwise seed, which is what stops a carry chaining one day
+at a time past its own window; that is pinned by a test, because it is the
+failure mode the seven days would otherwise not actually bound.
+
+**What is NOT fixed, and was not in scope.** The finding's closing note stands:
+`scoring`, `rebalance` and `refit` all sit downstream of `daily`, so the same
+failure on a Monday still takes the week's scorecard, the rebalance and the
+refit with it. This change makes the abort rarer; it does not decouple the
+cascade.
+
+<details><summary>The finding as it stood when it closed</summary>
+
+#### #28 — a critical series that is merely *unreachable* takes the whole note down
+**Where:** `.macro-assist/collect_and_analyze.py:95` (`_CRITICAL_FRED`) and
+`validate_data` at :99 · `.github/workflows/pipeline.yml` `daily` (`needs:
+[plan, data_check]`, no `always()`).
+**Source:** the same 2026-09-22 run. `validate_data` aborts when a
+`_CRITICAL_FRED` key is absent from the fetched dict, and absent means *not
+fetched today* — the dict is built from scratch each run and nothing is carried
+forward.
+
+What was actually missing that morning was `fed_funds_rate`: **a monthly
+series, dated month-start**, whose value could not have changed between the
+06:00 failure and the 12:48 rerun that used it. The pipeline discarded a day's
+note over a number it already had the previous day, because it could not
+re-download it.
+
+The retry defect underneath this is fixed (`_fred_get_with_retry` is opt-out
+now, `test_fred_retry.py`), which makes the abort much rarer. It does not make
+it right: a long enough FRED outage still costs the note, and the note does not
+need a *fresh* fed funds rate to be sound.
+
+**What is open — a design call, not a fix.** "Critical" currently means "the
+analysis is unsound without a freshly fetched value". It should probably mean
+"unsound without a value". Separating those means carrying the last known good
+observation forward from the previous run's snapshot for the slow-moving
+critical series, and aborting only when nothing is available at all.
+
+**What has to be decided before anything is built:**
+- **Which series may be carried, and for how long.** `fed_funds_rate` and `cpi`
+  are monthly; `treasury_10y` is daily and a stale one is a different claim.
+  A carry window per frequency, not one number.
+- **How it is marked.** A carried value must be visible as carried — a
+  `carried_forward` flag beside the existing `days_stale`, surfaced in the note
+  and the input ledger. There is no look-ahead risk (a carried value is
+  strictly backward-looking, so `test_point_in_time.py` is unaffected), but a
+  scored history that silently contains a stale number is the [KB-029] failure
+  in a new costume: correct-looking readings that nobody can later tell apart
+  from real ones.
+- **Whether the scorer may read a carried day at all**, or whether those days
+  are excluded the way the 2026-09-16 → 09-18 `Unavailable` composites are
+  (#14b).
+
+**The posture this would match** is already in the repo: the fragility feed
+gate degrades and reports rather than blocking — on 2026-09-18 it went red
+*and the note was still written* (IMP-5.4, [KB-034]). The data check is the one
+gate left that takes the whole day down.
+
+**Worth noting for scale:** 2026-09-22 was a Tuesday, so only the daily note
+was lost. `scoring`, `rebalance` and `refit` all sit downstream of `daily`; the
+same failure on a Monday takes the week's scorecard, the paper-portfolio
+rebalance and the model refit with it.
+
+
+</details>
+
+---
+
 ## Phase 24 — record integrity
 
 ### RESOLVED 2026-09-14 — #23 a record contradiction is red in CI, with a pin; ages stay report-only

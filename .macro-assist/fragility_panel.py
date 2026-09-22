@@ -38,6 +38,8 @@ from typing import Callable, Optional
 import numpy as np
 import pandas as pd
 
+from pipeline_common import yf_history_with_retry
+
 from fragility import fragility_index
 
 # Trailing window passed to fragility_index each step. Was 180 (correlation's
@@ -378,12 +380,19 @@ def fetch_histories(period: str = "max", start: str | None = "2008-01-01") -> di
 
     histories: dict = {}
     for name, tk in _TICKERS.items():
+        # Same two-attempt budget as the CBOE client below, and for the same
+        # reason: an empty frame is yfinance's usual way of failing, and this
+        # loop used to accept the first one as the answer (todo #26 item 1).
+        hist, reason = yf_history_with_retry(
+            (lambda tk=tk: yf.Ticker(tk).history(start=start)) if start
+            else (lambda tk=tk: yf.Ticker(tk).history(period=period)), tk)
+        if hist is None:
+            print(f"  warn: {tk} failed: {reason}")
+            continue
         try:
-            hist = yf.Ticker(tk).history(start=start) if start else yf.Ticker(tk).history(period=period)
-            if not hist.empty:
-                close = hist["Close"]
-                close.index = close.index.tz_localize(None)
-                histories[name] = close
+            close = hist["Close"]
+            close.index = close.index.tz_localize(None)
+            histories[name] = close
         except Exception as e:   # noqa: BLE001 — CLI convenience only
             print(f"  warn: {tk} failed: {e}")
     histories = freshen_vol_indices(histories)

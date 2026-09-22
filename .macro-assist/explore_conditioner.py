@@ -41,6 +41,24 @@ finally to `unconditional`, mirroring `conditional.lookup_distribution`.
                     "more stressed")
     dd_x_frag       drawdown bin × OR state (H-002's split itself)
 
+Four arms added 2026-09-21 as the register's next counted looks on H-002 — the
+first look saw the width half and not the location half, and both cells mix
+day 1 of a selloff with day 40, and a falling tape with a bounced one:
+
+    dd_x_age        drawdown bin × age of the current spell below DD_EDGES[0]:
+                    `fresh` (≤ AGE_EDGE trading days) / `old` — the rival
+    dd_x_frag_x_age drawdown bin × OR state × spell age (look A)
+    dd_x_sign       drawdown bin × sign of the S&P's trailing SIGN_WINDOW-day
+                    return (`down5` / `up5`, the window `turbulence_signal`
+                    averages over) — the rival
+    dd_x_frag_x_sign  drawdown bin × OR state × that sign (look B)
+
+    Prediction written before looking: if the location half failed because
+    the stressed ∧ Elevated cell mixes fresh and exhausted stress, then
+    `Elevated ∧ fresh` (A) / `Elevated ∧ down5` (B) sits LEFT of the
+    unconditional median and `Elevated ∧ old` / `Elevated ∧ up5` RIGHT, and
+    the rival without the OR state does not reproduce the split.
+
 Two OPTIONAL arms (the scorer's rule for `har_gaussian`, WP-21.A.2: quoted
 where the product would quote them, scored on their own subsample, never a
 reason to drop an observation) — H-006's rival, added 2026-09-14 as the
@@ -73,7 +91,9 @@ H-004: `frag_or`'s skill split by the state it was in — the gain, if any,
 should sit in Elevated and be ~0 in Normal.
 H-002: realized forward-change quantiles on the explore slice by
 drawdown bin × OR state — width and median side, against the same table by
-drawdown bin alone.
+drawdown bin alone; then (2026-09-21) the stressed cells split by spell age
+and by the sign of the trailing 5-day return, each beside its rival, with the
+number of distinct stress spells in every cell.
 H-006: on the subsample where `har_gaussian` quotes, `dd_bin` scored against
 the HAR arms as benchmark (does the drawdown bin add anything a vol forecast
 does not already carry?), and the mean quoted P25–P75 width of each arm by the
@@ -117,9 +137,12 @@ MIN_N = 10                      # conditional.build_distribution_table's default
 QUANTILES = (0.25, 0.50, 0.75)
 BURN_IN = 252                   # report dates skipped after the flag's first reading
 DD_EDGES = (-0.05, -0.10)       # drawdown bins: > −5% | −5..−10% | < −10%
+AGE_EDGE = 10                   # a spell below DD_EDGES[0] is `fresh` for its first 10 trading days
+SIGN_WINDOW = 5                 # the trailing S&P return whose sign labels the tape (turbulence's window)
 
 ARMS = ("unconditional", "trailing_250", "macro", "frag_or", "frag_comp",
-        "frag_or_x_nfci", "dd_bin", "dd_x_frag")
+        "frag_or_x_nfci", "dd_bin", "dd_x_frag",
+        "dd_x_age", "dd_x_frag_x_age", "dd_x_sign", "dd_x_frag_x_sign")
 OPTIONAL_ARMS = ("har_gaussian", "har_scaled")      # quoted where available, own subsample
 ALL_ARMS = ARMS + OPTIONAL_ARMS
 BENCH = "unconditional"
@@ -206,6 +229,13 @@ def build_panel(inputs: dict) -> tuple[pd.DataFrame, dict[str, dict[int, np.ndar
     frame["drawdown"] = dd
     frame["dd_bin"] = pd.cut(dd, bins=[-np.inf, DD_EDGES[1], DD_EDGES[0], np.inf],
                              labels=["dd<-10", "dd-5..-10", "dd>-5"]).astype(object)
+    frame["dd_stressed"] = np.where(dd.isna(), None, np.where(dd <= DD_EDGES[0], "dd<=-5", "dd>-5"))
+    spell_id, age = stress_spells(dd)
+    frame["spell_id"] = spell_id
+    frame["dd_age"] = np.where(dd.isna(), None,
+                               np.where(age == 0, "calm", np.where(age <= AGE_EDGE, "fresh", "old")))
+    r = sp.pct_change(SIGN_WINDOW)
+    frame["sp_sign"] = np.where(r.isna(), None, np.where(r < 0, "down5", "up5"))
 
     raw = _build_forward_returns(prices, dates)
     fr: dict[str, dict[int, np.ndarray]] = {}
@@ -219,6 +249,27 @@ def build_panel(inputs: dict) -> tuple[pd.DataFrame, dict[str, dict[int, np.ndar
                     arr[pos[pd.Timestamp(d)]] = per_h[h]
             fr[a.key][h] = arr
     return frame, fr
+
+
+def stress_spells(dd: pd.Series, edge: float = DD_EDGES[0]) -> tuple[np.ndarray, np.ndarray]:
+    """Run-length structure of the drawdown series: `spell_id` numbers each
+    maximal run of days with dd ≤ `edge` (NaN outside one), `age` is the
+    position within the run in trading days (1 on its first day, 0 outside)."""
+    stressed = (dd <= edge).to_numpy()
+    n = len(stressed)
+    spell = np.full(n, np.nan)
+    age = np.zeros(n, dtype=int)
+    k = 0
+    for i in range(n):
+        if not stressed[i]:
+            continue
+        if i == 0 or not stressed[i - 1]:
+            k += 1
+            age[i] = 1
+        else:
+            age[i] = age[i - 1] + 1
+        spell[i] = k
+    return spell, age
 
 
 def arm_labels(frame: pd.DataFrame) -> dict[str, list[np.ndarray]]:
@@ -244,6 +295,7 @@ def arm_labels(frame: pd.DataFrame) -> dict[str, list[np.ndarray]]:
                        for b in bucket], dtype=object)
     grand = col("nfci")
     or_s, comp_s, dd = col("or_state"), col("comp_state"), col("dd_bin")
+    age, sign = col("dd_age"), col("sp_sign")
     return {
         "unconditional":  [every],
         "trailing_250":   [every],                         # handled by window
@@ -253,6 +305,10 @@ def arm_labels(frame: pd.DataFrame) -> dict[str, list[np.ndarray]]:
         "frag_or_x_nfci": [combine(or_s, grand), or_s, every],
         "dd_bin":         [dd, every],
         "dd_x_frag":      [combine(dd, or_s), dd, every],
+        "dd_x_age":       [combine(dd, age), dd, every],
+        "dd_x_frag_x_age": [combine(dd, or_s, age), combine(dd, or_s), dd, every],
+        "dd_x_sign":      [combine(dd, sign), dd, every],
+        "dd_x_frag_x_sign": [combine(dd, or_s, sign), combine(dd, or_s), dd, every],
     }
 
 
@@ -626,21 +682,26 @@ def width_by_bin(obs: list[dict], asset: str, horizon: int,
 
 
 def realized_by_cell(frame: pd.DataFrame, fr: dict, asset: str, horizon: int,
-                     keys: list[str], seal: date = SEAL_START) -> pd.DataFrame:
+                     keys: list[str], seal: date = SEAL_START,
+                     where: pd.Series | None = None) -> pd.DataFrame:
     """H-002's structure check: realized forward-change quantiles on the explore
     slice, grouped by the given frame columns. Width = P75 − P25; 'side' is the
-    median relative to the slice's unconditional median."""
+    median relative to the slice's unconditional median — the WHOLE slice's,
+    also when `where` restricts the rows tabulated. `spells` counts the
+    distinct runs below DD_EDGES[0] in the cell: n = 70 can be two episodes."""
     ts = frame.index
     mask = (ts < pd.Timestamp(seal)) & frame["or_state"].notna().to_numpy()
     vals = fr[asset][horizon]
-    df = frame.loc[mask, keys].copy()
+    med_all = float(np.nanmedian(vals[mask]))
+    if where is not None:
+        mask = mask & where.reindex(frame.index).fillna(False).to_numpy(dtype=bool)
+    df = frame.loc[mask, keys + ["spell_id"]].copy()
     df["y"] = vals[mask]
-    df = df.dropna()
-    med_all = df["y"].median()
-    g = df.groupby(keys, observed=True)["y"]
+    df = df.dropna(subset=keys + ["y"])
+    g = df.groupby(keys, observed=True)
     out = pd.DataFrame({
-        "n": g.size(),
-        "p25": g.quantile(0.25), "p50": g.median(), "p75": g.quantile(0.75),
+        "n": g["y"].size(), "spells": g["spell_id"].nunique(),
+        "p25": g["y"].quantile(0.25), "p50": g["y"].median(), "p75": g["y"].quantile(0.75),
     })
     out["width"] = out["p75"] - out["p25"]
     out["side"] = np.where(out["p50"] > med_all, "right", "left")
@@ -764,14 +825,17 @@ def report_md(summary: dict, cells: dict[str, pd.DataFrame], meta: dict) -> str:
                      f"{v['dd_bin']:.3f} | {v['har_gaussian']:.3f} | {v['har_scaled']:.3f} | {v['realized_iqr']:.3f} |")
     L += ["", "## H-002 structure check — S&P realized forward change by drawdown bin × OR state", "",
           "Width = P75 − P25 (pct). `side` = median vs the slice's unconditional median. "
-          "The dose-response rival (drawdown bin alone) follows each table.", ""]
+          "The dose-response rival (drawdown bin alone) follows each table. `spells` = distinct "
+          "runs below −5% in the cell. Looks A and B (2026-09-21) split the stressed cells by "
+          f"spell age (`fresh` ≤ {AGE_EDGE} trading days) and by the sign of the trailing "
+          f"{SIGN_WINDOW}-day S&P return; each has its rival without the OR state beside it.", ""]
     for name, df in cells.items():
         L += [f"### {name}", "", _md_table(df), ""]
     L += ["## Reproduce", "", "```", "cd .macro-assist && python explore_conditioner.py --cached",
           "```", "", "Inputs: `refit_models._fetch_price_history(TABLE_START)`, "
           "`refit_models._fetch_fred_series`, `fragility_or.build_channels(stride=1)`; "
           f"flags `pit_flags(q={_Q}, min_warmup={_MIN_WARMUP})`; MIN_N={MIN_N}; "
-          f"BURN_IN={BURN_IN}; DD_EDGES={DD_EDGES}; HAR_WINDOW={HAR_WINDOW}; "
+          f"BURN_IN={BURN_IN}; DD_EDGES={DD_EDGES}; AGE_EDGE={AGE_EDGE}; SIGN_WINDOW={SIGN_WINDOW}; HAR_WINDOW={HAR_WINDOW}; "
           f"HAR_KEYS={sorted(HAR_KEYS)}; N_BOOT={N_BOOT}; SEED={SEED}."]
     return "\n".join(L) + "\n"
 
@@ -810,6 +874,21 @@ def run(cached: bool = False, out_dir: Path = RESULTS_DIR) -> dict:
         cells[f"SP500 h={h}: drawdown alone"] = realized_by_cell(frame, fr, "SP500", h, ["dd_bin"])
     for h in (5, 20):
         cells[f"SP500 h={h}: OR state alone"] = realized_by_cell(frame, fr, "SP500", h, ["or_state"])
+    stressed = frame["dd_stressed"] == "dd<=-5"
+    for h in HORIZONS:
+        cells[f"SP500 h={h}: stressed (dd ≤ −5%) × OR state × spell age — look A"] = realized_by_cell(
+            frame, fr, "SP500", h, ["dd_stressed", "or_state", "dd_age"], where=stressed)
+        cells[f"SP500 h={h}: stressed × spell age alone — A's rival"] = realized_by_cell(
+            frame, fr, "SP500", h, ["dd_stressed", "dd_age"], where=stressed)
+        cells[f"SP500 h={h}: stressed × OR state × trailing-5d sign — look B"] = realized_by_cell(
+            frame, fr, "SP500", h, ["dd_stressed", "or_state", "sp_sign"], where=stressed)
+        cells[f"SP500 h={h}: stressed × trailing-5d sign alone — B's rival"] = realized_by_cell(
+            frame, fr, "SP500", h, ["dd_stressed", "sp_sign"], where=stressed)
+    for h in (5, 20):
+        cells[f"SP500 h={h}: drawdown bin × OR state × spell age — look A, fine bins"] = realized_by_cell(
+            frame, fr, "SP500", h, ["dd_bin", "or_state", "dd_age"], where=stressed)
+        cells[f"SP500 h={h}: drawdown bin × OR state × trailing-5d sign — look B, fine bins"] = realized_by_cell(
+            frame, fr, "SP500", h, ["dd_bin", "or_state", "sp_sign"], where=stressed)
 
     dates = sorted({o["date"] for o in obs})
     meta = {"first_date": dates[0], "last_date": dates[-1], "n_report_dates": len(dates),

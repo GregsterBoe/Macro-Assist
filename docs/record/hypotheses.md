@@ -21,7 +21,7 @@ missing a confound is not finished.
 | # | Status | One line |
 |---|---|---|
 | [H-001](#h-001) | `closed` | The SPF anchor's confidence bins are the first correctly ordered ones ever measured here — *confound resolved 2026-09-14: the ordering is carried by two crisis-rebound periods and inverts within three of six assets; closed on its own target-space rule, no KB entry* |
-| [H-002](#h-002) | `draft` | The stress-reversion mechanism is conditional on fragility state: stress continues in Elevated tapes, reverts in Normal ones — *explore look 2026-09-14: width half seen, location half not* |
+| [H-002](#h-002) | `draft` | The stress-reversion mechanism is conditional on fragility state: stress continues in Elevated tapes, reverts in Normal ones — *explore looks 2026-09-14 and 09-21: width half seen, location half not; what was seen instead is that in an Elevated tape the relief bounce inside a drawdown is what does not hold* |
 | [H-003](#h-003) | `draft` | The SPF-vs-SEP gap predicts the *width* of the realized rate path, not its direction |
 | [H-004](#h-004) | `draft` | The published conditioner's dimensions are not the ones that move the distribution; a fragility-state conditioner beats the macro bucket — *explore look 2026-09-14: structure check failed in direction* |
 | [H-005](#h-005) | `seen` | On the explore slice the published macro bucket is reliably *worse* than not conditioning, and the deficit grows with horizon |
@@ -194,6 +194,64 @@ structure check*).
 What it changes for this entry: the prediction "medians on opposite sides"
 is wrong as written. If the owner rewrites it, the width clause stands and
 the location clause needs a different prediction, or none.
+
+*2026-09-21* — second counted look, same harness and slice, two configurations
+fixed and their predictions written into the module docstring before the run
+(`AGE_EDGE = 10`, `SIGN_WINDOW = 5`; four arms added, `dd_x_age`,
+`dd_x_frag_x_age`, `dd_x_sign`, `dd_x_frag_x_sign`; every cell now reports
+`spells`, the number of distinct runs below −5% it contains). Asked whether
+the location half failed because the stressed ∧ Elevated cell mixes day 1 of
+a selloff with day 40 (**look A**, spell age `fresh` ≤ 10 trading days /
+`old`) or a falling tape with a bounced one (**look B**, sign of the trailing
+5-day S&P return, the window the turbulence score averages over). Pre-written
+prediction for both: `Elevated ∧ fresh` / `Elevated ∧ down5` left of the
+unconditional median, `Elevated ∧ old` / `Elevated ∧ up5` right. Report:
+`results/explore_conditioner/report.md` (§ *H-002 structure check*, tables
+*look A* / *look B* and their rivals).
+
+- **Both predictions failed, in sign.** Fresh stress in an Elevated tape is
+  the *most* right-shifted stressed cell (median +2.48 · +3.07 · +3.90 at
+  5/10/20d; n = 29, 7 spells). Stress after a down week in an Elevated tape
+  reverts hardest (+1.89 · +3.15 · +4.33; n = 96, 8 spells).
+- **What was seen instead — the bounce is what does not hold.** `stressed ∧
+  Elevated ∧ up5` is the only stressed cell on the slice with its median left
+  of unconditional: −0.26 · +0.12 · −0.27 vs +0.37 · +0.69 · +1.39 (n = 73,
+  6 spells, 4 of them longer than a day). In fine bins it is left in 4 of 4
+  bin × horizon cells shown. The same cell in a Normal tape is right and the
+  tightest stressed cell there is (+1.09, width 2.29 at 5d, vs 4.45
+  Elevated). The rival without the OR state does not reproduce it: `up5`
+  alone is right at every horizon (+0.72 · +1.50 · +2.99).
+- **Within-spell, not between-spell.** In each of the four multi-day Elevated
+  spells (2010-06, 2011-08, 2015-08, 2016-01) the up5 median sits left of
+  that spell's own down5 median — 2010: −1.08 vs +0.72; 2011: −1.66 vs
+  +1.73; 2015: +0.52 vs +1.24; 2016: −1.47 vs +2.34 at 5d. Leave-one-spell-out
+  keeps the 5d median negative whichever spell is dropped (−0.09 to −1.29);
+  at 20d it depends on 2010 and 2011 (dropping either moves it right of
+  unconditional). The 5d reading is the robust one.
+- **Look A is look B seen through a coarser cut.** 92 % of the `Elevated ∧
+  up5` rows are also `old`; the age split mixes bounce and dip inside `old`
+  and washes out.
+- **As scored conditioners** every three-way split is worse than `dd_bin`
+  alone at every horizon (`dd_x_frag_x_sign` pooled all-6: −0.005 · −0.018 ·
+  −0.032, the 10d and 20d intervals clear of zero on the wrong side). The
+  structure is in the realized cells; on ~70-row cells it is not a payable
+  quote. Multiplicity for this entry now: two runs, 2026-09-14 and
+  2026-09-21, 12 arms, three cell configurations; the per-spell breakdown
+  above was a robustness check run after the tables, not a new look.
+
+What it changes for this entry, cumulatively: the location clause is not
+"continuation after stress" — the data on 2010–2017 say the opposite, the
+reversion after a down week is *strongest* in an Elevated tape. The candidate
+mechanism the two looks leave standing is narrower: **in an Elevated tape the
+reversion comes fast and does not hold — the relief bounce inside the
+drawdown is followed by weakness; in a Normal tape the bounce holds.** That
+is a prediction with a sign in it (a left-shifted median for one cell), read
+through the distribution scorer, and it was arrived at by looking at the
+opposite of what was pre-written — so it is `seen`, not confirmed, and a
+promoted entry that carries it must say so in its multiplicity ledger. Two
+cautions for the rewrite: four episodes carry it, and the sealed slice's
+Elevated spells (2018-02, 2018-Q4, 2020-03, 2022) are a different
+population from these four.
 
 ---
 

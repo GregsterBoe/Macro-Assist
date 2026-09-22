@@ -14,7 +14,20 @@ Conventions:
   reasoning intact, and pull any "carry forward" caveat back up into this file
   as its own entry. A resolved item left here is noise; a lost caveat is worse.
 
-Last reviewed: 2026-09-22 — #27 and #28 opened from the 06:00 pipeline failure
+Last reviewed: 2026-09-22 (second pass, same day) — all three items from the
+06:00 pipeline failure worked. **#28 closed** → [`resolved.md`](resolved.md)
+(monthly critical series carry forward seven days, marked; `treasury_10y` never
+does; the abort survives for a series with nothing available), leaving its one
+deferred question as the new **#29** — whether the sealed Phase 22 scorer may
+read a carried day, which is answered at its first read, not now. **#27**'s fork
+is decided (install) and the half that stops it recurring shipped: every run
+leaves a heartbeat and `record_audit.py` is **red until the crontab line is
+installed**. **#26** item 1 is done and its blocker is half-answered — the CBOE
+probe is green off the runner and now runs in CI, so the next pipeline run
+settles it; item 3 (move the run) is the remaining decision and shares a crontab
+with #27.
+
+Earlier the same day — #27 and #28 opened from the 06:00 pipeline failure
 (Actions run 35692953937): the catch-up call that has never fired, and the
 critical-series abort that cost a note over an unchanged monthly series. The
 retry defect under that failure was fixed the same day, not carried here. #26
@@ -184,10 +197,39 @@ Two things follow, and neither is a bug fix:
    (it no-ops when the day's note is already written) is real but secondary to
    its not running at all.
 
-**The decision:** install the second crontab line, or delete the claim from
-`operations.md`, `pipeline.yml`'s header and ADR-0012 and say plainly that the
-`schedule:` backstop is the only net. Not both, and not silence — the present
-state is a documented safety net that nobody is watching for.
+**The decision — taken 2026-09-22: install it.** The `schedule:` backstop alone
+is not a net anybody should rely on; it is the mechanism ADR-0013 moved off for
+being undeliverable, and on 2026-09-22 it would have been ~12 hours away.
+
+**Shipped the same day — the half that stops this recurring.** Installing a call
+nobody watches is how this happened: a slot that never ran and a slot that ran
+and no-op'd left **identical traces**, because a no-op writes nothing. So every
+run now leaves one line on `output` naming who asked —
+`schedule/last-<source>.txt`, written by `pipeline.yml`'s `heartbeat` job — and
+`record_audit.py` carries all three slots in its `ARTIFACTS` registry at four
+days (WP-24.B). A silent caller is now a red check rather than a month of nobody
+looking. `operations.md` → *Is the schedule actually running?* has the by-hand
+check; `pipeline.yml`'s THE CATCH-UP CALL header no longer states the catch-up
+runs, because it does not.
+
+`record_audit.py` is therefore **red on `schedule/last-cron-catchup.txt` until
+the crontab line is installed**, and its message says exactly that. That red is
+this item, held where it cannot be forgotten — it is not a stale registry entry
+and must not be pinned away.
+
+**Still owed by the owner, and neither is something the assistant can do:**
+1. **The second call itself, on the caller.** *The caller is cron-job.org, not a
+   shell host* (confirmed 2026-09-22) — so this is a second HTTP job, not a
+   crontab line: same dispatch URL, body
+   `{"ref": "main", "inputs": {"source": "cron-catchup"}}`, `47 10 * * 1-5`,
+   timezone UTC (`operations.md` → *On an HTTP-only service*). The red clears on
+   the first catch-up that lands. While in there, move the primary to `23 6` —
+   see the adjacent item below, which is **load-bearing for this caller** in a
+   way the note under it originally got wrong.
+2. **Re-read [ADR-0012](../decisions/ADR-0012-external-cron-with-backstop.md)'s
+   `## Would we revisit it?`** — see the paragraph below. Per convention #11 the
+   person who re-reads it edits that section; this item is still not licence for
+   the assistant to rewrite it.
 
 Whichever way it goes, **ADR-0012's `## Would we revisit it?` should be read
 again**: it hedges only the direction where GitHub's scheduler becomes
@@ -198,61 +240,60 @@ rewrite it.
 
 **Adjacent, same evidence, cheap to settle at the same time:** the primary is
 documented at `23 6` and every observed dispatch has landed at 06:00:31-06:00:41
-UTC, so the crontab on the host is on `0 6`, not `23 6`. The 31-second gap
+UTC. ~~so the crontab on the host is on `0 6`~~ — *corrected 2026-09-22: the
+caller's job is `0 8 * * 1-5` on **Europe/Berlin**, and Berlin is UTC+2 right
+now, so `0 8` local **is** 06:00 UTC. Nobody typed the wrong number; the slot is
+being read in the wrong frame.* That is worse than a typo, because it moves:
+**on 2026-10-25 Berlin falls back to UTC+1, so from Monday 2026-10-26 the same
+line fires at 07:00 UTC**, and back to 06:00 UTC on 2027-03-28. `operations.md`
+opens the schedule section with *"set the cron service's timezone to UTC so the
+slots don't move twice a year"*; that instruction was not followed, and the
+whole discrepancy is the consequence. **Fix: set the cron-job.org job's timezone
+to UTC and use `23 6` / `47 10` literally** — a Berlin-local schedule that is
+correct year-round cannot be written as one crontab line. The 31-second gap
 against `plan`'s date cutoff is closed from the caller's side (`trigger_pipeline.sh`
 now pins `asof`; `test_trigger_asof.py`), so this is no longer load-bearing —
 but the table and the host still disagree, and whichever is wrong should move.
+*2026-09-22, and the sentence above is wrong for the caller actually in use.*
+`trigger_pipeline.sh` pins `asof` — but **the caller is cron-job.org**, which
+sends a static JSON body and cannot compute a date, so it always falls through
+to `plan`'s clock guess and its 06:00 cutoff. For this caller the 31-second
+margin **is** load-bearing: a dispatch landing at 05:59 is read as yesterday's
+slot, no-ops against yesterday's existing note, and leaves today with no note
+and every check green. `23 6` buys 23 minutes instead of 31 seconds. The
+`trigger_pipeline.sh` fix from the same morning protects a path nobody is
+running. `operations.md` → *Is the schedule actually running?* now splits the
+two callers instead of asserting the shell-host answer for both.
 
-### Carried finding #28 — a critical series that is merely *unreachable* takes the whole note down
-**Where:** `.macro-assist/collect_and_analyze.py:95` (`_CRITICAL_FRED`) and
-`validate_data` at :99 · `.github/workflows/pipeline.yml` `daily` (`needs:
-[plan, data_check]`, no `always()`).
-**Source:** the same 2026-09-22 run. `validate_data` aborts when a
-`_CRITICAL_FRED` key is absent from the fetched dict, and absent means *not
-fetched today* — the dict is built from scratch each run and nothing is carried
-forward.
+This also interacts with #26 item 3: if the run moves off the 06:00 hour to
+dodge the empty `^VIX3M` window, both slots are being rewritten anyway and the
+two should be decided together.
 
-What was actually missing that morning was `fed_funds_rate`: **a monthly
-series, dated month-start**, whose value could not have changed between the
-06:00 failure and the 12:48 rerun that used it. The pipeline discarded a day's
-note over a number it already had the previous day, because it could not
-re-download it.
+### Carried finding #29 — may the Phase 22 scorer read a day conditioned on a carried value?
+**Where:** `fred_data.carry_forward` · `results/quant_context_log/*.jsonl`, key
+`carried_forward` · `score_distributions.py`.
+**Source:** the carried caveat from #28, which closed 2026-09-22 →
+[`resolved.md`](resolved.md).
 
-The retry defect underneath this is fixed (`_fred_get_with_retry` is opt-out
-now, `test_fred_retry.py`), which makes the abort much rarer. It does not make
-it right: a long enough FRED outage still costs the note, and the note does not
-need a *fresh* fed funds rate to be sound.
+A critical monthly series that cannot be fetched is now carried forward and
+marked, so a day's published distribution may have been conditioned on an input
+that was up to seven days old. **Nothing in the scorer acts on that**, and that
+was the deliberate call: Phase 22's bar is sealed with its first honest read
+~2027-05, and changing what the scorer reads mid-flight is the convention #7
+hazard — a threshold or a sample moved after the seal is a goalpost move, even a
+well-meant one. Deciding it now would also be guessing, since no carried day has
+occurred yet.
 
-**What is open — a design call, not a fix.** "Critical" currently means "the
-analysis is unsound without a freshly fetched value". It should probably mean
-"unsound without a value". Separating those means carrying the last known good
-observation forward from the previous run's snapshot for the slow-moving
-critical series, and aborting only when nothing is available at all.
+**What has to happen at the read**, not before: count the carried days in the
+scored window, and decide then whether they are scored, excluded (the way the
+2026-09-16 → 09-18 `Unavailable` composites are, #14b), or reported as a split.
+The flag exists precisely so that question has an answer available. If the count
+is zero the question is moot; if it is large enough to matter, the fact that it
+was *recorded before anyone looked* is what makes any of the three honest.
 
-**What has to be decided before anything is built:**
-- **Which series may be carried, and for how long.** `fed_funds_rate` and `cpi`
-  are monthly; `treasury_10y` is daily and a stale one is a different claim.
-  A carry window per frequency, not one number.
-- **How it is marked.** A carried value must be visible as carried — a
-  `carried_forward` flag beside the existing `days_stale`, surfaced in the note
-  and the input ledger. There is no look-ahead risk (a carried value is
-  strictly backward-looking, so `test_point_in_time.py` is unaffected), but a
-  scored history that silently contains a stale number is the [KB-029] failure
-  in a new costume: correct-looking readings that nobody can later tell apart
-  from real ones.
-- **Whether the scorer may read a carried day at all**, or whether those days
-  are excluded the way the 2026-09-16 → 09-18 `Unavailable` composites are
-  (#14b).
-
-**The posture this would match** is already in the repo: the fragility feed
-gate degrades and reports rather than blocking — on 2026-09-18 it went red
-*and the note was still written* (IMP-5.4, [KB-034]). The data check is the one
-gate left that takes the whole day down.
-
-**Worth noting for scale:** 2026-09-22 was a Tuesday, so only the daily note
-was lost. `scoring`, `rebalance` and `refit` all sit downstream of `daily`; the
-same failure on a Monday takes the week's scorecard, the paper-portfolio
-rebalance and the model refit with it.
+**The one thing that would force it earlier:** a long FRED outage producing a
+run of carried days inside the sealed window. That is a reason to read the count,
+not a licence to change the bar.
 
 ---
 
@@ -281,9 +322,19 @@ mornings running. A second issuer does not address a feed that works ten hours
 later.
 
 **What is actually open, cheapest first:**
-1. **Retry the yfinance leg.** `_fetch_fragility_histories` and
-   `market_data._ticker_snapshot` each make one attempt and treat an empty frame
-   as absent. The CBOE client already retries once; the primary does not.
+1. ~~**Retry the yfinance leg.**~~ **Done 2026-09-22.** `pipeline_common.
+   yf_history_with_retry` gives every yfinance path the CBOE client's budget —
+   two attempts, one pause — and counts an **empty frame** as a failure rather
+   than an answer, which was the actual defect. Wired into all three
+   single-attempt loops: `quant_context._fetch_fragility_histories` (the live
+   path that produced the three `Unavailable` readings), `market_data.
+   _ticker_snapshot` (the payload's `vix_term_ratio`, which had no fallback of
+   any kind) and `fragility_panel.fetch_histories` (the panel/backtest path,
+   which the item had not named). `test_yfinance_retry.py`. Whether it is
+   *enough* is a live question, not a settled one: the failure was time-of-day
+   bound and lasted three consecutive mornings, so two attempts seconds apart
+   may well draw the same empty frame twice. It removes the cheapest failure,
+   it does not remove the cause — item 3 does.
 2. **Let the 10:47 UTC catch-up call re-check the feeds.** ~~It runs today and
    no-ops~~ — *corrected 2026-09-22: it does not run at all. No pipeline run
    since 2026-08-28 carries `source=cron-catchup` (→ #27).* The limitation
@@ -291,16 +342,28 @@ later.
    exists, so the one mechanism built for "the early run failed" cannot help a
    run that *succeeded* with a hole in it.
 3. **Move the run.** 06:04 UTC is 02:04 ET; nothing about the note needs that
-   hour.
+   hour. **Still open, and now the only item that addresses the cause** — the
+   feed is empty at 06:04 and current at 16:24, so a later slot is the one fix
+   that does not depend on a retry winning a race or on a fallback nobody has
+   yet seen work. It is a schedule decision, not a code change, and it touches
+   the same crontab as #27.
 4. A second issuer feed — only if 1–3 fail, and under the parity rule below.
 
-**Blocking all four: does the fallback we already have work at all?** CBOE's
-first three live invocations failed and there is **no run on file where it has
-ever succeeded** — it short-circuits while yfinance is fresh, so it had never
-been exercised before 09-16. `feed_audit.py --probe-cboe` answers this directly
-from the Actions runner. Until it is green, the vol legs have no fallback, and
-adding a *third* tier behind a second one that does not work would be building
-on sand.
+**Blocking all four: does the fallback we already have work at all?**
+**Half-answered 2026-09-22** (→ [KB-034] addendum). The probe is **green from a
+developer machine** — both legs, current to 2026-09-21, exit 0 — so the code
+path is sound and the failure is environmental. Every one of the three observed
+failures was on an Actions runner; the probe was not. `fetch_cboe_index` fetches
+`cdn.cboe.com` with bare `urllib` (`Python-urllib/3.x`, no other headers) from a
+datacenter IP, which is the combination a CDN WAF rejects, and 403 is already
+named in `fragility_panel.py`'s own comment — but the recorded reason from those
+three runs was never captured, so that is a mechanism, not a finding.
+
+`--probe-cboe` now runs in CI on every pipeline run (`pipeline.yml`, job
+`feed_probe` — its own job, so it still runs on a day `daily` fails). **The next
+pipeline run settles it**, with the runner's own reason attached: green closes
+item 4, a 403 makes the fix a request header rather than a third feed. Until it
+reports, the vol legs are still to be treated as having no fallback.
 
 **Also carried:** `market_data`'s `vix3m` has no fallback on any path —
 `vix_term_ratio` vanished from the LLM payload on all three days and no

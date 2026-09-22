@@ -1,14 +1,16 @@
 """FRED data fetching for the daily macro pipeline (net liquidity, retry/backoff)."""
 from __future__ import annotations
 
+import json
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 import pandas as pd
 from fredapi import Fred
 
 from pipeline_common import (
-    _log,
+    _log, REPO_ROOT,
 )
 
 
@@ -377,3 +379,134 @@ def fetch_fred_data(fred: Fred) -> dict:
         data["net_liquidity"] = net_liq
 
     return data
+
+
+# ---------------------------------------------------------------------------
+# Carrying a slow-moving critical series forward (todo #28)
+# ---------------------------------------------------------------------------
+#
+# WHAT THIS FIXES. `validate_data` aborts when a `_CRITICAL_FRED` key is absent
+# from the fetched dict, and absent meant *not fetched today* — the dict is
+# built from scratch each run and nothing was carried forward. On 2026-09-22
+# what went missing was `fed_funds_rate`: a MONTHLY series, dated month-start,
+# whose value could not have changed between the 06:00 failure and the 12:48
+# rerun that used it. The pipeline discarded a day's note over a number it
+# already had, because it could not re-download it.
+#
+# So "critical" now means "the analysis is unsound without a value", not
+# "without a freshly fetched one". Three decisions bound that (todo #28):
+#
+#   WHICH, AND FOR HOW LONG — monthly series only, seven days. `fed_funds_rate`
+#   and `cpi` are monthly and month-dated; carrying one for a week cannot
+#   invent a move it did not make. `treasury_10y` is daily and is NOT carryable
+#   at any window: yesterday's 10Y published as today's is a different claim,
+#   and the note would be asserting it.
+#
+#   HOW IT IS MARKED — `carried_forward` and `carried_from` sit beside the
+#   existing `days_stale`, and ride into `results/quant_context_log/`. A scored
+#   history that silently contains a stale number is the [KB-029] failure in a
+#   new costume: correct-looking readings nobody can later tell apart from real
+#   ones. There is no look-ahead risk — a carried value is strictly
+#   backward-looking, so `test_point_in_time.py` is unaffected.
+#
+#   WHETHER THE SCORER MAY READ A CARRIED DAY — not decided here, deliberately.
+#   Phase 22's bar is sealed with its first honest read ~2027-05, and changing
+#   what the scorer reads mid-flight is the convention #7 hazard. The flag is
+#   recorded so the question can be answered at the read, with data.
+#
+# A carried entry is never written back into a snapshot, so a carry cannot
+# chain: the window is always measured against a value that was really fetched.
+
+FRED_SNAPSHOT_DIR = REPO_ROOT / "results" / "fred_snapshot"
+
+CARRYABLE_FREQUENCIES = frozenset({"monthly"})
+CARRY_MAX_DAYS = 7
+
+
+def write_fred_snapshot(data: dict, asof, directory=None) -> "Path | None":
+    """Persist the day's freshly-fetched FRED entries so a later run can carry
+    one forward. Entries that were themselves carried are excluded — the point
+    of the window is that it is measured from a real observation.
+
+    Best-effort: a snapshot that cannot be written is a warning, never the
+    day's note. Returns the path written, or None.
+    """
+    fresh = {
+        name: entry for name, entry in data.items()
+        if isinstance(entry, dict) and not entry.get("carried_forward")
+    }
+    if not fresh:
+        return None
+    directory = Path(directory) if directory is not None else FRED_SNAPSHOT_DIR
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        path = directory / f"{asof.isoformat()}.json"
+        path.write_text(json.dumps({"asof": asof.isoformat(), "series": fresh},
+                                   indent=1, sort_keys=True), encoding="utf-8")
+        return path
+    except Exception as exc:   # noqa: BLE001 — never cost the note a snapshot
+        _log("FRED", "WARN", f"snapshot not written: {type(exc).__name__}: {exc}")
+        return None
+
+
+def _snapshots_newest_first(directory, asof) -> list:
+    """(date, payload) for every snapshot on or before `asof` and inside the
+    carry window, newest first."""
+    directory = Path(directory) if directory is not None else FRED_SNAPSHOT_DIR
+    if not directory.is_dir():
+        return []
+    out = []
+    for path in directory.glob("*.json"):
+        try:
+            day = date.fromisoformat(path.stem)
+        except ValueError:
+            continue
+        age = (asof - day).days
+        if not 0 <= age <= CARRY_MAX_DAYS:
+            continue
+        try:
+            out.append((day, json.loads(path.read_text(encoding="utf-8"))))
+        except Exception:   # noqa: BLE001 — a corrupt snapshot is not an outage
+            continue
+    return sorted(out, key=lambda pair: pair[0], reverse=True)
+
+
+def carry_forward(data: dict, names, asof, directory=None) -> list[str]:
+    """Fill any of `names` missing from `data` from the most recent snapshot
+    inside the carry window. Mutates `data`; returns the names carried.
+
+    A series is only eligible if the snapshot recorded it as one of
+    `CARRYABLE_FREQUENCIES` — the frequency comes from the snapshot rather than
+    from `FRED_SERIES_FREQUENCY` so that reclassifying a series later cannot
+    retroactively license a carry that was never allowed when it was written.
+    """
+    missing = [n for n in names if n not in data]
+    if not missing:
+        return []
+    carried: list[str] = []
+    for day, payload in _snapshots_newest_first(directory, asof):
+        for name in list(missing):
+            entry = (payload.get("series") or {}).get(name)
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("frequency") not in CARRYABLE_FREQUENCIES:
+                continue
+            entry = dict(entry)
+            entry["carried_forward"] = True
+            entry["carried_from"] = day.isoformat()
+            observed = entry.get("date")
+            if observed:
+                try:
+                    entry["days_stale"] = (asof - date.fromisoformat(observed)).days
+                except ValueError:
+                    pass
+            data[name] = entry
+            carried.append(name)
+            missing.remove(name)
+            _log("FRED", "WARN",
+                 f"{name} unavailable today — carried forward from {day.isoformat()} "
+                 f"(observed {observed}, {entry.get('days_stale')}d stale); "
+                 f"marked carried_forward")
+        if not missing:
+            break
+    return carried

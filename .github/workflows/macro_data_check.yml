@@ -41,6 +41,17 @@ jobs:
       - name: Install dependencies
         run: pip install -r macro-assist/.macro-assist/requirements.txt
 
+      # READ-ONLY, and load-bearing since todo #28. `validate_data` may now
+      # carry a slow-moving critical series forward from the last snapshot
+      # under `results/fred_snapshot/`, and `daily` is gated on THIS job
+      # succeeding — so without the mount this stage would still abort on a
+      # series the day's note would happily have carried, and the fix would
+      # never fire in production. Nothing here publishes: `--fetch-only` writes
+      # no files, and there is no `ci_publish_results.sh` step.
+      - name: Mount output branch at results/
+        working-directory: macro-assist
+        run: bash .macro-assist/ci_mount_output.sh
+
       - name: Run data fetch check
         env:
           FRED_API_KEY:     ${{ secrets.FRED_API_KEY }}

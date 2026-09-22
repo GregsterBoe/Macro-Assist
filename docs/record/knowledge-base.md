@@ -3224,3 +3224,45 @@ fetch, while `^VIX` in the same loop succeeds.
   `freshen_vol_indices` does not cover. Nobody noticed that either.
 - The instrumentation shipped above did not find this; the payload previews did.
   What it buys is that the *next* occurrence names itself without the dig.
+
+### Addendum, 2026-09-22 — the probe is green *off* the runner, which narrows the question rather than closing it
+
+`feed_audit.py --probe-cboe`, run from a developer machine at ~11:00 UTC:
+
+```
+[PROBE] ✓ CBOE VIX:   9277 rows, last 2026-09-21 = 14.87
+[PROBE] ✓ CBOE VIX3M: 4277 rows, last 2026-09-21 = 18.08
+[PROBE] ✓ the issuer fallback is usable — a stale yfinance leg would be covered
+```
+
+Both legs, current to the last trading day, exit 0. So **the fallback's code
+path is sound**: the CSV parses, the columns are where `fetch_cboe_index`
+expects them, and the file is not parked. Whatever failed on 2026-09-16, 09-17
+and 09-18 failed *there*, not here.
+
+**This does not clear the fallback, and the entry above still stands.** Every
+one of the three observed failures was on a GitHub Actions runner; this probe
+was not. The difference between the two is the obvious suspect:
+`fetch_cboe_index` fetches `cdn.cboe.com` with bare `urllib.request.urlopen`,
+which sends `Python-urllib/3.x` and no other headers, from a datacenter egress
+IP — the combination a CDN WAF rejects, and 403 is already listed in
+`fragility_panel.py`'s own comment as an observed failure mode. It is the same
+shape as the FRED graph host this project already had to route around. But the
+*recorded* reason from those three runs was never captured (the instrumentation
+that would have named it shipped on 09-18, after them), so this is a hypothesis
+with a mechanism, not a finding.
+
+**What it changes.** `--probe-cboe` now runs in CI on every pipeline run —
+`pipeline.yml`, job `feed_probe`, its own job so that it still runs on a day
+`daily` fails, which is the day you most want the answer. Two CSV fetches, red
+on failure, blocking nothing. The next pipeline run answers the question the
+entry above left open, and answers it with the runner's own reason attached:
+
+- **green in CI** → the fallback works, the three failures were transient, and
+  `todo.md` #26 item 4 (a second issuer feed) stays closed;
+- **red in CI, with a 403** → the fallback has never worked from where it runs,
+  and the fix is a request header or a different host, not a third feed.
+
+Either way the answer is one run away and no longer requires an outage to
+observe. **Until it reports, the vol legs are still to be treated as having no
+fallback.**

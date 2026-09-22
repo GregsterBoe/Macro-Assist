@@ -433,14 +433,31 @@ def test_main_takes_now_and_fails_on_a_stale_artifact(repo, monkeypatch, capsys)
 
 
 def test_the_registry_names_what_the_pipeline_writes():
-    """Shape only, on the real checkout: every entry's branch resolves and
-    something on it has written the path. Ages are CI's question."""
+    """Shape only, on the real checkout: every entry's branch resolves, and
+    something on it has written the path — unless the entry is deliberately
+    armed ahead of its first run, which is what `awaiting` means. Ages are
+    CI's question."""
     for art in ra.ARTIFACTS:
         ref = ra._resolve_ref(_REPO, art.branch)
         assert ref is not None, f"{art.branch} not fetched — `git fetch origin {art.branch}`"
-        assert ra.last_changed(_REPO, ref, art.path) is not None, f"{art.path} never written on {ref}"
+        if art.awaiting is None:
+            assert ra.last_changed(_REPO, ref, art.path) is not None, f"{art.path} never written on {ref}"
         assert art.max_age_days >= 4, "the daily note is the tightest cadence the pipeline has"
     assert {a.branch for a in ra.ARTIFACTS} == {"main", "output"}
+
+
+def test_an_armed_entry_stays_red_until_it_lands():
+    """`awaiting` buys an entry no grace — it only changes what the red SAYS.
+    An entry that went quiet forever because nobody installed the thing that
+    writes it is the todo #27 failure, and pinning it away is not the fix."""
+    art = ra.Artifact("schedule/last-cron-catchup.txt", "output", 4,
+                      "the 10:47 slot", awaiting="install the second crontab line")
+    assert art.awaiting in ra.check_artifact_liveness(
+        _REPO, artifacts=(art,))[0].message
+    # and the default is still the drifted-entry reading
+    plain = ra.Artifact("schedule/nope.txt", "output", 4, "nothing")
+    assert "the registry entry or the stage is wrong" in ra.check_artifact_liveness(
+        _REPO, artifacts=(plain,))[0].message
 
 
 # ---------------------------------------------------------------------------

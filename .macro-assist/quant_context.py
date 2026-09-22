@@ -42,6 +42,7 @@ from conditional import (
     load_distribution_table,
     DEFAULT_TABLE_PATH,
 )
+from pipeline_common import yf_history_with_retry
 from fragility import fragility_index
 from assets import ASSETS, BY_KEY, format_change
 
@@ -136,10 +137,15 @@ def _fetch_fragility_histories(period: str = "1y") -> dict:
         return {}
     out: dict = {}
     for name, tk in _FRAG_TICKERS.items():
+        # An empty frame here is indistinguishable from a delisted ticker on one
+        # attempt, and yfinance returns one for `^VIX3M` at ~06:04 UTC while
+        # serving current data the same afternoon ([KB-034]). Ask twice before
+        # calling the leg absent — todo #26 work item 1.
+        hist, _reason = yf_history_with_retry(
+            lambda tk=tk: yf.Ticker(tk).history(period=period), tk)
+        if hist is None:
+            continue
         try:
-            hist = yf.Ticker(tk).history(period=period)
-            if hist.empty:
-                continue
             close = hist["Close"]
             try:
                 close.index = close.index.tz_localize(None)

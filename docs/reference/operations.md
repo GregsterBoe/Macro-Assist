@@ -269,6 +269,65 @@ the morning call is missing. The odd minutes carry over from the old crons and n
 longer matter — GitHub's contended `:00`/`:15`/`:30`/`:45` slots only affected its
 own scheduler — but there is no reason to move them.
 
+### Is the schedule actually running?
+
+Every run leaves one line on the `output` branch naming who asked for it:
+
+```
+results/schedule/last-cron-primary.txt
+results/schedule/last-cron-catchup.txt
+results/schedule/last-schedule-backstop.txt
+```
+
+Written by `pipeline.yml`'s `heartbeat` job, overwritten each time, so **the
+file's git age is the slot's age**. `record_audit.py` holds each one in its
+`ARTIFACTS` registry at four days (Friday → Tuesday, so one missed weekday can
+slip through and two cannot) and goes red when a slot stops arriving — the same
+check that covers the note, the scorecard and the refit.
+
+This exists because a slot that is not installed and a slot that runs and no-ops
+leave **identical traces**: both write nothing. The catch-up row above was
+documented, was the justification for several design choices, and had never once
+fired — across every run from 2026-08-28 to 2026-09-22 — and nothing here could
+have said so. It took a failed primary and a hand-dispatched recovery to notice
+(`todo.md` #27, [ADR-0012](../decisions/ADR-0012-external-cron-with-backstop.md)).
+
+To check by hand:
+
+```bash
+git fetch origin output
+git log -1 --format='%cI %s' origin/output -- schedule/last-cron-catchup.txt
+```
+
+**The table above is the contract; check the caller against it.** Every observed
+primary dispatch has landed at 06:00:31–06:00:41 UTC rather than the table's
+06:23 — and the reason is the line above about setting the service to UTC.
+The caller's job is `0 8 * * 1-5` on **Europe/Berlin**, which is UTC+2 from late
+March to late October, so `0 8` local *is* 06:00 UTC. It is not a wrong number,
+it is the right number in the wrong frame, and it **moves**: Berlin falls back to
+UTC+1 on 2026-10-25, so from 2026-10-26 that same line fires at 07:00 UTC, and
+returns to 06:00 UTC on 2027-03-28. A schedule stated here in UTC and configured
+there in a DST-observing zone cannot both be true for more than half the year.
+**Set the job's timezone to UTC and enter the table's times literally**; there is
+no single Berlin-local expression that stays correct across the switch.
+
+**How much that 31-second margin matters depends on which caller you run, and
+the answer is not the same for both.** `plan` guesses the run's date from the UTC
+clock with a hard cutoff at 06:00: a run landing before it is read as the
+*previous* day's slot, writes to yesterday's date, finds yesterday's note already
+there, no-ops, and leaves today with no note and every check green.
+
+* **A shell host** running `trigger_pipeline.sh` pins `asof` explicitly, so the
+  guess never runs and the margin is cosmetic.
+* **An HTTP-only service** (cron-job.org and friends) sends a static JSON body
+  and cannot compute a date, so it *always* relies on the guess. For that caller
+  the `23 6` slot is **load-bearing**: it is the difference between 23 minutes of
+  margin against the cutoff and 31 seconds. If your service does support a date
+  placeholder in the body, send `asof` and the margin stops mattering.
+
+Either way, a schedule nobody has reconciled is how the catch-up went missing in
+the first place.
+
 ### Everything rides one call
 
 Because the cron calls only `pipeline.yml`, the `needs:` graph *is* the schedule.

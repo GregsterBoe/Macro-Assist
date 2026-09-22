@@ -330,6 +330,12 @@ class Artifact:
     branch: str          # "main" or "output" — the branch the stage pushes to
     max_age_days: float  # red once the last-changed commit is older than this
     stage: str           # who writes it, for the message
+    # What to say when the path has NEVER been written. The default reading of
+    # that — "the registry entry or the stage is wrong" — is right for an entry
+    # that has drifted off a live track, and wrong for one deliberately armed
+    # ahead of its first run, where nothing has landed *yet* and the entry is
+    # the reminder. Set this and the red names the actual fix.
+    awaiting: str | None = None
 
 
 # The registry. One entry per live track on the board; the threshold is the
@@ -356,6 +362,26 @@ ARTIFACTS: tuple[Artifact, ...] = (
     # one missed weekday can slip through and two cannot
     Artifact(":(glob)*/*-macro.md", "output", 4,
              "stage 2 · daily note, Mon–Fri"),
+    # WP-24.B turned on the schedule itself (todo #27). Every run leaves
+    # `schedule/last-<source>.txt` (pipeline.yml, job `heartbeat`), so a cron
+    # slot that stops arriving is an ordinary stale artifact and reads as one.
+    # Same 4 days as the note, for the same reason: Friday → Tuesday is four
+    # days, so one missed weekday can slip through and two cannot.
+    #
+    # `cron-catchup` is RED UNTIL THE SECOND CRONTAB LINE IS INSTALLED. It has
+    # never once fired — no run between 2026-08-28 and 2026-09-22 carried it —
+    # while operations.md's schedule table, pipeline.yml's THE CATCH-UP CALL
+    # header and ADR-0012 all rest on it. That gap is the finding, and this
+    # entry is how it stays visible; the fix is one crontab line on the caller's
+    # host (operations.md → Setting it up), not a pin here.
+    Artifact("schedule/last-cron-primary.txt", "output", 4,
+             "the external caller's 06:23 slot",
+             awaiting="the `heartbeat` job is new; this clears on the next pipeline run"),
+    Artifact("schedule/last-cron-catchup.txt", "output", 4,
+             "the external caller's 10:47 slot — todo #27",
+             awaiting="the catch-up has never fired — add the second call on the caller "
+                      "(cron-job.org: operations.md → On an HTTP-only service); "
+                      "this is todo #27, not a stale entry"),
 )
 
 
@@ -427,7 +453,8 @@ def check_artifact_liveness(
             continue
         hit = last_changed(root, ref, art.path, until=now)
         if hit is None:
-            red(subject, f"nothing on `{ref}` had written it by {now:%Y-%m-%d} — the registry entry or the stage is wrong")
+            red(subject, f"nothing on `{ref}` had written it by {now:%Y-%m-%d} — "
+                         + (art.awaiting or "the registry entry or the stage is wrong"))
             continue
         when, what = hit
         age = now - when

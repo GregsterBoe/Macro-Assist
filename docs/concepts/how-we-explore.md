@@ -235,6 +235,77 @@ Rule: **every five KB entries, or any time an entry changes a standing belief,
 is that the page stays readable in one sitting. The maintenance log records the
 pass.
 
+## 9. The checklist an entry passes before it is promoted
+
+The rules above are the reasoning; this is the form they take when an owner
+sits down to rewrite a `draft` or a `seen` entry. Each line is a question the
+entry must answer **in its own text**, and names the section that owns it. An
+entry that cannot answer one is not ready — it is not a defect, it is the
+next thing to do.
+
+**The claim**
+
+1. **Does every term name a quantity the code computes?** "Elevated" is
+   ambiguous in this repo: the OR flag (`fragility_or`, three channels at
+   their own point-in-time top decile) and the composite's `Elevated` label
+   (a static cut on its own 2008–2026 distribution) are different
+   instruments with different operating points
+   ([Stress measures §5–6](../foundations/stress-measures.md#5-the-composite-and-its-labels)).
+   Name the one that was looked at, or run the other as a counted look first.
+2. **Is the output a distribution, a state or a gap — never a sign with a
+   confidence?** (§7.) The test is the wording, not the intent: "will fail",
+   "yields negative returns", "alpha" is
+   [ADR-0009](../decisions/ADR-0009-cut-the-directional-product.md) territory
+   in a new coat. The same content as a distribution claim — *this cell's
+   median sits left of unconditional at h, and its width exceeds that cell's* —
+   is admissible and is read by a scorer that exists.
+3. **Does the claim say how strong the thing seen was?** A median on one side
+   of unconditional is not "negative returns"; a result at one horizon is not
+   a result at three. The entry states what was measured, at which horizon,
+   and does not round it up.
+
+**The mechanism**
+
+4. **Does the mechanism predict something that is not the skill number?**
+   (§3.) That prediction is the bar's mechanism clause; an arm that clears
+   the number and fails it is `unexplained`, not `edge`.
+5. **Is the mechanism clause hard to pass by accident?** A cell that is
+   right of unconditional because *every* stressed cell is right of
+   unconditional discriminates nothing. Prefer the contrast that only the
+   mechanism produces — within-episode, or against the rival dimension.
+6. **Is the confound named, with the thing that would rule it out?**
+   (§2 — an entry missing a confound is not finished.) Name the rival
+   conditioner and say what result would mean the state is not doing the work.
+
+**The bar**
+
+7. **Which class is this, and does that class's bar already exist?** (§5,
+   WP-23.B.) A conditioner faces the full class bar — skill margin, interval
+   clear of zero, the second comparator, disqualifiers first — *plus* the
+   mechanism clause. A structure claim that is not scored as a conditioner
+   needs its own class bar, written before this entry is promoted.
+8. **Is there an `underpowered` floor, written before the sealed cell's size
+   is known?** In rows *and* in distinct episodes — a cell of 70 rows can be
+   two episodes, and a median on two episodes is not a measurement.
+9. **Is the slice the whole sealed side?** Which seal governs is a recorded
+   decision (`resolved.md` #19). Choosing an end date, or a window, after
+   listing which crises it contains is the goalpost move convention #7 exists
+   to stop.
+
+**The record**
+
+10. **Does the multiplicity ledger travel with the entry?** (§4.) Every look,
+    every arm, every configuration — *including the predictions that were
+    written before a look and then failed*. An entry whose claim is the
+    opposite of what was predicted says so in its own text.
+11. **Is it one read, with the result going to the Knowledge Base either
+    way?** (Convention #2.) A promoted hypothesis that comes back negative is
+    a KB entry, not a revision.
+12. **Has the owner done the competence gate?** (§6.) Without the assistant,
+    before the status moves to `promoted`.
+
+---
+
 ---
 
 ## The short version

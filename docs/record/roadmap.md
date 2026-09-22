@@ -70,7 +70,7 @@ Measured results live in `knowledge-base.md`.
 | 16 | Fragility monitor + design-by-emergence prompt levers | ✅ Closed 2026-09-04 — 16.A shipped and alive (→ IMP-4), 16.B/C closed by Phase 21; detail archived |
 | 21 | Directional product validation → **the cut (v1.6)** | ✅ Closed 2026-09-04 — [KB-024]. WP-21.E bounded search: family 1 (VIX term structure) resolved **negative** 2026-09-08 → [KB-027]; 2 of 3 families remain, bar for them written 2026-09-13 ([ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md)) |
 | 22 | Scoring the distribution product | 🟢 Open 2026-09-08 — the scorer follows the v1.6 cut. A/B shipped; the bar is sealed, first read ~2027-05 |
-| 23 | Exploration tier — the generation side of the method | 🔍 Open 2026-09-13 — harness built, two explore looks run 2026-09-14; seal decided (`SEAL_START` reused); next is the owner's rewrites, then the WP-23.B class bar |
+| 23 | Exploration tier — the generation side of the method | 🔍 Open 2026-09-13 — harness built, three explore looks run 2026-09-14 and 09-21; seal decided (`SEAL_START` reused); next is the owner's rewrites, then the WP-23.B class bar |
 | 24 | Record integrity & session continuity | ✅ Closed 2026-09-21 — every work package shipped: `record_audit.py` in CI (24.A/B since 2026-09-14, 24.C–F since 2026-09-21) and `/orient` (24.G); detail archived. The row said ⏸ Draft for a week after the board went Active — 24.D's first red |
 
 The v1.5 **system-state snapshot** that used to open this file was archived on the
@@ -759,7 +759,14 @@ bin's gain; `har_scaled` does, and H-006 closes toward [KB-033] as a width
 claim a vol forecast delivers. What the look also showed — the scorer's own
 comparator over-covers and loses to `unconditional` at 20d because of its
 Gaussian wrapper — is H-007 (`seen`); the scorer keeps its sealed comparator
-and `har_scaled` is in WP-23.B's bar instead (`resolved.md` #22). Next counted look, if
+and `har_scaled` is in WP-23.B's bar instead (`resolved.md` #22). **The third
+counted look ran 2026-09-21, on H-002's location half:** four arms (drawdown ×
+spell age, drawdown × trailing-5-day sign, each with and without the OR
+state), every cell now reporting the number of distinct stress spells it
+holds, predictions written into the docstring before the run. Both failed in
+sign; what was seen instead — in an Elevated tape the relief bounce inside a
+drawdown is the cell that sits left of unconditional, within-spell in four of
+four — is on H-002's ledger, for the owner's rewrite. Next counted look, if
 any: the H-005 occupancy cut (deficit by bucket, single-episode cells), or the
 price-only arms pushed back to 2001 to test H-006's calm-tape confound.
 

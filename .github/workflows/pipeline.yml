@@ -48,12 +48,26 @@ name: Macro Pipeline
 # downstream may call `date` or `date.today()` for the run's own date.
 #
 # THE CATCH-UP CALL
-# The external service calls this workflow a second time each weekday (see the
-# README table). Stages no-op when their output for the date already exists
-# (force=false), so on a normal day the catch-up costs ~1 min per stage and
-# writes nothing; on a day the primary call never landed — service outage,
-# expired token, GitHub 5xx — it fills the gap unattended. Two calls a day is
-# also why `concurrency` below queues rather than cancels.
+# The external service is documented as calling this workflow a second time each
+# weekday (see the README table). Stages no-op when their output for the date
+# already exists (force=false), so on a normal day the catch-up costs ~1 min per
+# stage and writes nothing; on a day the primary call never landed — service
+# outage, expired token, GitHub 5xx — it fills the gap unattended. Two calls a
+# day is also why `concurrency` below queues rather than cancels.
+#
+# IT HAS NOT ACTUALLY BEEN RUNNING. Of the 39 runs between 2026-08-28 and
+# 2026-09-22, not one carried `source=cron-catchup`: the caller (cron-job.org)
+# was only ever configured with the one job. The paragraph above described the design,
+# not the deployment, in three places at once — here, operations.md's schedule
+# table, and ADR-0012, which rests on it. On 2026-09-22 the primary landed and
+# *failed*, nothing filled the gap, and recovery was a hand-dispatched run ~6h
+# later; the only surviving net was the `schedule:` backstop at 14:37, the
+# mechanism ADR-0013 moved off for being undeliverable. See todo #27.
+#
+# The `heartbeat` job below is why this cannot go unnoticed again: every run
+# leaves `schedule/last-<source>.txt` on `output`, and `record_audit.py` reds on
+# a slot whose file has stopped moving (WP-24.B). Until the crontab line is
+# installed, `last-cron-catchup.txt` is red and says so.
 #
 # RE-RUNNING A FAILED STAGE
 # Each stage is a job, and the job is GitHub's unit of re-run: "Re-run failed
@@ -271,6 +285,113 @@ jobs:
         run: bash .macro-assist/ci_mount_output.sh
       - name: Audit the fragility feed
         run: python .macro-assist/feed_audit.py --asof ${{ needs.plan.outputs.asof }}
+
+  # ── The issuer fallback probe (todo #26, the blocker). ──────────────────────
+  # ITS OWN JOB, AND NOT GATED ON `daily`, WHICH IS THE POINT. `feed_gate` reads
+  # yesterday's recorded readings, so it needs a note to have been written;
+  # this asks a question that has nothing to do with the note — "if a vol leg
+  # goes stale today, is there anything behind it?" — and the day you most want
+  # the answer is the day the pipeline failed. On 2026-09-22 `daily` failed, so
+  # a step inside `feed_gate` would have been skipped.
+  #
+  # WHY IT HAS TO RUN HERE AND NOT LOCALLY. `freshen_vol_indices` short-circuits
+  # on a fresh leg (`if not stale: continue`), so CBOE is never called on a
+  # normal day and a broken fallback looks exactly like a working one. Its
+  # first three live invocations (2026-09-16..18) all failed and there is no run
+  # on file where it has ever succeeded — while the same probe passes from a
+  # developer's machine. `cdn.cboe.com` is fetched with bare urllib, so a
+  # datacenter egress IP and a `Python-urllib` UA is the obvious suspect, and
+  # only a runner can tell those two apart. Costs two CSV fetches.
+  #
+  # Red, and blocking nothing: nothing `needs:` this job, so it turns the RUN
+  # red — the notification — while every stage proceeds. That is `feed_gate`'s
+  # bargain, for the same reason.
+  feed_probe:
+    name: 2c · issuer fallback probe
+    needs: plan
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # `probe_cboe` imports fragility_panel, which needs pandas/numpy at module
+      # scope. Nothing else here — no LLM client, no results/ mount: the probe
+      # reads no prior output and writes nothing.
+      - name: Install
+        run: pip install pandas numpy
+      - name: Probe the issuer fallback
+        run: python .macro-assist/feed_audit.py --probe-cboe
+
+  # ── The schedule heartbeat (todo #27). ──────────────────────────────────────
+  # WHY THIS EXISTS. The external service is documented as calling this workflow
+  # twice each weekday — `cron-primary` at 06:23 and `cron-catchup` at 10:47. In
+  # all 39 runs between 2026-08-28 and 2026-09-22 there was not one run with
+  # `source=cron-catchup`: the caller was only ever given the one job. The
+  # catch-up was load-bearing in three places (operations.md's schedule table,
+  # this file's THE CATCH-UP CALL header, ADR-0012) and did not exist, and
+  # nothing here could have said so — a call that no-ops writes nothing, so
+  # "ran and found the day already done" and "never ran" left identical traces.
+  # It took a failed primary and a hand-dispatched recovery to notice.
+  #
+  # So each run leaves one line naming who asked. `schedule/last-<source>.txt`
+  # on `output` is then an ordinary WP-24.B artifact: `record_audit.py` reads
+  # its age from git and goes red when a slot stops arriving, the same way a
+  # missing note or a missing refit does. A silent caller is now a red check
+  # rather than a month of nobody looking.
+  #
+  # Its own job, parallel to the stages: `plan` has no checkout and everything
+  # needs `plan`, so writing this there would add a fetch and a push to the
+  # front of every run. `ci_publish_results.sh` retries the fetch/rebase/push
+  # cycle, so racing `daily` for `output` is already handled.
+  heartbeat:
+    name: 0b · schedule heartbeat
+    needs: plan
+    # `mode: validate` writes nothing to `output`, and that contract is stated
+    # at every stage that writes. This is a stage that writes.
+    if: ${{ !cancelled() && inputs.mode != 'validate' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Mount output branch at results/
+        run: bash .macro-assist/ci_mount_output.sh
+      # `source` is a free-form dispatch input that ends up in a FILENAME and a
+      # shell string, so it arrives through `env:` rather than `${{ }}`
+      # interpolation (which would paste it into the script text itself) and is
+      # reduced to a slug before use. A typo'd source then writes its own file
+      # and leaves the real slot's file untouched and ageing — which the
+      # registry reads as the slot having stopped, correctly.
+      - name: Record who called this run
+        env:
+          RAW_SOURCE: ${{ inputs.source }}
+          ASOF: ${{ needs.plan.outputs.asof }}
+          TRIGGER: ${{ github.event_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          SOURCE="$(printf '%s' "${RAW_SOURCE:-}" | tr -cd 'A-Za-z0-9._-')"
+          SOURCE="${SOURCE:-schedule-backstop}"
+          echo "SOURCE=$SOURCE" >> "$GITHUB_ENV"
+          mkdir -p results/schedule
+          # Overwritten each time, so the file's git age IS the slot's age —
+          # which is the whole quantity WP-24.B measures. The history holds
+          # every previous line.
+          cat > "results/schedule/last-${SOURCE}.txt" <<EOF
+          source:  ${SOURCE}
+          asof:    ${ASOF}
+          landed:  $(date -u +%Y-%m-%dT%H:%M:%SZ)
+          trigger: ${TRIGGER}
+          run:     ${RUN_URL}
+          EOF
+          cat "results/schedule/last-${SOURCE}.txt"
+      - name: Publish
+        env:
+          ASOF: ${{ needs.plan.outputs.asof }}
+        run: |
+          set -euo pipefail
+          bash .macro-assist/ci_publish_results.sh \
+            "schedule: ${ASOF} ${SOURCE} landed"
 
   # ── Stages 3 (exogenous arm) and 4 (kimi arm) were REMOVED 2026-09-04. ───────
   # Both emitted a Bias/Confidence table, and v1.6 cut that product from the main

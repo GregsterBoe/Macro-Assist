@@ -92,6 +92,46 @@ def test_ladder_skips_an_undefined_level():
 
 
 # ---------------------------------------------------------------------------
+# Stress spells (looks A and B, 2026-09-21)
+# ---------------------------------------------------------------------------
+
+def test_stress_spells_count_runs_and_age_within_them():
+    """Two runs below the edge, separated by one calm day: distinct ids, age
+    restarting at 1, zero age and no id outside a run, NaN treated as calm."""
+    dd = pd.Series([-0.01, -0.06, -0.08, -0.12, -0.02, -0.07, np.nan, -0.09])
+    spell, age = ec.stress_spells(dd, edge=-0.05)
+    assert list(age) == [0, 1, 2, 3, 0, 1, 0, 1]
+    assert np.isnan(spell[0]) and np.isnan(spell[4]) and np.isnan(spell[6])
+    assert list(spell[1:4]) == [1, 1, 1] and spell[5] == 2 and spell[7] == 3
+
+
+def test_age_label_turns_old_after_the_edge():
+    """A spell is `fresh` through its AGE_EDGE-th day and `old` from the next;
+    the drawdown bin can be < −10% on day one — depth and age are separate."""
+    n = ec.AGE_EDGE + 5
+    dd = pd.Series([-0.12] * n)
+    _, age = ec.stress_spells(dd)
+    labels = np.where(age <= ec.AGE_EDGE, "fresh", "old")
+    assert list(labels[:ec.AGE_EDGE]) == ["fresh"] * ec.AGE_EDGE
+    assert list(labels[ec.AGE_EDGE:]) == ["old"] * 5
+
+
+def test_realized_by_cell_measures_side_against_the_whole_slice():
+    """`where` restricts the rows tabulated, not the unconditional median that
+    'side' is read against — otherwise a stressed-only table would compare
+    stressed cells to the stressed median and always find half of them right."""
+    frame, fr = _tiny_world(n_days=600, start="2014-01-01")
+    frame["dd_stressed"] = np.where(np.arange(len(frame)) < 100, "dd<=-5", "dd>-5")
+    frame["spell_id"] = np.where(np.arange(len(frame)) < 100, 1.0, np.nan)
+    fr["SP500"][5][:100] = -5.0                       # the stressed rows are all far left
+    stressed = frame["dd_stressed"] == "dd<=-5"
+    out = ec.realized_by_cell(frame, fr, "SP500", 5, ["dd_stressed"], where=stressed)
+    assert list(out.index) == ["dd<=-5"]
+    assert out.loc["dd<=-5", "side"] == "left" and out.loc["dd<=-5", "spells"] == 1
+    assert out.loc["dd<=-5", "uncond_p50"] > -5.0     # the slice's median, not the cell's
+
+
+# ---------------------------------------------------------------------------
 # The slice, alignment and the verdict
 # ---------------------------------------------------------------------------
 
@@ -105,6 +145,10 @@ def _tiny_world(n_days: int = 900, start: str = "2015-01-01"):
     frame["or_state"] = np.where(np.arange(n_days) % 10 == 0, "Elevated", "Normal")
     frame["comp_state"] = "Normal"
     frame["dd_bin"] = "dd>-5"
+    frame["dd_stressed"] = "dd>-5"
+    frame["spell_id"] = np.nan
+    frame["dd_age"] = "calm"
+    frame["sp_sign"] = np.where(np.arange(n_days) % 2 == 0, "down5", "up5")
     rng = np.random.default_rng(1)
     fr = {a.key: {h: rng.normal(size=n_days) for h in ec.HORIZONS} for a in ec.ASSETS}
     for a in ec.ASSETS:

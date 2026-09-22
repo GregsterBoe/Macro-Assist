@@ -11,7 +11,7 @@ import requests
 import yfinance as yf
 
 from pipeline_common import (
-    _log, ACCURACY_JSON,
+    _log, ACCURACY_JSON, yf_history_with_retry,
 )
 
 
@@ -127,10 +127,16 @@ def _ticker_snapshot(ticker: str, period: str) -> tuple[dict | None, object]:
     Fetch latest close and daily % change for a single ticker.
     Returns (snapshot_dict, close_series). Either may be None on failure.
     """
+    # One attempt used to be the whole budget here, and an empty frame was read
+    # as "no such data" — the 2026-09-16..18 `vix3m` hole (todo #26 work item 1).
+    hist, reason = yf_history_with_retry(
+        lambda: yf.Ticker(ticker).history(period=period), ticker)
+    if hist is None:
+        print(f"  Warning: failed to fetch {ticker}: {reason}")
+        return None, None
     try:
-        hist = yf.Ticker(ticker).history(period=period)
-        if hist.empty or len(hist) < 2:
-            print(f"  Warning: no data for {ticker}, skipping.")
+        if len(hist) < 2:
+            print(f"  Warning: only {len(hist)} row(s) for {ticker}, skipping.")
             return None, None
         close = hist["Close"]
         c, p  = float(close.iloc[-1]), float(close.iloc[-2])
