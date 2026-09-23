@@ -3266,3 +3266,55 @@ entry above left open, and answers it with the runner's own reason attached:
 Either way the answer is one run away and no longer requires an outage to
 observe. **Until it reports, the vol legs are still to be treated as having no
 fallback.**
+
+### Addendum, 2026-09-23 — the probe is green **in CI**, and the hypothesis in the addendum above was wrong
+
+`feed_audit.py --probe-cboe` ran on the Actions runner three times on the first
+day it was wired in — `cron-primary` 06:23, `cron-catchup` 10:47,
+`schedule-backstop` 18:34 UTC (runs 35826503258, 35850787849, 35903402102) —
+and **`2c · issuer fallback probe` was green in all three**. `probe_cboe` exits
+1 if either leg comes back empty, so a green job means both CSVs fetched and
+parsed from the runner.
+
+**Headline: the issuer fallback works from where it runs.** The statement this
+entry has carried since 2026-09-18 — *"there is no run on file where it has ever
+succeeded"* — is retired. The three failures on 09-16, 09-17 and 09-18 were
+**transient**, not structural.
+
+**The correction, stated plainly because it was stated confidently.** The
+addendum above proposed that the difference between a green local probe and
+three red live invocations was environmental: bare `urllib` sending
+`Python-urllib/3.x` from a datacenter egress IP into a CDN WAF, the same shape
+as the FRED graph host this project already had to route around. **That is
+disproven as the operative cause.** The identical code, from the identical kind
+of runner, fetched both legs three times. Whatever failed on those three
+mornings, it was not the request being rejected for what it looked like. Anyone
+reading that paragraph should stop carrying its mechanism forward.
+
+**The nuance that is easy to lose: a green probe proves the fetch, not the
+splice.** `probe_cboe` calls `fetch_cboe_index` directly, which is exactly why
+it can bypass the freshness short-circuit — but `freshen_vol_indices`, the
+function that actually substitutes a CBOE series under a dead yfinance leg,
+**still has never completed successfully in production**. What is now known is
+that its data source is reachable from CI. What remains unknown is whether the
+splice does the right thing when it fires for real. That gap is smaller than it
+was and it is not closed.
+
+**What it changes.**
+- **`todo.md` #26 item 4 — a second issuer feed — stays closed**, and now for a
+  measured reason rather than an assumed one. The single-deep chain has a
+  working second tier.
+- **The "treat the vol legs as having no fallback" caveat lifts**, in
+  `CLAUDE.md`'s Watch row and here.
+- **The probe stays as a daily canary.** It costs two CSV fetches per run (six a
+  day across the three slots) and it is the only thing that exercises the
+  fallback's source on a day nothing is wrong. Its whole value is that it runs
+  when it is *not* needed.
+
+**Not attributable, and worth not pretending otherwise.** The same day's note
+computed `vix_term` normally (component 0.0, weight 0.412, `degraded: []`,
+label `Resilient`) where 09-16 → 09-18 had none. Three things changed at once:
+the run moved from ~06:04 to 06:23 UTC, the yfinance legs gained a retry, and
+the feed may simply have recovered. **One healthy day separates none of them.**
+The 06:04-versus-16:24 asymmetry that [KB-034] measured has not been re-measured
+since, and `todo.md` #26 item 3 (move the run) is still open on its own terms.

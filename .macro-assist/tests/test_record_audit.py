@@ -449,13 +449,20 @@ def test_the_registry_names_what_the_pipeline_writes():
 def test_an_armed_entry_stays_red_until_it_lands():
     """`awaiting` buys an entry no grace — it only changes what the red SAYS.
     An entry that went quiet forever because nobody installed the thing that
-    writes it is the todo #27 failure, and pinning it away is not the fix."""
-    art = ra.Artifact("schedule/last-cron-catchup.txt", "output", 4,
-                      "the 10:47 slot", awaiting="install the second crontab line")
-    assert art.awaiting in ra.check_artifact_liveness(
-        _REPO, artifacts=(art,))[0].message
+    writes it is the todo #27 failure, and pinning it away is not the fix.
+
+    Both paths here are deliberately ones nothing will ever write. An earlier
+    version of this test used the real `schedule/last-cron-catchup.txt`, which
+    passed only while that file did not exist and broke on 2026-09-23 when the
+    catch-up finally landed — a test that asserts the absence of something the
+    repo is actively trying to create has a expiry date built into it."""
+    armed = ra.Artifact("schedule/never-written-by-anything.txt", "output", 4,
+                        "a slot that does not exist",
+                        awaiting="install the second crontab line")
+    assert armed.awaiting in ra.check_artifact_liveness(
+        _REPO, artifacts=(armed,))[0].message
     # and the default is still the drifted-entry reading
-    plain = ra.Artifact("schedule/nope.txt", "output", 4, "nothing")
+    plain = ra.Artifact("schedule/also-never-written.txt", "output", 4, "nothing")
     assert "the registry entry or the stage is wrong" in ra.check_artifact_liveness(
         _REPO, artifacts=(plain,))[0].message
 

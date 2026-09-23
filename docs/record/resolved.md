@@ -121,6 +121,219 @@ rebalance and the model refit with it.
 
 ---
 
+
+### RESOLVED 2026-09-23 — #27 the catch-up call exists, fired, and is now watched
+**Resolution: install it — and instrument the schedule, because installing a
+call nobody watches is how this happened.** The catch-up had never once fired
+across 39 runs while `operations.md`'s schedule table, `pipeline.yml`'s
+THE CATCH-UP CALL header and [ADR-0012](../decisions/ADR-0012-external-cron-with-backstop.md)
+all rested on it. It could not have been noticed: a slot that never ran and a
+slot that ran and no-op'd leave **identical traces**, because a no-op writes
+nothing.
+
+**The root cause was a timezone, not a missing line.** The caller is
+cron-job.org, configured `0 8 * * 1-5` on **Europe/Berlin**. Berlin is UTC+2
+from late March to late October, so `0 8` local *is* 06:00 UTC — which is why
+every observed dispatch landed at 06:00:31–06:00:41 against a table that said
+06:23, and why the first diagnosis ("the host is on `0 6`") was wrong. It is not
+a wrong number, it is the right number in the wrong frame, and it **moves**:
+that same line would have fired at 07:00 UTC from 2026-10-26. `operations.md`
+opens the schedule section with *"set the cron service's timezone to UTC so the
+slots don't move twice a year"*; not following it produced the whole
+discrepancy. There is no single Berlin-local crontab expression that stays
+correct across the DST switch.
+
+**Shipped:** `pipeline.yml`'s `heartbeat` job writes
+`schedule/last-<source>.txt` to `output` on every run, and `record_audit.py`
+carries all three slots in `ARTIFACTS` at four days (WP-24.B), so a slot that
+stops arriving is now an ordinary red rather than archaeology.
+`Artifact.awaiting` distinguishes *armed ahead of its first run* from *drifted
+off a live track*, so the red named the fix instead of blaming the registry.
+`operations.md` gained *Is the schedule actually running?* and now splits the
+shell-host and HTTP-only callers instead of asserting one answer for both.
+
+**Verified 2026-09-23, the first day with both jobs on UTC** — all three slots
+landed and every job was green:
+
+| slot | landed (UTC) | run |
+|---|---|---|
+| `cron-primary` | 06:23:26 | 35826503258 |
+| `cron-catchup` | **10:47:30 — the first time it has ever fired** | 35850787849 |
+| `schedule-backstop` | 18:34:35 | 35903402102 |
+
+The catch-up and backstop runs both no-op'd against the existing note, as
+designed. Both artifact reds cleared on their own.
+
+**Carried forward → `todo.md` #30:** ADR-0012's `## Would we revisit it?` still
+hedges only the direction where GitHub's scheduler becomes reliable, and says
+nothing about the caller being incompletely installed — the direction that
+actually cost a note. Convention #11: whoever re-reads it edits it.
+
+<details><summary>The item as it stood when it closed</summary>
+
+#### #27 — the catch-up call has never once fired
+**Where:** `docs/reference/operations.md:257-258` (the schedule table) ·
+`.github/workflows/pipeline.yml` header, *THE CATCH-UP CALL* ·
+[ADR-0012](../decisions/ADR-0012-external-cron-with-backstop.md):50, which
+rests on it · `todo.md` #26 work item 2, which is built on it.
+**Source:** the 2026-09-22 06:00 UTC run (Actions run 35692953937) failed at
+stage 1 and published no note; the day was recovered by a hand-dispatched run
+at 12:48.
+
+The record says the external service calls `pipeline.yml` twice each weekday —
+`23 6` as `cron-primary` and `47 10` as `cron-catchup`. Across **all 39
+pipeline runs since 2026-08-28 there is not one run with `source=cron-catchup`**:
+every day carries exactly one `cron-primary` and one `schedule-backstop`. The
+catch-up is documented, is the justification for several design choices, and
+does not exist.
+
+Two things follow, and neither is a bug fix:
+
+1. **The recovery story is wrong wherever it is written.** The workflow header
+   argues the catch-up "fills the gap unattended" on a day the primary never
+   landed. On 2026-09-22 the primary landed and *failed*, and nothing filled
+   the gap. The only surviving net is the `schedule:` backstop at 14:37 — which
+   is GitHub's scheduler, the mechanism ADR-0013 moved off for being
+   undeliverable, and which has in fact been delivered between 17:44 and 19:41
+   on every observed day. Recovery was ~12 hours away, by a route the repo does
+   not trust.
+2. **#26 work item 2 rests on it.** "Let the 10:47 UTC catch-up call re-check
+   the feeds" cannot be assessed until the call exists. Its stated limitation
+   (it no-ops when the day's note is already written) is real but secondary to
+   its not running at all.
+
+**The decision — taken 2026-09-22: install it.** The `schedule:` backstop alone
+is not a net anybody should rely on; it is the mechanism ADR-0013 moved off for
+being undeliverable, and on 2026-09-22 it would have been ~12 hours away.
+
+**Shipped the same day — the half that stops this recurring.** Installing a call
+nobody watches is how this happened: a slot that never ran and a slot that ran
+and no-op'd left **identical traces**, because a no-op writes nothing. So every
+run now leaves one line on `output` naming who asked —
+`schedule/last-<source>.txt`, written by `pipeline.yml`'s `heartbeat` job — and
+`record_audit.py` carries all three slots in its `ARTIFACTS` registry at four
+days (WP-24.B). A silent caller is now a red check rather than a month of nobody
+looking. `operations.md` → *Is the schedule actually running?* has the by-hand
+check; `pipeline.yml`'s THE CATCH-UP CALL header no longer states the catch-up
+runs, because it does not.
+
+`record_audit.py` is therefore **red on `schedule/last-cron-catchup.txt` until
+the crontab line is installed**, and its message says exactly that. That red is
+this item, held where it cannot be forgotten — it is not a stale registry entry
+and must not be pinned away.
+
+**Still owed by the owner, and neither is something the assistant can do:**
+1. **The second call itself, on the caller.** *The caller is cron-job.org, not a
+   shell host* (confirmed 2026-09-22) — so this is a second HTTP job, not a
+   crontab line: same dispatch URL, body
+   `{"ref": "main", "inputs": {"source": "cron-catchup"}}`, `47 10 * * 1-5`,
+   timezone UTC (`operations.md` → *On an HTTP-only service*). The red clears on
+   the first catch-up that lands. While in there, move the primary to `23 6` —
+   see the adjacent item below, which is **load-bearing for this caller** in a
+   way the note under it originally got wrong.
+2. **Re-read [ADR-0012](../decisions/ADR-0012-external-cron-with-backstop.md)'s
+   `## Would we revisit it?`** — see the paragraph below. Per convention #11 the
+   person who re-reads it edits that section; this item is still not licence for
+   the assistant to rewrite it.
+
+Whichever way it goes, **ADR-0012's `## Would we revisit it?` should be read
+again**: it hedges only the direction where GitHub's scheduler becomes
+reliable, and says nothing about the external caller being incompletely
+installed — which is the direction that actually cost a note. Per convention
+#11 the person who re-reads it edits that section; this item is not licence to
+rewrite it.
+
+**Adjacent, same evidence, cheap to settle at the same time:** the primary is
+documented at `23 6` and every observed dispatch has landed at 06:00:31-06:00:41
+UTC. ~~so the crontab on the host is on `0 6`~~ — *corrected 2026-09-22: the
+caller's job is `0 8 * * 1-5` on **Europe/Berlin**, and Berlin is UTC+2 right
+now, so `0 8` local **is** 06:00 UTC. Nobody typed the wrong number; the slot is
+being read in the wrong frame.* That is worse than a typo, because it moves:
+**on 2026-10-25 Berlin falls back to UTC+1, so from Monday 2026-10-26 the same
+line fires at 07:00 UTC**, and back to 06:00 UTC on 2027-03-28. `operations.md`
+opens the schedule section with *"set the cron service's timezone to UTC so the
+slots don't move twice a year"*; that instruction was not followed, and the
+whole discrepancy is the consequence. **Fix: set the cron-job.org job's timezone
+to UTC and use `23 6` / `47 10` literally** — a Berlin-local schedule that is
+correct year-round cannot be written as one crontab line. The 31-second gap
+against `plan`'s date cutoff is closed from the caller's side (`trigger_pipeline.sh`
+now pins `asof`; `test_trigger_asof.py`), so this is no longer load-bearing —
+but the table and the host still disagree, and whichever is wrong should move.
+*2026-09-22, and the sentence above is wrong for the caller actually in use.*
+`trigger_pipeline.sh` pins `asof` — but **the caller is cron-job.org**, which
+sends a static JSON body and cannot compute a date, so it always falls through
+to `plan`'s clock guess and its 06:00 cutoff. For this caller the 31-second
+margin **is** load-bearing: a dispatch landing at 05:59 is read as yesterday's
+slot, no-ops against yesterday's existing note, and leaves today with no note
+and every check green. `23 6` buys 23 minutes instead of 31 seconds. The
+`trigger_pipeline.sh` fix from the same morning protects a path nobody is
+running. `operations.md` → *Is the schedule actually running?* now splits the
+two callers instead of asserting the shell-host answer for both.
+
+This also interacts with #26 item 3: if the run moves off the 06:00 hour to
+dodge the empty `^VIX3M` window, both slots are being rewritten anyway and the
+two should be decided together.
+
+
+</details>
+
+---
+
+
+### RESOLVED 2026-09-23 — moving the daily run off the 06:00 hour: no, monitor 06:23 instead
+*A sub-decision of `todo.md` **#26** work item 3. The heading carries no number
+on purpose: #26 itself is still open (work item 2, and `market_data`'s `vix3m`
+having no fallback on any path), and one number cannot head both an open and a
+resolved item — `record_audit.py` reds on exactly that, and did.*
+**Resolution: do not move the run. Watch the 06:23 slot and reopen on a named
+trigger.** The item stays closed on reasoning, not on the absence of a failure.
+
+**What it proposed and why.** [KB-034] measured yfinance's `^VIX3M` returning an
+empty frame at ~06:04 UTC on 2026-09-16, 09-17 and 09-18, and current data at
+16:24 UTC the same days. The inference was that the feed is not populated that
+early, so generating the note at 06:04 systematically risks a missing vol leg,
+and a later slot is the only fix that does not depend on a retry or a fallback.
+
+**Why that no longer justifies the change.**
+
+1. **It was never a controlled read.** Three mornings at one time against a
+   single probe ten hours later. That is an asymmetry worth noticing; it is not
+   a boundary anyone located. 07:00, 09:00 and 12:00 have never been tested.
+2. **The premise is gone.** Item 3 was drafted when the vol legs had no working
+   fallback of any kind. They now have two layers that did not exist then: the
+   yfinance retry (`yf_history_with_retry`, 2026-09-22) and a CBOE fallback
+   whose reachability from CI was measured green on 2026-09-23 ([KB-034] second
+   addendum). The risk it mitigates is double-covered.
+3. **2026-09-23 argues against a clean time boundary.** The slot moved to 06:23
+   as a side effect of #27's timezone fix, 19 minutes from the slot that failed,
+   and `vix_term` computed — served by **yfinance directly**, not the CBOE
+   splice (the `feed` key is absent from the day's JSONL, and any non-yfinance
+   source would have been recorded, `quant_context.py`:385).
+4. **The move has a product cost the item never stated.** 06:04 UTC is 02:04 ET.
+   Any shift large enough to clear the suspect window pushes the note toward or
+   into US session hours — 16:24 UTC, the one time known to work, is 12:24 ET,
+   mid-session. That does not merely move the note, it changes what the note is:
+   a pre-market read becomes an intraday one. A proposal with that consequence
+   should have carried it, and did not.
+
+**What would reopen it — named in advance, so reopening is not a judgment call
+made under pressure:** two `Unavailable` composites inside any rolling ten
+weekdays at the 06:23 slot, or any degraded reading whose recorded `feed` source
+shows the CBOE splice carrying `vix3m` on more than two days in a month. Either
+means the early slot is costing readings that the mitigations are not covering,
+and the hour becomes the variable again. `feed_audit.py` already reds on two
+consecutive degraded readings, so the first trigger fires on its own.
+
+**The honest gap in the monitoring, carried → `todo.md` #31.** The record cannot
+currently distinguish *the feed was healthy at 06:23* from *the feed was empty
+and the retry rescued it, every day*. `yf_history_with_retry` logs a WARN to the
+job log and nothing to the JSONL, so both look identical in
+`quant_context_log`. That is a blind spot on exactly the question this item
+asked, and a monitoring plan that cannot see it is weaker than it looks.
+
+
+---
+
 ## Phase 24 — record integrity
 
 ### RESOLVED 2026-09-14 — #23 a record contradiction is red in CI, with a pin; ages stay report-only

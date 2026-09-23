@@ -368,20 +368,15 @@ ARTIFACTS: tuple[Artifact, ...] = (
     # Same 4 days as the note, for the same reason: Friday → Tuesday is four
     # days, so one missed weekday can slip through and two cannot.
     #
-    # `cron-catchup` is RED UNTIL THE SECOND CRONTAB LINE IS INSTALLED. It has
-    # never once fired — no run between 2026-08-28 and 2026-09-22 carried it —
-    # while operations.md's schedule table, pipeline.yml's THE CATCH-UP CALL
-    # header and ADR-0012 all rest on it. That gap is the finding, and this
-    # entry is how it stays visible; the fix is one crontab line on the caller's
-    # host (operations.md → Setting it up), not a pin here.
+    # Both landed 2026-09-23, the first day the caller ran on UTC with both jobs
+    # configured — `cron-catchup` for the first time ever (todo #27, closed).
+    # Their `awaiting` messages are gone with the condition they described: from
+    # here a missing file means the entry or the stage is wrong, which is the
+    # default reading and the right one.
     Artifact("schedule/last-cron-primary.txt", "output", 4,
-             "the external caller's 06:23 slot",
-             awaiting="the `heartbeat` job is new; this clears on the next pipeline run"),
+             "the external caller's 06:23 slot"),
     Artifact("schedule/last-cron-catchup.txt", "output", 4,
-             "the external caller's 10:47 slot — todo #27",
-             awaiting="the catch-up has never fired — add the second call on the caller "
-                      "(cron-job.org: operations.md → On an HTTP-only service); "
-                      "this is todo #27, not a stale entry"),
+             "the external caller's 10:47 slot"),
 )
 
 

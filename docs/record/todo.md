@@ -166,108 +166,29 @@ deliverable. Belongs with the §9 quarter read, not a mid-flight reporting tweak
 headline accuracy (#7, carried) was answered by the cut itself — both in
 [`resolved.md`](resolved.md). #7 and #8 above are the Phase 22 items.*
 
-### Open decision #27 — the catch-up call has never once fired
-**Where:** `docs/reference/operations.md:257-258` (the schedule table) ·
-`.github/workflows/pipeline.yml` header, *THE CATCH-UP CALL* ·
-[ADR-0012](../decisions/ADR-0012-external-cron-with-backstop.md):50, which
-rests on it · `todo.md` #26 work item 2, which is built on it.
-**Source:** the 2026-09-22 06:00 UTC run (Actions run 35692953937) failed at
-stage 1 and published no note; the day was recovered by a hand-dispatched run
-at 12:48.
+### Carried finding #30 — ADR-0012's revisit section has not been re-read since the failure that tested it
+**Where:** [ADR-0012](../decisions/ADR-0012-external-cron-with-backstop.md),
+`## Would we revisit it?`.
+**Source:** the carried obligation from #27, which closed 2026-09-23 →
+[`resolved.md`](resolved.md).
 
-The record says the external service calls `pipeline.yml` twice each weekday —
-`23 6` as `cron-primary` and `47 10` as `cron-catchup`. Across **all 39
-pipeline runs since 2026-08-28 there is not one run with `source=cron-catchup`**:
-every day carries exactly one `cron-primary` and one `schedule-backstop`. The
-catch-up is documented, is the justification for several design choices, and
-does not exist.
+ADR-0012 chose an external cron service over GitHub's scheduler, and the
+catch-up call was part of what made that trade look safe. Its revisit section
+hedges only the direction where **GitHub's scheduler becomes reliable**. It says
+nothing about the direction that actually cost a note: **the external caller
+being incompletely installed** — one of its two slots configured, for a month,
+with nothing anywhere able to notice.
 
-Two things follow, and neither is a bug fix:
+That direction is now instrumented (the heartbeat, WP-24.B entries for all three
+slots), so the decision is better defended than it was. The section still does
+not mention the failure mode, which means the next person to read the ADR gets
+the pre-2026-09-22 picture of what could go wrong with it.
 
-1. **The recovery story is wrong wherever it is written.** The workflow header
-   argues the catch-up "fills the gap unattended" on a day the primary never
-   landed. On 2026-09-22 the primary landed and *failed*, and nothing filled
-   the gap. The only surviving net is the `schedule:` backstop at 14:37 — which
-   is GitHub's scheduler, the mechanism ADR-0013 moved off for being
-   undeliverable, and which has in fact been delivered between 17:44 and 19:41
-   on every observed day. Recovery was ~12 hours away, by a route the repo does
-   not trust.
-2. **#26 work item 2 rests on it.** "Let the 10:47 UTC catch-up call re-check
-   the feeds" cannot be assessed until the call exists. Its stated limitation
-   (it no-ops when the day's note is already written) is real but secondary to
-   its not running at all.
-
-**The decision — taken 2026-09-22: install it.** The `schedule:` backstop alone
-is not a net anybody should rely on; it is the mechanism ADR-0013 moved off for
-being undeliverable, and on 2026-09-22 it would have been ~12 hours away.
-
-**Shipped the same day — the half that stops this recurring.** Installing a call
-nobody watches is how this happened: a slot that never ran and a slot that ran
-and no-op'd left **identical traces**, because a no-op writes nothing. So every
-run now leaves one line on `output` naming who asked —
-`schedule/last-<source>.txt`, written by `pipeline.yml`'s `heartbeat` job — and
-`record_audit.py` carries all three slots in its `ARTIFACTS` registry at four
-days (WP-24.B). A silent caller is now a red check rather than a month of nobody
-looking. `operations.md` → *Is the schedule actually running?* has the by-hand
-check; `pipeline.yml`'s THE CATCH-UP CALL header no longer states the catch-up
-runs, because it does not.
-
-`record_audit.py` is therefore **red on `schedule/last-cron-catchup.txt` until
-the crontab line is installed**, and its message says exactly that. That red is
-this item, held where it cannot be forgotten — it is not a stale registry entry
-and must not be pinned away.
-
-**Still owed by the owner, and neither is something the assistant can do:**
-1. **The second call itself, on the caller.** *The caller is cron-job.org, not a
-   shell host* (confirmed 2026-09-22) — so this is a second HTTP job, not a
-   crontab line: same dispatch URL, body
-   `{"ref": "main", "inputs": {"source": "cron-catchup"}}`, `47 10 * * 1-5`,
-   timezone UTC (`operations.md` → *On an HTTP-only service*). The red clears on
-   the first catch-up that lands. While in there, move the primary to `23 6` —
-   see the adjacent item below, which is **load-bearing for this caller** in a
-   way the note under it originally got wrong.
-2. **Re-read [ADR-0012](../decisions/ADR-0012-external-cron-with-backstop.md)'s
-   `## Would we revisit it?`** — see the paragraph below. Per convention #11 the
-   person who re-reads it edits that section; this item is still not licence for
-   the assistant to rewrite it.
-
-Whichever way it goes, **ADR-0012's `## Would we revisit it?` should be read
-again**: it hedges only the direction where GitHub's scheduler becomes
-reliable, and says nothing about the external caller being incompletely
-installed — which is the direction that actually cost a note. Per convention
-#11 the person who re-reads it edits that section; this item is not licence to
-rewrite it.
-
-**Adjacent, same evidence, cheap to settle at the same time:** the primary is
-documented at `23 6` and every observed dispatch has landed at 06:00:31-06:00:41
-UTC. ~~so the crontab on the host is on `0 6`~~ — *corrected 2026-09-22: the
-caller's job is `0 8 * * 1-5` on **Europe/Berlin**, and Berlin is UTC+2 right
-now, so `0 8` local **is** 06:00 UTC. Nobody typed the wrong number; the slot is
-being read in the wrong frame.* That is worse than a typo, because it moves:
-**on 2026-10-25 Berlin falls back to UTC+1, so from Monday 2026-10-26 the same
-line fires at 07:00 UTC**, and back to 06:00 UTC on 2027-03-28. `operations.md`
-opens the schedule section with *"set the cron service's timezone to UTC so the
-slots don't move twice a year"*; that instruction was not followed, and the
-whole discrepancy is the consequence. **Fix: set the cron-job.org job's timezone
-to UTC and use `23 6` / `47 10` literally** — a Berlin-local schedule that is
-correct year-round cannot be written as one crontab line. The 31-second gap
-against `plan`'s date cutoff is closed from the caller's side (`trigger_pipeline.sh`
-now pins `asof`; `test_trigger_asof.py`), so this is no longer load-bearing —
-but the table and the host still disagree, and whichever is wrong should move.
-*2026-09-22, and the sentence above is wrong for the caller actually in use.*
-`trigger_pipeline.sh` pins `asof` — but **the caller is cron-job.org**, which
-sends a static JSON body and cannot compute a date, so it always falls through
-to `plan`'s clock guess and its 06:00 cutoff. For this caller the 31-second
-margin **is** load-bearing: a dispatch landing at 05:59 is read as yesterday's
-slot, no-ops against yesterday's existing note, and leaves today with no note
-and every check green. `23 6` buys 23 minutes instead of 31 seconds. The
-`trigger_pipeline.sh` fix from the same morning protects a path nobody is
-running. `operations.md` → *Is the schedule actually running?* now splits the
-two callers instead of asserting the shell-host answer for both.
-
-This also interacts with #26 item 3: if the run moves off the 06:00 hour to
-dodge the empty `^VIX3M` window, both slots are being rewritten anyway and the
-two should be decided together.
+**Per convention #11 the person who re-reads it edits that section** — even to
+say "and it did not fire", which is a legitimate answer and clears the line.
+This item is not licence for the assistant to rewrite it. WP-24.F does not flag
+it today, because no *cited* referent has moved; the gap is in what the section
+chose to cite in the first place.
 
 ### Carried finding #29 — may the Phase 22 scorer read a day conditioned on a carried value?
 **Where:** `fred_data.carry_forward` · `results/quant_context_log/*.jsonl`, key
@@ -341,12 +262,11 @@ later.
    below still applies once it exists: stages skip when the day's note already
    exists, so the one mechanism built for "the early run failed" cannot help a
    run that *succeeded* with a hole in it.
-3. **Move the run.** 06:04 UTC is 02:04 ET; nothing about the note needs that
-   hour. **Still open, and now the only item that addresses the cause** — the
-   feed is empty at 06:04 and current at 16:24, so a later slot is the one fix
-   that does not depend on a retry winning a race or on a fallback nobody has
-   yet seen work. It is a schedule decision, not a code change, and it touches
-   the same crontab as #27.
+3. ~~**Move the run.**~~ **Closed 2026-09-23 → [`resolved.md`](resolved.md)** —
+   monitor 06:23 instead. The premise it was written under (the vol legs have no
+   working fallback) is gone, and the move it proposed has a product cost nobody
+   had costed. Reopen only on the trigger recorded there.
+
 4. A second issuer feed — only if 1–3 fail, and under the parity rule below.
 
 **Blocking all four: does the fallback we already have work at all?**
@@ -359,17 +279,54 @@ datacenter IP, which is the combination a CDN WAF rejects, and 403 is already
 named in `fragility_panel.py`'s own comment — but the recorded reason from those
 three runs was never captured, so that is a mechanism, not a finding.
 
-`--probe-cboe` now runs in CI on every pipeline run (`pipeline.yml`, job
-`feed_probe` — its own job, so it still runs on a day `daily` fails). **The next
-pipeline run settles it**, with the runner's own reason attached: green closes
-item 4, a 403 makes the fix a request header rather than a third feed. Until it
-reports, the vol legs are still to be treated as having no fallback.
+**Settled 2026-09-23 — green in CI, and the hypothesis was wrong** (→ [KB-034]
+second addendum). `2c · issuer fallback probe` was green on all three of the
+day's runs (06:23, 10:47, 18:34 UTC). The fallback's source is reachable from
+the runner; the three 09-16 → 09-18 failures were **transient, not structural**,
+and the WAF / datacenter-IP mechanism proposed the day before is **disproven** —
+do not carry it forward. **Item 4 (a second issuer feed) stays closed**, now for
+a measured reason. The "no fallback" caveat lifts.
+
+**What is still not proven:** a green probe exercises `fetch_cboe_index`, not
+`freshen_vol_indices` — the splice itself has still never completed in
+production. Smaller gap, not a closed one.
 
 **Also carried:** `market_data`'s `vix3m` has no fallback on any path —
 `vix_term_ratio` vanished from the LLM payload on all three days and no
 mechanism covers it.
 
 ---
+
+### Carried finding #31 — a silent retry looks exactly like a healthy feed
+**Where:** `pipeline_common.yf_history_with_retry` · `quant_context.py`:385
+(where `fragility.feed` is written) · `results/quant_context_log/*.jsonl`.
+**Source:** the monitoring gap named when #26 item 3 closed 2026-09-23 →
+[`resolved.md`](resolved.md).
+
+`yf_history_with_retry` writes a WARN line to stdout when a first attempt comes
+back empty, and **nothing to the JSONL**. The `fragility.feed` block is written
+only when a reading is degraded or a leg was served by something other than
+yfinance — so a day where the first `^VIX3M` attempt returned an empty frame and
+the second succeeded is recorded **identically to a day where the feed was
+healthy**: no `feed` key, `degraded: []`, and a normal `vix_term`.
+
+That matters because watching the 06:23 slot is now the *alternative* to moving
+the run. If the early slot is in fact flaky and the retry is quietly carrying it
+every morning, the monitoring plan cannot see it, and the reopen triggers
+recorded in `resolved.md` would never fire — the fallback would be doing its job
+so well that the problem stayed invisible. That is the [KB-029] failure shape
+again: correct-looking readings nobody can later tell apart.
+
+**The fix is small** — have the helper record the attempt count per leg and
+surface it in `raw["fragility"]["feed"]` (or a sibling key) whenever a retry
+actually fired, on an otherwise healthy day. The condition at
+`quant_context.py`:385 has to widen: today it omits the block precisely when
+nothing looks wrong, which is the case this needs.
+
+**Worth deciding at the same time:** whether a retry that fired is enough on its
+own to count toward `feed_audit.py`'s degraded streak. Probably not — a rescued
+leg is not a degraded reading — but it should be *countable*, which it is not
+now.
 
 ### The original question, kept for its admission rule — a second issuer feed
 **Source:** [KB-034]. The fallback chain is one deep: yfinance's `^VIX3M`, then
