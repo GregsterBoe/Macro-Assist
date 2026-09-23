@@ -71,6 +71,7 @@ TOOLING: frozenset[str] = frozenset({
     "bump_version", "tag_versions",
     "record_audit",                 # the record layer's audit (Phase 24); reads docs and workflows, never the pipeline
     "orient",                       # what /orient prints at turn 1 (WP-24.G); reads record_audit and the docs, never writes
+    "decision_packet",              # the §9 worksheet for a register entry; reads docs/ and git, measures nothing
 })
 
 # (importer, imported) pairs that cross product → research, each with a todo

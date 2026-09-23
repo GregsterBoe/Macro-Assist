@@ -73,6 +73,7 @@ python .macro-assist/explore_conditioner.py --cached  # explore-tier looks, pre-
 mkdocs build --strict                        # what CI runs; fails on a broken link
 python .macro-assist/record_audit.py         # the record layer's audit; CI runs it on every push (Phase 24)
 python .macro-assist/orient.py               # what /orient prints at turn 1: board, inbox, audit, revisit lines, competence gate (WP-24.G)
+python .macro-assist/decision_packet.py H-002   # the §9 worksheet for a register entry; --check --all for the readiness vector
 python .macro-assist/feed_audit.py           # the fragility feed gate; pipeline job `feed_gate` (IMP-5.4)
 python .macro-assist/feed_audit.py --probe   # ...and why vix_term is missing right now (needs network)
 python .macro-assist/feed_audit.py --probe-cboe  # does the issuer fallback work AT ALL (never exercised in prod)
