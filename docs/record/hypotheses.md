@@ -21,12 +21,13 @@ missing a confound is not finished.
 | # | Status | One line |
 |---|---|---|
 | [H-001](#h-001) | `closed` | The SPF anchor's confidence bins are the first correctly ordered ones ever measured here — *confound resolved 2026-09-14: the ordering is carried by two crisis-rebound periods and inverts within three of six assets; closed on its own target-space rule, no KB entry* |
-| [H-002](#h-002) | `draft` | The stress-reversion mechanism is conditional on fragility state: stress continues in Elevated tapes, reverts in Normal ones — *explore looks 2026-09-14 and 09-21: width half seen, location half not; what was seen instead is that in an Elevated tape the relief bounce inside a drawdown is what does not hold* |
+| [H-002](#h-002) | `closed` | The stress-reversion mechanism is conditional on fragility state: stress continues in Elevated tapes, reverts in Normal ones — *explore looks 2026-09-14 and 09-21: width half seen, location half not; what was seen instead is that in an Elevated tape the relief bounce inside a drawdown is what does not hold* The stress-reversion mechanism is conditional on fragility state: stress continues in Elevated tapes, reverts in Normal ones — *refuted on explore 2026-09-24: the location half failed in sign on both looks (09-14, 09-21); no KB entry; the width half carried to H-008* |
 | [H-003](#h-003) | `draft` | The SPF-vs-SEP gap predicts the *width* of the realized rate path, not its direction |
 | [H-004](#h-004) | `draft` | The published conditioner's dimensions are not the ones that move the distribution; a fragility-state conditioner beats the macro bucket — *explore look 2026-09-14: structure check failed in direction* |
 | [H-005](#h-005) | `seen` | On the explore slice the published macro bucket is reliably *worse* than not conditioning, and the deficit grows with horizon |
 | [H-006](#h-006) | `seen` | The only conditioner that beats `unconditional` on the explore slice is the S&P's own drawdown bin — and its gain is a narrower interval in calm, not the reversion — *rival look 2026-09-14: the width claim holds; the product's `har_gaussian` does not carry it, the same σ on the empirical shape does* |
 | [H-007](#h-007) | `seen` | The product's `har_gaussian` comparator is handicapped by its shape and its zero mean, not its σ: too wide in calm (coverage 0.57 at nominal 0.50), skewed PIT, −0.044 on the S&P at 20d, while the same forecast on the empirical shape is +0.016 … +0.026 |
+| [H-008](#h-008) | `draft` | Within a stressed drawdown bin, the OR flag's state widens the forward distribution beyond what drawdown depth explains |
 
 ---
 
@@ -111,7 +112,7 @@ predicts width. **Closed, on the target-space check's own terms.** Reproduce:
 
 ## H-002 — The stress-reversion mechanism is conditional on fragility state {: #h-002 }
 
-**Status:** `draft` — needs the owner's rewrite before it is a hypothesis
+**Status:** `closed` · drafted 2026-09-13 · explore looks 2026-09-14, 2026-09-21 · closed 2026-09-24, refuted on the explore slice. No KB entry: both looks were explore tier (`verdict(sealed=False)`), and the claim as written never reached a bar. The prediction required *both* a width split and medians on opposite sides of unconditional. The location half failed in sign on both looks. Stress in an OR-Elevated tape reverts; after a down week it reverts hardest (+1.89 · +3.15 · +4.33 at 5/10/20d). The mechanism ("stress → continuation in Elevated") is therefore wrong on 2010–2017, not unmeasured. The width half held and is carried as its own entry → [H-008](#h-008), which inherits this entry's ledger. The relief-bounce reading from the 09-21 look (`stressed ∧ Elevated ∧ up5` left of unconditional) stays recorded in the ledger below and is **not** carried by H-008; whether it becomes an entry is open. The ledger and the original text stay as written.
 
 **What was seen.** The one stable relationship in the 18-year panel is
 contrarian: `drawdown` is the only input both model classes find load-bearing,
@@ -637,6 +638,33 @@ median-only read against the old σ; this is all three quantiles against the
 new fit) · `score_distributions._gaussian_quantiles` · the report.
 
 ---
+
+## H-008 — Fragility state widens the stressed forward distribution beyond drawdown depth {: #h-008 }
+
+**Status:** `draft` — assistant-drafted 2026-09-24 from H-002's ledger; needs the owner's rewrite before it is a hypothesis. Split from [H-002](#h-002) (closed, refuted on explore); inherits its multiplicity ledger.
+
+**What was seen.** On the explore slice (2010-06-25 → 2017-12-29, 1,893 report dates), realized S&P forward change by drawdown bin × `fragility_or` state:
+- The OR-Elevated cell is wider (P75−P25) than the Normal cell in 8 of 9 bin × horizon cells. The exception is the calm bin at 5d (1.59 vs 1.61).
+- In both stressed bins it holds at every horizon: −5..−10% gives 3.71 vs 2.91 at 5d and 8.41 vs 4.22 at 20d; <−10% gives 5.31 vs 3.24 at 5d and 7.59 vs 4.21 at 20d.
+- Depth alone does not reproduce it: −5..−10% ∧ Elevated is wider than <−10% ∧ Normal at every horizon (3.71 vs 3.24 · 6.09 vs 3.96 · 8.41 vs 4.21).
+- n = 70 and 96 days, two or three episodes each.
+- As a scored conditioner (`dd_x_frag`), it does not beat `dd_bin` alone: +0.009 [−0.001, +0.020] at 5d on the original three, and negative at 20d.
+
+**Where.** [H-002](#h-002) ledger, 2026-09-14 and 2026-09-21 · `results/explore_conditioner/report.md` § *H-002 structure check* · `explore_conditioner.py` arms `dd_bin`, `dd_x_frag`.
+
+**Mechanism it would imply.** Drawdown depth measures how far the tape has fallen. The OR flag measures whether its structure is fragile: correlation, term structure, turbulence. If fragility carries information about dispersion that depth does not, a stressed day in a fragile tape has a wider forward distribution than an equally deep one in a sound tape. The tape is not headed in a different direction; its outcomes are more spread out.
+
+**The prediction that is not the score.** The Elevated/Normal width ratio within a stressed bin *grows* with horizon. A pure volatility-level effect should shrink toward 1 as vol mean-reverts over 5 → 20 days. A state effect should persist or grow. *Caution: the explore numbers already show growth (≈1.3–1.6 at 5d, ≈1.8–2.0 at 20d). This prediction was written after seeing them and is `seen`, not pre-registered.*
+
+**The confound.** Volatility clustering. An Elevated tape is a high-vol tape. The width split may be a realized-vol forecast restated, which is [KB-016]'s precision trade and [H-006](#h-006) / [H-007](#h-007)'s territory. The rival is `har_scaled` within the stressed bin. If a trailing-vol forecast on the empirical shape reproduces the Elevated/Normal width split, the state is not doing the work. Secondary confound: thin cells, two or three episodes each.
+
+**What would test it.** A counted explore look first: stressed bin × OR state against stressed bin × `har_scaled` σ tercile, widths only, same slice. Then, only if the state survives that rival, a shadow conditioner under WP-23.B's class bar with `har_scaled` as second comparator (`resolved.md` #22), sealed 2018-01-01 (#19). An `underpowered` floor in rows *and* distinct spells must be written before promotion.
+
+**Target-space check.** A width, i.e. a property of the conditional distribution, read by the distribution scorer. Not a sign. Passes.
+
+**Read first.** [KB-016] · [KB-017] · [KB-033] · [H-006](#h-006) · [H-007](#h-007) · `explore_conditioner.py` · `fragility_or.py::_pit_backtest`.
+
+**Explore-tier looks (ledger).** Inherited from [H-002](#h-002): two runs (2026-09-14, 2026-09-21), 12 arms, three cell configurations, two pre-written location predictions that failed in sign. The width reading comes from the first run's pre-fixed configuration (`DD_EDGES = (−5%, −10%)`, `MIN_N = 10`, `BURN_IN = 252`). No look yet specific to this entry.
 
 ## Closed
 

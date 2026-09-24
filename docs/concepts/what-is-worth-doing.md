@@ -46,7 +46,7 @@ a plan, and it belongs in the roadmap.
 > feature was deleted and the project survived, so whatever survived it is
 > pointing at the answer.*
 
-_(unwritten)_
+The goal of this project is to provide usefull information to me at below 20 € per month. While the theoretical foundation needs to be solid the most important goal is that produced output can be used to improve portfolio management. A track that cannot name the portfolio decision it would change loses to one that can.
 
 ---
 
@@ -60,14 +60,12 @@ _(unwritten)_
 
 | Goal | What would count as having reached it | What it is **not** |
 |---|---|---|
-| _(unwritten)_ | | |
-| _(unwritten)_ | | |
-| _(unwritten)_ | | |
+| daily note that actually shapes decision making| The investor is influenced at least once a month based on the note| No influence based on note |
+|  Improved fragility | Improve OR flag (precision to 0.4 5d - at recall no worse than today) & Composite Elevated (recall to 0.4 5d - at precision no worse than today) | smaller improvements|
+|Fragility-based rules for my real decisions | For each decision I actually face (e.g. new money, rebalancing, reducing risk), one rule that was written before testing and beats doing nothing net of costs, first on the explore data and then on held-out data or paper | Rules that look good on a few past episodes, or rules that don't say which decision they change|
+| Proftiable Portfolio Management | Outperformance of S & P 500 over the next 2 years from setting up | A slightly positive gain over a short period|
 
-> *Then, in prose: which of these is first when two of them conflict, and why.
-> They will conflict.*
-
-_(unwritten)_
+goal 2 over goal 3. Goal 4 should not be directly influenced by 1 but be rule-based.
 
 ---
 

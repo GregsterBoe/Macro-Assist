@@ -10,3 +10,4 @@ __pycache__/
 /results/
 # MkDocs build output
 /site/
+packet.md
