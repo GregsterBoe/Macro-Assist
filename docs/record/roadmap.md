@@ -70,8 +70,9 @@ Measured results live in `knowledge-base.md`.
 | 16 | Fragility monitor + design-by-emergence prompt levers | ✅ Closed 2026-09-04 — 16.A shipped and alive (→ IMP-4), 16.B/C closed by Phase 21; detail archived |
 | 21 | Directional product validation → **the cut (v1.6)** | ✅ Closed 2026-09-04 — [KB-024]. WP-21.E bounded search: family 1 (VIX term structure) resolved **negative** 2026-09-08 → [KB-027]; 2 of 3 families remain, bar for them written 2026-09-13 ([ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md)) |
 | 22 | Scoring the distribution product | 🟢 Open 2026-09-08 — the scorer follows the v1.6 cut. A/B shipped; the bar is sealed, first read ~2027-05 |
-| 23 | Exploration tier — the generation side of the method | 🔍 Open 2026-09-13 — harness built, three explore looks run 2026-09-14 and 09-21; seal decided (`SEAL_START` reused); next is the owner's rewrites, then the WP-23.B class bar |
+| 23 | Exploration tier — the generation side of the method | 🔍 Open 2026-09-13 — harness built, three explore looks run 2026-09-14 and 09-21; seal decided (`SEAL_START` reused); next is the independent audit (Phase 25), then the WP-23.B class bar |
 | 24 | Record integrity & session continuity | ✅ Closed 2026-09-21 — every work package shipped: `record_audit.py` in CI (24.A/B since 2026-09-14, 24.C–F since 2026-09-21) and `/orient` (24.G); detail archived. The row said ⏸ Draft for a week after the board went Active — 24.D's first red |
+| 25 | Independent audit — the judge is not the proposer ([ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md)) | 🔍 Open 2026-09-27 — accepted, nothing built; until the auditor has rejected every canary, nothing is promoted |
 
 The v1.5 **system-state snapshot** that used to open this file was archived on the
 same pass; `README.md` is the maintained system reference.
@@ -779,9 +780,11 @@ Not chosen. H-004 is the cheapest (a sub-table of H-002). H-001's confound was
 resolved 2026-09-14 from the pulled artifact (the ordering is a crisis-rebound
 period effect and inverts within three of six assets) and the entry is
 `closed` on its own target-space rule — an errand, not a promotion, and no KB
-entry. The owner rewrites the chosen entry, its status moves `draft →
-promoted`, the ledger is attached, and the run reads the sealed slice once.
-Result → KB, either way.
+entry. Since [ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md) the chosen entry passes an
+independent audit instead of the owner's rewrite; the owner may veto; its status
+moves `draft → promoted`, the ledger is attached, and the run reads the sealed
+slice once, after the owner turns the seal key. Result → KB, either way.
+**Blocked on Phase 25's switch.**
 
 ---
 
@@ -818,3 +821,75 @@ numbering, the revisit section). Rules in
 **What it did not do, on purpose:** repair anything, read prose conditions, or
 give an age a threshold. Re-opens only for a new check — a new stage that
 writes something gets an `ARTIFACTS` line, not a work package.
+
+---
+
+## Independent Audit (Phase 25) — *the judge is not the proposer* 🔍 OPEN — accepted 2026-09-27, nothing built
+
+**Why.** [ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md) moved the technical audit of a
+register entry from the owner to an auditor that is independent of the proposer
+by construction; the owner keeps the goals, a veto, the seal key and the money
+key. The ADR is the decision and its costs; this phase is the build. Everything
+it adds is TOOLING or a CI job — nothing touches the published note. Budget: it
+runs on events (a promotion, a look), never continuously, inside the 20 €/month
+ceiling of [What is worth doing §1](../concepts/what-is-worth-doing.md#1-what-this-project-is-for).
+
+**The switch.** When WP-25.A–C are done and the auditor has rejected every
+canary, delete the *Until the auditor is switched on* subsection of
+[how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis).
+Promotions can then run; a sealed read also needs WP-25.D. Until the switch,
+nothing is promoted by audit and the old rule still governs.
+
+### WP-25.A — The auditor, its inputs, and the canaries
+
+- **Instructions** in one file: adversarial, default reject, the twelve questions
+  of [§9](../concepts/how-we-explore.md#9-the-checklist-an-entry-passes-before-it-is-promoted)
+  read from the page, and a brief for the owner that puts the strongest case
+  against first.
+- **The input bundle, built by code** — the pre-registration, the raw report
+  numbers, the diff, the ledger; never the proposer's conversation or its
+  summary of its own case. `decision_packet.py` already assembles most of this
+  without recommending and is the starting point.
+- **Canaries**: at least four planted defective entries — a bar written after
+  the data, a signed forecast worded as a distribution claim, a read of the
+  sealed slice, a cell resting on two episodes — each with the finding the
+  auditor must produce.
+
+**Done when** the auditor rejects every canary, and a test holds the canary set
+non-empty with an expected finding per canary.
+
+### WP-25.B — The code checks, in `record_audit.py`
+
+- **Bar older than result:** the commit holding an entry's bar predates the
+  commit holding the result it is read against.
+- **Approval stamp:** an audit record carries a fingerprint of the entry text it
+  approved; a promotion whose entry no longer matches is red.
+- **Instruction freeze:** one change may not touch both the auditor's
+  instructions and a promotion.
+- **Receipts:** the explore harness logs each run itself, and every dated look in
+  an entry has a logged run behind it. (Matching each *number* to the report is
+  the auditor's job, from the bundle.)
+- **No grinding:** each resubmission after a rejection is a counted look; a third
+  submission after two rejections is red until the entry is closed or the owner
+  decides.
+
+### WP-25.C — The CI audit job
+
+A change that moves an entry toward `promoted` runs the auditor in CI on the
+bundle; CI, not the proposer, writes the result. The register's fixed format
+gains an **Audit record** field — question 12 in `decision_packet.py` already
+wants it — and the proposer never authors it. The owner receives the brief.
+
+### WP-25.D — The seal key
+
+A GitHub Actions environment with the owner as required reviewer; the
+sealed-read job waits until they approve. **Done when** a dry run shows the job
+paused *and* the assistant's credentials refused at the approval — otherwise the
+key is decorative.
+
+### WP-25.E — A second model family *(optional, last)*
+
+The same bundle to an auditor from another provider, at promotions and sealed
+reads only; a disagreement goes to the owner. The dormant `kimi_arm` is existing
+plumbing for a second provider.
+

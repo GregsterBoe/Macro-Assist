@@ -18,11 +18,16 @@ detectors a moment. One command, one screen, before any work is proposed:
   revisit    24.F's report-only lines: an ADR whose revisit section cites a
              todo item, WP, KB entry or Phase that closed after the section
              was last edited
-  gate       the owner's competence gate from how-we-explore §6, printed
-             whenever the register holds an entry that has not been promoted
-             or closed (`draft`, `seen`, `proposed`) — the rule had no
-             trigger; this is it. The questions are read from the page, not
-             copied here (convention #8).
+  gate       the promotion gate from how-we-explore §6, printed whenever
+             the register holds an entry that has not been promoted or closed
+             (`draft`, `seen`, `proposed`): the pending entries, what stays
+             with the owner (§6's bullets), and — while §6 carries its
+             *Until the auditor is switched on* subsection — that
+             subsection's first paragraph. Since ADR-0022 an entry is
+             promoted by an independent audit, not by the owner's rewrite.
+             Everything is read from the page, not copied here
+             (convention #8), so deleting the subsection at the switch
+             silences that line on its own.
 
 It reads; it never writes. Everything it prints is in the docs already — the
 point is that it is in context before the docs are opened. The skill that
@@ -56,6 +61,7 @@ _BOLD_LEAD_RE = re.compile(r"^\*\*([^*]+)\*\*")
 _NEXT_RE = re.compile(r"^- \*\*Next:\*\*[ \t]*([^\n]*)", re.M)
 _REGISTER_ROW_RE = re.compile(r"^\| \[(H-\d+)\]\([^)]*\) \| `(\w+)` \| ([^\n]*?) \|[ \t]*$", re.M)
 _GATE_SECTION_RE = re.compile(r"^## 6\. [^\n]*\n(.*?)(?=^## |\Z)", re.M | re.S)
+_TRANSITION_RE = re.compile(r"^### Until [^\n]*\n(.*?)(?=^### |\Z)", re.M | re.S)
 _LINK_RE = re.compile(r"\[([^\]]+)\]\([^)]+\)")
 _CHECK_NAMES = tuple(c.__name__.removeprefix("check_").replace("_", "-") for c in ra.CHECKS)
 
@@ -166,18 +172,37 @@ def pending_promotions(root: Path) -> list[tuple[str, str, str]]:
     return out
 
 
-def gate_questions(root: Path) -> list[str]:
-    """The bullets of how-we-explore §6, as the page has them today."""
+def _gate_section(root: Path) -> str | None:
     text = ra._text_at(root, str(HOW_WE_EXPLORE), None)
     if text is None or not (m := _GATE_SECTION_RE.search(text)):
+        return None
+    return m.group(1)
+
+
+def gate_questions(root: Path) -> list[str]:
+    """The bullets of how-we-explore §6 before its first subsection — since
+    ADR-0022, what stays with the owner — as the page has them today."""
+    section = _gate_section(root)
+    if section is None:
         return []
     out: list[str] = []
-    for line in m.group(1).split("\n"):
+    for line in section.split("\n"):
+        if line.startswith("### "):
+            break
         if line.startswith("- "):
             out.append(line[2:].strip())
         elif line.startswith("  ") and out:
             out[-1] += " " + line.strip()
     return [_plain(q) for q in out]
+
+
+def gate_transition(root: Path) -> str | None:
+    """The first paragraph of §6's *Until …* subsection, or None once it has
+    been deleted — the page, not this script, says whether the audit is on."""
+    section = _gate_section(root)
+    if section is None or not (m := _TRANSITION_RE.search(section)):
+        return None
+    return _plain(m.group(1).strip().split("\n\n", 1)[0])
 
 
 # ---------------------------------------------------------------------------
@@ -231,17 +256,21 @@ def render(root: Path, *, now: datetime | None = None) -> str:
 
     pending = pending_promotions(root)
     if pending:
-        out.append("COMPETENCE GATE — a promotion is pending; the owner writes it (how-we-explore §6)")
+        out.append("PROMOTION GATE — these wait on an independent audit; the proposer never judges "
+                   "its own entry (how-we-explore §6, ADR-0022)")
         for hid, status, claim in pending:
             out.append(f"  {hid} `{status}` — {_clip(claim, 100)}")
+        transition = gate_transition(root)
+        if transition:
+            out.append(f"  Not switched on yet: {transition}")
         questions = gate_questions(root)
-        out.append("  Before promoting any of these, the owner — without the assistant — can:")
+        out.append("  What stays with the owner:")
         for i, q in enumerate(questions, 1):
             out.append(f"    {i}. {q}")
         if not questions:
             out.append("    (how-we-explore §6 has no bullet list — read the page)")
     else:
-        out.append("COMPETENCE GATE — no promotion pending (the register holds no draft / seen / proposed entry)")
+        out.append("PROMOTION GATE — no promotion pending (the register holds no draft / seen / proposed entry)")
     return "\n".join(out) + "\n"
 
 

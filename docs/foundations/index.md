@@ -455,9 +455,11 @@ Overloaded in this repository; four senses, all "a check something must pass":
    skill clause with margin. This is the "bar".
 3. **The version gate** — `score_predictions.py` refuses to score notes from
    v1.6+ (ADR-0010).
-4. **The competence gate** — the six-item self-check in
-   [How we explore §6](../concepts/how-we-explore.md), a reading gate for a
-   person, not a number.
+4. **The audit gate** — since [ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md), an
+   independent auditor answers [How we explore §9](../concepts/how-we-explore.md)
+   against an entry before it is promoted, and the owner holds the key to the
+   sealed read. It replaced the *competence gate* — a six-item self-check for the
+   owner, a reading gate for a person, not a number.
 
 ### Holdout
 

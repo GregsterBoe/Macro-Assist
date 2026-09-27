@@ -40,10 +40,12 @@ Three rules it holds itself to, and they are the point:
 
 What it deliberately cannot do: judge an answer. `--check` reports whether a
 question has a **field that owns it** in the entry, which is presence, not
-adequacy — an entry can carry every field and answer nothing. Three of the
-twelve (the `underpowered` floor, the one-read commitment, the competence gate)
-have no field in the register's fixed format at all, and the packet says so
-rather than quietly skipping them.
+adequacy — an entry can carry every field and answer nothing. Two of the
+twelve (the `underpowered` floor, the one-read commitment) have no field in the
+register's fixed format at all, and the packet says so rather than quietly
+skipping them. Question 12 — an independent audit stamped to the entry's current
+text (ADR-0022) — wants an `Audit record` field that only the audit writes;
+until Phase 25 builds it, every entry reads MISSING there, which is true.
 
 Report-only. Exit status is 0 whatever it finds; it is a worksheet generator,
 not a gate.
@@ -73,11 +75,13 @@ MODULE_DIR = Path(".macro-assist")
 # Data, not logic: when the register's format grows a field, this table grows a
 # row and nothing else changes.
 #
-# Questions 8, 11 and 12 map to nothing on purpose. The fixed format has no slot
-# for the `underpowered` floor, for the commitment that the read happens once
-# with the result going to the KB either way, or for the competence gate — so
-# they cannot be answered out of an entry, and the packet prints that instead of
-# an empty quote.
+# Questions 8 and 11 map to nothing on purpose. The fixed format has no slot
+# for the `underpowered` floor or for the commitment that the read happens once
+# with the result going to the KB either way — so they cannot be answered out of
+# an entry, and the packet prints that instead of an empty quote. Question 12 is
+# an independent audit stamped to the entry's current text (ADR-0022); its field
+# is written by the audit, never by the proposer, and does not exist until
+# Phase 25 builds it — so it reads MISSING on every entry, which is the truth.
 FIELDS_FOR_QUESTION: dict[int, tuple[str, ...]] = {
     1: ("What was seen", "Where"),
     2: ("Target-space check",),
@@ -90,7 +94,7 @@ FIELDS_FOR_QUESTION: dict[int, tuple[str, ...]] = {
     9: ("What would test it",),
     10: ("Explore-tier looks (ledger)", "Confound resolved (ledger)"),
     11: (),
-    12: (),
+    12: ("Audit record",),
 }
 
 _ENTRY_RE = re.compile(r"^## (H-\d{3}) — (.+?)\s*\{:\s*#[a-z0-9-]+\s*\}\s*$", re.M)

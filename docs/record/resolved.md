@@ -385,6 +385,34 @@ prose is the point.
 
 ## Phase 23 — exploration tier
 
+### RESOLVED 2026-09-27 — #32 the technical audit moves to an independent agent loop: accepted
+**Resolution: accept [ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md).** The owner read the
+page and accepted it the same day it was drafted.
+
+**Why it was the owner's call, and why it was not a formality.** The page was
+drafted by the assistant, the proposer whose reach it widens; the owner's
+acceptance was the check on that, and the page said so in its own Context. The
+owner's reasons are the ones the page records: a full-time job, no time to
+read the code, a gate that had moved nothing to `promoted` in two weeks, and
+more trust in an AI loop than in themselves on the technical checks.
+
+**What changed on acceptance** (the ADR's own list): [how we explore
+§6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis) is now
+*The proposer never judges its own entry*, with a transition subsection;
+§9 question 12 asks for an independent audit stamped to the entry's current
+text; `draft` means *not yet through an audit* in the register and on the page;
+`orient.py` prints a PROMOTION GATE — the pending entries, the transition line
+while §6 carries it, and what stays with the owner; `decision_packet.py` maps
+question 12 to an `Audit record` field that only the audit writes, so every
+entry reads MISSING there until Phase 25 builds it; the skill, Operations,
+Foundations, the goals page and CLAUDE.md convention #7 follow. The build is
+**Phase 25** on the roadmap.
+
+**Carry forward:** acceptance does not switch the audit on. Until the auditor
+exists and has rejected every canary, nothing is promoted by audit and the old
+rule still governs a promotion. The switch is deleting §6's *Until the auditor
+is switched on* subsection — not an edit to this item.
+
 ### RESOLVED 2026-09-14 — #19 the seal for a promoted distribution-class hypothesis is `SEAL_START` (2018-01-01), reused
 **Resolution: option (1) — reuse.** One seal in the repo. The 2018+ slice has
 never been read for a distribution question — every read of it so far was

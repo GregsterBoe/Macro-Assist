@@ -5,8 +5,8 @@ rules**, not documentation — it does not restate what the four doc layers
 already say, and it must not become a second copy of them.
 
 > **Start every session with `/orient`** — one screen: the board with ages, the
-> open inbox, the record audit and, when a promotion is pending, the owner's
-> competence gate (WP-24.G).
+> open inbox, the record audit and, when a register entry is waiting on its
+> audit, the promotion gate (WP-24.G, ADR-0022).
 >
 > **Read first if you have no context:** [The cut](docs/concepts/the-cut.md).
 > In September 2026 this project deleted its main feature — the directional
@@ -31,7 +31,7 @@ output to `docs/record/hypotheses.md`.
 | **Concepts** | `docs/concepts/` | What the system is for, and why |
 | **Foundations** | `docs/foundations/` | General concepts (stress measures, scoring rules, inference, models) in this project's terms — explains, never owns a number |
 | **Reference** | `docs/reference/` | **How the code behaves today** — kept current with the code |
-| **Decisions** | `docs/decisions/` | **Why** the system has its shape (21 ADRs) |
+| **Decisions** | `docs/decisions/` | **Why** the system has its shape (22 ADRs) |
 | **Record** | `docs/record/` | Plans, status, and **measured findings** |
 
 Inside `docs/record/`:
@@ -72,7 +72,7 @@ python .macro-assist/score_distributions.py  # the current scorer
 python .macro-assist/explore_conditioner.py --cached  # explore-tier looks, pre-seal slice only
 mkdocs build --strict                        # what CI runs; fails on a broken link
 python .macro-assist/record_audit.py         # the record layer's audit; CI runs it on every push (Phase 24)
-python .macro-assist/orient.py               # what /orient prints at turn 1: board, inbox, audit, revisit lines, competence gate (WP-24.G)
+python .macro-assist/orient.py               # what /orient prints at turn 1: board, inbox, audit, revisit lines, promotion gate (WP-24.G, ADR-0022)
 python .macro-assist/decision_packet.py H-002   # the §9 worksheet for a register entry; --check --all for the readiness vector
 python .macro-assist/feed_audit.py           # the fragility feed gate; pipeline job `feed_gate` (IMP-5.4)
 python .macro-assist/feed_audit.py --probe   # ...and why vix_term is missing right now (needs network)
@@ -148,8 +148,9 @@ arm its own pre-registration had disqualified. Disqualifiers are evaluated
 Raising a threshold after seeing a result is a goalpost move; fixing a defect the
 pre-registration already required is not. **The explore tier never reads the
 sealed slice** — `explore_conditioner.py` stops at `numeric_baseline.SEAL_START`
-and a new arm there does too. Which seal governs a promotion is `todo.md` #19;
-the assistant drafts register entries, the owner writes the promoted one.
+and a new arm there does too. Which seal governs a promotion is `resolved.md` #19;
+the proposer never judges its own entry — a promotion passes an independent
+audit, and the sealed read waits on the owner's key ([ADR-0022](docs/decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md)).
 
 **8. Docs are the single source.** The markdown under `docs/` generates the site;
 never author the site separately. A second drifting copy of the system
@@ -191,7 +192,7 @@ live path may not import a harness.
 | **Live experiment** | Phase 22 distribution scorer — bar sealed, first honest read ~2027-05 |
 | **Watch** | The Fragility Monitor's `vix_term` leg was missing 2026-09-16 → 09-18 — no calibrated label on those three readings ([KB-034]). **Cause found:** yfinance's `^VIX3M` returns nothing at ~06:04 UTC (when the note runs) and current data at 16:24 UTC the same day. Shipped: instrumentation, a daily gate (`feed_audit.py`, pipeline job `feed_gate`, red past two consecutive degraded readings without blocking the weekly stages) and `pipeline.yml mode=validate`. **Resolved 2026-09-23:** the legs retry (`pipeline_common.yf_history_with_retry` — an *empty frame* is a failure, not an answer), and `--probe-cboe` runs in CI as its own job `feed_probe`, **green on all three of the day's runs** ([KB-034] second addendum). The fallback works from the runner, the three failures were transient, and the WAF/datacenter-IP guess of the day before is **disproven** — don't carry it forward. A green probe proves the *fetch*, not the *splice*: `freshen_vol_indices` has still never completed in production. **Still open:** *moving the run* (`todo.md` #26 item 3). The slot did move to 06:23 as a side effect of #27's timezone fix and that day's `vix_term` computed — but the retry landed the same day too, so one healthy day attributes nothing. |
 | **Winding down** | The directional scorer, once the last T+20 window resolves ~2026-10-02 |
-| **Exploring** | Phase 23 — harness built, three looks run 2026-09-14 and 09-21 on 2010–2017; register holds H-001 and H-002 `closed`, neither with a KB entry (H-002 refuted on explore 2026-09-24, its width half split out as H-008), H-003, H-004 and H-008 `draft`, H-005–H-007 `seen`. Seal decided: `SEAL_START` 2018-01-01 reused for the distribution class (`resolved.md` #19); `har_scaled` is a comparator in WP-23.B's bar, not the scorer's (#22). Nothing open in the inbox for this phase; next is the owner's rewrites, then the class bar |
+| **Exploring** | Phase 23 — harness built, three looks run 2026-09-14 and 09-21 on 2010–2017; register holds H-001 and H-002 `closed`, neither with a KB entry (H-002 refuted on explore 2026-09-24, its width half split out as H-008), H-003, H-004 and H-008 `draft`, H-005–H-007 `seen`. Seal decided: `SEAL_START` 2018-01-01 reused for the distribution class (`resolved.md` #19); `har_scaled` is a comparator in WP-23.B's bar, not the scorer's (#22). [ADR-0022](docs/decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md) accepted 2026-09-27: a promotion passes an independent audit, not the owner's rewrite; Phase 25 builds that audit, and until it is switched on nothing is promoted. Then the class bar |
 | **Record audit** | Phase 24 ✅ closed 2026-09-21, every work package shipped; the checks keep running. `record_audit.py` in CI on every push and PR: WP-24.A workflow orphans + the schedule table; 24.B artifact liveness from git (`ARTIFACTS`, red past cadence + 1 day); 24.C referential integrity (every KB/ADR/WP id and `todo.md`/`resolved.md` pointer resolves, ADR numbering contiguous and never deleted; pins `RESERVED_KB_NUMBERS`, `KNOWN_ITEM_COLLISIONS`); 24.D contradictions (a phase's status is one class across the board, roadmap and this table; the Version row matches `versions.py`; prints the pair, never picks a side; pin `KNOWN_CONTRADICTIONS` → open `todo.md` item); 24.E ages (days since each open `todo.md` item and board row was last edited, oldest first — printed, never red); 24.F ADR revisit (every non-superseded ADR has a non-empty `## Would we revisit it?`, red; a cited `todo.md` item / WP / KB entry / Phase that closed after the section was last edited → "cited condition may have fired", report-only); 24.G `/orient` (`.claude/skills/orient/` → `orient.py`: the board with ages, the open inbox, the audit with a per-check count, 24.F's lines, and the owner's competence gate from how-we-explore §6 whenever a register entry is `draft` / `seen` / `proposed` — one screen at turn 1). Convention calls: `resolved.md` #23 contradiction = red with a pin, #24 revisit section enforced. Detail in `roadmap-archive.md` |
 | **Queued** | WP-21.E families 2–3 — bar written ([ADR-0020](docs/decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md)), no family chosen, honest prior low. Phase 18 closed 2026-09-14 at 18.3 (its ablation gate had no metric after the cut); Phase 20 dormant |
 

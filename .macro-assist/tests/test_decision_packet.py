@@ -63,9 +63,11 @@ def test_all_twelve_questions_parse(questions):
 def test_question_mapping_covers_the_checklist(questions):
     assert set(dp.FIELDS_FOR_QUESTION) == {q.number for q in questions}
     unowned = [n for n, f in dp.FIELDS_FOR_QUESTION.items() if not f]
-    assert unowned == [8, 11, 12], (
-        "the floor, the one-read commitment and the competence gate have no slot "
-        "in the register's fixed format; if that changed, say so deliberately")
+    assert unowned == [8, 11], (
+        "the floor and the one-read commitment have no slot in the register's "
+        "fixed format; if that changed, say so deliberately")
+    # question 12 is the independent audit (ADR-0022): a field only the audit writes
+    assert dp.FIELDS_FOR_QUESTION[12] == ("Audit record",)
 
 
 def test_harness_arms_are_the_family_size():
@@ -101,7 +103,9 @@ def test_check_claims_presence_not_adequacy(entries, questions):
     h002 = next(e for e in entries if e.hid == "H-002")
     out = dp.render_check(h002, questions)
     assert "Presence is not adequacy" in out
-    assert out.count("NO FIELD") == 3
+    assert out.count("NO FIELD") == 2
+    # no entry carries an audit record until Phase 25 writes one
+    assert "q12 MISSING" in out
 
 
 def test_cli_is_report_only(entries, capsys):

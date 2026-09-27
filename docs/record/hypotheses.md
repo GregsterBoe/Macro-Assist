@@ -9,8 +9,8 @@ This is not `todo.md` (decisions and carried findings) and not the Knowledge Bas
 (measured results). An entry here has never been read against a bar. When it
 is, it leaves: `closed → KB-###`.
 
-**Status:** `draft` — written but not yet in the owner's own words; **not a
-hypothesis** · `seen` — observed in data, unplanned · `proposed` — a question,
+**Status:** `draft` — written by the proposer, not yet through an independent
+audit ([ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md)); **not a hypothesis** · `seen` — observed in data, unplanned · `proposed` — a question,
 not yet looked at · `promoted` — bar written, confirm run scheduled ·
 `closed` — result in the KB, pointer kept here.
 
@@ -258,7 +258,7 @@ population from these four.
 
 ## H-003 — The SPF-vs-SEP gap predicts the width of the realized rate path {: #h-003 }
 
-**Status:** `draft` — needs the owner's rewrite before it is a hypothesis
+**Status:** `draft` — needs an independent audit before it is a hypothesis (§6, ADR-0022)
 
 **What was seen.** Nothing yet. This is Phase 19's actual thesis, which
 [KB-026] did *not* test: the SPF-vs-SEP gap and the FOMC-drift layer were
@@ -310,7 +310,7 @@ read of the gap is not taken even if it appears.
 
 ## H-004 — A fragility-state conditioner beats the macro bucket {: #h-004 }
 
-**Status:** `draft` — needs the owner's rewrite before it is a hypothesis.
+**Status:** `draft` — needs an independent audit before it is a hypothesis (§6, ADR-0022).
 Related to H-002 but a narrower and cheaper question; either can be run first.
 
 **What was seen.** [KB-028]: the published conditional table was, until
@@ -386,8 +386,8 @@ one that makes the flag a good *state* detector and a poor *location* claim.
 
 ## H-005 — On the explore slice the published macro bucket is reliably worse than not conditioning, and the deficit grows with horizon {: #h-005 }
 
-**Status:** `seen` · 2026-09-14 · draft text by the assistant — the owner's
-rewrite is required before this can be promoted (§6)
+**Status:** `seen` · 2026-09-14 · draft text by the assistant — an independent
+audit is required before this can be promoted (§6, ADR-0022)
 
 **What was seen.** Walking the v2.1 conditioner forward on the explore slice —
 the published bucket (NFCI tertile × curve sign × BAA10Y tertile), known-by-*t*
@@ -455,8 +455,8 @@ line, before any number ([KB-025]).
 
 ## H-006 — The only conditioner that beats `unconditional` on the explore slice is the S&P's own drawdown bin, and its gain is a narrower interval in calm {: #h-006 }
 
-**Status:** `seen` · 2026-09-14 · draft text by the assistant — the owner's
-rewrite is required before this can be promoted (§6)
+**Status:** `seen` · 2026-09-14 · draft text by the assistant — an independent
+audit is required before this can be promoted (§6, ADR-0022)
 
 **What was seen.** Of seven arms, one has positive pooled skill with an
 interval clear of zero: `dd_bin`, the S&P's drawdown from its 252-day high in
@@ -563,8 +563,8 @@ Report: § *H-006 rival check*, § *Mean quoted P25–P75 width by drawdown bin*
 
 ## H-007 — The product's `har_gaussian` comparator is handicapped by its shape and its zero mean, not its σ {: #h-007 }
 
-**Status:** `seen` · 2026-09-14 · draft text by the assistant — the owner's
-rewrite is required before this can be promoted (§6)
+**Status:** `seen` · 2026-09-14 · draft text by the assistant — an independent
+audit is required before this can be promoted (§6, ADR-0022)
 
 **What was seen.** Walked forward on the explore slice (1,893 report dates,
 2010-06-25 → 2017-12-29) with the product's own fit — 1,250 closes, the
@@ -641,7 +641,7 @@ new fit) · `score_distributions._gaussian_quantiles` · the report.
 
 ## H-008 — Fragility state widens the stressed forward distribution beyond drawdown depth {: #h-008 }
 
-**Status:** `draft` — assistant-drafted 2026-09-24 from H-002's ledger; needs the owner's rewrite before it is a hypothesis. Split from [H-002](#h-002) (closed, refuted on explore); inherits its multiplicity ledger.
+**Status:** `draft` — assistant-drafted 2026-09-24 from H-002's ledger; needs an independent audit before it is a hypothesis (§6, ADR-0022). Split from [H-002](#h-002) (closed, refuted on explore); inherits its multiplicity ledger.
 
 **What was seen.** On the explore slice (2010-06-25 → 2017-12-29, 1,893 report dates), realized S&P forward change by drawdown bin × `fragility_or` state:
 - The OR-Elevated cell is wider (P75−P25) than the Normal cell in 8 of 9 bin × horizon cells. The exception is the calm bin at 5d (1.59 vs 1.61).

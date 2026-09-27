@@ -611,18 +611,19 @@ script reads; it never writes. One screen, five blocks:
 | **INBOX** | every open `todo.md` item, oldest first, with its age and last commit | `todo.md`, ages (24.E) |
 | **AUDIT** | `record_audit.py`'s findings and its red / report-only summary, with a count per check so that `contradictions 0` is visible rather than absent | `audit()` (24.A–D, 24.F reds) |
 | **ADR REVISIT** | the report-only lines of the [revisit rule](#a-decision-whose-condition-may-have-come-true): a decision whose cited condition closed after its section was last edited, or `none` | 24.F |
-| **COMPETENCE GATE** | printed whenever the register holds an entry in `draft`, `seen` or `proposed` — a state whose next transition is `promoted`, and that transition is the owner's: the pending entries, then the bullets of [how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis) as the page has them today | `hypotheses.md`, `how-we-explore.md` |
+| **PROMOTION GATE** | printed whenever the register holds an entry in `draft`, `seen` or `proposed` — a state whose next transition is `promoted`, which since [ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md) takes an independent audit: the pending entries; the first paragraph of §6's *Until the auditor is switched on* subsection while the page carries it; then the bullets of [how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis) before that subsection — what stays with the owner — as the page has them today | `hypotheses.md`, `how-we-explore.md` |
 
-The last block is the reason the skill exists. §6 — the owner writes the
-pre-registration of a promoted hypothesis, and can answer six questions
-without the assistant first — was written 2026-09-13 with no trigger, and a
+The last block is the reason the skill exists. §6 — as written 2026-09-13, the
+owner writes the pre-registration of a promoted hypothesis and can answer six
+questions without the assistant first; since 2026-09-27 (ADR-0022), the
+proposer never judges its own entry — was written with no trigger, and a
 rule nobody is prompted to apply is in the same category as a precedence rule
 with no detector. The questions are read from the page, not copied into the
 script (convention #8), so editing §6 edits the screen. The skill's own text
 tells the session what each block changes: a `RED` line is a failing CI check
 and comes first; an ADR REVISIT line means re-read the decision before
-touching what it decided; a gate block means draft register entries, never
-the promoted text; the board's `next:` lines are what each track waits on,
+touching what it decided; a gate block means draft register entries and never
+judge them, run their audit, or read the sealed slice; the board's `next:` lines are what each track waits on,
 not instructions.
 
 **What it printed on the first run**, 2026-09-21: twelve board rows, the

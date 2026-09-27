@@ -60,13 +60,17 @@ Every instrument carries a positive and a negative control in the test suite
 
 ## What is in each state now
 
-- **Exploration:** seven entries in the [register](../record/hypotheses.md) —
+- **Exploration:** eight entries in the [register](../record/hypotheses.md) —
   H-001 `closed` (its confound resolved 2026-09-14 from the pulled artifact:
   the SPF anchor's confidence ordering is a crisis-rebound period effect and
   inverts within three of six assets; closed on its own target-space rule, no
-  KB entry); H-002–H-004 `draft` awaiting the owner's rewrite, two of them
-  with a first explore-tier look on the ledger (2026-09-14, both structure
-  checks failed as written); H-005 and H-006 `seen` in that same run; H-006's
+  KB entry); H-002 `closed` 2026-09-24, refuted on the explore slice (the
+  location half failed in sign on both looks; no KB entry), its width half
+  split out as H-008 `draft`; H-003 and H-004 `draft`. Every `draft` and `seen`
+  entry waits on an independent audit, not the owner's rewrite
+  ([ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md), built as Phase 25). H-004 has a
+  first explore-tier look on the ledger (2026-09-14, its structure check failed
+  as written); H-005 and H-006 `seen` in that same run; H-006's
   rival look the same evening (its width claim holds — a vol forecast on the
   empirical shape delivers it) and H-007 `seen` from it (the scorer's
   `har_gaussian` comparator is handicapped by its Gaussian wrapper, not its σ).

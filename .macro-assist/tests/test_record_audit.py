@@ -1197,15 +1197,22 @@ ORIENT_HOW = """# How we explore
 
 - not a gate question
 
-## 6. The owner writes the hypothesis
+## 6. The proposer never judges its own entry {: #6-the-owner-writes-the-hypothesis }
 
 Prose first.
 
-- Trace one number back to
-  the line that rendered it ([ADR-0002](../decisions/ADR-0002-b.md)).
-- Say what `SEAL_START` is.
+- Keep the goals, and
+  veto a promotion ([ADR-0002](../decisions/ADR-0002-b.md)).
+- Turn the `seal` key.
 
-None of these is hard.
+None of these needs code.
+
+### Until the auditor is switched on
+
+Nothing is promoted by
+audit yet.
+
+- not an owner bullet
 
 ## 7. The target space
 
@@ -1249,7 +1256,7 @@ def _blocks(text: str) -> dict[str, str]:
 
 def test_orient_prints_the_board_the_inbox_the_audit_and_the_gate(oriented):
     b = _blocks(orient.render(oriented, now=T0))
-    assert set(b) == {"HEAD", "BOARD", "INBOX", "AUDIT", "ADR", "COMPETENCE"}
+    assert set(b) == {"HEAD", "BOARD", "INBOX", "AUDIT", "ADR", "PROMOTION"}
     # the board: "Right now" joined, the latest changelog row's bold lead, each
     # row with its age, the Active row's Next line rendered as prose
     assert "Right now: Phase 32's clock is what is running. Nothing else." in b["BOARD"]
@@ -1267,12 +1274,26 @@ def test_orient_prints_the_board_the_inbox_the_audit_and_the_gate(oriented):
                                  "schedule-table 0 · artifact-liveness 0 · referential-integrity 0 · "
                                  "contradictions 0 · adr-revisit 0)\n  clean\n")
     assert b["ADR"].strip().splitlines()[1:] == ["  none"]
-    # the gate: the pending entries, then §6's bullets as the page has them
-    gate = b["COMPETENCE"].splitlines()
-    assert gate[0].startswith("COMPETENCE GATE — a promotion is pending")
+    # the gate: the pending entries, the transition line while §6 carries
+    # it, then §6's owner bullets — and none from inside the subsection
+    gate = b["PROMOTION"].splitlines()
+    assert gate[0].startswith("PROMOTION GATE — these wait on an independent audit")
     assert gate[1:3] == ["  H-002 `draft` — A linked claim", "  H-003 `seen` — Another claim"]
-    assert gate[4:] == ["    1. Trace one number back to the line that rendered it (ADR-0002).",
-                        "    2. Say what SEAL_START is."]
+    assert gate[3] == "  Not switched on yet: Nothing is promoted by audit yet."
+    assert gate[4] == "  What stays with the owner:"
+    assert gate[5:] == ["    1. Keep the goals, and veto a promotion (ADR-0002).",
+                        "    2. Turn the seal key."]
+
+
+def test_the_transition_line_goes_when_the_subsection_does(oriented):
+    """Deleting §6's *Until …* subsection is the switch; orient follows the page."""
+    _commit_text(oriented, "docs/concepts/how-we-explore.md",
+                 ORIENT_HOW.split("### Until")[0] + "## 7. The target space\n", T0, "switch on")
+    assert orient.gate_transition(oriented) is None
+    gate = _blocks(orient.render(oriented, now=T0))["PROMOTION"]
+    assert "Not switched on yet" not in gate
+    assert orient.gate_questions(oriented) == ["Keep the goals, and veto a promotion (ADR-0002).",
+                                               "Turn the seal key."]
 
 
 def test_a_red_finding_and_a_fired_condition_are_shown_where_they_belong(oriented):
@@ -1300,8 +1321,8 @@ def test_the_gate_is_silent_once_nothing_waits_on_the_owner(oriented):
                  ORIENT_REGISTER.replace("`draft`", "`promoted`").replace("`seen`", "`closed`"), T0, "promote")
     assert orient.pending_promotions(oriented) == []
     b = _blocks(orient.render(oriented, now=T0))
-    assert b["COMPETENCE"].strip() == ("COMPETENCE GATE — no promotion pending (the register holds no draft / "
-                                       "seen / proposed entry)")
+    assert b["PROMOTION"].strip() == ("PROMOTION GATE — no promotion pending (the register holds no draft / "
+                                      "seen / proposed entry)")
 
 
 def test_orient_reads_where_git_cannot_and_says_so(tmp_path, monkeypatch):
@@ -1321,9 +1342,9 @@ def test_orient_on_this_checkout_and_the_skill_that_runs_it():
     """The real tree renders, with the questions §6 actually lists, and the
     skill file names the script — the pair is what WP-24.G ships."""
     text = orient.render(_REPO)
-    assert "COMPETENCE GATE" in text and "AUDIT — record_audit.py" in text
+    assert "PROMOTION GATE" in text and "AUDIT — record_audit.py" in text
     questions = orient.gate_questions(_REPO)
-    assert len(questions) >= 4 and any("SEAL_START" in q for q in questions)
+    assert len(questions) >= 3 and any("seal key" in q for q in questions)
     for q in questions:
         assert f" {q}" in text
     skill = (_REPO / ".claude" / "skills" / "orient" / "SKILL.md").read_text(encoding="utf-8")

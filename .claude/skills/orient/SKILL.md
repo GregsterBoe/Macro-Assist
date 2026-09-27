@@ -1,6 +1,6 @@
 ---
 name: orient
-description: Session-start ritual for this repo (WP-24.G). Prints the status board with ages, the open inbox oldest first, the record audit (contradictions, ADR revisit conditions) and the owner's competence gate when a promotion is pending. Run at turn 1 of any session in Macro-Assist, before proposing or starting work.
+description: Session-start ritual for this repo (WP-24.G). Prints the status board with ages, the open inbox oldest first, the record audit (contradictions, ADR revisit conditions) and the promotion gate when an entry is waiting on its audit. Run at turn 1 of any session in Macro-Assist, before proposing or starting work.
 allowed-tools: Bash(python .macro-assist/orient.py:*)
 ---
 
@@ -26,11 +26,14 @@ Then, in a few lines, say what the output changes about the session:
   have come true. Read that ADR before touching what it decided; whoever
   re-reads it edits the section — even to say "and it did not fire" — which
   clears the line.
-- **A COMPETENCE GATE block** means the hypothesis register holds entries
-  the owner has not yet rewritten. You may run looks, pull artifacts and
-  draft register entries; you do **not** write the pre-registration text of
-  a promoted hypothesis, and you do not read the sealed slice for one
-  (how-we-explore §6, convention #7).
+- **A PROMOTION GATE block** means the hypothesis register holds entries
+  that have not passed an independent audit. You are the proposer: you may
+  run looks, pull artifacts and draft register entries, pre-registration
+  included. You do **not** judge your own entry, you do not run a
+  promotion-tier audit and report its verdict, and you do not read the
+  sealed slice — that waits on the owner's key (how-we-explore §6,
+  ADR-0022, convention #7). While the block says *Not switched on yet*,
+  nothing is promoted by audit at all.
 - **The BOARD's `next:` lines** are what each track is waiting on. They are
   not instructions — ask what the session is for.
 

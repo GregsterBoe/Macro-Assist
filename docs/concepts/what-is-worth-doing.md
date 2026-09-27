@@ -19,7 +19,7 @@ worth pursuing, written before the open tracks are ranked against them.**
 Without it, any ranking of open work is a mirror. It returns whatever the last
 document read sounded enthusiastic about — and that is as true of the owner on a
 tired evening as it is of a model asked "what should we do next". The repo has a
-board for *what is running*, a roadmap for *what is planned*, and 21 ADRs for
+board for *what is running*, a roadmap for *what is planned*, and 22 ADRs for
 *why the system has the shape it has*. Nothing anywhere says what any of it is
 **for**, or how to tell a track that has lost the goal from one that is merely
 slow.
@@ -134,11 +134,13 @@ _(unwritten)_
 
 > *Name what is actually in short supply and how much of it there is.*
 >
-> *The candidate answer is owner attention, and it matters which parts of it:
+> *The candidate answer is owner attention, and it matters which parts of it.
+> Since [ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md) the owner no longer
+> authors promoted hypotheses or passes a competence gate; what
 > [§6 of how-we-explore](how-we-explore.md#6-the-owner-writes-the-hypothesis)
-> makes the owner the only one who may author a promoted hypothesis and pass
-> the competence gate, so that attention is not substitutable by anything.
-> Everything else in the project is.*
+> leaves the owner is the goals, a veto on promotion, the seal key and the money
+> key. That attention is not substitutable by anything. Everything else in the
+> project is.*
 >
 > - *Roughly how many hours a week, and in what size blocks?*
 > - *Which activities may consume it, and which must not?*

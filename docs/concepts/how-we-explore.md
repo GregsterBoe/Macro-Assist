@@ -1,6 +1,7 @@
 # How we explore
 
-> **Status: draft, 2026-09-13.** Written before any exploration has run under it,
+> **Status: draft, 2026-09-13; amended 2026-09-27** — §6 and §9 question 12, by
+> [ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md). Written before any exploration has run under it,
 > which is the only honest time to write it. Nothing here is a source of truth
 > for a number. The companion page, [The method](the-method.md), is the
 > *refutation* side of the project; this is the *generation* side, and it exists
@@ -70,9 +71,12 @@ happen on the *explore* side where it is actually useful.
 **The helicopter risk is the assistant.** The failure mode is concrete: the
 hypothesis, the bar, the run, the read and the KB entry are all produced in one
 session, the record looks rigorous, and the owner could not reproduce any of it
-alone. The skill accrues to the tool. Everything below is arranged so that the
-one artefact that must be the owner's — the hypothesis and its pre-registration —
-cannot be delegated.
+alone. The skill accrues to the tool. Everything below is arranged so that
+whoever proposes a hypothesis never judges it (§6). Until 2026-09-27 that meant
+the owner wrote every promoted pre-registration;
+[ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md) moved the judging to an auditor independent of the
+proposer by construction, and left the owner the goals, the seal key and the
+money.
 
 ---
 
@@ -88,7 +92,7 @@ they must not share a surface.
 | Bar | None. There is nothing to pass | Pre-registered, written *before* the candidate is chosen (§5) |
 | Output | An entry in the [hypothesis register](../record/hypotheses.md) | A Knowledge Base entry, either way |
 | What the code returns | `exploratory`, and structurally nothing stronger | A verdict |
-| Who decides what runs | Either | The owner, in writing, dated |
+| Who decides what runs | Either | An independent audit passes it; the owner may veto, and turns the key for the sealed read (§6) |
 
 The separation already exists in the codebase and only needs to be respected:
 `numeric_baseline.SEAL_START` (2018-01-01) splits the historical panel into an
@@ -125,8 +129,8 @@ space check (§7) → what to read first.**
 An entry has a status: `seen` (observed in data, unplanned), `proposed` (a
 question, not yet looked at), `promoted` (a bar has been written and the
 confirm run is scheduled), or `closed` (→ KB pointer). A `draft` entry is one
-that has not yet been rewritten by the owner in their own words, and a draft is
-not a hypothesis (§6).
+that has not yet passed an independent audit, and a draft is not a hypothesis
+(§6).
 
 The register lives in `docs/record/`, next to `todo.md`, and is different from
 it: `todo.md` holds decisions and carried findings; the register holds
@@ -175,36 +179,53 @@ anyone proposes which gap.
 When the bar exists first, the assistant's enthusiasm about a specific candidate
 is never load-bearing, because nothing about the candidate can move the number.
 
-## 6. The owner writes the hypothesis
+## 6. The proposer never judges its own entry {: #6-the-owner-writes-the-hypothesis }
 
 This is the anti-helicopter rule and it is the one that costs the most.
 
-The assistant may run the breadth, build the plumbing, pull the artifacts,
-draft the entry, and write the KB entry after the run. The assistant does **not**
-author the pre-registration text of a promoted hypothesis. That text — the
-mechanism, the prediction, the confound, the bar — is written by the owner, in
-the owner's words, and a draft written by anyone else is marked `draft` until
-that has happened.
+The failure it prevents is the one named at the top of this page: the
+hypothesis, the bar, the run, the read and the KB entry all produced in one
+session, the record rigorous-looking, and nobody independent of its author able
+to say whether any of it holds. The rule is that **whoever proposes a hypothesis
+never judges it.**
 
-The check that this is real rather than a formality is a competence gate. Before
-promoting a hypothesis, the owner should be able to do the following **without
-the assistant**, and the register entry lists which of them it depends on:
+Until 2026-09-27 the independent party was the owner, who wrote every promoted
+pre-registration in their own words after passing a six-item competence gate on
+the code ([the rule as it read](https://github.com/GregsterBoe/Macro-Assist/blob/32afc910557d2dab90e68159aaa72ea97b5dc2d9/docs/concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis)).
+[ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md) moved the judging to an **auditor that is
+independent of the proposer by construction**: a separate agent that starts from
+no conversation, reads only a bundle that code assembles, defaults to reject, is
+itself tested against planted defects, and whose verdict the proposer cannot
+run, relay, retry into a pass, or edit after the fact. Where a model's judgement
+and a code check disagree, the check wins. The mechanisms and what they cost are
+on the ADR, not here.
 
-- Trace one number in today's note back to the line of code that rendered it,
-  and say which stage of `pipeline.yml` produced its input.
-- Reproduce one KB table from its reproduce block, and check the metadata line
-  [KB-025] says to check before reading a number.
-- Explain why `verdict(sealed=False)` can only return `exploratory`, from the
-  code, not from this page.
-- Say what `SEAL_START` is, why it is a calendar date and not a fraction, and
-  what would be lost by moving it.
-- State the [KB-024] mechanism and the sign structure it predicts, and find the
-  table in [KB-027] where it was checked.
-- Say what `assets.forward_change()` returns for the 10Y, and why
-  ([ADR-0011](../decisions/ADR-0011-canonical-asset-registry.md)).
+The assistant, as proposer, may run the breadth, build the plumbing, pull the
+artifacts, draft the entry — its pre-registration included — and write the KB
+entry after the read. It does not judge its own entry, and a draft is not a
+hypothesis until an audit stamped to its current text has passed it (§9,
+question 12).
 
-None of these is hard. All of them are the difference between owning the
-finding and being flown to it.
+What stays with the owner needs no code, and is what only the owner can do:
+
+- Keep the goals — [What is worth doing](what-is-worth-doing.md): what the
+  project is for, how open tracks are ranked, when one stops.
+- Veto any promotion, after reading the auditor's brief, which puts the
+  strongest case against first.
+- Turn the seal key. A sealed read is the one irreversible act in the research
+  loop; it waits for the owner's approval, in an action the assistant's
+  credentials cannot take.
+- Turn the money key. No rule acts on real money until the owner can say what
+  it does, what it costs when it is wrong, and when to stop using it, in their
+  own words.
+
+### Until the auditor is switched on
+
+Nothing is promoted by audit until the auditor exists and has rejected every
+canary (Phase 25). Until then the rule this section replaced still governs a
+promotion — the owner's rewrite and the six-item competence gate, linked above —
+so there is never a window with neither in place. Delete this subsection when
+the switch happens; `orient.py` stops printing it on its own.
 
 ## 7. The target space: never a signed forecast
 
@@ -237,8 +258,9 @@ pass.
 
 ## 9. The checklist an entry passes before it is promoted
 
-The rules above are the reasoning; this is the form they take when an owner
-sits down to rewrite a `draft` or a `seen` entry. Each line is a question the
+The rules above are the reasoning; this is the form they take when a `draft`
+or a `seen` entry is prepared for promotion — the proposer's checklist before it
+submits, and the auditor's when it judges. Each line is a question the
 entry must answer **in its own text**, and names the section that owns it. An
 entry that cannot answer one is not ready — it is not a defect, it is the
 next thing to do.
@@ -301,8 +323,10 @@ next thing to do.
 11. **Is it one read, with the result going to the Knowledge Base either
     way?** (Convention #2.) A promoted hypothesis that comes back negative is
     a KB entry, not a revision.
-12. **Has the owner done the competence gate?** (§6.) Without the assistant,
-    before the status moves to `promoted`.
+12. **Has the entry passed an independent audit, stamped to its current
+    text?** (§6, [ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md).) An audit the proposer ran
+    itself does not count, nor one older than the entry's last edit, nor a pass
+    reached by resubmitting past two rejections.
 
 ---
 
@@ -316,7 +340,8 @@ next thing to do.
 3. State the mechanism, and make it predict something that is not the score.
 4. Look at as much as you like — and count every look.
 5. Write the bar for the class before choosing the member.
-6. The owner writes the hypothesis. A draft is not a hypothesis.
+6. The proposer never judges its own entry. A draft is not a hypothesis until an
+   independent audit passes it; the owner keeps the goals, the seal key and the money.
 7. The output is a distribution, a state or a gap. Never a sign.
 8. Rewrite the textbook every five entries.
 

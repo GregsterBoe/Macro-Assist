@@ -359,13 +359,15 @@ metric) closed the same day: Phase 18 is closed at 18.3, negative-by-constructio
 
 ## Phase 23 — exploration tier
 
-*Nothing open. #19 (the seal — 2018-01-01 reused for the distribution class),
-#21 (H-005 changes nothing before Phase 22 reads) and #22 (the scorer does not
-gain `har_scaled` before its first read) all closed 2026-09-14 →
-[`resolved.md`](resolved.md). H-001's artifact errand is done (register). What
-remains on this phase is not inbox work: the owner's rewrites of H-002–H-007
-(the competence gate, [how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis))
-and WP-23.B's class bar, written before any member is promoted.*
+*Nothing open. #32 (accept ADR-0022 — the technical audit moves to an
+independent agent loop) closed 2026-09-27, accepted. #19 (the seal — 2018-01-01
+reused for the distribution class), #21 (H-005 changes nothing before Phase 22
+reads) and #22 (the scorer does not gain `har_scaled` before its first read) all
+closed 2026-09-14. All four → [`resolved.md`](resolved.md). H-001's artifact
+errand is done (register). What remains on this phase is not inbox work: the
+independent audit, built as Phase 25 — until it is switched on, nothing is
+promoted ([how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis))
+— and WP-23.B's class bar, written before any member is promoted.*
 
 ---
 
