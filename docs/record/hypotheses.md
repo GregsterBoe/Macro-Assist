@@ -21,7 +21,7 @@ missing a confound is not finished.
 | # | Status | One line |
 |---|---|---|
 | [H-001](#h-001) | `closed` | The SPF anchor's confidence bins are the first correctly ordered ones ever measured here — *confound resolved 2026-09-14: the ordering is carried by two crisis-rebound periods and inverts within three of six assets; closed on its own target-space rule, no KB entry* |
-| [H-002](#h-002) | `closed` | The stress-reversion mechanism is conditional on fragility state: stress continues in Elevated tapes, reverts in Normal ones — *explore looks 2026-09-14 and 09-21: width half seen, location half not; what was seen instead is that in an Elevated tape the relief bounce inside a drawdown is what does not hold* The stress-reversion mechanism is conditional on fragility state: stress continues in Elevated tapes, reverts in Normal ones — *refuted on explore 2026-09-24: the location half failed in sign on both looks (09-14, 09-21); no KB entry; the width half carried to H-008* |
+| [H-002](#h-002) | `closed` | The stress-reversion mechanism is conditional on fragility state: stress continues in Elevated tapes, reverts in Normal ones — *refuted on explore 2026-09-24: the location half failed in sign on both looks (09-14, 09-21); no KB entry; the width half carried to [H-008](#h-008)* |
 | [H-003](#h-003) | `draft` | The SPF-vs-SEP gap predicts the *width* of the realized rate path, not its direction |
 | [H-004](#h-004) | `draft` | The published conditioner's dimensions are not the ones that move the distribution; a fragility-state conditioner beats the macro bucket — *explore look 2026-09-14: structure check failed in direction* |
 | [H-005](#h-005) | `seen` | On the explore slice the published macro bucket is reliably *worse* than not conditioning, and the deficit grows with horizon |
@@ -664,8 +664,15 @@ new fit) · `score_distributions._gaussian_quantiles` · the report.
 
 **Read first.** [KB-016] · [KB-017] · [KB-033] · [H-006](#h-006) · [H-007](#h-007) · `explore_conditioner.py` · `fragility_or.py::_pit_backtest`.
 
-**Explore-tier looks (ledger).** Inherited from [H-002](#h-002): two runs (2026-09-14, 2026-09-21), 12 arms, three cell configurations, two pre-written location predictions that failed in sign. The width reading comes from the first run's pre-fixed configuration (`DD_EDGES = (−5%, −10%)`, `MIN_N = 10`, `BURN_IN = 252`). No look yet specific to this entry.
+**Explore-tier looks (ledger).** Inherited from [H-002](#h-002) — *2026-09-14* and *2026-09-21*: two runs, 12 arms, three cell configurations, two pre-written location predictions that failed in sign. The width reading comes from the first run's pre-fixed configuration (`DD_EDGES = (−5%, −10%)`, `MIN_N = 10`, `BURN_IN = 252`). Report: `results/explore_conditioner/report.md` (§ *H-002 structure check*). No look yet specific to this entry.
 
 ## Closed
 
-*None yet.*
+A closed entry keeps its full text in place above — this is the index.
+
+- [H-001](#h-001) — closed 2026-09-14, confound resolved. No KB entry, on the
+  entry's own target-space rule. Pointer: [KB-026].
+- [H-002](#h-002) — closed 2026-09-24, refuted on the explore slice. No KB
+  entry: both looks were explore tier and the claim never reached a bar
+  (convention #2's exception). The width half continues as [H-008](#h-008); the
+  relief-bounce reading from the 09-21 look is not carried and stays open.

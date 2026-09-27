@@ -711,11 +711,14 @@ One pre-registered bar per hypothesis *class*, not per hypothesis — the
 [ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md) move
 made a rule. Two classes are visible in the register today:
 
-- **Shadow conditioner vs `unconditional`** (H-002, H-004): Phase 22's bar as
+- **Shadow conditioner vs `unconditional`** (H-004, H-008): Phase 22's bar as
   is — `MIN_SKILL = 0.02`, block-bootstrap interval clear of zero,
   `underpowered → miscalibrated → inverted` first — **plus a mechanism clause**
-  named by the entry (for H-002: Elevated width > Normal width *and* medians on
-  opposite sides of unconditional; either failing → `unexplained`, not `edge`),
+  named by the entry (H-002 held this slot until it closed 2026-09-24, its
+  clause — Elevated width > Normal width *and* medians on opposite sides of
+  unconditional — failing on the location half; **H-008's clause is not yet
+  written**, because the width-ratio prediction in the entry is flagged `seen`
+  rather than pre-registered and so cannot serve as one),
   **plus `har_scaled` as a second comparator** (`resolved.md` #22): a promoted
   conditioner must beat not only `unconditional` but the vol forecast the
   product already has, applied to the empirical shape — on the explore slice

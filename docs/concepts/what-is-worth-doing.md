@@ -1,9 +1,9 @@
 # What is worth doing
 
-> **Status: empty, 2026-09-23.** A scaffold, not a page. Every section below is
-> a blank for the owner to fill in their own words. Until it is filled this page
-> is not a source of truth for anything and nothing should cite it. Delete this
-> banner when it is written, and date it.
+> **Status: partially written, 2026-09-27.** §1 (what this project is for) and
+> §2 (the standing goals) are the owner's. §3–§7 are still the scaffold's
+> prompts and are not a source of truth for anything. Update this line as
+> sections land; delete it when the page is whole.
 
 ---
 
