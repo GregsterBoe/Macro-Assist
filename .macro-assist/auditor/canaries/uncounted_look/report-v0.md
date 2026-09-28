@@ -1,8 +1,8 @@
 # Explore-tier shadow conditioners — pre-seal slice
 
-**Slice:** report dates 2010-06-25 → 2017-12-29 (< `SEAL_START` 2018-01-01) · 1893 report dates · 30820 observations · inputs fetched 2026-08-10
+**Slice:** report dates 2010-06-25 → 2017-12-29 (< `SEAL_START` 2018-01-01) · 1893 report dates · 30820 observations · inputs fetched 2026-09-25
 **Verdict on every arm:** `exploratory` — `verdict(sealed=False)`; nothing here can pass.
-**Multiplicity:** 13 arms (2 optional, own subsample) × 3 horizons × 6 assets looked at, all reported.
+**Multiplicity:** 13 arms (2 optional, own subsample) × 3 horizons × 6 assets looked at, all counted; this report prints Gold's tables.
 
 ## Per-asset skill vs `unconditional` — Gold
 
@@ -53,26 +53,18 @@ Width = P75 − P25 (pct). `side` = median vs the slice's unconditional Gold med
 | dd<=-3 | 714 | 52 | -2.51 | 0.49 | 2.66 | 5.17 | right | 0.21 |
 | dd>-3 | 1179 | 0 | -1.92 | 0.19 | 2.04 | 3.96 | left | 0.21 |
 
-## Gold rival check — stressed bin × `har_scaled` σ tercile × OR state, h=20
+## Gold rival check — stressed bin × OR state, forward change ÷ σ
 
-Tercile edges are the stressed bin's own `har_scaled` σ terciles on Gold, computed known-by-*t*.
+Each row's forward change is divided by a σ known at *t*: `har_scaled`'s σ forecast for Gold at that horizon, and Gold's trailing 10-day realized σ scaled to the horizon. Widths are P75 − P25 in σ units. A state that only restates Gold's vol would put the Elevated/Normal width ratio near 1.
 
-| sigma_tercile | or_state | n | spells | p25 | p50 | p75 | width |
-|---|---|---|---|---|---|---|---|
-| low | Elevated | 21 | 4 | -1.88 | 0.44 | 2.14 | 4.02 |
-| low | Normal | 131 | 17 | -1.69 | 0.41 | 1.82 | 3.51 |
-| mid | Elevated | 48 | 7 | -2.49 | 0.50 | 2.88 | 5.37 |
-| mid | Normal | 104 | 13 | -2.07 | 0.46 | 2.23 | 4.30 |
-| high | Elevated | 100 | 9 | -3.33 | 0.55 | 3.79 | 7.12 |
-| high | Normal | 51 | 8 | -2.61 | 0.52 | 2.87 | 5.48 |
-
-### σ tercile alone — the rival without the state
-
-| sigma_tercile | n | spells | p25 | p50 | p75 | width |
-|---|---|---|---|---|---|---|
-| low | 152 | 19 | -1.71 | 0.42 | 1.91 | 3.62 |
-| mid | 152 | 16 | -2.21 | 0.47 | 2.50 | 4.71 |
-| high | 151 | 13 | -3.08 | 0.54 | 3.47 | 6.55 |
+| h | or_state | n | spells | width ÷ har σ | width ÷ 10d σ |
+|---|---|---|---|---|---|
+| 5 | Elevated | 243 | 16 | 1.51 | 1.46 |
+| 5 | Normal | 471 | 44 | 1.36 | 1.33 |
+| 10 | Elevated | 243 | 16 | 1.54 | 1.48 |
+| 10 | Normal | 471 | 44 | 1.35 | 1.34 |
+| 20 | Elevated | 243 | 16 | 1.58 | 1.50 |
+| 20 | Normal | 471 | 44 | 1.37 | 1.33 |
 
 ## Are the stressed days spread over the tape? — per year
 

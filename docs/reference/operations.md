@@ -222,8 +222,13 @@ preflight fails with these instructions rather than letting
 ### auditor_canaries.yml — the test of the auditor (WP-25.A)
 
 Independent of the pipeline, dispatch-only, and it **costs API money** — seven
-model calls, roughly $2–3 at the default `claude-opus-5` / `high` (the record
-carries the estimate; the `max_usd` input stops the suite early). It runs
+model calls, about $2.80 at the default `claude-opus-5-5` / `high` (the first
+run, on `claude-opus-5`, cost $3.51 for 108k output tokens and 211k input; the
+same tokens on Opus 5.5 are $2.80, and three quarters of it is the auditor's
+thinking). Each record carries its own estimate, and the `max_usd` input,
+default $5, stops the suite early. **A pass certifies one model at one effort**:
+change either and the suite has to pass again before that auditor judges a real
+entry. It runs
 `.macro-assist/audit_entry.py --canaries` and commits the record to the output
 branch under `results/audit/canaries/`: a timestamped JSON with every finding
 and `latest.md`. It fails the job unless every canary passed, and publishes the
@@ -252,6 +257,15 @@ bundles a real entry. **A canary passes when the auditor reports its planted
 category as blocking, rejects the entry, and does not report that category as
 blocking on the clean base.** The last condition is the one an auditor that
 rejects everything fails. The clean base's own verdict is recorded, not graded.
+
+The KB entries and work package the clean entry cites are **frozen excerpts** in
+`base/record/`, not the live pages: the rules page and the two code files are
+copied live, but cited text that later gains a date past the entry's own
+commits makes the clean entry read as backdated. That is how the first run
+(2026-09-28) failed — the auditor flagged `bar_after_data` on the clean base
+because an entry dated August cited September text, which was correct.
+`test_nothing_the_clean_base_cites_postdates_it` holds it now; refresh the
+excerpts only together with the fixture's dates.
 
 | Canary | What it plants |
 |---|---|

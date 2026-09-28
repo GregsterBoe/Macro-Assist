@@ -17,9 +17,10 @@ name: Auditor canaries (WP-25.A)
 # workflow passes on the current instructions and canary set, delete the
 # "Until the auditor is switched on" subsection of how-we-explore §6.
 #
-# MANUAL ONLY. It costs API money: seven audits, roughly $2–3 at the default
-# model and effort (the estimate is in the record). `max_usd` stops the suite
-# before a runaway. Trigger: Actions tab -> this workflow -> Run.
+# MANUAL ONLY. It costs API money: seven audits, about $2.80 at the default
+# model and effort (claude-opus-5-5 / high; each record has its estimate).
+# `max_usd` stops the suite before a runaway. Trigger: Actions tab -> this
+# workflow -> Run.
 
 on:
   workflow_dispatch:
@@ -27,7 +28,7 @@ on:
       model:
         description: "Auditor model"
         type: string
-        default: "claude-opus-5"
+        default: "claude-opus-5-5"
       effort:
         description: "Auditor effort (low / medium / high / xhigh / max)"
         type: string

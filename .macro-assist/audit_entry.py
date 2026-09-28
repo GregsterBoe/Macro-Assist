@@ -84,7 +84,7 @@ OUTPUT_BRANCH = "output"
 RESULTS = "results/"
 AUDIT_OUT = Path("results") / "audit"
 
-DEFAULT_MODEL = "claude-opus-5"
+DEFAULT_MODEL = "claude-opus-5-5"
 DEFAULT_EFFORT = "high"
 MAX_TOKENS = 64000
 REPORT_CAP = 120_000        # bytes; a bigger or binary report is listed, not inlined, and the bundle says so
@@ -103,13 +103,15 @@ CATEGORIES: tuple[str, ...] = (
 )
 STATUSES = ("answered", "unanswered", "fails")
 
-# $/MTok (input, output), for the record and the spend guard — an estimate, not
-# a bill. Cache writes are priced at 1.25× input and reads at 0.1×.
-PRICES: dict[str, tuple[float, float]] = {
-    "claude-opus-5": (5.0, 25.0),
-    "claude-opus-5-5": (4.0, 20.0),
-    "claude-sonnet-5": (2.0, 10.0),
-    "claude-fable-5-1": (10.0, 50.0),
+# $/MTok (input, output, cache read), for the record and the spend guard — an
+# estimate, not a bill. Cache writes (5-minute) are 1.25× input on every model;
+# reads are not a fixed fraction, so they are listed.
+PRICES: dict[str, tuple[float, float, float]] = {
+    "claude-opus-5-5": (4.0, 20.0, 0.20),
+    "claude-opus-5": (5.0, 25.0, 0.50),
+    "claude-sonnet-5-5": (2.0, 10.0, 0.20),
+    "claude-sonnet-5": (2.0, 10.0, 0.20),
+    "claude-fable-5-1": (10.0, 50.0, 0.25),
 }
 
 _STRING = {"type": "string"}
@@ -362,6 +364,8 @@ def build_bundle(root: Path, hid: str, *, now: datetime | None = None) -> Bundle
         "are the sealed holdout; the explore slice ends the day before.",
         (f"- **Explore harness arm vocabulary** ({len(arms)}, `explore_conditioner.py` `ARMS` + "
          f"`OPTIONAL_ARMS`): {', '.join(f'`{a}`' for a in arms)}."
+         + (f" `unconditional` is the reference the others are scored against, so a report's "
+            f"multiplicity line counts {len(arms) - 1} arms." if "unconditional" in arms else "")
          if arms else "- **Explore harness arm vocabulary:** could not be read."),
         register_line + ".",
         (f"- **Reports** were read from `{ref}`"
@@ -487,13 +491,15 @@ def call_auditor(bundle: Bundle, instructions: str, *, client, model: str,
 
 
 def estimate_usd(model: str, usage: dict) -> float | None:
-    price = next((p for m, p in PRICES.items() if model == m or model.startswith(m + "-")), None)
-    if price is None:
+    # exact name first, then the longest prefix — `claude-opus-5-5` also starts
+    # with `claude-opus-5-`, and a dated snapshot starts with its family's name
+    matches = [m for m in PRICES if model == m or model.startswith(m + "-")]
+    if not matches:
         return None
-    inp, out = price
+    inp, out, read = PRICES[model if model in PRICES else max(matches, key=len)]
     return round((usage["input_tokens"] * inp
                   + usage["cache_creation_input_tokens"] * inp * 1.25
-                  + usage["cache_read_input_tokens"] * inp * 0.1
+                  + usage["cache_read_input_tokens"] * read
                   + usage["output_tokens"] * out) / 1e6, 4)
 
 
@@ -654,9 +660,14 @@ class Canary:
 
 
 # Copied from the real tree into every canary repository: the rules the auditor
-# is held to, the KB and roadmap the entry cites, and the two code files the
-# bundle's facts are read from.
-CANARY_TREE = (dp.HOW_WE_EXPLORE, KNOWLEDGE_BASE, ROADMAP, SEAL_SOURCE, dp.HARNESS)
+# is held to, and the two code files the bundle's facts are read from.
+CANARY_TREE = (dp.HOW_WE_EXPLORE, SEAL_SOURCE, dp.HARNESS)
+# The KB entries and work packages the canary entry cites are NOT the live
+# pages but frozen excerpts under base/record/. The live ones keep gaining
+# dates, and cited text dated after the entry citing it reads as a backdated
+# entry — the first paid run (2026-09-28) failed on exactly that.
+FROZEN_DIR = "record"
+CANARY_FROZEN = {KNOWLEDGE_BASE: "knowledge-base.md", ROADMAP: "roadmap.md"}
 
 _REGISTER_HEAD = """# Hypothesis register
 
@@ -736,6 +747,9 @@ def materialize(root: Path, c: Canary, dest: Path) -> Path:
     first = datetime.fromisoformat(commits[0]["date"]) - timedelta(days=1)
     tree_files = [(rel.as_posix(), (root / rel).read_text(encoding="utf-8"))
                   for rel in CANARY_TREE if (root / rel).is_file()]
+    frozen = root / CANARY_DIR / BASE / FROZEN_DIR
+    tree_files += [(rel.as_posix(), (frozen / name).read_text(encoding="utf-8"))
+                   for rel, name in CANARY_FROZEN.items()]
     steps = [("main", first.isoformat(), "record: the rules, the KB, the roadmap", tree_files)]
     steps += [(k["branch"], k["date"], k["message"],
                [(p, _content(c, p, n)) for p, n in k["files"].items()]) for k in commits]

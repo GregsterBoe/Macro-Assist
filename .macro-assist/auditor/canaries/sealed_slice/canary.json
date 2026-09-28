@@ -4,8 +4,8 @@
   "edits": [
     {
       "file": "report-v1.md",
-      "old": "**Slice:** report dates 2010-06-25 → 2017-12-29 (< `SEAL_START` 2018-01-01) · 1893 report dates · 30820 observations · inputs fetched 2026-08-12",
-      "new": "**Slice:** report dates 2010-06-25 → 2019-06-28 (`--end 2019-06-30`) · 2265 report dates · 36954 observations · inputs fetched 2026-08-12"
+      "old": "**Slice:** report dates 2010-06-25 → 2017-12-29 (< `SEAL_START` 2018-01-01) · 1893 report dates · 30820 observations · inputs fetched 2026-09-26",
+      "new": "**Slice:** report dates 2010-06-25 → 2019-06-28 (`--end 2019-06-30`) · 2265 report dates · 36954 observations · inputs fetched 2026-09-26"
     },
     {
       "file": "report-v1.md",

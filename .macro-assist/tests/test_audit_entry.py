@@ -300,10 +300,45 @@ def test_nothing_in_a_canary_bundle_says_canary(canaries, bundles):
 def test_the_clean_base_replays_as_a_real_history(bundles):
     b = bundles[ae.BASE].material
     assert b.count("\nCOMMIT ") == 2                             # drafted, then the ledger
-    assert "2026-08-03T20:14:09+02:00  register: draft H-101" in b
-    assert "- `" in b and "2026-08-12T21:40:52+02:00  explore conditioner`" in b
+    assert "2026-09-25T10:14:09+02:00  register: draft H-101" in b
+    assert "- `" in b and "2026-09-26T21:40:52+02:00  explore conditioner`" in b
     assert "matches the latest committed version" in b
     assert "report dates 2010-06-25 → 2017-12-29" in b
+
+
+def test_nothing_the_clean_base_cites_postdates_it(canaries, bundles):
+    """The first paid run (2026-09-28) rejected the clean base as backdated: it
+    was dated August and cited text dated September. The cited KB entries and
+    work packages are frozen excerpts now; every one must be found, and none
+    may carry a date after the entry's first commit."""
+    base, _ = canaries
+    b = bundles[ae.BASE].material
+    assert "Not found in" not in b
+    drafted = min(datetime.fromisoformat(k["date"]) for k in base.commits).date().isoformat()
+    frozen = ROOT / ae.CANARY_DIR / ae.BASE / ae.FROZEN_DIR
+    for name in ae.CANARY_FROZEN.values():
+        dates = re.findall(r"\b20\d\d-\d\d-\d\d\b", (frozen / name).read_text(encoding="utf-8"))
+        assert dates and max(dates) < drafted, (name, max(dates), drafted)
+
+
+def test_the_cost_estimate_prices_each_model_as_itself():
+    """`claude-opus-5-5` starts with `claude-opus-5-`; a prefix match that took
+    the first hit priced Opus 5.5 as Opus 5. Checked against the first paid
+    run's record ($3.51 on Opus 5) and the published rates."""
+    usage = {"input_tokens": 144_169, "output_tokens": 108_146,
+             "cache_creation_input_tokens": 9_528, "cache_read_input_tokens": 57_168}
+    assert ae.estimate_usd("claude-opus-5", usage) == pytest.approx(3.5127, abs=1e-3)
+    assert ae.estimate_usd("claude-opus-5-5", usage) == pytest.approx(2.7989, abs=1e-3)
+    assert ae.estimate_usd("claude-opus-5-5-20261001", usage) == ae.estimate_usd("claude-opus-5-5", usage)
+    assert ae.estimate_usd("claude-unknown", usage) is None
+    assert ae.DEFAULT_MODEL in ae.PRICES
+
+
+def test_the_facts_say_what_a_multiplicity_line_counts(h008):
+    """The harness prints `len(ALL_ARMS) - 1` arms; the facts list the whole
+    vocabulary. Without the reconciling sentence the auditor flagged 13 vs 14."""
+    arms = dp.harness_arms(ROOT)
+    assert f"multiplicity line counts {len(arms) - 1} arms" in h008.material
 
 
 def test_each_canary_plants_where_it_says(bundles):

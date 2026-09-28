@@ -4,13 +4,13 @@
   "edits": [
     {
       "file": "entry-v1.md",
-      "old": "Then, only if both hold, a shadow conditioner under WP-23.B's class bar: pinball loss on Gold's P25/P50/P75 against `unconditional`, and against `har_scaled` as the second comparator, with the two-sided widening as the mechanism clause.",
-      "new": "Then, only if both hold, the confirm read: on stressed, OR-Elevated days, the share of days on which Gold's 20-day forward change is positive, against a coin-flip 50%. A share above 55% on the sealed slice, with a binomial interval clear of 50%, is the bar; the two-sided widening is the mechanism clause."
+      "old": "Then, only if both hold, a shadow conditioner under WP-23.B's class bar: pinball loss on Gold's P25/P50/P75 against `unconditional`, and against `har_scaled` as the second comparator, with the standardized width ratio as the mechanism clause. The class bar scores all three quantiles, so a read could clear it on the median alone; a read that clears the bar while the mechanism clause fails on the sealed slice is `unexplained`, not `edge`.",
+      "new": "Then, only if both hold, the confirm read: on stressed, OR-Elevated days, the share of days on which Gold's 20-day forward change is positive, against a coin-flip 50%. A share above 55% on the sealed slice, with a binomial interval clear of 50%, is the bar; the standardized width ratio is the mechanism clause, and a read that clears the bar while the clause fails is `unexplained`, not `edge`."
     },
     {
       "file": "entry-v2.md",
-      "old": "Then, only if both hold, a shadow conditioner under WP-23.B's class bar: pinball loss on Gold's P25/P50/P75 against `unconditional`, and against `har_scaled` as the second comparator, with the two-sided widening as the mechanism clause.",
-      "new": "Then, only if both hold, the confirm read: on stressed, OR-Elevated days, the share of days on which Gold's 20-day forward change is positive, against a coin-flip 50%. A share above 55% on the sealed slice, with a binomial interval clear of 50%, is the bar; the two-sided widening is the mechanism clause."
+      "old": "Then, only if both hold, a shadow conditioner under WP-23.B's class bar: pinball loss on Gold's P25/P50/P75 against `unconditional`, and against `har_scaled` as the second comparator, with the standardized width ratio as the mechanism clause. The class bar scores all three quantiles, so a read could clear it on the median alone; a read that clears the bar while the mechanism clause fails on the sealed slice is `unexplained`, not `edge`.",
+      "new": "Then, only if both hold, the confirm read: on stressed, OR-Elevated days, the share of days on which Gold's 20-day forward change is positive, against a coin-flip 50%. A share above 55% on the sealed slice, with a binomial interval clear of 50%, is the bar; the standardized width ratio is the mechanism clause, and a read that clears the bar while the clause fails is `unexplained`, not `edge`."
     }
   ]
 }

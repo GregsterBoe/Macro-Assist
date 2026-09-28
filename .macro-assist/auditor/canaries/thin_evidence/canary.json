@@ -29,18 +29,18 @@
     },
     {
       "file": "report-v1.md",
-      "old": "| low | Elevated | 21 | 4 |",
-      "new": "| low | Elevated | 21 | 1 |"
+      "old": "| 5 | Elevated | 169 | 11 |",
+      "new": "| 5 | Elevated | 169 | 2 |"
     },
     {
       "file": "report-v1.md",
-      "old": "| mid | Elevated | 48 | 7 |",
-      "new": "| mid | Elevated | 48 | 2 |"
+      "old": "| 10 | Elevated | 169 | 11 |",
+      "new": "| 10 | Elevated | 169 | 2 |"
     },
     {
       "file": "report-v1.md",
-      "old": "| high | Elevated | 100 | 9 |",
-      "new": "| high | Elevated | 100 | 2 |"
+      "old": "| 20 | Elevated | 169 | 11 |",
+      "new": "| 20 | Elevated | 169 | 2 |"
     }
   ]
 }
