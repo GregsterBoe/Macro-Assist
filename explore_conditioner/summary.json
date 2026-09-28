@@ -833,6 +833,482 @@
         "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
       }
     },
+    "dd_x_age": {
+      "arm": "dd_x_age",
+      "horizon": 5,
+      "n": 10280,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.532,
+      "pit_histogram": {
+        "0": 0.231,
+        "1": 0.271,
+        "2": 0.26,
+        "3": 0.238
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0213,
+          "n": 1893,
+          "ci": {
+            "lo": 0.0084,
+            "hi": 0.0353,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5441
+        },
+        "Gold": {
+          "skill": -0.0041,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0115,
+            "hi": 0.003,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5209
+        },
+        "WTI Oil": {
+          "skill": 0.0033,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0019,
+            "hi": 0.009,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5431
+        },
+        "UST10Y": {
+          "skill": 0.0047,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0081,
+            "hi": 0.0165,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5394
+        },
+        "DXY": {
+          "skill": -0.0004,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0087,
+            "hi": 0.0074,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5378
+        },
+        "Bitcoin": {
+          "skill": -0.0007,
+          "n": 815,
+          "ci": {
+            "lo": -0.008,
+            "hi": 0.0053,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.4736
+        }
+      },
+      "pooled_skill": {
+        "skill": 0.0068,
+        "ci": {
+          "lo": 0.0005,
+          "hi": 0.0131,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": 0.004,
+        "ci": {
+          "lo": -0.0006,
+          "hi": 0.0086,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "dd_x_frag_x_age": {
+      "arm": "dd_x_frag_x_age",
+      "horizon": 5,
+      "n": 10280,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5139,
+      "pit_histogram": {
+        "0": 0.239,
+        "1": 0.264,
+        "2": 0.25,
+        "3": 0.247
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0117,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0176,
+            "hi": 0.0426,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5425
+        },
+        "Gold": {
+          "skill": -0.0024,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0166,
+            "hi": 0.012,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5267
+        },
+        "WTI Oil": {
+          "skill": 0.0008,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0121,
+            "hi": 0.0133,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4739
+        },
+        "UST10Y": {
+          "skill": -0.0104,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0297,
+            "hi": 0.0073,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5251
+        },
+        "DXY": {
+          "skill": -0.022,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0566,
+            "hi": 0.0076,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5182
+        },
+        "Bitcoin": {
+          "skill": -0.009,
+          "n": 815,
+          "ci": {
+            "lo": -0.0217,
+            "hi": 0.0018,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.4748
+        }
+      },
+      "pooled_skill": {
+        "skill": 0.0034,
+        "ci": {
+          "lo": -0.0096,
+          "hi": 0.016,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0052,
+        "ci": {
+          "lo": -0.0165,
+          "hi": 0.0056,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "dd_x_sign": {
+      "arm": "dd_x_sign",
+      "horizon": 5,
+      "n": 10280,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5299,
+      "pit_histogram": {
+        "0": 0.232,
+        "1": 0.27,
+        "2": 0.26,
+        "3": 0.238
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0296,
+          "n": 1893,
+          "ci": {
+            "lo": 0.0153,
+            "hi": 0.0447,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5452
+        },
+        "Gold": {
+          "skill": -0.0031,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0111,
+            "hi": 0.0046,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5182
+        },
+        "WTI Oil": {
+          "skill": 0.0019,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0048,
+            "hi": 0.0088,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5325
+        },
+        "UST10Y": {
+          "skill": 0.0052,
+          "n": 1893,
+          "ci": {
+            "lo": -0.005,
+            "hi": 0.0148,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5404
+        },
+        "DXY": {
+          "skill": 0.0006,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0046,
+            "hi": 0.0054,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5357
+        },
+        "Bitcoin": {
+          "skill": -0.0013,
+          "n": 815,
+          "ci": {
+            "lo": -0.013,
+            "hi": 0.0095,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.4773
+        }
+      },
+      "pooled_skill": {
+        "skill": 0.0095,
+        "ci": {
+          "lo": 0.0028,
+          "hi": 0.0165,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": 0.0055,
+        "ci": {
+          "lo": 0.0001,
+          "hi": 0.0105,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "dd_x_frag_x_sign": {
+      "arm": "dd_x_frag_x_sign",
+      "horizon": 5,
+      "n": 10280,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5126,
+      "pit_histogram": {
+        "0": 0.241,
+        "1": 0.262,
+        "2": 0.25,
+        "3": 0.246
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0183,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0081,
+            "hi": 0.0473,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5446
+        },
+        "Gold": {
+          "skill": -0.0082,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0259,
+            "hi": 0.0093,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5225
+        },
+        "WTI Oil": {
+          "skill": -0.0037,
+          "n": 1893,
+          "ci": {
+            "lo": -0.018,
+            "hi": 0.011,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4712
+        },
+        "UST10Y": {
+          "skill": -0.0095,
+          "n": 1893,
+          "ci": {
+            "lo": -0.029,
+            "hi": 0.0103,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5267
+        },
+        "DXY": {
+          "skill": -0.023,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0497,
+            "hi": 0.0018,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5166
+        },
+        "Bitcoin": {
+          "skill": -0.0043,
+          "n": 815,
+          "ci": {
+            "lo": -0.0191,
+            "hi": 0.0087,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.4699
+        }
+      },
+      "pooled_skill": {
+        "skill": 0.0021,
+        "ci": {
+          "lo": -0.0108,
+          "hi": 0.0158,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0051,
+        "ci": {
+          "lo": -0.0161,
+          "hi": 0.0057,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
     "har_gaussian": {
       "arm": "har_gaussian",
       "horizon": 5,
@@ -1858,6 +2334,482 @@
         "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
       }
     },
+    "dd_x_age": {
+      "arm": "dd_x_age",
+      "horizon": 10,
+      "n": 10275,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5305,
+      "pit_histogram": {
+        "0": 0.229,
+        "1": 0.266,
+        "2": 0.264,
+        "3": 0.241
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0245,
+          "n": 1893,
+          "ci": {
+            "lo": 0.0061,
+            "hi": 0.0438,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5161
+        },
+        "Gold": {
+          "skill": -0.0069,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0174,
+            "hi": 0.0028,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.532
+        },
+        "WTI Oil": {
+          "skill": -0.0009,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0083,
+            "hi": 0.0064,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5325
+        },
+        "UST10Y": {
+          "skill": 0.0065,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0145,
+            "hi": 0.0261,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5811
+        },
+        "DXY": {
+          "skill": -0.0005,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0104,
+            "hi": 0.0082,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5304
+        },
+        "Bitcoin": {
+          "skill": -0.0076,
+          "n": 810,
+          "ci": {
+            "lo": -0.0259,
+            "hi": 0.0076,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.4383
+        }
+      },
+      "pooled_skill": {
+        "skill": 0.0056,
+        "ci": {
+          "lo": -0.0023,
+          "hi": 0.0133,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": 0.0025,
+        "ci": {
+          "lo": -0.0045,
+          "hi": 0.0085,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "dd_x_frag_x_age": {
+      "arm": "dd_x_frag_x_age",
+      "horizon": 10,
+      "n": 10275,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.503,
+      "pit_histogram": {
+        "0": 0.247,
+        "1": 0.25,
+        "2": 0.252,
+        "3": 0.251
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": -0.0056,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0548,
+            "hi": 0.0437,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5547
+        },
+        "Gold": {
+          "skill": -0.0105,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0339,
+            "hi": 0.0118,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5092
+        },
+        "WTI Oil": {
+          "skill": -0.0076,
+          "n": 1893,
+          "ci": {
+            "lo": -0.029,
+            "hi": 0.0135,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4622
+        },
+        "UST10Y": {
+          "skill": -0.0296,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0625,
+            "hi": -0.0001,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5235
+        },
+        "DXY": {
+          "skill": -0.0538,
+          "n": 1893,
+          "ci": {
+            "lo": -0.1121,
+            "hi": -0.0053,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4992
+        },
+        "Bitcoin": {
+          "skill": -0.0152,
+          "n": 810,
+          "ci": {
+            "lo": -0.0374,
+            "hi": 0.0011,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.4235
+        }
+      },
+      "pooled_skill": {
+        "skill": -0.0079,
+        "ci": {
+          "lo": -0.0276,
+          "hi": 0.0116,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0204,
+        "ci": {
+          "lo": -0.0399,
+          "hi": -0.0034,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "dd_x_sign": {
+      "arm": "dd_x_sign",
+      "horizon": 10,
+      "n": 10275,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5318,
+      "pit_histogram": {
+        "0": 0.23,
+        "1": 0.265,
+        "2": 0.266,
+        "3": 0.239
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0306,
+          "n": 1893,
+          "ci": {
+            "lo": 0.0105,
+            "hi": 0.0509,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5209
+        },
+        "Gold": {
+          "skill": -0.0032,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0125,
+            "hi": 0.0055,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5314
+        },
+        "WTI Oil": {
+          "skill": -0.0002,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0058,
+            "hi": 0.0058,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5362
+        },
+        "UST10Y": {
+          "skill": 0.0061,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0149,
+            "hi": 0.0259,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.58
+        },
+        "DXY": {
+          "skill": 0.0005,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0078,
+            "hi": 0.0085,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5293
+        },
+        "Bitcoin": {
+          "skill": -0.0052,
+          "n": 810,
+          "ci": {
+            "lo": -0.0263,
+            "hi": 0.0127,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.4407
+        }
+      },
+      "pooled_skill": {
+        "skill": 0.009,
+        "ci": {
+          "lo": 0.0015,
+          "hi": 0.017,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": 0.0048,
+        "ci": {
+          "lo": -0.0019,
+          "hi": 0.011,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "dd_x_frag_x_sign": {
+      "arm": "dd_x_frag_x_sign",
+      "horizon": 10,
+      "n": 10275,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5063,
+      "pit_histogram": {
+        "0": 0.247,
+        "1": 0.251,
+        "2": 0.255,
+        "3": 0.247
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.005,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0376,
+            "hi": 0.0467,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5716
+        },
+        "Gold": {
+          "skill": -0.0166,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0394,
+            "hi": 0.0062,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4997
+        },
+        "WTI Oil": {
+          "skill": -0.0113,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0323,
+            "hi": 0.0099,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4596
+        },
+        "UST10Y": {
+          "skill": -0.0297,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0642,
+            "hi": 0.001,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5304
+        },
+        "DXY": {
+          "skill": -0.0427,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0855,
+            "hi": -0.002,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5082
+        },
+        "Bitcoin": {
+          "skill": -0.0144,
+          "n": 810,
+          "ci": {
+            "lo": -0.0468,
+            "hi": 0.0101,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.4173
+        }
+      },
+      "pooled_skill": {
+        "skill": -0.0077,
+        "ci": {
+          "lo": -0.0254,
+          "hi": 0.0099,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0183,
+        "ci": {
+          "lo": -0.0344,
+          "hi": -0.0038,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
     "har_gaussian": {
       "arm": "har_gaussian",
       "horizon": 10,
@@ -2866,6 +3818,482 @@
         "ci": {
           "lo": -0.0472,
           "hi": -0.0062,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "dd_x_age": {
+      "arm": "dd_x_age",
+      "horizon": 20,
+      "n": 10265,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5095,
+      "pit_histogram": {
+        "0": 0.238,
+        "1": 0.254,
+        "2": 0.255,
+        "3": 0.253
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0228,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0048,
+            "hi": 0.0504,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5034
+        },
+        "Gold": {
+          "skill": -0.0031,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0178,
+            "hi": 0.0107,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4982
+        },
+        "WTI Oil": {
+          "skill": -0.0088,
+          "n": 1893,
+          "ci": {
+            "lo": -0.02,
+            "hi": 0.0016,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4908
+        },
+        "UST10Y": {
+          "skill": 0.0112,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0111,
+            "hi": 0.0328,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5943
+        },
+        "DXY": {
+          "skill": -0.0086,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0302,
+            "hi": 0.011,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5193
+        },
+        "Bitcoin": {
+          "skill": -0.0261,
+          "n": 800,
+          "ci": {
+            "lo": -0.0619,
+            "hi": -0.0031,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.3713
+        }
+      },
+      "pooled_skill": {
+        "skill": 0.0036,
+        "ci": {
+          "lo": -0.0069,
+          "hi": 0.0141,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0021,
+        "ci": {
+          "lo": -0.011,
+          "hi": 0.0056,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "dd_x_frag_x_age": {
+      "arm": "dd_x_frag_x_age",
+      "horizon": 20,
+      "n": 10265,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.4876,
+      "pit_histogram": {
+        "0": 0.256,
+        "1": 0.246,
+        "2": 0.242,
+        "3": 0.256
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": -0.0336,
+          "n": 1893,
+          "ci": {
+            "lo": -0.1124,
+            "hi": 0.0384,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5637
+        },
+        "Gold": {
+          "skill": -0.0181,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0552,
+            "hi": 0.017,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4717
+        },
+        "WTI Oil": {
+          "skill": -0.0196,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0524,
+            "hi": 0.011,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4575
+        },
+        "UST10Y": {
+          "skill": -0.0413,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0835,
+            "hi": -0.0042,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5388
+        },
+        "DXY": {
+          "skill": -0.0768,
+          "n": 1893,
+          "ci": {
+            "lo": -0.1585,
+            "hi": -0.0039,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4696
+        },
+        "Bitcoin": {
+          "skill": -0.0373,
+          "n": 800,
+          "ci": {
+            "lo": -0.0759,
+            "hi": -0.0078,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.3375
+        }
+      },
+      "pooled_skill": {
+        "skill": -0.0238,
+        "ci": {
+          "lo": -0.0585,
+          "hi": 0.0057,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0378,
+        "ci": {
+          "lo": -0.0647,
+          "hi": -0.0146,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "dd_x_sign": {
+      "arm": "dd_x_sign",
+      "horizon": 20,
+      "n": 10265,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.5093,
+      "pit_histogram": {
+        "0": 0.239,
+        "1": 0.255,
+        "2": 0.254,
+        "3": 0.252
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": 0.0285,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0002,
+            "hi": 0.0581,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5066
+        },
+        "Gold": {
+          "skill": -0.0013,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0171,
+            "hi": 0.014,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5018
+        },
+        "WTI Oil": {
+          "skill": -0.0094,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0191,
+            "hi": 0.0002,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4902
+        },
+        "UST10Y": {
+          "skill": 0.0089,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0141,
+            "hi": 0.0316,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5906
+        },
+        "DXY": {
+          "skill": -0.0027,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0152,
+            "hi": 0.0101,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5198
+        },
+        "Bitcoin": {
+          "skill": -0.0241,
+          "n": 800,
+          "ci": {
+            "lo": -0.0571,
+            "hi": -0.0017,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.3613
+        }
+      },
+      "pooled_skill": {
+        "skill": 0.0059,
+        "ci": {
+          "lo": -0.0054,
+          "hi": 0.0175,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0,
+        "ci": {
+          "lo": -0.008,
+          "hi": 0.0076,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil",
+          "UST10Y",
+          "DXY",
+          "Bitcoin"
+        ]
+      },
+      "verdict": {
+        "verdict": "exploratory",
+        "reason": "sample was observed before the bar was written; reported for orientation, cannot pass"
+      }
+    },
+    "dd_x_frag_x_sign": {
+      "arm": "dd_x_frag_x_sign",
+      "horizon": 20,
+      "n": 10265,
+      "n_report_dates": 1893,
+      "n_blocks": 91,
+      "first_date": "2010-06-25",
+      "last_date": "2017-12-29",
+      "coverage_iqr": 0.485,
+      "pit_histogram": {
+        "0": 0.259,
+        "1": 0.244,
+        "2": 0.241,
+        "3": 0.256
+      },
+      "per_asset": {
+        "SP500": {
+          "skill": -0.0073,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0672,
+            "hi": 0.0524,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5642
+        },
+        "Gold": {
+          "skill": -0.0219,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0599,
+            "hi": 0.0139,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4554
+        },
+        "WTI Oil": {
+          "skill": -0.0233,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0637,
+            "hi": 0.0131,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4554
+        },
+        "UST10Y": {
+          "skill": -0.038,
+          "n": 1893,
+          "ci": {
+            "lo": -0.0775,
+            "hi": -0.0029,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.5378
+        },
+        "DXY": {
+          "skill": -0.0709,
+          "n": 1893,
+          "ci": {
+            "lo": -0.1444,
+            "hi": -0.004,
+            "n_boot": 2000,
+            "n_blocks": 91
+          },
+          "coverage": 0.4707
+        },
+        "Bitcoin": {
+          "skill": -0.0321,
+          "n": 800,
+          "ci": {
+            "lo": -0.0737,
+            "hi": -0.0002,
+            "n_boot": 2000,
+            "n_blocks": 39
+          },
+          "coverage": 0.3475
+        }
+      },
+      "pooled_skill": {
+        "skill": -0.0175,
+        "ci": {
+          "lo": -0.0456,
+          "hi": 0.0087,
+          "n_boot": 2000,
+          "n_blocks": 91
+        },
+        "assets": [
+          "SP500",
+          "Gold",
+          "WTI Oil"
+        ]
+      },
+      "pooled_skill_all_assets": {
+        "skill": -0.0322,
+        "ci": {
+          "lo": -0.0568,
+          "hi": -0.0115,
           "n_boot": 2000,
           "n_blocks": 91
         },
@@ -4138,9 +5566,9 @@
             "Bitcoin"
           ]
         },
+        "WTI Oil": -0.0169,
         "SP500": -0.0303,
-        "Gold": -0.0219,
-        "WTI Oil": -0.0169
+        "Gold": -0.0219
       },
       "Normal": {
         "n": 8679,
@@ -4162,9 +5590,9 @@
             "Bitcoin"
           ]
         },
+        "WTI Oil": 0.0095,
         "SP500": 0.016,
-        "Gold": -0.0041,
-        "WTI Oil": 0.0095
+        "Gold": -0.0041
       }
     },
     "10": {
@@ -4188,9 +5616,9 @@
             "Bitcoin"
           ]
         },
+        "WTI Oil": -0.0321,
         "SP500": -0.0055,
-        "Gold": -0.0447,
-        "WTI Oil": -0.0321
+        "Gold": -0.0447
       },
       "Normal": {
         "n": 8677,
@@ -4212,9 +5640,9 @@
             "Bitcoin"
           ]
         },
+        "WTI Oil": 0.0046,
         "SP500": 0.0138,
-        "Gold": -0.0076,
-        "WTI Oil": 0.0046
+        "Gold": -0.0076
       }
     },
     "20": {
@@ -4238,9 +5666,9 @@
             "Bitcoin"
           ]
         },
+        "WTI Oil": -0.0325,
         "SP500": 0.0445,
-        "Gold": -0.0992,
-        "WTI Oil": -0.0325
+        "Gold": -0.0992
       },
       "Normal": {
         "n": 8677,
@@ -4262,9 +5690,9 @@
             "Bitcoin"
           ]
         },
+        "WTI Oil": -0.0032,
         "SP500": 0.0178,
-        "Gold": -0.0137,
-        "WTI Oil": -0.0032
+        "Gold": -0.0137
       }
     }
   },
@@ -4290,9 +5718,9 @@
             "Bitcoin"
           ]
         },
+        "WTI Oil": -0.006,
         "SP500": 0.0134,
-        "Gold": 0.0029,
-        "WTI Oil": -0.006
+        "Gold": 0.0029
       },
       "dd<-10": {
         "n": 675,
@@ -4314,9 +5742,9 @@
             "Bitcoin"
           ]
         },
+        "WTI Oil": 0.0056,
         "SP500": 0.0182,
-        "Gold": 0.0003,
-        "WTI Oil": 0.0056
+        "Gold": 0.0003
       },
       "dd>-5": {
         "n": 8392,
@@ -4338,9 +5766,9 @@
             "Bitcoin"
           ]
         },
+        "WTI Oil": 0.0071,
         "SP500": 0.0269,
-        "Gold": -0.0025,
-        "WTI Oil": 0.0071
+        "Gold": -0.0025
       }
     },
     "10": {
@@ -4364,9 +5792,9 @@
             "Bitcoin"
           ]
         },
+        "WTI Oil": -0.005,
         "SP500": 0.0416,
-        "Gold": -0.0091,
-        "WTI Oil": -0.005
+        "Gold": -0.0091
       },
       "dd<-10": {
         "n": 675,
@@ -4388,9 +5816,9 @@
             "Bitcoin"
           ]
         },
+        "WTI Oil": 0.0076,
         "SP500": 0.0139,
-        "Gold": 0.0012,
-        "WTI Oil": 0.0076
+        "Gold": 0.0012
       },
       "dd>-5": {
         "n": 8389,
@@ -4412,9 +5840,9 @@
             "Bitcoin"
           ]
         },
+        "WTI Oil": 0.0035,
         "SP500": 0.026,
-        "Gold": -0.0009,
-        "WTI Oil": 0.0035
+        "Gold": -0.0009
       }
     },
     "20": {
@@ -4438,9 +5866,9 @@
             "Bitcoin"
           ]
         },
+        "WTI Oil": -0.0107,
         "SP500": 0.1034,
-        "Gold": -0.0203,
-        "WTI Oil": -0.0107
+        "Gold": -0.0203
       },
       "dd<-10": {
         "n": 675,
@@ -4462,9 +5890,9 @@
             "Bitcoin"
           ]
         },
+        "WTI Oil": -0.0265,
         "SP500": -0.0356,
-        "Gold": 0.0176,
-        "WTI Oil": -0.0265
+        "Gold": 0.0176
       },
       "dd>-5": {
         "n": 8384,
@@ -4486,9 +5914,9 @@
             "Bitcoin"
           ]
         },
+        "WTI Oil": -0.0044,
         "SP500": 0.0255,
-        "Gold": 0.0029,
-        "WTI Oil": -0.0044
+        "Gold": 0.0029
       }
     }
   },
@@ -4981,6 +6409,7 @@
         "dd_bin": "dd-5..-10",
         "or_state": "Elevated",
         "n": 70,
+        "spells": 8,
         "p25": -1.825,
         "p50": 0.301,
         "p75": 1.886,
@@ -4992,6 +6421,7 @@
         "dd_bin": "dd-5..-10",
         "or_state": "Normal",
         "n": 190,
+        "spells": 25,
         "p25": -1.01,
         "p50": 0.861,
         "p75": 1.895,
@@ -5003,6 +6433,7 @@
         "dd_bin": "dd<-10",
         "or_state": "Elevated",
         "n": 99,
+        "spells": 4,
         "p25": -1.786,
         "p50": 0.719,
         "p75": 3.527,
@@ -5014,6 +6445,7 @@
         "dd_bin": "dd<-10",
         "or_state": "Normal",
         "n": 96,
+        "spells": 4,
         "p25": 0.259,
         "p50": 2.139,
         "p75": 3.5,
@@ -5025,6 +6457,7 @@
         "dd_bin": "dd>-5",
         "or_state": "Elevated",
         "n": 131,
+        "spells": 0,
         "p25": 0.021,
         "p50": 0.775,
         "p75": 1.614,
@@ -5036,6 +6469,7 @@
         "dd_bin": "dd>-5",
         "or_state": "Normal",
         "n": 1551,
+        "spells": 0,
         "p25": -0.562,
         "p50": 0.253,
         "p75": 1.043,
@@ -5048,6 +6482,7 @@
       {
         "dd_bin": "dd-5..-10",
         "n": 260,
+        "spells": 30,
         "p25": -1.177,
         "p50": 0.704,
         "p75": 1.908,
@@ -5058,6 +6493,7 @@
       {
         "dd_bin": "dd<-10",
         "n": 195,
+        "spells": 5,
         "p25": -0.821,
         "p50": 1.632,
         "p75": 3.527,
@@ -5068,6 +6504,7 @@
       {
         "dd_bin": "dd>-5",
         "n": 1682,
+        "spells": 0,
         "p25": -0.532,
         "p50": 0.288,
         "p75": 1.108,
@@ -5081,6 +6518,7 @@
         "dd_bin": "dd-5..-10",
         "or_state": "Elevated",
         "n": 70,
+        "spells": 8,
         "p25": -2.376,
         "p50": 1.434,
         "p75": 3.708,
@@ -5092,6 +6530,7 @@
         "dd_bin": "dd-5..-10",
         "or_state": "Normal",
         "n": 190,
+        "spells": 25,
         "p25": -0.847,
         "p50": 1.444,
         "p75": 2.742,
@@ -5103,6 +6542,7 @@
         "dd_bin": "dd<-10",
         "or_state": "Elevated",
         "n": 99,
+        "spells": 4,
         "p25": -1.235,
         "p50": 1.785,
         "p75": 4.216,
@@ -5114,6 +6554,7 @@
         "dd_bin": "dd<-10",
         "or_state": "Normal",
         "n": 96,
+        "spells": 4,
         "p25": 0.985,
         "p50": 2.897,
         "p75": 4.942,
@@ -5125,6 +6566,7 @@
         "dd_bin": "dd>-5",
         "or_state": "Elevated",
         "n": 131,
+        "spells": 0,
         "p25": 0.076,
         "p50": 1.554,
         "p75": 2.637,
@@ -5136,6 +6578,7 @@
         "dd_bin": "dd>-5",
         "or_state": "Normal",
         "n": 1551,
+        "spells": 0,
         "p25": -0.761,
         "p50": 0.485,
         "p75": 1.569,
@@ -5148,6 +6591,7 @@
       {
         "dd_bin": "dd-5..-10",
         "n": 260,
+        "spells": 30,
         "p25": -1.378,
         "p50": 1.444,
         "p75": 2.945,
@@ -5158,6 +6602,7 @@
       {
         "dd_bin": "dd<-10",
         "n": 195,
+        "spells": 5,
         "p25": -0.171,
         "p50": 2.555,
         "p75": 4.464,
@@ -5168,6 +6613,7 @@
       {
         "dd_bin": "dd>-5",
         "n": 1682,
+        "spells": 0,
         "p25": -0.731,
         "p50": 0.548,
         "p75": 1.7,
@@ -5181,6 +6627,7 @@
         "dd_bin": "dd-5..-10",
         "or_state": "Elevated",
         "n": 70,
+        "spells": 8,
         "p25": -2.471,
         "p50": 2.218,
         "p75": 5.943,
@@ -5192,6 +6639,7 @@
         "dd_bin": "dd-5..-10",
         "or_state": "Normal",
         "n": 190,
+        "spells": 25,
         "p25": 0.217,
         "p50": 3.137,
         "p75": 4.434,
@@ -5203,6 +6651,7 @@
         "dd_bin": "dd<-10",
         "or_state": "Elevated",
         "n": 99,
+        "spells": 4,
         "p25": -0.486,
         "p50": 3.419,
         "p75": 7.101,
@@ -5214,6 +6663,7 @@
         "dd_bin": "dd<-10",
         "or_state": "Normal",
         "n": 96,
+        "spells": 4,
         "p25": 1.933,
         "p50": 3.69,
         "p75": 6.144,
@@ -5225,6 +6675,7 @@
         "dd_bin": "dd>-5",
         "or_state": "Elevated",
         "n": 131,
+        "spells": 0,
         "p25": -0.081,
         "p50": 2.011,
         "p75": 3.93,
@@ -5236,6 +6687,7 @@
         "dd_bin": "dd>-5",
         "or_state": "Normal",
         "n": 1551,
+        "spells": 0,
         "p25": -0.855,
         "p50": 1.018,
         "p75": 2.556,
@@ -5248,6 +6700,7 @@
       {
         "dd_bin": "dd-5..-10",
         "n": 260,
+        "spells": 30,
         "p25": -0.661,
         "p50": 3.001,
         "p75": 4.499,
@@ -5258,6 +6711,7 @@
       {
         "dd_bin": "dd<-10",
         "n": 195,
+        "spells": 5,
         "p25": 0.798,
         "p50": 3.645,
         "p75": 6.47,
@@ -5268,6 +6722,7 @@
       {
         "dd_bin": "dd>-5",
         "n": 1682,
+        "spells": 0,
         "p25": -0.83,
         "p50": 1.069,
         "p75": 2.648,
@@ -5280,6 +6735,7 @@
       {
         "or_state": "Elevated",
         "n": 300,
+        "spells": 9,
         "p25": -1.033,
         "p50": 0.708,
         "p75": 2.125,
@@ -5290,6 +6746,7 @@
       {
         "or_state": "Normal",
         "n": 1837,
+        "spells": 25,
         "p25": -0.567,
         "p50": 0.309,
         "p75": 1.226,
@@ -5302,6 +6759,7 @@
       {
         "or_state": "Elevated",
         "n": 300,
+        "spells": 9,
         "p25": -0.657,
         "p50": 2.335,
         "p75": 4.654,
@@ -5312,11 +6770,916 @@
       {
         "or_state": "Normal",
         "n": 1837,
+        "spells": 25,
         "p25": -0.723,
         "p50": 1.293,
         "p75": 2.927,
         "width": 3.65,
         "side": "left",
+        "uncond_p50": 1.388
+      }
+    ],
+    "SP500 h=5: stressed (dd \u2264 \u22125%) \u00d7 OR state \u00d7 spell age \u2014 look A": [
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Elevated",
+        "dd_age": "fresh",
+        "n": 29,
+        "spells": 7,
+        "p25": -0.35,
+        "p50": 2.476,
+        "p75": 3.537,
+        "width": 3.887,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Elevated",
+        "dd_age": "old",
+        "n": 140,
+        "spells": 4,
+        "p25": -2.388,
+        "p50": 0.412,
+        "p75": 2.54,
+        "width": 4.928,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Normal",
+        "dd_age": "fresh",
+        "n": 96,
+        "spells": 24,
+        "p25": -1.495,
+        "p50": 0.939,
+        "p75": 2.622,
+        "width": 4.117,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Normal",
+        "dd_age": "old",
+        "n": 190,
+        "spells": 6,
+        "p25": -0.315,
+        "p50": 1.181,
+        "p75": 2.561,
+        "width": 2.877,
+        "side": "right",
+        "uncond_p50": 0.37
+      }
+    ],
+    "SP500 h=5: stressed \u00d7 spell age alone \u2014 A's rival": [
+      {
+        "dd_stressed": "dd<=-5",
+        "dd_age": "fresh",
+        "n": 125,
+        "spells": 29,
+        "p25": -1.115,
+        "p50": 1.199,
+        "p75": 2.849,
+        "width": 3.964,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "dd_age": "old",
+        "n": 330,
+        "spells": 7,
+        "p25": -0.916,
+        "p50": 0.947,
+        "p75": 2.561,
+        "width": 3.478,
+        "side": "right",
+        "uncond_p50": 0.37
+      }
+    ],
+    "SP500 h=5: stressed \u00d7 OR state \u00d7 trailing-5d sign \u2014 look B": [
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Elevated",
+        "sp_sign": "down5",
+        "n": 96,
+        "spells": 8,
+        "p25": -0.864,
+        "p50": 1.888,
+        "p75": 3.973,
+        "width": 4.836,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Elevated",
+        "sp_sign": "up5",
+        "n": 73,
+        "spells": 6,
+        "p25": -3.102,
+        "p50": -0.256,
+        "p75": 1.352,
+        "width": 4.454,
+        "side": "left",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Normal",
+        "sp_sign": "down5",
+        "n": 138,
+        "spells": 24,
+        "p25": -1.102,
+        "p50": 1.261,
+        "p75": 2.938,
+        "width": 4.04,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Normal",
+        "sp_sign": "up5",
+        "n": 148,
+        "spells": 11,
+        "p25": -0.247,
+        "p50": 1.092,
+        "p75": 2.046,
+        "width": 2.294,
+        "side": "right",
+        "uncond_p50": 0.37
+      }
+    ],
+    "SP500 h=5: stressed \u00d7 trailing-5d sign alone \u2014 B's rival": [
+      {
+        "dd_stressed": "dd<=-5",
+        "sp_sign": "down5",
+        "n": 234,
+        "spells": 28,
+        "p25": -1.045,
+        "p50": 1.456,
+        "p75": 3.325,
+        "width": 4.37,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "sp_sign": "up5",
+        "n": 221,
+        "spells": 14,
+        "p25": -1.124,
+        "p50": 0.719,
+        "p75": 1.855,
+        "width": 2.979,
+        "side": "right",
+        "uncond_p50": 0.37
+      }
+    ],
+    "SP500 h=10: stressed (dd \u2264 \u22125%) \u00d7 OR state \u00d7 spell age \u2014 look A": [
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Elevated",
+        "dd_age": "fresh",
+        "n": 29,
+        "spells": 7,
+        "p25": 0.079,
+        "p50": 3.066,
+        "p75": 5.072,
+        "width": 4.993,
+        "side": "right",
+        "uncond_p50": 0.685
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Elevated",
+        "dd_age": "old",
+        "n": 140,
+        "spells": 4,
+        "p25": -1.946,
+        "p50": 1.51,
+        "p75": 3.728,
+        "width": 5.674,
+        "side": "right",
+        "uncond_p50": 0.685
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Normal",
+        "dd_age": "fresh",
+        "n": 96,
+        "spells": 24,
+        "p25": -1.505,
+        "p50": 0.594,
+        "p75": 3.101,
+        "width": 4.606,
+        "side": "left",
+        "uncond_p50": 0.685
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Normal",
+        "dd_age": "old",
+        "n": 190,
+        "spells": 6,
+        "p25": 0.687,
+        "p50": 2.29,
+        "p75": 3.501,
+        "width": 2.815,
+        "side": "right",
+        "uncond_p50": 0.685
+      }
+    ],
+    "SP500 h=10: stressed \u00d7 spell age alone \u2014 A's rival": [
+      {
+        "dd_stressed": "dd<=-5",
+        "dd_age": "fresh",
+        "n": 125,
+        "spells": 29,
+        "p25": -1.326,
+        "p50": 0.982,
+        "p75": 4.016,
+        "width": 5.343,
+        "side": "right",
+        "uncond_p50": 0.685
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "dd_age": "old",
+        "n": 330,
+        "spells": 7,
+        "p25": -0.379,
+        "p50": 1.94,
+        "p75": 3.577,
+        "width": 3.956,
+        "side": "right",
+        "uncond_p50": 0.685
+      }
+    ],
+    "SP500 h=10: stressed \u00d7 OR state \u00d7 trailing-5d sign \u2014 look B": [
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Elevated",
+        "sp_sign": "down5",
+        "n": 96,
+        "spells": 8,
+        "p25": 0.002,
+        "p50": 3.149,
+        "p75": 4.903,
+        "width": 4.901,
+        "side": "right",
+        "uncond_p50": 0.685
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Elevated",
+        "sp_sign": "up5",
+        "n": 73,
+        "spells": 6,
+        "p25": -3.649,
+        "p50": 0.124,
+        "p75": 2.291,
+        "width": 5.94,
+        "side": "left",
+        "uncond_p50": 0.685
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Normal",
+        "sp_sign": "down5",
+        "n": 138,
+        "spells": 24,
+        "p25": -1.141,
+        "p50": 1.834,
+        "p75": 4.131,
+        "width": 5.272,
+        "side": "right",
+        "uncond_p50": 0.685
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Normal",
+        "sp_sign": "up5",
+        "n": 148,
+        "spells": 11,
+        "p25": 0.542,
+        "p50": 1.855,
+        "p75": 2.921,
+        "width": 2.379,
+        "side": "right",
+        "uncond_p50": 0.685
+      }
+    ],
+    "SP500 h=10: stressed \u00d7 trailing-5d sign alone \u2014 B's rival": [
+      {
+        "dd_stressed": "dd<=-5",
+        "sp_sign": "down5",
+        "n": 234,
+        "spells": 28,
+        "p25": -0.526,
+        "p50": 2.337,
+        "p75": 4.465,
+        "width": 4.99,
+        "side": "right",
+        "uncond_p50": 0.685
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "sp_sign": "up5",
+        "n": 221,
+        "spells": 14,
+        "p25": -1.039,
+        "p50": 1.504,
+        "p75": 2.803,
+        "width": 3.842,
+        "side": "right",
+        "uncond_p50": 0.685
+      }
+    ],
+    "SP500 h=20: stressed (dd \u2264 \u22125%) \u00d7 OR state \u00d7 spell age \u2014 look A": [
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Elevated",
+        "dd_age": "fresh",
+        "n": 29,
+        "spells": 7,
+        "p25": -1.479,
+        "p50": 3.896,
+        "p75": 6.975,
+        "width": 8.454,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Elevated",
+        "dd_age": "old",
+        "n": 140,
+        "spells": 4,
+        "p25": -1.319,
+        "p50": 2.807,
+        "p75": 6.357,
+        "width": 7.675,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Normal",
+        "dd_age": "fresh",
+        "n": 96,
+        "spells": 24,
+        "p25": -0.677,
+        "p50": 2.792,
+        "p75": 4.468,
+        "width": 5.144,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Normal",
+        "dd_age": "old",
+        "n": 190,
+        "spells": 6,
+        "p25": 1.332,
+        "p50": 3.401,
+        "p75": 4.916,
+        "width": 3.584,
+        "side": "right",
+        "uncond_p50": 1.388
+      }
+    ],
+    "SP500 h=20: stressed \u00d7 spell age alone \u2014 A's rival": [
+      {
+        "dd_stressed": "dd<=-5",
+        "dd_age": "fresh",
+        "n": 125,
+        "spells": 29,
+        "p25": -0.827,
+        "p50": 2.801,
+        "p75": 4.869,
+        "width": 5.696,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "dd_age": "old",
+        "n": 330,
+        "spells": 7,
+        "p25": 0.574,
+        "p50": 3.262,
+        "p75": 5.314,
+        "width": 4.74,
+        "side": "right",
+        "uncond_p50": 1.388
+      }
+    ],
+    "SP500 h=20: stressed \u00d7 OR state \u00d7 trailing-5d sign \u2014 look B": [
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Elevated",
+        "sp_sign": "down5",
+        "n": 96,
+        "spells": 8,
+        "p25": 0.856,
+        "p50": 4.333,
+        "p75": 7.741,
+        "width": 6.885,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Elevated",
+        "sp_sign": "up5",
+        "n": 73,
+        "spells": 6,
+        "p25": -2.809,
+        "p50": -0.268,
+        "p75": 3.865,
+        "width": 6.674,
+        "side": "left",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Normal",
+        "sp_sign": "down5",
+        "n": 138,
+        "spells": 24,
+        "p25": -0.494,
+        "p50": 2.986,
+        "p75": 5.406,
+        "width": 5.901,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Normal",
+        "sp_sign": "up5",
+        "n": 148,
+        "spells": 11,
+        "p25": 1.497,
+        "p50": 3.3,
+        "p75": 4.455,
+        "width": 2.958,
+        "side": "right",
+        "uncond_p50": 1.388
+      }
+    ],
+    "SP500 h=20: stressed \u00d7 trailing-5d sign alone \u2014 B's rival": [
+      {
+        "dd_stressed": "dd<=-5",
+        "sp_sign": "down5",
+        "n": 234,
+        "spells": 28,
+        "p25": 0.136,
+        "p50": 3.69,
+        "p75": 6.553,
+        "width": 6.417,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "sp_sign": "up5",
+        "n": 221,
+        "spells": 14,
+        "p25": 0.041,
+        "p50": 2.994,
+        "p75": 4.37,
+        "width": 4.329,
+        "side": "right",
+        "uncond_p50": 1.388
+      }
+    ],
+    "SP500 h=5: drawdown bin \u00d7 OR state \u00d7 spell age \u2014 look A, fine bins": [
+      {
+        "dd_bin": "dd-5..-10",
+        "or_state": "Elevated",
+        "dd_age": "fresh",
+        "n": 20,
+        "spells": 6,
+        "p25": -0.342,
+        "p50": 2.111,
+        "p75": 3.486,
+        "width": 3.828,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_bin": "dd-5..-10",
+        "or_state": "Elevated",
+        "dd_age": "old",
+        "n": 50,
+        "spells": 3,
+        "p25": -2.762,
+        "p50": 0.104,
+        "p75": 1.323,
+        "width": 4.085,
+        "side": "left",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_bin": "dd-5..-10",
+        "or_state": "Normal",
+        "dd_age": "fresh",
+        "n": 89,
+        "spells": 24,
+        "p25": -1.639,
+        "p50": 0.912,
+        "p75": 2.622,
+        "width": 4.26,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_bin": "dd-5..-10",
+        "or_state": "Normal",
+        "dd_age": "old",
+        "n": 101,
+        "spells": 6,
+        "p25": -0.682,
+        "p50": 0.819,
+        "p75": 1.65,
+        "width": 2.332,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_bin": "dd<-10",
+        "or_state": "Elevated",
+        "dd_age": "fresh",
+        "n": 9,
+        "spells": 2,
+        "p25": -1.715,
+        "p50": 2.476,
+        "p75": 4.171,
+        "width": 5.886,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_bin": "dd<-10",
+        "or_state": "Elevated",
+        "dd_age": "old",
+        "n": 90,
+        "spells": 4,
+        "p25": -1.815,
+        "p50": 0.633,
+        "p75": 3.484,
+        "width": 5.299,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_bin": "dd<-10",
+        "or_state": "Normal",
+        "dd_age": "fresh",
+        "n": 7,
+        "spells": 2,
+        "p25": -0.076,
+        "p50": 1.413,
+        "p75": 2.159,
+        "width": 2.234,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_bin": "dd<-10",
+        "or_state": "Normal",
+        "dd_age": "old",
+        "n": 89,
+        "spells": 4,
+        "p25": 0.3,
+        "p50": 2.21,
+        "p75": 3.744,
+        "width": 3.445,
+        "side": "right",
+        "uncond_p50": 0.37
+      }
+    ],
+    "SP500 h=5: drawdown bin \u00d7 OR state \u00d7 trailing-5d sign \u2014 look B, fine bins": [
+      {
+        "dd_bin": "dd-5..-10",
+        "or_state": "Elevated",
+        "sp_sign": "down5",
+        "n": 26,
+        "spells": 6,
+        "p25": -0.264,
+        "p50": 1.69,
+        "p75": 3.449,
+        "width": 3.713,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_bin": "dd-5..-10",
+        "or_state": "Elevated",
+        "sp_sign": "up5",
+        "n": 44,
+        "spells": 5,
+        "p25": -2.96,
+        "p50": -0.088,
+        "p75": 1.03,
+        "width": 3.99,
+        "side": "left",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_bin": "dd-5..-10",
+        "or_state": "Normal",
+        "sp_sign": "down5",
+        "n": 95,
+        "spells": 23,
+        "p25": -1.664,
+        "p50": 0.624,
+        "p75": 2.526,
+        "width": 4.19,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_bin": "dd-5..-10",
+        "or_state": "Normal",
+        "sp_sign": "up5",
+        "n": 95,
+        "spells": 11,
+        "p25": -0.3,
+        "p50": 0.893,
+        "p75": 1.644,
+        "width": 1.944,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_bin": "dd<-10",
+        "or_state": "Elevated",
+        "sp_sign": "down5",
+        "n": 70,
+        "spells": 4,
+        "p25": -1.228,
+        "p50": 2.041,
+        "p75": 4.152,
+        "width": 5.38,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_bin": "dd<-10",
+        "or_state": "Elevated",
+        "sp_sign": "up5",
+        "n": 29,
+        "spells": 4,
+        "p25": -3.172,
+        "p50": -1.213,
+        "p75": 2.163,
+        "width": 5.335,
+        "side": "left",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_bin": "dd<-10",
+        "or_state": "Normal",
+        "sp_sign": "down5",
+        "n": 43,
+        "spells": 4,
+        "p25": 0.894,
+        "p50": 2.73,
+        "p75": 4.064,
+        "width": 3.17,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_bin": "dd<-10",
+        "or_state": "Normal",
+        "sp_sign": "up5",
+        "n": 53,
+        "spells": 4,
+        "p25": 0.218,
+        "p50": 1.57,
+        "p75": 2.656,
+        "width": 2.439,
+        "side": "right",
+        "uncond_p50": 0.37
+      }
+    ],
+    "SP500 h=20: drawdown bin \u00d7 OR state \u00d7 spell age \u2014 look A, fine bins": [
+      {
+        "dd_bin": "dd-5..-10",
+        "or_state": "Elevated",
+        "dd_age": "fresh",
+        "n": 20,
+        "spells": 6,
+        "p25": -1.807,
+        "p50": 6.28,
+        "p75": 7.866,
+        "width": 9.672,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_bin": "dd-5..-10",
+        "or_state": "Elevated",
+        "dd_age": "old",
+        "n": 50,
+        "spells": 3,
+        "p25": -2.471,
+        "p50": 1.432,
+        "p75": 4.172,
+        "width": 6.643,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_bin": "dd-5..-10",
+        "or_state": "Normal",
+        "dd_age": "fresh",
+        "n": 89,
+        "spells": 24,
+        "p25": -0.652,
+        "p50": 2.801,
+        "p75": 4.53,
+        "width": 5.183,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_bin": "dd-5..-10",
+        "or_state": "Normal",
+        "dd_age": "old",
+        "n": 101,
+        "spells": 6,
+        "p25": 1.07,
+        "p50": 3.306,
+        "p75": 4.341,
+        "width": 3.271,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_bin": "dd<-10",
+        "or_state": "Elevated",
+        "dd_age": "fresh",
+        "n": 9,
+        "spells": 2,
+        "p25": -0.622,
+        "p50": 1.131,
+        "p75": 4.023,
+        "width": 4.644,
+        "side": "left",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_bin": "dd<-10",
+        "or_state": "Elevated",
+        "dd_age": "old",
+        "n": 90,
+        "spells": 4,
+        "p25": -0.447,
+        "p50": 3.524,
+        "p75": 7.293,
+        "width": 7.74,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_bin": "dd<-10",
+        "or_state": "Normal",
+        "dd_age": "fresh",
+        "n": 7,
+        "spells": 2,
+        "p25": 0.577,
+        "p50": 2.256,
+        "p75": 3.213,
+        "width": 2.636,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_bin": "dd<-10",
+        "or_state": "Normal",
+        "dd_age": "old",
+        "n": 89,
+        "spells": 4,
+        "p25": 1.938,
+        "p50": 3.848,
+        "p75": 6.269,
+        "width": 4.332,
+        "side": "right",
+        "uncond_p50": 1.388
+      }
+    ],
+    "SP500 h=20: drawdown bin \u00d7 OR state \u00d7 trailing-5d sign \u2014 look B, fine bins": [
+      {
+        "dd_bin": "dd-5..-10",
+        "or_state": "Elevated",
+        "sp_sign": "down5",
+        "n": 26,
+        "spells": 6,
+        "p25": 1.869,
+        "p50": 6.093,
+        "p75": 8.03,
+        "width": 6.161,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_bin": "dd-5..-10",
+        "or_state": "Elevated",
+        "sp_sign": "up5",
+        "n": 44,
+        "spells": 5,
+        "p25": -2.962,
+        "p50": -0.211,
+        "p75": 3.322,
+        "width": 6.284,
+        "side": "left",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_bin": "dd-5..-10",
+        "or_state": "Normal",
+        "sp_sign": "down5",
+        "n": 95,
+        "spells": 23,
+        "p25": -0.986,
+        "p50": 2.645,
+        "p75": 4.554,
+        "width": 5.54,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_bin": "dd-5..-10",
+        "or_state": "Normal",
+        "sp_sign": "up5",
+        "n": 95,
+        "spells": 11,
+        "p25": 1.298,
+        "p50": 3.328,
+        "p75": 4.379,
+        "width": 3.08,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_bin": "dd<-10",
+        "or_state": "Elevated",
+        "sp_sign": "down5",
+        "n": 70,
+        "spells": 4,
+        "p25": 0.843,
+        "p50": 3.949,
+        "p75": 7.466,
+        "width": 6.623,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_bin": "dd<-10",
+        "or_state": "Elevated",
+        "sp_sign": "up5",
+        "n": 29,
+        "spells": 4,
+        "p25": -1.668,
+        "p50": -0.268,
+        "p75": 4.052,
+        "width": 5.72,
+        "side": "left",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_bin": "dd<-10",
+        "or_state": "Normal",
+        "sp_sign": "down5",
+        "n": 43,
+        "spells": 4,
+        "p25": 1.509,
+        "p50": 4.15,
+        "p75": 6.802,
+        "width": 5.293,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_bin": "dd<-10",
+        "or_state": "Normal",
+        "sp_sign": "up5",
+        "n": 53,
+        "spells": 4,
+        "p25": 1.938,
+        "p50": 3.184,
+        "p75": 4.786,
+        "width": 2.849,
+        "side": "right",
         "uncond_p50": 1.388
       }
     ]
