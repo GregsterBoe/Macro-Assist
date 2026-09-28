@@ -282,6 +282,34 @@ inform an explore look, and it does not satisfy §9 question 12, which wants
 an audit that CI ran and recorded (WP-25.C). The `tier` field is a label; what
 makes a record CI's is that CI committed it.
 
+### model_compare.yml — the main model, compared on saved days (IMP-8)
+
+Dispatch-only, and it **costs API money**: about $0.10 a day replayed on Opus
+4.8 and $0.04 on a Sonnet, so the default — ten days, three models — is roughly
+$2 (`max_usd` stops it early). It runs `.macro-assist/model_compare.py`: for each
+of the newest saved payloads (`results/llm_payload_preview/<date>.md`, the
+verbatim user message the model got that day) it calls the production
+`_analyze_structured` and `_adversarial_review_structured` with today's
+structured system prompt, once per model, by setting `MACRO_MODEL` for the call.
+A model the API does not recognise is skipped and named in the record. The
+record lands on the output branch under `results/model_compare/` — a JSON with
+every answer and a markdown report: a summary table, then each day's executive
+summary, key risks and outlook table per model, side by side.
+
+| Column | What it counts |
+|---|---|
+| valid first try / after retry / failed | whether `AnalysisOutput` validated; *failed* is a day production would have fallen back to free text |
+| output tokens · seconds · $ / day | MA-1's output, the day's wall time, both calls' estimated cost |
+| numbers not in payload | per note, prose numbers no payload value rounds to (percent, thousands and millions allowed); derived figures land here too, so the lists are for reading |
+| inputs named | per note, distinct inputs the prose names (`citation_screen`'s alias map) |
+| call language | wording the prompt forbids since v1.6, outside the Macro Dashboard table |
+
+None of it is a verdict: the bar is IMP-8's, in
+[improvement-track.md](../record/improvement-track.md), written before the first
+run. The switch is the repo variable `MACRO_MODEL`, which `macro_daily.yml`
+passes to the note and which overrides the profile's model; unset, the profile
+decides.
+
 All workflows support `workflow_dispatch` for manual testing from the GitHub Actions UI. Cron calls dispatch `ref: main`, and the backstop schedule (like every GitHub schedule) runs on the default branch, so everything executes against `main`.
 
 Stages 1–6 are reusable workflows (`workflow_call`) and carry no trigger of their own — `pipeline.yml` is the only scheduled entry point in the chain, so there is exactly one thing to check when a morning looks quiet.
@@ -403,7 +431,8 @@ What runs:
 
 And what does **not** run on any schedule — dispatch-only, by choice:
 `numeric_baseline.yml` (WP-21's harness, run per experiment), `auditor_canaries.yml`
-(the auditor's test, run when its instructions or canaries change — WP-25.A), `exo_slice_smoke.yml`
+(the auditor's test, run when its instructions or canaries change — WP-25.A),
+`model_compare.yml` (saved days through the main analysis call on several models — IMP-8), `exo_slice_smoke.yml`
 and `kimi_arm_smoke.yml` (both arms soft-killed, [ADR-0015](../decisions/ADR-0015-soft-kill-convention.md)),
 and `macro_weekly_refit.yml` standalone, which is how a one-off refresh is done
 between Mondays. `docs.yml` and `record_audit.yml` trigger on pushes and pull

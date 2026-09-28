@@ -72,7 +72,7 @@ Measured results live in `knowledge-base.md`.
 | 22 | Scoring the distribution product | 🟢 Open 2026-09-08 — the scorer follows the v1.6 cut. A/B shipped; the bar is sealed, first read ~2027-05 |
 | 23 | Exploration tier — the generation side of the method | 🔍 Open 2026-09-13 — harness built, three explore looks run 2026-09-14 and 09-21; seal decided (`SEAL_START` reused); next is the independent audit (Phase 25), then the WP-23.B class bar |
 | 24 | Record integrity & session continuity | ✅ Closed 2026-09-21 — every work package shipped: `record_audit.py` in CI (24.A/B since 2026-09-14, 24.C–F since 2026-09-21) and `/orient` (24.G); detail archived. The row said ⏸ Draft for a week after the board went Active — 24.D's first red |
-| 25 | Independent audit — the judge is not the proposer ([ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md)) | 🔍 Open 2026-09-27 — WP-25.A built 2026-09-28 (auditor, bundle, six canaries); first canary run 5 of 6, the miss the clean fixture's own defect, fixed; the rerun waits on a dispatch; until the auditor has rejected every canary, nothing is promoted |
+| 25 | Independent audit — the judge is not the proposer ([ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md)) | 🔍 Open 2026-09-27 — WP-25.A ✅ 2026-09-28 (auditor, bundle, six canaries; the CI canary run passed six of six on `claude-opus-5-5` / `high`); next WP-25.B; until 25.A–C are done, nothing is promoted |
 
 The v1.5 **system-state snapshot** that used to open this file was archived on the
 same pass; `README.md` is the maintained system reference.
@@ -824,7 +824,7 @@ writes something gets an `ARTIFACTS` line, not a work package.
 
 ---
 
-## Independent Audit (Phase 25) — *the judge is not the proposer* 🔍 OPEN — accepted 2026-09-27; WP-25.A built 2026-09-28, first canary run 5 of 6, rerun pending
+## Independent Audit (Phase 25) — *the judge is not the proposer* 🔍 OPEN — accepted 2026-09-27; WP-25.A ✅ 2026-09-28
 
 **Why.** [ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md) moved the technical audit of a
 register entry from the owner to an auditor that is independent of the proposer
@@ -840,7 +840,7 @@ canary, delete the *Until the auditor is switched on* subsection of
 Promotions can then run; a sealed read also needs WP-25.D. Until the switch,
 nothing is promoted by audit and the old rule still governs.
 
-### WP-25.A — The auditor, its inputs, and the canaries 🔨 built 2026-09-28, first run 5 of 6, rerun pending
+### WP-25.A — The auditor, its inputs, and the canaries ✅ 2026-09-28
 
 - **Instructions** in one file, `.macro-assist/auditor/instructions.md`:
   adversarial, default reject, the twelve questions of
@@ -880,8 +880,13 @@ Fixed: the cited text is frozen excerpts under `base/record/`, the fixture is
 re-dated after them, and the clause is the width ratio after dividing by a σ
 known at *t*. The default auditor moved to `claude-opus-5-5` / `high` the same
 day — cheaper per token than Opus 5 and newer; `medium` was declined, because
-three quarters of the cost is the thinking that made the catches. Waits on a
-rerun, on that model.
+three quarters of the cost is the thinking that made the catches. **The rerun
+passed** (2026-09-28, [run 36476588115](https://github.com/GregsterBoe/Macro-Assist/actions/runs/36476588115),
+$1.62, record `results/audit/canaries/2026-09-28T2005Z-9a67c70d.json` on
+`output`): six of six caught, none raised against the clean base, and the clean
+base itself drew no blocking finding. **Done.** That pass certifies
+`claude-opus-5-5` / `high` on instructions `sha256:9a67c70d…` and canary set
+`sha256:758ac0d1…`; changing any of the four needs a new pass (WP-25.C).
 
 ### WP-25.B — The code checks, in `record_audit.py`
 

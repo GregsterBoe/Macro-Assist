@@ -73,6 +73,9 @@ jobs:
           # (WP-21.D removed every directional-call block); it still selects the
           # model, and the A/B it existed for is closed. Default control.
           MACRO_PROFILE:     ${{ vars.MACRO_PROFILE || 'control' }}
+          # The main model, overriding the profile's (IMP-8). Unset = the
+          # profile decides; set the repo variable to switch, unset to revert.
+          MACRO_MODEL:       ${{ vars.MACRO_MODEL || '' }}
           # IMP-4.3 OR recall-mode (KB-021). Stepped 'log' -> 'show' by WP-21.D:
           # the loosened A/B that blocked the escalation is closed, so the "new
           # output lever would confound it" objection is gone, and the fragility

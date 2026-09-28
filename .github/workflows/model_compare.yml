@@ -1,0 +1,86 @@
+name: Model comparison (IMP-8)
+
+# The same saved days through the note's main analysis call, on several models,
+# side by side. Runs `model_compare.py`: for each of the last N
+# results/llm_payload_preview/<date>.md it sends the verbatim payload through
+# the production MA-1 / MA-2 functions with today's system prompt, once per
+# model, and records validity, tokens, time, cost and three reading aids. The
+# record lands on the output branch under results/model_compare/.
+#
+# The bar it is read against is IMP-8 in docs/record/improvement-track.md,
+# written before the first run. The switch itself is the repo variable
+# MACRO_MODEL (macro_daily.yml) — no code change, and unsetting it reverts.
+#
+# MANUAL ONLY. It costs API money: about $0.10 a day on Opus 4.8 and $0.04 on
+# a Sonnet, so ten days on three models is roughly $2. `max_usd` stops it early.
+
+on:
+  workflow_dispatch:
+    inputs:
+      models:
+        description: "Comma-separated models; the first is production today"
+        type: string
+        default: "claude-opus-4-8,claude-sonnet-5,claude-sonnet-5-5"
+      days:
+        description: "How many of the newest saved payloads to replay"
+        type: string
+        default: "10"
+      max_usd:
+        description: "Stop once the estimated spend reaches this (USD)"
+        type: string
+        default: "5"
+      publish:
+        description: "Commit the record to the output branch"
+        type: boolean
+        default: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: .macro-assist/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r .macro-assist/requirements.txt
+
+      - name: Run the offline tests first
+        run: python -m pytest .macro-assist/tests/test_model_compare.py -q
+
+      - name: Mount output branch at results/
+        # the saved payloads live there, so this runs whether or not we publish
+        run: bash .macro-assist/ci_mount_output.sh
+
+      - name: Replay the days
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MODELS: ${{ inputs.models }}
+          DAYS: ${{ inputs.days }}
+          MAX_USD: ${{ inputs.max_usd }}
+        run: |
+          python .macro-assist/model_compare.py \
+            --models "$MODELS" --days "$DAYS" --max-usd "$MAX_USD" > /dev/null
+          if [ -f results/model_compare/latest.md ]; then
+            # the summary table, not the per-day text, which is long
+            sed -n '1,/^## 20/p' results/model_compare/latest.md | sed '$d' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Publish the record to the output branch
+        if: ${{ inputs.publish }}
+        run: |
+          bash .macro-assist/ci_publish_results.sh \
+            "model comparison: $(date -u +%Y-%m-%d)"

@@ -448,3 +448,68 @@ Wiring the admitted flag was judged uninformative (it would agree with the live
 OR on 662 of 664 readings) and is `resolved.md` #16, not done silently. **The
 candidate list IMP-1 opened is exhausted; the fragility track is forward
 observation only.**
+
+---
+
+## IMP-8 — The note's main model: Opus 4.8 → a current Sonnet
+
+**Status:** 🔨 **harness built 2026-09-28, bar written, not yet run.** Harness
+`.macro-assist/model_compare.py`, run by `model_compare.yml` (dispatch-only).
+
+**Why.** The main analysis call (MA-1, structured `tool_use` → `AnalysisOutput`)
+and its review (MA-2) run on `claude-opus-4-8`, selected by the repo variable
+`MACRO_PROFILE=loosened` — the model half of a WP-16 A/B that closed with the
+cut. The reference docs say Sonnet ([Analysis pipeline](../reference/analysis-pipeline.md),
+[Architecture](../reference/architecture.md)); the notes' frontmatter says
+`claude-opus-4-8`. Since v1.6 the call writes description, not a forecast: the
+dashboard, the notes, the key risks, one driver paragraph and one dispersion
+band per asset. A current Sonnet is newer than Opus 4.8 and costs 40% of it per
+token. **The money is small** — the main call is about $0.10–0.15 a day on Opus
+4.8, so the saving is roughly $2 a month; the reasons are a current model and a
+record that says what runs.
+
+**The test.** The last ten saved payloads (`results/llm_payload_preview/`, the
+verbatim user message of each day) through the production MA-1 and MA-2
+functions, with today's system prompt, once per model: `claude-opus-4-8`
+(production, the reference), `claude-sonnet-5` and `claude-sonnet-5-5` (a model
+the API does not recognise is skipped and the record says so). Same inputs, so
+every difference is the model.
+
+**The bar — written 2026-09-28, before any candidate's output was seen.** A
+candidate replaces Opus 4.8 only if, over the ten days, all of:
+
+1. **Valid:** no day `failed` (the answer validated, retry allowed — a failure
+   is a day production would have fallen back to free text), and no more
+   `after_retry` days than Opus 4.8 plus one.
+2. **No call language:** no more uses of the wording the prompt forbids since
+   v1.6 than Opus 4.8, and every use read: a real call in the prose — a
+   direction or a likelihood stated as the note's view — fails the candidate
+   outright, whatever Opus 4.8's count.
+3. **No invented figures:** the *numbers not in payload* lists are read, day by
+   day. Most entries are figures the model derived (a spread, a change, a unit
+   conversion); a figure that is neither in the payload nor derivable from it is
+   invented, and a candidate with more invented figures than Opus 4.8 fails.
+4. **As broad:** it names, on average, at least 80% as many distinct inputs per
+   note as Opus 4.8 (`citation_screen`'s alias map) — a cheaper model that
+   quietly reads less of the payload is worse even if nothing it says is wrong.
+5. **The owner's read:** the owner reads the three newest days side by side in
+   the report and does not find the candidate's note worse to use. This is the
+   owner's veto, and it comes last.
+
+If two candidates pass, the cheaper one; at equal price, the newer. **If none
+passes, Opus 4.8 stays** and the negative is logged. Either way the result goes
+to the Knowledge Base, and the reference docs are corrected to name the model
+that runs — they are wrong today regardless of the outcome.
+
+**What it does not test.** The free-text fallback path (it runs only when MA-1
+fails twice) and the Haiku sub-agents (MA-3a/b/c, unchanged). The note is
+unscored since the cut, so there is no outcome metric: the bar is about
+validity, adherence to the prompt, and grounding, which is what the call is for
+now.
+
+**The switch, if it passes.** Set the repo variable `MACRO_MODEL` to the
+candidate (`macro_daily.yml` passes it; `pipeline_config.run_config` lets it
+override the profile). No code change; unsetting it reverts. Every note's
+frontmatter records the model, so the change is visible in the record from the
+first note. No version bump: the note's structure and contract do not change
+(convention 9).
