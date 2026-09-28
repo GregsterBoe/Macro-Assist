@@ -561,8 +561,10 @@ def _tier() -> str:
 
 
 def _run_url() -> str | None:
+    """The CI run that made the record — only when the record is CI's, so a
+    record never says `local` and links a run in the same breath."""
     env = os.environ
-    if env.get("GITHUB_RUN_ID") and env.get("GITHUB_REPOSITORY"):
+    if _tier() == "ci" and env.get("GITHUB_RUN_ID") and env.get("GITHUB_REPOSITORY"):
         return (f"{env.get('GITHUB_SERVER_URL', 'https://github.com')}/"
                 f"{env['GITHUB_REPOSITORY']}/actions/runs/{env['GITHUB_RUN_ID']}")
     return None
