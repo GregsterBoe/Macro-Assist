@@ -1,0 +1,23 @@
+{
+  "hid": "H-101",
+  "commits": [
+    {
+      "branch": "main",
+      "date": "2026-08-03T20:14:09+02:00",
+      "message": "register: draft H-101, Gold width in a fragile stressed tape",
+      "files": {"docs/record/hypotheses.md": "entry-v1.md"}
+    },
+    {
+      "branch": "output",
+      "date": "2026-08-12T21:40:52+02:00",
+      "message": "explore conditioner",
+      "files": {"explore_conditioner/report.md": "report-v1.md"}
+    },
+    {
+      "branch": "main",
+      "date": "2026-08-13T19:05:31+02:00",
+      "message": "register: H-101 ledger, prepared for promotion",
+      "files": {"docs/record/hypotheses.md": "entry-v2.md"}
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "expect": "number_mismatch",
+  "planted": "The ledger quotes the 20-day Elevated width as 7.67 and the ratio as 1.75. The report it names says 6.67 and 1.52. The rest of the entry matches the report.",
+  "edits": [
+    {
+      "file": "entry-v2.md",
+      "old": "6.67 vs 4.39 at 20d (1.52)",
+      "new": "7.67 vs 4.39 at 20d (1.75)"
+    }
+  ]
+}

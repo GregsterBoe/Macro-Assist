@@ -219,6 +219,55 @@ accessible by integration* whatever `permissions:` grants. Until Pages is on, th
 preflight fails with these instructions rather than letting
 `actions/deploy-pages` report a bare 404.
 
+### auditor_canaries.yml — the test of the auditor (WP-25.A)
+
+Independent of the pipeline, dispatch-only, and it **costs API money** — seven
+model calls, roughly $2–3 at the default `claude-opus-5` / `high` (the record
+carries the estimate; the `max_usd` input stops the suite early). It runs
+`.macro-assist/audit_entry.py --canaries` and commits the record to the output
+branch under `results/audit/canaries/`: a timestamped JSON with every finding
+and `latest.md`. It fails the job unless every canary passed, and publishes the
+record either way. It runs in CI, not in a working session, because the
+proposer running the auditor's test and relaying "it passed" is the move
+[ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md)
+exists to stop, and because the Anthropic key lives in the repository's secrets.
+
+What `audit_entry.py` does, in three parts that never touch each other:
+
+| Part | What it is | Enforced by |
+|---|---|---|
+| **Bundle** | Everything the auditor reads, built by code: [How we explore](../concepts/how-we-explore.md) whole, the seal date and harness arm list read from the source, the entry as the register has it, the entry's `git log -L` history, each report the entry names — its commit list on `output`, its latest committed content, and whether the local copy differs — and the KB entries and work packages the entry cites, in full. Nothing written for the audit, and never the proposer's argument. `--bundle-only` prints it, free | `build_bundle`; it refuses rather than sending a short bundle |
+| **Auditor** | One fresh-context call: `.macro-assist/auditor/instructions.md` as the system prompt, the rules page cached as a second block, the bundle as the only message. The answer is held to a JSON schema — findings in a fixed twelve-category vocabulary, a status for §9 questions 1–11, and the owner's brief with the case against first. **It returns no verdict** | the schema; `parse_answer` |
+| **Verdict** | `reject` on any blocking finding or any of questions 1–11 not answered by the entry's own text, else `no_blocking_finding` — never "approve". A call that errors, is refused, is cut off or returns malformed JSON is not a pass | `derive_verdict` |
+
+**The canaries** live in `.macro-assist/auditor/canaries/`: a clean fictional
+entry (`base/` — an entry, its report, and the dated commits that produced
+them) and six variants, each a `canary.json` naming the finding it must
+produce, what it plants, and the planted defect as exact edits to the base
+files (or an added commit). Every edit must apply exactly once, so a canary
+cannot quietly become its clean twin. Each variant is replayed into a throwaway
+git repository — `main` for the register, an orphan `output` for the report,
+every commit carrying its planted date — and bundled by the same function that
+bundles a real entry. **A canary passes when the auditor reports its planted
+category as blocking, rejects the entry, and does not report that category as
+blocking on the clean base.** The last condition is the one an auditor that
+rejects everything fails. The clean base's own verdict is recorded, not graded.
+
+| Canary | What it plants |
+|---|---|
+| `bar_after_data` | The threshold was lowered after the run, in the ledger commit; the entry's final text is the clean base's word for word, so only the history shows it |
+| `signed_forecast` | The width wording is kept, but the test is a hit rate on the direction of Gold's return |
+| `sealed_slice` | The report's slice runs to 2019-06-28; the entry still calls the look explore-tier |
+| `thin_evidence` | The cell the claim rests on has 169 rows and two distinct stress spells, below the entry's own floor of 8 |
+| `uncounted_look` | A second, earlier run with other settings was committed to the report; the ledger records one |
+| `number_mismatch` | The ledger quotes a 20-day width and ratio the report does not contain |
+
+A local run (`audit_entry.py H-008`) needs `ANTHROPIC_API_KEY`, writes its
+record under `results/audit/entries/`, and is labelled `tier: local`: it can
+inform an explore look, and it does not satisfy §9 question 12, which wants
+an audit that CI ran and recorded (WP-25.C). The `tier` field is a label; what
+makes a record CI's is that CI committed it.
+
 All workflows support `workflow_dispatch` for manual testing from the GitHub Actions UI. Cron calls dispatch `ref: main`, and the backstop schedule (like every GitHub schedule) runs on the default branch, so everything executes against `main`.
 
 Stages 1–6 are reusable workflows (`workflow_call`) and carry no trigger of their own — `pipeline.yml` is the only scheduled entry point in the chain, so there is exactly one thing to check when a morning looks quiet.
@@ -339,7 +388,8 @@ What runs:
 | `scoring` (both scorers) · `rebalance` · `refit` | Mondays | `plan.outputs.weekly` |
 
 And what does **not** run on any schedule — dispatch-only, by choice:
-`numeric_baseline.yml` (WP-21's harness, run per experiment), `exo_slice_smoke.yml`
+`numeric_baseline.yml` (WP-21's harness, run per experiment), `auditor_canaries.yml`
+(the auditor's test, run when its instructions or canaries change — WP-25.A), `exo_slice_smoke.yml`
 and `kimi_arm_smoke.yml` (both arms soft-killed, [ADR-0015](../decisions/ADR-0015-soft-kill-convention.md)),
 and `macro_weekly_refit.yml` standalone, which is how a one-off refresh is done
 between Mondays. `docs.yml` and `record_audit.yml` trigger on pushes and pull
@@ -746,7 +796,7 @@ the `plan` job's summary repeats the source and the resolved `asof`.
 | Secret | Description |
 |--------|-------------|
 | `FRED_API_KEY` | [FRED API key](https://fred.stlouisfed.org/docs/api/api_key.html) |
-| `ANTHROPIC_API_KEY` | Anthropic API key |
+| `ANTHROPIC_API_KEY` | Anthropic API key — the daily note, and the auditor's canary suite (`auditor_canaries.yml`) |
 | `VAULT_PAT` | GitHub Personal Access Token with `repo` scope (for pushing to External-Brain) |
 | `VAULT_REPO` | External-Brain repo name, e.g. `GregsterBoe/External-Brain` |
 | `SUPADATA_API_KEY` | [Supadata API key](https://supadata.ai) for YouTube transcripts (optional) |

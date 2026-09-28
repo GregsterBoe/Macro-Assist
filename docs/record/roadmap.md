@@ -72,7 +72,7 @@ Measured results live in `knowledge-base.md`.
 | 22 | Scoring the distribution product | 🟢 Open 2026-09-08 — the scorer follows the v1.6 cut. A/B shipped; the bar is sealed, first read ~2027-05 |
 | 23 | Exploration tier — the generation side of the method | 🔍 Open 2026-09-13 — harness built, three explore looks run 2026-09-14 and 09-21; seal decided (`SEAL_START` reused); next is the independent audit (Phase 25), then the WP-23.B class bar |
 | 24 | Record integrity & session continuity | ✅ Closed 2026-09-21 — every work package shipped: `record_audit.py` in CI (24.A/B since 2026-09-14, 24.C–F since 2026-09-21) and `/orient` (24.G); detail archived. The row said ⏸ Draft for a week after the board went Active — 24.D's first red |
-| 25 | Independent audit — the judge is not the proposer ([ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md)) | 🔍 Open 2026-09-27 — accepted, nothing built; until the auditor has rejected every canary, nothing is promoted |
+| 25 | Independent audit — the judge is not the proposer ([ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md)) | 🔍 Open 2026-09-27 — WP-25.A built 2026-09-28 (auditor, bundle, six canaries); its canary run waits on a dispatch; until the auditor has rejected every canary, nothing is promoted |
 
 The v1.5 **system-state snapshot** that used to open this file was archived on the
 same pass; `README.md` is the maintained system reference.
@@ -824,7 +824,7 @@ writes something gets an `ARTIFACTS` line, not a work package.
 
 ---
 
-## Independent Audit (Phase 25) — *the judge is not the proposer* 🔍 OPEN — accepted 2026-09-27, nothing built
+## Independent Audit (Phase 25) — *the judge is not the proposer* 🔍 OPEN — accepted 2026-09-27; WP-25.A built 2026-09-28, its canaries not yet run
 
 **Why.** [ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md) moved the technical audit of a
 register entry from the owner to an auditor that is independent of the proposer
@@ -840,23 +840,38 @@ canary, delete the *Until the auditor is switched on* subsection of
 Promotions can then run; a sealed read also needs WP-25.D. Until the switch,
 nothing is promoted by audit and the old rule still governs.
 
-### WP-25.A — The auditor, its inputs, and the canaries
+### WP-25.A — The auditor, its inputs, and the canaries 🔨 built 2026-09-28, canaries not yet run
 
-- **Instructions** in one file: adversarial, default reject, the twelve questions
-  of [§9](../concepts/how-we-explore.md#9-the-checklist-an-entry-passes-before-it-is-promoted)
-  read from the page, and a brief for the owner that puts the strongest case
-  against first.
-- **The input bundle, built by code** — the pre-registration, the raw report
-  numbers, the diff, the ledger; never the proposer's conversation or its
-  summary of its own case. `decision_packet.py` already assembles most of this
-  without recommending and is the starting point.
-- **Canaries**: at least four planted defective entries — a bar written after
-  the data, a signed forecast worded as a distribution claim, a read of the
-  sealed slice, a cell resting on two episodes — each with the finding the
-  auditor must produce.
+- **Instructions** in one file, `.macro-assist/auditor/instructions.md`:
+  adversarial, default reject, the twelve questions of
+  [§9](../concepts/how-we-explore.md#9-the-checklist-an-entry-passes-before-it-is-promoted)
+  read from the page at run time, twelve finding categories, and a brief for
+  the owner that puts the strongest case against first.
+- **The input bundle, built by code** (`audit_entry.py`, TOOLING, reusing
+  `decision_packet.py`'s parsers): the rules page, the seal date and arm list
+  read from the source, the entry, its `git log -L` history, each named
+  report's commit list and latest committed content, and the KB entries and
+  work packages it cites; never the proposer's conversation or its summary of
+  its own case. **The verdict is code**: the model returns findings and
+  question statuses, and `reject` follows from any blocking finding or any
+  unanswered question 1–11. It never returns "approve".
+- **Canaries**, six, in `.macro-assist/auditor/canaries/`: the four named here
+  plus `uncounted_look` and `number_mismatch`. Each is written as exact edits to
+  one clean fictional entry and replayed into a throwaway git repo with dated
+  commits, so the same function bundles a canary and a real entry. **A canary
+  passes only if the auditor flags its defect *and does not flag that category
+  on the clean base*** — "rejects every canary" alone is met by an auditor that
+  rejects everything. The run is `auditor_canaries.yml` (dispatch-only, about
+  $2–3), because CI, not the proposer, has to record whether the judge passed
+  its own test. How it works is in
+  [Operations](../reference/operations.md#auditor_canariesyml-the-test-of-the-auditor-wp-25a).
 
-**Done when** the auditor rejects every canary, and a test holds the canary set
-non-empty with an expected finding per canary.
+**Done when** a run of `auditor_canaries.yml` on the current instructions and
+canary set passes (the auditor rejects every canary for its planted reason), and
+a test holds the canary set non-empty with an expected finding per canary. *The
+second half is done*: `test_audit_entry.py`, 35 tests, offline, including that
+an auditor that rejects everything, finds nothing, or finds the wrong thing
+fails the suite. *The first half waits on a dispatch.*
 
 ### WP-25.B — The code checks, in `record_audit.py`
 
@@ -879,6 +894,10 @@ A change that moves an entry toward `promoted` runs the auditor in CI on the
 bundle; CI, not the proposer, writes the result. The register's fixed format
 gains an **Audit record** field — question 12 in `decision_packet.py` already
 wants it — and the proposer never authors it. The owner receives the brief.
+The job needs the whole history on both branches: `audit_entry.py` reads the
+entry's `git log -L` and each report's commit list, and on the default depth-1
+checkout (and `ci_mount_output.sh`'s depth-1 fetch) the bundle says the history
+is unavailable, which the auditor will rightly treat as unanswerable.
 
 ### WP-25.D — The seal key
 

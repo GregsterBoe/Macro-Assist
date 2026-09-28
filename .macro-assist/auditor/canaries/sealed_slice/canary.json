@@ -1,0 +1,16 @@
+{
+  "expect": "sealed_slice",
+  "planted": "The run the ledger relies on read report dates to 2019-06-28, eighteen months into the sealed holdout (SEAL_START 2018-01-01). The entry still describes the look as an explore-tier run and never mentions the dates; only the report's header and its per-year table show them.",
+  "edits": [
+    {
+      "file": "report-v1.md",
+      "old": "**Slice:** report dates 2010-06-25 → 2017-12-29 (< `SEAL_START` 2018-01-01) · 1893 report dates · 30820 observations · inputs fetched 2026-08-12",
+      "new": "**Slice:** report dates 2010-06-25 → 2019-06-28 (`--end 2019-06-30`) · 2265 report dates · 36954 observations · inputs fetched 2026-08-12"
+    },
+    {
+      "file": "report-v1.md",
+      "old": "| 2017 | 251 | 0 | 0 | 0 | 0 |\n",
+      "new": "| 2017 | 251 | 0 | 0 | 0 | 0 |\n| 2018 | 251 | 41 | 2 | 38 | 3 |\n| 2019 | 121 | 12 | 1 | 27 | 2 |\n"
+    }
+  ]
+}

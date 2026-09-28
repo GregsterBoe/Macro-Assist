@@ -1,0 +1,12 @@
+{
+  "expect": "uncounted_look",
+  "planted": "The harness ran twice: on 2026-08-10 with different drawdown edges and a smaller MIN_N, and on 2026-08-12 as shipped. Both runs were committed to the report. The ledger records one run and calls the 2026-08-12 run 'the first look specific to this entry'.",
+  "add_commits": [
+    {
+      "branch": "output",
+      "date": "2026-08-10T22:03:17+02:00",
+      "message": "explore conditioner: DD_EDGES (-3%, -8%), MIN_N=5",
+      "files": {"explore_conditioner/report.md": "report-v0.md"}
+    }
+  ]
+}
