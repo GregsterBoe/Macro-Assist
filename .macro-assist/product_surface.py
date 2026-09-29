@@ -74,6 +74,7 @@ TOOLING: frozenset[str] = frozenset({
     "orient",                       # what /orient prints at turn 1 (WP-24.G); reads record_audit and the docs, never writes
     "decision_packet",              # the §9 worksheet for a register entry; reads docs/ and git, measures nothing
     "audit_entry",                  # the independent auditor + its canaries (ADR-0022, WP-25.A); reads docs/ and git, measures nothing
+    "seal_key",                     # the owner's key before a sealed read (ADR-0022, WP-25.D); checks GitHub's record of it, reads no data
 })
 
 # (importer, imported) pairs that cross product → research, each with a todo

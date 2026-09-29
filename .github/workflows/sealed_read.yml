@@ -1,0 +1,154 @@
+name: Sealed read — the seal key (WP-25.D)
+
+# A sealed read is the one irreversible act in the research loop: the held-out
+# slice is read once, and a number seen there cannot be unseen. ADR-0022 leaves
+# it with the owner, as an action only the owner's account can take — this
+# workflow's second job names the `seal-key` environment, whose only required
+# reviewer is the owner, so GitHub holds the job until the owner approves it
+# in the Actions tab (the run page shows "Review deployments").
+#
+#   preflight   may this entry be read at all? `promoted`, a CI audit stamped
+#               to its current text found nothing blocking, no sealed read yet
+#               — and is the key itself sound (the environment exists, the
+#               owner is its only reviewer, nobody can bypass it). Nobody is
+#               asked to turn a key for a run that would be refused.
+#   key         waits for the owner. When it starts, it reads the run's
+#               approval record and checks the owner, and nobody else, turned
+#               the key: GitHub creates an unprotected environment the first
+#               time a job names one, so a running job proves nothing on its
+#               own. Then the preflight again, against output as it is now.
+#
+# The read itself is WP-23.B's harness, which does not exist yet: a real run
+# stops after the key, before any data, and says so. A dry run (the default)
+# reads nothing and reports what the entry would be refused for, so the pause
+# can be shown on an entry that is not yet eligible; it still fails on an
+# unsound key, because testing the key is what it is for.
+#
+# MANUAL ONLY, and free: no API call. Trigger: Actions tab -> this workflow ->
+# Run; then, on the run page, Review deployments -> seal-key -> Approve.
+
+on:
+  workflow_dispatch:
+    inputs:
+      hid:
+        description: "Register entry (H-###)"
+        type: string
+        required: true
+      dry_run:
+        description: "Dry run: wait for the key, then read nothing"
+        type: boolean
+        default: true
+
+concurrency:
+  group: sealed-read-${{ inputs.hid }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout, with history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: .macro-assist/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r .macro-assist/requirements.txt
+
+      - name: Run the offline key tests first
+        run: python -m pytest .macro-assist/tests/test_seal_key.py -q
+
+      - name: Mount output branch at results/, with history
+        env:
+          OUTPUT_FULL_HISTORY: "1"
+        run: bash .macro-assist/ci_mount_output.sh
+
+      - name: Read the key's settings
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # A missing environment is a refusal, not a crash: write null.
+          gh api "repos/$GITHUB_REPOSITORY/environments/seal-key" \
+            > "$RUNNER_TEMP/environment.json" 2>/dev/null \
+            || echo null > "$RUNNER_TEMP/environment.json"
+
+      - name: Preflight
+        env:
+          HID: ${{ inputs.hid }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set +e
+          DRY=""
+          if [ "$DRY_RUN" != "false" ]; then DRY="--dry-run"; fi
+          python .macro-assist/seal_key.py "$HID" --preflight \
+            --environment "$RUNNER_TEMP/environment.json" $DRY > preflight.md
+          status=$?
+          cat preflight.md
+          cat preflight.md >> "$GITHUB_STEP_SUMMARY"
+          exit $status
+
+  key:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # GitHub holds this job here until a required reviewer of `seal-key`
+    # approves it. Do not move this line, or add a step above it that reads
+    # data: test_seal_key.py holds the job to this shape.
+    environment: seal-key
+    steps:
+      - name: Checkout, with history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: .macro-assist/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r .macro-assist/requirements.txt
+
+      - name: Mount output branch at results/, with history
+        env:
+          OUTPUT_FULL_HISTORY: "1"
+        run: bash .macro-assist/ci_mount_output.sh
+
+      - name: Who turned the key
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/approvals" \
+            > "$RUNNER_TEMP/approvals.json"
+
+      - name: Check the key, then the entry again
+        env:
+          HID: ${{ inputs.hid }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set +e
+          DRY=""
+          if [ "$DRY_RUN" != "false" ]; then DRY="--dry-run"; fi
+          python .macro-assist/seal_key.py "$HID" --after-key \
+            --approvals "$RUNNER_TEMP/approvals.json" $DRY > key.md
+          status=$?
+          cat key.md
+          cat key.md >> "$GITHUB_STEP_SUMMARY"
+          exit $status

@@ -343,6 +343,60 @@ What it does not do:
   made with the workflow's own token starts no workflow. The check runs on the
   next push.
 
+### sealed_read.yml — the seal key (WP-25.D)
+
+A sealed read is the one irreversible act in the research loop, and
+[ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md)
+leaves it with the owner, as an action only the owner's account can take. That
+action is approving the GitHub Actions environment **`seal-key`**, whose only
+required reviewer is the owner. Dispatch-only, one entry per run, free (no API
+call). **`dry_run` is on by default.** It has two jobs:
+
+| Job | Does |
+|---|---|
+| `preflight` | Runs `seal_key.py <hid> --preflight` on a full clone with `output` mounted with its history. Refuses the entry unless it is `promoted`, `record_audit.py`'s `approval-stamp` check finds nothing against it (a certified CI audit of its current text with no blocking finding), and it has no `Sealed read (ledger)` yet. Also refuses the key itself, from GitHub's settings for `seal-key`: missing, a reviewer other than the owner, *Prevent self-review* on, or administrators allowed to bypass |
+| `key` | Names `environment: seal-key`, so GitHub holds it until the owner approves it on the run page (*Review deployments*). When it starts, it reads the run's approval record from the API and runs `seal_key.py <hid> --after-key`, which refuses unless the owner approved `seal-key` on this run and nobody else did, then runs the preflight again against `output` as it is now |
+
+**Why the job checks the approval instead of trusting the pause.** GitHub
+creates an environment, unprotected, the first time a job names it. A missing
+or misconfigured `seal-key` does not stop the `key` job; it runs straight
+through. So the job reads who approved it from GitHub's record, and refuses when
+nobody did.
+
+**The dry run** reads nothing and is soft on the entry: it prints what a real
+run would refuse and still goes on to the key, so the pause can be shown on an
+entry that is not yet eligible. It is never soft on the key: a missing
+environment, a wrong setting or a missing approval fails it. **A real run reads
+nothing yet.** The read is WP-23.B's harness, which does not exist, so a real
+run that passes everything stops after the key with a refusal that says so.
+
+**Setting up the key** (the owner, once, in the repository's Settings →
+Environments → *New environment*):
+
+1. Name it `seal-key`.
+2. *Required reviewers*: add yourself, and nobody else.
+3. Leave *Prevent self-review* **unticked**. You dispatch the run and approve
+   it, and that option would stop you approving your own run.
+4. Untick *Allow administrators to bypass configured protection rules*.
+5. *Deployment branches and tags*: *Selected branches*, `main`.
+6. No secrets. The key gates the job; it does not hold a credential.
+
+**The credential split.** The assistant works through a fine-grained token on
+the owner's account, limited to reading Actions and Contents on this
+repository. It cannot approve a deployment. The split is
+that token's permissions, not a separate account: a token on the owner's
+account with more permissions could approve in the owner's name. So the split
+is verified by trying it. While a dry run waits at the key, the assistant asks
+the API to approve it with its own token, and the refusal is the evidence
+(WP-25.D's done condition). **Verify it again whenever that token is
+recreated or its permissions change.**
+
+What it does not do:
+- **It does not stop a deliberate look.** The data is public. The key keeps an
+  unapproved sealed read out of the record, which is what ADR-0022 claims.
+- **It does not write the `Sealed read (ledger)` field.** That comes with the
+  harness (WP-23.B), and `bar-before-result` already holds it.
+
 ### model_compare.yml — the main model, compared on saved days (IMP-8)
 
 Dispatch-only, and it **costs API money**: about $0.10 a day replayed on Opus
@@ -494,6 +548,7 @@ And what does **not** run on any schedule — dispatch-only, by choice:
 `numeric_baseline.yml` (WP-21's harness, run per experiment), `auditor_canaries.yml`
 (the auditor's test, run when its instructions or canaries change — WP-25.A),
 `audit_entry.yml` (the promotion-tier audit of one entry — WP-25.C),
+`sealed_read.yml` (the owner's key before a sealed read — WP-25.D),
 `model_compare.yml` (saved days through the main analysis call on several models — IMP-8), `exo_slice_smoke.yml`
 and `kimi_arm_smoke.yml` (both arms soft-killed, [ADR-0015](../decisions/ADR-0015-soft-kill-convention.md)),
 and `macro_weekly_refit.yml` standalone, which is how a one-off refresh is done

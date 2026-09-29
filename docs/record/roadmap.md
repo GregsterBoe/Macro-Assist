@@ -72,7 +72,7 @@ Measured results live in `knowledge-base.md`.
 | 22 | Scoring the distribution product | 🟢 Open 2026-09-08 — the scorer follows the v1.6 cut. A/B shipped; the bar is sealed, first read ~2027-05 |
 | 23 | Exploration tier — the generation side of the method | 🔍 Open 2026-09-13 — harness built, three explore looks run 2026-09-14 and 09-21; seal decided (`SEAL_START` reused); next is the independent audit (Phase 25), then the WP-23.B class bar |
 | 24 | Record integrity & session continuity | ✅ Closed 2026-09-21 — every work package shipped: `record_audit.py` in CI (24.A/B since 2026-09-14, 24.C–F since 2026-09-21) and `/orient` (24.G); detail archived. The row said ⏸ Draft for a week after the board went Active — 24.D's first red |
-| 25 | Independent audit — the judge is not the proposer ([ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md)) | 🔍 Open 2026-09-27 — WP-25.A ✅ 2026-09-28 (auditor, bundle, six canaries; the CI canary run passed six of six on `claude-opus-5-5` / `high`); WP-25.B ✅ 2026-09-29 (five `record_audit.py` checks); WP-25.C ✅ 2026-09-29 (`audit_entry.yml`, the `Audit record` field; its CI dry run passed); **switched on 2026-09-29** — a promotion now passes the CI audit; a sealed read also waits on WP-25.D |
+| 25 | Independent audit — the judge is not the proposer ([ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md)) | 🔍 Open 2026-09-27 — WP-25.A ✅ 2026-09-28 (auditor, bundle, six canaries; the CI canary run passed six of six on `claude-opus-5-5` / `high`); WP-25.B ✅ 2026-09-29 (five `record_audit.py` checks); WP-25.C ✅ 2026-09-29 (`audit_entry.yml`, the `Audit record` field; its CI dry run passed); **switched on 2026-09-29** — a promotion now passes the CI audit; WP-25.D built 2026-09-29 (`sealed_read.yml`, the seal key), waiting on the owner's setup and a dry run |
 
 The v1.5 **system-state snapshot** that used to open this file was archived on the
 same pass; `README.md` is the maintained system reference.
@@ -978,6 +978,28 @@ A GitHub Actions environment with the owner as required reviewer; the
 sealed-read job waits until they approve. **Done when** a dry run shows the job
 paused *and* the assistant's credentials refused at the approval — otherwise the
 key is decorative.
+
+**Built 2026-09-29; waiting on the owner's setup and a dry run.**
+`sealed_read.yml` (dispatch-only, free, `dry_run` on by default) has a
+`preflight` job and a `key` job that names `environment: seal-key`. The
+preflight refuses an entry that is not `promoted`, has no certified CI approval
+stamped to its current text (the `approval-stamp` check, reused), or has
+already had its sealed read. It also refuses the key itself when GitHub's
+settings for `seal-key` are unsound. The `key` job, once approved, reads the
+run's approval record and refuses unless the owner, and only the owner,
+approved it. Then it re-runs the preflight. `seal_key.py` (TOOLING) holds the
+checks; `test_seal_key.py`, 26 tests, drives each offline and holds the
+workflow to its shape. How it works, and the owner's six setup steps:
+[Operations](../reference/operations.md#sealed_readyml-the-seal-key-wp-25d).
+Three things were decided in the build:
+- **The job checks the approval rather than trusting the pause.** GitHub
+  creates an environment unprotected the first time a job names it, so a
+  missing key would let the job run straight through.
+- **The split is the token's permissions, not a separate account.** The
+  assistant's token is on the owner's account, so it is verified by trying,
+  and verified again whenever that token changes.
+- **A real run reads nothing yet.** The read is WP-23.B's harness. Until it
+  exists, a real run stops after the key and says so.
 
 ### WP-25.E — A second model family *(optional, last)*
 
