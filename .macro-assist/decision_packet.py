@@ -44,8 +44,10 @@ adequacy — an entry can carry every field and answer nothing. Two of the
 twelve (the `underpowered` floor, the one-read commitment) have no field in the
 register's fixed format at all, and the packet says so rather than quietly
 skipping them. Question 12 — an independent audit stamped to the entry's current
-text (ADR-0022) — wants an `Audit record` field that only the audit writes;
-until Phase 25 builds it, every entry reads MISSING there, which is true.
+text (ADR-0022) — wants an `Audit record` field, which CI writes from its own
+audit records (WP-25.C); an entry CI has not audited reads MISSING there, which
+is true. Whether that record approves the current text is `record_audit.py`'s
+approval-stamp check, not this worksheet's.
 
 Report-only. Exit status is 0 whatever it finds; it is a worksheet generator,
 not a gate.
@@ -80,8 +82,8 @@ MODULE_DIR = Path(".macro-assist")
 # with the result going to the KB either way — so they cannot be answered out of
 # an entry, and the packet prints that instead of an empty quote. Question 12 is
 # an independent audit stamped to the entry's current text (ADR-0022); its field
-# is written by the audit, never by the proposer, and does not exist until
-# Phase 25 builds it — so it reads MISSING on every entry, which is the truth.
+# is written by CI from its audit records, never by the proposer (WP-25.C), so it
+# reads MISSING on every entry CI has not audited, which is the truth.
 FIELDS_FOR_QUESTION: dict[int, tuple[str, ...]] = {
     1: ("What was seen", "Where"),
     2: ("Target-space check",),
@@ -204,6 +206,92 @@ def bar_text(entry: str) -> str:
     """What a sealed read is read against: the entry, less its status, audit
     record and ledgers. The ledgers may grow after a result; nothing else may."""
     return _without_fields(entry, lambda n: n in WRITTEN_BY_PROMOTION or n.endswith("(ledger)"))
+
+
+# ---------------------------------------------------------------------------
+# the Audit record field (WP-25.C)
+# ---------------------------------------------------------------------------
+
+# CI writes this field from its own audit records on the output branch, and
+# `record_audit.py` holds it to them: its text is a function of those records,
+# so whoever commits it, nobody authors it. It is also where each resubmission
+# shows as a counted look (ADR-0022, *No grinding*).
+AUDIT_RECORD = "Audit record"
+_STEM_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})T(\d{2})(\d{2})Z")
+
+
+def _split_tail(chunk: str) -> tuple[str, str]:
+    """(content, the blank lines and horizontal rules that trail it)."""
+    lines = chunk.split("\n")
+    i = len(lines)
+    while i > 0 and (not lines[i - 1].strip() or _RULE_RE.match(lines[i - 1])):
+        i -= 1
+    content = "\n".join(lines[:i])
+    return content, chunk[len(content):]
+
+
+def field_block(entry: str, name: str) -> str | None:
+    """One field of an entry as it reads, marker included, without what trails it."""
+    marks = list(_FIELD_RE.finditer(entry))
+    for j, m in enumerate(marks):
+        if m.group(1).strip() == name:
+            end = marks[j + 1].start() if j + 1 < len(marks) else len(entry)
+            return _split_tail(entry[m.start():end])[0]
+    return None
+
+
+def _audit_line(rec: dict) -> str:
+    stem = Path(rec["_path"]).name.rsplit(".", 1)[0]
+    m = _STEM_RE.match(stem)
+    when = f"{m.group(1)} {m.group(2)}:{m.group(3)} UTC" if m else stem
+    verdict = f"`{rec.get('verdict')}`"
+    if rec.get("reasons"):
+        verdict += f" ({'; '.join(rec['reasons'])})"
+    stamp = str(rec.get("entry_fingerprint", ""))[:19]
+    brief = rec["_path"].rsplit(".", 1)[0] + ".md"
+    return (f"- {when} · {verdict} · `{rec.get('requested_model')}` / `{rec.get('effort')}` · "
+            f"text `{stamp}` · [run]({rec.get('run')}) · brief `output:{brief}`")
+
+
+def audit_record_paragraph(records: list[dict]) -> str | None:
+    """The field as CI writes it, from its records of one entry, oldest first
+    (`record_audit.ci_audits`); None when CI has audited nothing."""
+    if not records:
+        return None
+    n, rejects = len(records), sum(r.get("verdict") == "reject" for r in records)
+    head = (f"**{AUDIT_RECORD}.** Written by CI from its audit records on `output`, never by "
+            f"hand; `record_audit.py` holds this field to them (WP-25.C). "
+            f"{n} audit{'s' * (n != 1)}, {rejects} rejection{'s' * (rejects != 1)}.")
+    if rejects >= 2:
+        head += (" A further audit is refused until the entry closes or the owner decides "
+                 "(ADR-0022, *No grinding*).")
+    return "\n".join([head, *(_audit_line(r) for r in records)])
+
+
+def with_audit_record(register: str, hid: str, paragraph: str | None) -> str:
+    """`register` with entry `hid`'s Audit record field set to `paragraph`:
+    replaced where it is, appended after the entry's last field where it is
+    not, removed when `paragraph` is None."""
+    m = re.search(rf"^## {re.escape(hid)} — .*$", register, re.M)
+    if m is None:
+        raise KeyError(hid)
+    nxt = _H2_RE.search(register, m.end())
+    start, end = m.start(), nxt.start() if nxt else len(register)
+    region = register[start:end]
+    marks = list(_FIELD_RE.finditer(region))
+    idx = next((j for j, f in enumerate(marks) if f.group(1).strip() == AUDIT_RECORD), None)
+    if idx is None:
+        if paragraph is None:
+            return register
+        content, tail = _split_tail(region)
+        new = content + "\n\n" + paragraph + tail
+    else:
+        s = marks[idx].start()
+        e = marks[idx + 1].start() if idx + 1 < len(marks) else len(region)
+        _, tail = _split_tail(region[s:e])
+        new = (region[:s].rstrip("\n") + ("\n\n" + paragraph if paragraph else "")
+               + tail + region[e:])
+    return register[:start] + new + register[end:]
 
 
 # ---------------------------------------------------------------------------

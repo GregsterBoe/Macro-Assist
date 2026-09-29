@@ -173,7 +173,7 @@ the [artifact-liveness rule](#a-reachable-stage-that-produces-nothing), the
 [contradiction rule](#a-claim-the-repo-makes-twice-differently) and the
 [ADR revisit rule](#a-decision-whose-condition-may-have-come-true) below,
 the five [checks the auditor is not trusted with](#what-the-auditor-cannot-be-trusted-to-check-wp-25b)
-(Phase 25, WP-25.B),
+(Phase 25, WP-25.B) and the [`Audit record` field check](#audit_entryyml-the-promotion-tier-audit-wp-25c) (WP-25.C),
 plus the [ages table](#the-ages-computed), which is printed and never fails.
 The same readers feed [`/orient`](#orient-the-session-start-ritual), the
 session-start screen, which the job's test step also covers. It is the only
@@ -228,9 +228,10 @@ model calls, about $2.80 at the default `claude-opus-5-5` / `high` (the first
 run, on `claude-opus-5`, cost $3.51 for 108k output tokens and 211k input; the
 same tokens on Opus 5.5 are $2.80, and three quarters of it is the auditor's
 thinking). Each record carries its own estimate, and the `max_usd` input,
-default $5, stops the suite early. **A pass certifies one model at one effort**:
-change either and the suite has to pass again before that auditor judges a real
-entry. It runs
+default $5, stops the suite early. **A pass certifies one model at one effort, on one instructions file and one
+canary set**: change any of the four and the suite has to pass again before
+that auditor judges a real entry ([`audit_entry.yml`](#audit_entryyml-the-promotion-tier-audit-wp-25c)
+refuses otherwise). It runs
 `.macro-assist/audit_entry.py --canaries` and commits the record to the output
 branch under `results/audit/canaries/`: a timestamped JSON with every finding
 and `latest.md`. It fails the job unless every canary passed, and publishes the
@@ -281,11 +282,66 @@ excerpts only together with the fixture's dates.
 A local run (`audit_entry.py H-008`) needs `ANTHROPIC_API_KEY`, writes its
 record under `results/audit/entries/`, and is labelled `tier: local`: it can
 inform an explore look, and it does not satisfy §9 question 12, which wants
-an audit that CI ran and recorded (WP-25.C). The `tier` field is a label; what
+an audit that CI ran and recorded ([`audit_entry.yml`](#audit_entryyml-the-promotion-tier-audit-wp-25c), WP-25.C). The `tier` field is a label; what
 makes a record CI's is that CI committed it. The record's `entry_fingerprint`
 is taken over the entry minus what a promotion writes itself, so
 `record_audit.py` can tell whether the approval still matches the entry
 ([below](#what-the-auditor-cannot-be-trusted-to-check-wp-25b)).
+
+### audit_entry.yml — the promotion-tier audit (WP-25.C)
+
+Dispatch-only, one entry per run, with the entry id as input. **`dry_run` is on
+by default** and spends nothing. A real run is one model call, roughly
+$0.25–0.50 at the default `claude-opus-5-5` / `high`, and the record carries
+its estimate. A real run also **counts as a submission**: a rejection is one of
+the two an entry gets. It checks out `main` with `fetch-depth: 0` and mounts
+`output` with its full history (`OUTPUT_FULL_HISTORY=1` for
+`ci_mount_output.sh`, whose default fetch is depth 1). Without the full history,
+the bundle's history section and each report's commit list would read
+*unavailable*, and the auditor would rightly count those questions as
+unanswered.
+
+It runs `audit_entry.py <hid> --ci`, which refuses before any API call when
+any of the following holds. Each refusal exits 2 with its reason.
+
+| Refused when | Why |
+|---|---|
+| not in GitHub Actions, or not dispatched on `main` | a promotion-tier audit is one CI ran and recorded (§9 question 12); the stamp is to the register on `main` |
+| the clone is shallow, the register has uncommitted changes, or git holds no history for the entry | the bundle would not show when any part of the entry was written |
+| the entry is `closed` or not in the register | nothing to submit |
+| no passing CI canary suite on `output` certifies this model, effort, instructions file **and** canary set | a pass certifies one configuration ([above](#auditor_canariesyml-the-test-of-the-auditor-wp-25a)); change any of the four and the canaries run again first |
+| CI has already audited this exact stamped text | a second audit of the same text is a retry, not a resubmission |
+| the entry has two CI rejections and no owner decision pinned in `OWNER_RESUBMISSIONS` | *No grinding* ([ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md)) |
+
+A dry run stops after these checks and the bundle. It prints the certifying
+suite, the entry's commit count and earlier audits, and the bundle's size to
+the job summary. A real run then calls the auditor and writes the record and
+the owner's brief under `results/audit/entries/<hid>/`. The record carries the
+four certified fields, the suite that certified them (`certified_by`) and the
+run link. The job publishes the record to `output`, and then, on a fresh copy
+of `main`, runs `audit_entry.py <hid> --sync-field` and pushes the result. The
+brief is the job summary. A verdict of `reject` is a result, not a failed job.
+
+**The `Audit record` field** is how a submission shows in the entry itself.
+It has one line per CI audit: when it ran, the verdict and its reasons, the
+model and effort, the stamp, the run and the brief's path. Its header counts
+audits and rejections. `--sync-field` renders it from CI's records on
+`output` (`decision_packet.audit_record_paragraph`), and `record_audit.py`'s
+**`audit-record-field`** check is red when the field differs from that
+rendering. It is also red when an entry has CI audits and no field, or has a
+field and no CI audit. So the field says the same thing whoever commits it,
+and a field written by hand is caught. The field sits outside the stamp, so
+writing it does not void the audit it records.
+
+What it does not do:
+- **It does not promote.** The status change is a separate commit, and
+  `approval-stamp` holds it to the latest record.
+- **It does not choose when to run.** The owner dispatches it. An automatic
+  trigger on every register edit would spend without the owner's go-ahead and
+  count every edit as a submission.
+- **The commit to `main` does not trigger `record_audit.yml`**, because a push
+  made with the workflow's own token starts no workflow. The check runs on the
+  next push.
 
 ### model_compare.yml — the main model, compared on saved days (IMP-8)
 
@@ -437,6 +493,7 @@ What runs:
 And what does **not** run on any schedule — dispatch-only, by choice:
 `numeric_baseline.yml` (WP-21's harness, run per experiment), `auditor_canaries.yml`
 (the auditor's test, run when its instructions or canaries change — WP-25.A),
+`audit_entry.yml` (the promotion-tier audit of one entry — WP-25.C),
 `model_compare.yml` (saved days through the main analysis call on several models — IMP-8), `exo_slice_smoke.yml`
 and `kimi_arm_smoke.yml` (both arms soft-killed, [ADR-0015](../decisions/ADR-0015-soft-kill-convention.md)),
 and `macro_weekly_refit.yml` standalone, which is how a one-off refresh is done
@@ -704,7 +761,7 @@ The audit records and a sealed read's report are committed by CI.
 
 | Check | Red when |
 |---|---|
-| `approval-stamp` | an entry is `promoted` without a CI audit record stamped to its **current** text, or the newest such record rejected it, or the model / effort / instructions that approved it have no passing canary suite on `output` |
+| `approval-stamp` | an entry is `promoted` without a CI audit record stamped to its **current** text, or the newest such record rejected it, or the model / effort / instructions / canary set that approved it have no passing canary suite on `output` |
 | `no-grinding` | an entry was audited by CI a third time after two rejections, even if the third passed, unless the entry is `closed` or the owner's decision is pinned in `OWNER_RESUBMISSIONS` against a `resolved.md` item |
 | `instruction-freeze` | one commit changed `.macro-assist/auditor/instructions.md` and, in the same commit, the status or stamped text of an entry that is or was ever promoted. An entry promoted later still turns the earlier commit red |
 | `bar-before-result` | an entry's bar changed at or after the first commit of the sealed-read report its `Sealed read (ledger)` field names. The bar is the entry less its status, its audit record and its ledgers. It is also red when the named report is not on `output` |
@@ -762,7 +819,7 @@ script reads; it never writes. One screen, five blocks:
 |---|---|---|
 | **BOARD** | the board's *Right now*, its latest changelog row, every **Active** row with its `Next:` line and every **Queued / dormant** row — each with the days since it was last edited and the commit that did it | `active-experiments.md`, ages (24.E) |
 | **INBOX** | every open `todo.md` item, oldest first, with its age and last commit | `todo.md`, ages (24.E) |
-| **AUDIT** | `record_audit.py`'s findings and its red / report-only summary, with a count per check so that `contradictions 0` is visible rather than absent | `audit()` (24.A–D, 24.F reds, 25.B) |
+| **AUDIT** | `record_audit.py`'s findings and its red / report-only summary, with a count per check so that `contradictions 0` is visible rather than absent | `audit()` (24.A–D, 24.F reds, 25.B–C) |
 | **ADR REVISIT** | the report-only lines of the [revisit rule](#a-decision-whose-condition-may-have-come-true): a decision whose cited condition closed after its section was last edited, or `none` | 24.F |
 | **PROMOTION GATE** | printed whenever the register holds an entry in `draft`, `seen` or `proposed` — a state whose next transition is `promoted`, which since [ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md) takes an independent audit: the pending entries; the first paragraph of §6's *Until the auditor is switched on* subsection while the page carries it; then the bullets of [how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis) before that subsection — what stays with the owner — as the page has them today | `hypotheses.md`, `how-we-explore.md` |
 
@@ -899,7 +956,7 @@ the `plan` job's summary repeats the source and the resolved `asof`.
 | Secret | Description |
 |--------|-------------|
 | `FRED_API_KEY` | [FRED API key](https://fred.stlouisfed.org/docs/api/api_key.html) |
-| `ANTHROPIC_API_KEY` | Anthropic API key — the daily note, and the auditor's canary suite (`auditor_canaries.yml`) |
+| `ANTHROPIC_API_KEY` | Anthropic API key — the daily note, the auditor's canary suite (`auditor_canaries.yml`) and the promotion-tier audit (`audit_entry.yml`) |
 | `VAULT_PAT` | GitHub Personal Access Token with `repo` scope (for pushing to External-Brain) |
 | `VAULT_REPO` | External-Brain repo name, e.g. `GregsterBoe/External-Brain` |
 | `SUPADATA_API_KEY` | [Supadata API key](https://supadata.ai) for YouTube transcripts (optional) |

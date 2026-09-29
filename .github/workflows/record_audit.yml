@@ -16,7 +16,8 @@ name: Record Audit
 # settle: a promoted entry carries a CI audit stamped to its current text, no
 # third audit after two rejections, no commit that edits the auditor's
 # instructions together with a promoted entry, a bar older than its sealed
-# result, and a logged harness run behind every dated look.
+# result, and a logged harness run behind every dated look; and since WP-25.C,
+# every entry's Audit record field is exactly what CI's audit records say.
 # It also prints, report-only, the days since each open todo.md item and each
 # board row was last edited, oldest first, and any ADR revisit section whose
 # cited todo item / WP / KB entry / phase closed after the section was last

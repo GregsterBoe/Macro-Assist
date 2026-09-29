@@ -1275,7 +1275,8 @@ def test_orient_prints_the_board_the_inbox_the_audit_and_the_gate(oriented):
     assert b["AUDIT"].startswith("AUDIT — record_audit.py: 0 red, 0 report-only  (workflow-orphans 0 · "
                                  "schedule-table 0 · artifact-liveness 0 · referential-integrity 0 · "
                                  "contradictions 0 · adr-revisit 0 · approval-stamp 0 · no-grinding 0 · "
-                                 "instruction-freeze 0 · bar-before-result 0 · receipts 0)\n  clean\n")
+                                 "instruction-freeze 0 · bar-before-result 0 · receipts 0 · "
+                                 "audit-record-field 0)\n  clean\n")
     assert b["ADR"].strip().splitlines()[1:] == ["  none"]
     # the gate: the pending entries, the transition line while §6 carries
     # it, then §6's owner bullets — and none from inside the subsection
@@ -1643,9 +1644,87 @@ def test_this_checkout_is_clean_of_the_audit_checks():
     nothing to read; the receipts check holds the pre-log looks pinned, and
     the freeze reads the instructions' real history."""
     findings = [f for fn in (ra.check_approval_stamp, ra.check_no_grinding, ra.check_instruction_freeze,
-                             ra.check_bar_before_result, ra.check_receipts) for f in fn(_REPO)]
+                             ra.check_bar_before_result, ra.check_receipts, ra.check_audit_record_field)
+                for f in fn(_REPO)]
     assert not [f for f in findings if f.red], "\n".join(str(f) for f in findings)
 
 
 def test_the_pre_log_pins_predate_the_log():
     assert ra.LOOKS_BEFORE_RECEIPTS and all(d < "2026-09-29" for _, d in ra.LOOKS_BEFORE_RECEIPTS)
+
+
+# --- the Audit record field (WP-25.C) ----------------------------------------
+
+def _rec_on_output(hid: str, entry: str, verdict: str, stem: str) -> dict:
+    return {f"audit/entries/{hid}/{stem}-ci.json": _record(hid, entry, verdict)}
+
+
+def test_the_field_is_inserted_replaced_and_removed_in_place():
+    reg = _register_text(_entry("H-101"), _entry("H-102")) + "## Closed\n\nNone.\n"
+    recs = [{**json.loads(_record("H-101", _entry("H-101"), "reject")), "reasons": ["question 8: unanswered"],
+             "_path": "audit/entries/H-101/2026-09-30T1015Z-ci.json"}]
+    para = dp.audit_record_paragraph(recs)
+    assert para.startswith("**Audit record.** Written by CI") and "1 audit, 1 rejection." in para
+    assert "- 2026-09-30 10:15 UTC · `reject` (question 8: unanswered) · `claude-opus-5-5` / `high`" in para
+    assert "brief `output:audit/entries/H-101/2026-09-30T1015Z-ci.md`" in para
+    once = dp.with_audit_record(reg, "H-101", para)
+    e1 = dp.entry_text(once, "H-101")
+    assert e1.rstrip().endswith("---") and dp.field_block(e1, dp.AUDIT_RECORD) == para
+    assert dp.entry_text(once, "H-102") == dp.entry_text(reg, "H-102")
+    assert dp.stamped_text(e1) == dp.stamped_text(dp.entry_text(reg, "H-101"))
+    assert dp.with_audit_record(once, "H-101", para) == once                       # idempotent
+    two = dp.audit_record_paragraph(recs * 2)
+    assert "2 audits, 2 rejections. A further audit is refused" in two
+    assert dp.field_block(dp.entry_text(dp.with_audit_record(once, "H-101", two), "H-101"),
+                          dp.AUDIT_RECORD) == two
+    assert dp.with_audit_record(once, "H-101", None) == reg                        # removed exactly
+    # the last entry, which runs to the page's `## Closed` index rather than a rule
+    last = dp.with_audit_record(reg, "H-102", para)
+    assert last.endswith(para + "\n\n---\n\n## Closed\n\nNone.\n")
+    assert dp.with_audit_record(last, "H-102", None) == reg
+
+
+def test_the_field_is_held_to_cis_records(audited):
+    entry = _entry("H-101")
+    _commit_text(audited, REG, _register_text(entry), T0 - timedelta(days=5))
+    assert _check(audited, ra.check_audit_record_field) == ([], [])
+    # a field nobody's CI audit is behind: written by hand
+    forged = dp.audit_record_paragraph([{**json.loads(_record("H-101", entry)),
+                                         "_path": "audit/entries/H-101/2026-09-30T1015Z-ci.json"}])
+    _commit_text(audited, REG, dp.with_audit_record(_register_text(entry), "H-101", forged), T0 - timedelta(days=4))
+    assert _check(audited, ra.check_audit_record_field)[0] == [
+        "H-101: carries an Audit record with no CI audit of it on `output` — only CI writes that field"]
+    # a local audit is not a submission, so it does not make the field true either
+    _output(audited, {"audit/entries/H-101/2026-09-30T1015Z-local.json": _record("H-101", entry, tier="local")},
+            T0 - timedelta(days=4))
+    assert len(_check(audited, ra.check_audit_record_field)[0]) == 1
+    # CI's record: the field must say what it says, then agrees
+    _output(audited, _rec_on_output("H-101", entry, "reject", "2026-09-30T1015Z"), T0 - timedelta(days=3))
+    (red,) = _check(audited, ra.check_audit_record_field)[0]
+    assert "is not what CI's records on `output` say" in red and "--sync-field" in red
+    recs = ra.ci_audits(audited, "output")["H-101"]
+    _commit_text(audited, REG, dp.with_audit_record(_register_text(entry), "H-101",
+                                                    dp.audit_record_paragraph(recs)), T0 - timedelta(days=2))
+    assert _check(audited, ra.check_audit_record_field) == ([], [])
+    # a second CI audit the field does not list yet
+    _output(audited, _rec_on_output("H-101", entry.replace("1.2", "1.3"), "reject", "2026-10-01T1015Z"),
+            T0 - timedelta(days=1))
+    assert "is not what CI's records" in _check(audited, ra.check_audit_record_field)[0][0]
+
+
+def test_a_missing_field_after_a_ci_audit_is_red(audited):
+    entry = _entry("H-101")
+    _commit_text(audited, REG, _register_text(entry), T0 - timedelta(days=5))
+    _output(audited, _rec_on_output("H-101", entry, "reject", "2026-09-30T1015Z"), T0 - timedelta(days=3))
+    (red,) = _check(audited, ra.check_audit_record_field)[0]
+    assert red.startswith("H-101: CI audited it 1 time(s) and the entry has no Audit record")
+
+
+def test_an_approval_needs_the_canary_set_certified_too(audited):
+    entry = _entry("H-101", "promoted")
+    _commit_text(audited, REG, _register_text(entry), T0 - timedelta(days=5))
+    other_set = {**CFG, "canary_set_sha256": "fff000"}
+    _output(audited, {"audit/entries/H-101/2026-08-25T1100Z-ci.json": _record("H-101", entry, cfg=other_set)},
+            T0 - timedelta(days=6))
+    (red,) = _check(audited, ra.check_approval_stamp)[0]
+    assert "canary set fff000" in red and "no passing canary suite" in red

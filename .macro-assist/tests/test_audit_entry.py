@@ -447,3 +447,175 @@ def test_cli_without_a_key_says_where_the_suite_runs(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
     with pytest.raises(SystemExit, match="auditor_canaries.yml"):
         ae.main(["--canaries", "--root", str(ROOT)])
+
+
+# ---------------------------------------------------------------------------
+# the promotion tier (WP-25.C): CI runs it, CI records it
+#
+# The clean canary replayed into a throwaway repository — register on main, a
+# report on an orphan output, full history — with the real auditor directory
+# copied in and a passing canary suite committed to output for the current
+# instructions and canary set. Each refusal is driven one condition at a time.
+# ---------------------------------------------------------------------------
+
+import os
+import shutil
+import subprocess
+
+import record_audit as ra
+
+CI_ENV = {"GITHUB_ACTIONS": "true", "GITHUB_RUN_ID": "7", "GITHUB_REPOSITORY": "o/r",
+          "GITHUB_SERVER_URL": "https://github.com", "GITHUB_REF": "refs/heads/main"}
+
+
+def _commit_output(root: Path, files: dict[str, str], msg: str = "output") -> None:
+    """Commit `files` onto `output` with plumbing, leaving main's tree alone."""
+    env = {**os.environ, "GIT_INDEX_FILE": str(root / ".git" / "test-output-index"),
+           "GIT_AUTHOR_NAME": "bot", "GIT_AUTHOR_EMAIL": "b@b",
+           "GIT_COMMITTER_NAME": "bot", "GIT_COMMITTER_EMAIL": "b@b"}
+
+    def g(*args, data=None):
+        r = subprocess.run(["git", "-C", str(root), *args], input=data, capture_output=True,
+                           text=True, env=env)
+        assert r.returncode == 0, r.stderr
+        return r.stdout.strip()
+
+    parent = g("rev-parse", "output")
+    g("read-tree", parent)
+    for path, text in files.items():
+        blob = g("hash-object", "-w", "--stdin", data=text)
+        g("update-index", "--add", "--cacheinfo", f"100644,{blob},{path}")
+    g("update-ref", "refs/heads/output", g("commit-tree", g("write-tree"), "-p", parent, "-m", msg))
+
+
+def _suite_json(root: Path, **over) -> str:
+    return json.dumps({"schema": 1, "passed": True, "tier": "ci", "requested_model": ae.DEFAULT_MODEL,
+                       "effort": ae.DEFAULT_EFFORT,
+                       "instructions_sha256": ae._sha(ae.read_instructions(root)),
+                       "canary_set_sha256": ae.canary_set_sha(root), **over})
+
+
+def _ci_record(root: Path, hid: str, verdict: str, *, text: str | None = None) -> str:
+    entry = text or dp.entry_text((root / dp.HYPOTHESES).read_text(), hid)
+    return json.dumps({"schema": 1, "hid": hid, "tier": "ci", "run": "https://github.com/o/r/actions/runs/1",
+                       "entry_fingerprint": "sha256:" + ae._sha(dp.stamped_text(entry)),
+                       "verdict": verdict, "reasons": ["blocking finding: other"] if verdict == "reject" else []})
+
+
+@pytest.fixture
+def ci_repo(canaries, tmp_path, monkeypatch):
+    base, _ = canaries
+    root = ae.materialize(ROOT, base, tmp_path / "repo")
+    shutil.copytree(ROOT / ae.AUDITOR_DIR, root / ae.AUDITOR_DIR)
+    subprocess.run(["git", "-C", str(root), "config", "user.name", "bot"], check=True)
+    subprocess.run(["git", "-C", str(root), "config", "user.email", "b@b"], check=True)
+    _commit_output(root, {"audit/canaries/2026-09-28T2005Z-abcdef12.json": _suite_json(root)})
+    for k, v in CI_ENV.items():
+        monkeypatch.setenv(k, v)
+    monkeypatch.setattr(ra, "OWNER_RESUBMISSIONS", {})
+    return root
+
+
+def _pf(root: Path, **kw):
+    return ae.preflight(root, "H-101", model=kw.get("model", ae.DEFAULT_MODEL),
+                        effort=kw.get("effort", ae.DEFAULT_EFFORT))
+
+
+def test_a_certified_ci_audit_passes_preflight(ci_repo, capsys):
+    pf = _pf(ci_repo)
+    assert pf.certified_by == "audit/canaries/2026-09-28T2005Z-abcdef12.json"
+    assert pf.history_commits == 2 and pf.prior == []
+    assert ae.main(["H-101", "--ci", "--dry-run", "--root", str(ci_repo)]) == 0
+    out = capsys.readouterr().out
+    assert "No API call was made and nothing was recorded" in out
+    assert not (ci_repo / "results" / "audit" / "entries").exists()
+
+
+def test_outside_ci_or_off_main_is_refused(ci_repo, monkeypatch, capsys):
+    monkeypatch.setenv("GITHUB_REF", "refs/heads/feature")
+    with pytest.raises(ae.Refused, match="the one on main"):
+        _pf(ci_repo)
+    monkeypatch.delenv("GITHUB_ACTIONS")
+    with pytest.raises(ae.Refused, match="runs in CI"):
+        _pf(ci_repo)
+    assert ae.main(["H-101", "--ci", "--dry-run", "--root", str(ci_repo)]) == 2
+    assert "nothing was spent" in capsys.readouterr().err
+
+
+def test_a_shallow_clone_is_refused(ci_repo, tmp_path):
+    shallow = tmp_path / "shallow"
+    subprocess.run(["git", "clone", "-q", "--depth=1", "--no-single-branch",
+                    f"file://{ci_repo}", str(shallow)], check=True)
+    shutil.copytree(ci_repo / ae.AUDITOR_DIR, shallow / ae.AUDITOR_DIR)
+    with pytest.raises(ae.Refused, match="shallow"):
+        _pf(shallow)
+
+
+def test_an_uncertified_configuration_is_refused(ci_repo):
+    with pytest.raises(ae.Refused, match="`medium`.*auditor_canaries.yml"):
+        _pf(ci_repo, effort="medium")
+    # the canary set is one of the four: a suite on another set certifies nothing here
+    (ci_repo / ae.CANARY_DIR / "base" / "timeline.json").write_text("{}\n")
+    with pytest.raises(ae.Refused, match="canary set"):
+        _pf(ci_repo)
+
+
+def test_the_same_text_twice_is_a_retry_and_refused(ci_repo):
+    _commit_output(ci_repo, {"audit/entries/H-101/2026-09-28T2100Z-ci.json": _ci_record(ci_repo, "H-101", "reject")})
+    with pytest.raises(ae.Refused, match="retry, not a resubmission"):
+        _pf(ci_repo)
+
+
+def test_a_third_submission_after_two_rejections_is_refused(ci_repo, monkeypatch):
+    reg = (ci_repo / dp.HYPOTHESES).read_text()
+    old = dp.entry_text(reg, "H-101")
+    _commit_output(ci_repo, {f"audit/entries/H-101/2026-09-28T2{i}00Z-ci.json":
+                             _ci_record(ci_repo, "H-101", "reject", text=old.replace("Gold", f"Gold{i}"))
+                             for i in (1, 2)})
+    with pytest.raises(ae.Refused, match="rejected 2 times"):
+        _pf(ci_repo)
+    monkeypatch.setattr(ra, "OWNER_RESUBMISSIONS", {"H-101": "31"})
+    assert _pf(ci_repo).prior and len(_pf(ci_repo).prior) == 2
+
+
+def test_a_closed_or_uncommitted_entry_is_refused(ci_repo):
+    path = ci_repo / dp.HYPOTHESES
+    path.write_text(path.read_text().replace("**Status:** `draft`", "**Status:** `closed`", 1))
+    with pytest.raises(ae.Refused, match="uncommitted"):
+        _pf(ci_repo)
+    subprocess.run(["git", "-C", str(ci_repo), "commit", "-qam", "close"], check=True)
+    with pytest.raises(ae.Refused, match="closed"):
+        _pf(ci_repo)
+
+
+def test_a_ci_audit_records_its_provenance_and_the_field_follows_the_records(ci_repo, monkeypatch, capsys):
+    """End to end, offline: audit → record on output → Audit record field on
+    main, which record_audit holds to the records and the stamp ignores."""
+    fake = FakeClient(lambda kw: _message(_answer(blocking=("thin_evidence",))))
+    monkeypatch.setattr(ae, "_client", lambda: fake)
+    before = (ci_repo / dp.HYPOTHESES).read_text()
+    assert ae.main(["H-101", "--ci", "--root", str(ci_repo)]) == 0 and len(fake.calls) == 1
+    (rec_path,) = (ci_repo / "results" / "audit" / "entries" / "H-101").glob("*.json")
+    rec = json.loads(rec_path.read_text())
+    assert rec["tier"] == "ci" and rec["run"] == "https://github.com/o/r/actions/runs/7"
+    assert rec["certified_by"] == "audit/canaries/2026-09-28T2005Z-abcdef12.json"
+    assert rec["canary_set_sha256"] == ae.canary_set_sha(ci_repo) and rec["verdict"] == "reject"
+    assert "audited_at" in rec
+
+    # CI publishes the record, then writes the field from what it published
+    assert ra.check_audit_record_field(ci_repo) == []           # nothing on output yet
+    _commit_output(ci_repo, {f"audit/entries/H-101/{rec_path.name}": rec_path.read_text()})
+    assert [f.message for f in ra.check_audit_record_field(ci_repo)][0].startswith(
+        "CI audited it 1 time(s) and the entry has no Audit record")
+    assert ae.sync_field(ci_repo) == ["H-101"] and ae.sync_field(ci_repo) == []
+    after = (ci_repo / dp.HYPOTHESES).read_text()
+    entry = dp.entry_text(after, "H-101")
+    assert "**Audit record.** Written by CI" in entry and "1 audit, 1 rejection." in entry
+    assert "`reject` (blocking finding: thin_evidence)" in entry
+    assert dp.stamped_text(entry) == dp.stamped_text(dp.entry_text(before, "H-101"))
+    assert ra.check_audit_record_field(ci_repo) == []
+
+    # the same text cannot be audited again: the field did not change the stamp
+    subprocess.run(["git", "-C", str(ci_repo), "commit", "-qam", "audit record"], check=True)
+    with pytest.raises(ae.Refused, match="retry"):
+        _pf(ci_repo)

@@ -40,9 +40,20 @@ approvable would be a target to tune the auditor against.
 Where a record may be used (ADR-0022, *Scaled to what is at stake*). A run on a
 laptop is a *local* audit: good enough for an explore look, never for a
 promotion. Every record carries `tier`, but that field is a label; what makes
-an audit a promotion-tier one is that CI ran it and CI committed its record
-(WP-25.C). The proposer running this and relaying the answer is exactly what
-question 12 does not accept.
+an audit a promotion-tier one is that CI ran it and CI committed its record.
+The proposer running this and relaying the answer is exactly what question 12
+does not accept.
+
+The promotion tier (WP-25.C) is `--ci`, run by `audit_entry.yml`. Before any
+API call it refuses: outside CI or off main; on a shallow clone, whose bundle
+would say the history is unavailable; with a model, effort, instructions or
+canary set that no passing CI canary suite certifies; on text CI has already
+audited, which would be a retry and not a resubmission; and after two
+rejections, unless the owner's decision is pinned (*No grinding*). `--dry-run`
+runs all of that and builds the bundle, for free. After CI publishes the record,
+`--sync-field` writes the entry's `Audit record` field from CI's records, and
+`record_audit.py` holds the field to them — so whoever commits it, nobody
+authors it.
 
 Spends API money (ANTHROPIC_API_KEY), except under --bundle-only and
 --check-canaries. The canary suite is seven calls, and `--max-usd` stops it
@@ -54,6 +65,8 @@ Run:
     python .macro-assist/audit_entry.py --check-canaries          # replay every canary, no API call
     python .macro-assist/audit_entry.py H-008                     # a local audit (costs money)
     python .macro-assist/audit_entry.py --canaries                # the suite; exit 1 unless every canary passes
+    python .macro-assist/audit_entry.py H-008 --ci [--dry-run]    # the promotion tier; audit_entry.yml runs it
+    python .macro-assist/audit_entry.py --sync-field              # Audit record fields from CI's records; free
 """
 from __future__ import annotations
 
@@ -573,14 +586,18 @@ def _run_url() -> str | None:
 
 
 def make_record(bundle: Bundle, result: AuditResult, meta: dict, *, requested_model: str,
-                effort: str, instructions_sha: str) -> dict:
+                effort: str, instructions_sha: str, canary_set_sha: str | None = None,
+                certified_by: str | None = None, now: datetime | None = None) -> dict:
     verdict, reasons = derive_verdict(result)
     return {
         "schema": 1,
         "hid": bundle.hid,
+        "audited_at": (now or datetime.now(timezone.utc)).isoformat(timespec="seconds"),
         "entry_fingerprint": f"sha256:{bundle.fingerprint}",
         "bundle_sha256": bundle.sha256,
         "instructions_sha256": instructions_sha,
+        "canary_set_sha256": canary_set_sha,
+        "certified_by": certified_by,
         "tier": _tier(),
         "run": _run_url(),
         "sources": bundle.sources,
@@ -635,10 +652,107 @@ def render_record(rec: dict) -> str:
     return "\n".join(out)
 
 
-def audit(bundle: Bundle, instructions: str, *, client, model: str, effort: str) -> dict:
+def audit(bundle: Bundle, instructions: str, *, client, model: str, effort: str,
+          **provenance) -> dict:
     answer, meta = call_auditor(bundle, instructions, client=client, model=model, effort=effort)
     return make_record(bundle, parse_answer(answer), meta, requested_model=model,
-                       effort=effort, instructions_sha=_sha(instructions))
+                       effort=effort, instructions_sha=_sha(instructions), **provenance)
+
+
+# ---------------------------------------------------------------------------
+# the promotion-tier audit: CI runs it, CI records it (WP-25.C)
+# ---------------------------------------------------------------------------
+
+class Refused(RuntimeError):
+    """A promotion-tier audit that must not run. Raised before any API call."""
+
+
+@dataclass
+class Preflight:
+    hid: str
+    status: str
+    ref: str
+    certified_by: str        # the passing canary suite behind this configuration
+    canary_set_sha: str
+    prior: list[dict]        # CI's earlier audits of the entry, oldest first
+    history_commits: int
+
+
+def preflight(root: Path, hid: str, *, model: str, effort: str) -> Preflight:
+    """Everything that must hold before a promotion-tier audit spends money,
+    each a refusal with its reason. The record this audit writes is what
+    `record_audit.py` reads, so a record it would hold against the entry is
+    never made in the first place."""
+    env = os.environ
+    if _tier() != "ci" or not _run_url():
+        raise Refused("a promotion-tier audit runs in CI, which records it (ADR-0022); "
+                      "run it from audit_entry.yml. A run here is a local audit: drop --ci.")
+    if env.get("GITHUB_REF") != "refs/heads/main":
+        raise Refused(f"dispatched on {env.get('GITHUB_REF')!r}; the register an audit stamps "
+                      "is the one on main")
+    if _shallow(root):
+        raise Refused("this clone is shallow, so the bundle would say the entry's history and "
+                      "each report's commits are unavailable — check out with fetch-depth: 0 "
+                      "and mount output with its history (OUTPUT_FULL_HISTORY=1)")
+    ref = ra._resolve_ref(root, OUTPUT_BRANCH)
+    if ref is None:
+        raise Refused(f"no `{OUTPUT_BRANCH}` branch here: the canary suites, earlier audits and "
+                      "reports are all on it")
+    if ra._git(root, "status", "--porcelain", "--", dp.HYPOTHESES.as_posix()):
+        raise Refused(f"{dp.HYPOTHESES} has uncommitted changes; an audit stamps committed text")
+    register = (root / dp.HYPOTHESES).read_text(encoding="utf-8")
+    entry = next((e for e in dp.parse_entries(register) if e.hid == hid), None)
+    if entry is None:
+        raise Refused(f"{hid} is not in {dp.HYPOTHESES}")
+    if entry.status == "closed":
+        raise Refused(f"{hid} is closed; a closed entry is not submitted")
+    history = entry_history(root, hid)
+    if not history:
+        raise Refused(f"git holds no history for {hid}'s lines, so nothing would show when "
+                      "any part of it was written")
+
+    ins_sha, set_sha = _sha(read_instructions(root)), canary_set_sha(root)
+    suite = ra.certified_configs(root, ref).get((model, effort, ins_sha, set_sha))
+    if suite is None:
+        raise Refused(f"no passing CI canary suite on `{ref}` certifies `{model}` / `{effort}` on "
+                      f"instructions sha256:{ins_sha[:12]}… and canary set sha256:{set_sha[:12]}… "
+                      "— run auditor_canaries.yml with this configuration first (WP-25.A)")
+
+    prior = ra.ci_audits(root, ref).get(hid, [])
+    stamp = f"sha256:{_sha(dp.stamped_text(dp.entry_text(register, hid)))}"
+    same = [r for r in prior if r.get("entry_fingerprint") == stamp]
+    if same:
+        raise Refused(f"CI already audited this exact text (`{same[-1]['_path']}`, "
+                      f"`{same[-1].get('verdict')}`); auditing it again is a retry, not a "
+                      "resubmission — change the entry, or let the verdict stand")
+    rejects = sum(r.get("verdict") == "reject" for r in prior)
+    if rejects >= 2 and hid not in ra.OWNER_RESUBMISSIONS:
+        raise Refused(f"{hid} has been rejected {rejects} times; it closes or the owner decides "
+                      "(ADR-0022, *No grinding*), recorded in resolved.md and pinned in "
+                      "record_audit.OWNER_RESUBMISSIONS")
+    return Preflight(hid, entry.status, ref, suite, set_sha, prior,
+                     sum(ln.startswith("COMMIT ") for ln in history.splitlines()))
+
+
+def sync_field(root: Path, hid: str | None = None) -> list[str]:
+    """Rewrite the Audit record field of `hid` (or of every entry) from CI's
+    records on the output branch. Returns the entries whose field changed."""
+    ref = ra._resolve_ref(root, OUTPUT_BRANCH)
+    if ref is None:
+        raise SystemExit(f"no `{OUTPUT_BRANCH}` branch here — `git fetch origin {OUTPUT_BRANCH}`")
+    audits = ra.ci_audits(root, ref)
+    path = root / dp.HYPOTHESES
+    text = path.read_text(encoding="utf-8")
+    hids = [hid] if hid else [e.hid for e in dp.parse_entries(text)]
+    changed = []
+    for h in hids:
+        new = dp.with_audit_record(text, h, dp.audit_record_paragraph(audits.get(h, [])))
+        if new != text:
+            changed.append(h)
+            text = new
+    if changed:
+        path.write_text(text, encoding="utf-8")
+    return changed
 
 
 # ---------------------------------------------------------------------------
@@ -895,6 +1009,25 @@ def render_suite(s: dict) -> str:
     return "\n".join(out) + "\n"
 
 
+def render_dry_run(pf: Preflight, bundle: Bundle, *, model: str, effort: str) -> str:
+    rejects = sum(r.get("verdict") == "reject" for r in pf.prior)
+    out = [
+        f"# Dry run — {pf.hid}",
+        "",
+        f"Every refusal check passed and the bundle was built. **No API call was made and nothing "
+        f"was recorded.** A real run would audit with `{model}` / `{effort}`.",
+        "",
+        f"- **Entry:** `{pf.status}`, stamped text `sha256:{bundle.fingerprint[:16]}…`",
+        f"- **History:** a full clone; {pf.history_commits} commit(s) changed the entry",
+        f"- **Certified by:** `{pf.ref}:{pf.certified_by}`",
+        f"- **Earlier CI audits:** {len(pf.prior)} ({rejects} rejection{'s' * (rejects != 1)})",
+        f"- **Bundle:** {len(bundle.rules) + len(bundle.material):,} characters, "
+        f"sha256 `{bundle.sha256[:16]}…`; reports read from `{bundle.sources['reports']}`",
+        "",
+    ]
+    return "\n".join(out)
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -922,6 +1055,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--canaries", action="store_true", help="run the canary suite")
     ap.add_argument("--check-canaries", action="store_true",
                     help="replay and bundle every canary without calling the model")
+    ap.add_argument("--ci", action="store_true",
+                    help="a promotion-tier audit (audit_entry.yml): refuse unless in CI, full "
+                         "history, a certified configuration and no grinding")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="with --ci: run every refusal check and build the bundle, then stop "
+                         "before the API call")
+    ap.add_argument("--sync-field", action="store_true",
+                    help="rewrite the entry's Audit record field (every entry's, with no id) "
+                         "from CI's records on the output branch; no API call")
     ap.add_argument("--model", default=os.environ.get("AUDITOR_MODEL") or DEFAULT_MODEL)
     ap.add_argument("--effort", default=DEFAULT_EFFORT,
                     choices=("low", "medium", "high", "xhigh", "max"))
@@ -964,9 +1106,24 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.write(text)
         return 0 if suite["passed"] else 1
 
+    if args.sync_field:
+        changed = sync_field(root, args.hid.upper() if args.hid else None)
+        print(f"Audit record rewritten from CI's records: {', '.join(changed)}." if changed
+              else "Every Audit record already matches CI's records.")
+        return 0
+
     if not args.hid:
         ap.error("give an entry id, or --canaries / --check-canaries")
+    if args.dry_run and not args.ci:
+        ap.error("--dry-run goes with --ci")
     hid = args.hid.upper()
+    pf = None
+    if args.ci:
+        try:
+            pf = preflight(root, hid, model=args.model, effort=args.effort)
+        except Refused as e:
+            print(f"Refused, and nothing was spent: {e}", file=sys.stderr)
+            return 2
     try:
         bundle = build_bundle(root, hid, now=now)
     except BundleError as e:
@@ -974,10 +1131,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.bundle_only:
         sys.stdout.write(bundle.material)
         return 0
+    if pf is not None and args.dry_run:
+        sys.stdout.write(render_dry_run(pf, bundle, model=args.model, effort=args.effort))
+        return 0
 
+    provenance = ({"canary_set_sha": pf.canary_set_sha, "certified_by": pf.certified_by}
+                  if pf is not None else {"canary_set_sha": canary_set_sha(root)})
     try:
         rec = audit(bundle, read_instructions(root), client=_client(), model=args.model,
-                    effort=args.effort)
+                    effort=args.effort, now=now, **provenance)
     except (AuditNotRun, InvalidAudit) as e:
         print(f"The audit did not complete, and that is not a pass: {e}", file=sys.stderr)
         return 1

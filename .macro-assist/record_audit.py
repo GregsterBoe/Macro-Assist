@@ -66,7 +66,7 @@ returning Findings; `audit()` runs them all.
                                conditions are not read.
 
 The audit's own checks — ADR-0022's mechanisms that git can settle, so the
-auditor model is not trusted with them (WP-25.B, Phase 25). Each reads the
+auditor model is not trusted with them (WP-25.B–C, Phase 25). Each reads the
 register and, where it needs one, the output branch.
 
   approval-stamp     WP-25.B   A `promoted` entry has a CI audit record whose
@@ -75,7 +75,8 @@ register and, where it needs one, the output branch.
                                what the promotion and the sealed read write),
                                whose newest such record found nothing
                                blocking, and whose model / effort /
-                               instructions a passing canary suite certifies.
+                               instructions / canary set a passing canary
+                               suite certifies.
   no-grinding        WP-25.B   A third CI audit after two rejections is red,
                                pass or not, until the entry closes or the
                                owner's decision is pinned in
@@ -93,6 +94,12 @@ register and, where it needs one, the output branch.
                                looks before the log are pinned exactly in
                                LOOKS_BEFORE_RECEIPTS. Report-only: a logged run
                                no ledger dates, which is an uncounted look.
+  audit-record-field WP-25.C   An entry's `Audit record` field is exactly what
+                               CI's audit records on output render to
+                               (`decision_packet.audit_record_paragraph`), and
+                               an entry CI never audited has none — so every
+                               submission shows in the entry as a counted look,
+                               and none is written by hand.
 
 The two workflow checks and the liveness check are a pair. 24.A catches a stage
 the repo cannot reach; it cannot see a dispatch-only workflow whose *external*
@@ -1322,11 +1329,16 @@ def ci_audits(root: Path, ref: str) -> dict[str, list[dict]]:
     return out
 
 
-def certified_configs(root: Path, ref: str) -> set[tuple[str, str, str]]:
-    """(requested_model, effort, instructions_sha256) of every canary suite CI
-    ran that passed — the configurations an audit may approve with (WP-25.A)."""
-    return {(s.get("requested_model"), s.get("effort"), s.get("instructions_sha256"))
-            for _, s in _json_files(root, ref, CANARY_RECORDS)
+CERTIFIED_BY = ("requested_model", "effort", "instructions_sha256", "canary_set_sha256")
+
+
+def certified_configs(root: Path, ref: str) -> dict[tuple, str]:
+    """(requested_model, effort, instructions_sha256, canary_set_sha256) of
+    every canary suite CI ran that passed → the suite's path: the configurations
+    an audit may approve with (WP-25.A). A change to any of the four needs a
+    new pass."""
+    return {tuple(s.get(k) for k in CERTIFIED_BY): p
+            for p, s in _json_files(root, ref, CANARY_RECORDS)
             if isinstance(s, dict) and s.get("passed") is True and s.get("tier") == "ci"}
 
 
@@ -1360,12 +1372,51 @@ def check_approval_stamp(root: Path) -> list[Finding]:
                                            f"rejected it (`{mine[-1]['_path']}`)"))
         else:
             r = mine[-1]
-            cfg = (r.get("requested_model"), r.get("effort"), r.get("instructions_sha256"))
+            cfg = tuple(r.get(k) for k in CERTIFIED_BY)
             if cfg not in certified:
                 out.append(Finding(check, hid, f"approved by `{cfg[0]}` / `{cfg[1]}` on instructions "
-                                               f"{str(cfg[2])[:12]}…, which no passing canary suite on "
-                                               f"`{ref}` certifies (`{r['_path']}`)"))
+                                               f"{str(cfg[2])[:12]}… and canary set {str(cfg[3])[:12]}…, "
+                                               f"which no passing canary suite on `{ref}` certifies "
+                                               f"(`{r['_path']}`)"))
     return out
+
+
+def check_audit_record_field(root: Path) -> list[Finding]:
+    """Every entry's `Audit record` field is exactly what CI's audit records on
+    output make of it, and an entry CI never audited has none (WP-25.C). So the
+    field lists every submission — the counted looks of *No grinding* — and
+    nobody can write one by hand that CI did not."""
+    check = "audit-record-field"
+    dp = _dp()
+    entries = _register(root)
+    ref = _resolve_ref(root, "output")
+    audits = ci_audits(root, ref) if ref else {}
+    fix = "`python .macro-assist/audit_entry.py {} --sync-field` rewrites it from the records"
+    out: list[Finding] = []
+    for hid, (e, text) in sorted(entries.items()):
+        got = dp.field_block(text, dp.AUDIT_RECORD)
+        if ref is None:
+            if got is not None:
+                out.append(Finding(check, hid, "carries an Audit record, and the output branch that "
+                                               "holds CI's records is not available here — "
+                                               "`git fetch origin output`"))
+            continue
+        recs = audits.get(hid, [])
+        want = dp.audit_record_paragraph(recs)
+        if want is None and got is not None:
+            out.append(Finding(check, hid, "carries an Audit record with no CI audit of it on "
+                                           f"`{ref}` — only CI writes that field"))
+        elif want is not None and got is None:
+            out.append(Finding(check, hid, f"CI audited it {len(recs)} time(s) and the entry has no "
+                                           f"Audit record — {fix.format(hid)}"))
+        elif want is not None and _norm(got) != _norm(want):
+            out.append(Finding(check, hid, "its Audit record is not what CI's records on "
+                                           f"`{ref}` say — {fix.format(hid)}"))
+    return out
+
+
+def _norm(block: str) -> str:
+    return "\n".join(ln.strip() for ln in block.strip().splitlines() if ln.strip())
 
 
 def check_no_grinding(root: Path) -> list[Finding]:
@@ -1562,7 +1613,7 @@ def check_receipts(root: Path) -> list[Finding]:
 CHECKS = (check_workflow_orphans, check_schedule_table, check_artifact_liveness,
           check_referential_integrity, check_contradictions, check_adr_revisit,
           check_approval_stamp, check_no_grinding, check_instruction_freeze,
-          check_bar_before_result, check_receipts)
+          check_bar_before_result, check_receipts, check_audit_record_field)
 _DATED_CHECKS = (check_artifact_liveness, check_adr_revisit)   # the ones `--now` replays
 
 

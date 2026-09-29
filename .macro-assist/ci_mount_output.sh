@@ -11,6 +11,11 @@
 # Usage — run from the repo root, after checkout, before the pipeline runs:
 #   bash .macro-assist/ci_mount_output.sh
 #
+# The fetch is depth 1: a stage needs the latest output, not its history. A job
+# that reads the history (the promotion-tier audit, WP-25.C: each report's
+# commit list) sets OUTPUT_FULL_HISTORY=1 and checks out with fetch-depth: 0 —
+# a depth-1 fetch into a full clone would make it shallow.
+#
 set -euo pipefail
 
 REPO="$(git rev-parse --show-toplevel)"
@@ -20,7 +25,11 @@ git -C "$REPO" config user.email >/dev/null 2>&1 || git -C "$REPO" config user.e
 
 # Fetch into an explicit remote-tracking ref — a single-branch CI checkout has no
 # origin/output ref otherwise.
-git -C "$REPO" fetch --depth=1 origin +refs/heads/output:refs/remotes/origin/output
+if [ "${OUTPUT_FULL_HISTORY:-0}" = "1" ]; then
+  git -C "$REPO" fetch origin +refs/heads/output:refs/remotes/origin/output
+else
+  git -C "$REPO" fetch --depth=1 origin +refs/heads/output:refs/remotes/origin/output
+fi
 rm -rf "$REPO/results"                       # ensure a clean mount point (main gitignores it)
 git -C "$REPO" worktree add -B output "$REPO/results" origin/output
 echo "Mounted 'output' at $REPO/results"

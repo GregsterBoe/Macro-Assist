@@ -23,7 +23,10 @@ missing a confound is not finished.
 italic date in one needs a run logged by the harness that day. After a sealed
 read, its report is named in a `Sealed read (ledger)` field. An audit approves
 the entry less its Status line and its `Audit record`, which the promotion
-writes. Any other edit voids the approval. Once a result exists, only the
+writes. Any other edit voids the approval. The `Audit record` field lists every
+CI audit of the entry, one line each. CI writes it from its own records
+(`audit_entry.yml`, WP-25.C), and a field that differs from those records is
+red, so it is never written by hand. Once a result exists, only the
 status and the ledgers may change.
 
 | # | Status | One line |
