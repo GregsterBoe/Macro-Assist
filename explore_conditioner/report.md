@@ -410,6 +410,102 @@ Width = P75 − P25 (pct). `side` = median vs the slice's unconditional median. 
 | dd<-10 | Normal | down5 | 43 | 4 | 1.509 | 4.15 | 6.802 | 5.293 | right | 1.388 |
 | dd<-10 | Normal | up5 | 53 | 4 | 1.938 | 3.184 | 4.786 | 2.849 | right | 1.388 |
 
+## H-008 rival check — does the stressed width split by OR state survive the vol forecast?
+
+Realized S&P forward change on the stressed report dates (dd ≤ −5%) where the S&P's HAR sigma quotes, cut at that sigma's terciles (edges [18.75, 23.76], fixed once on those dates). Rule written before looking (2026-09-29): a tercile × horizon is comparable when its Elevated and its Normal cell each hold ≥ 10 report dates in ≥ 2 spells; fewer than 3 comparable cells of 9, or all in one tercile → *cannot separate*; otherwise *survives* if Elevated is wider in ≥ 75% of them, else *fails*.
+
+**Outcome: survives** — 9 comparable cell(s), Elevated wider in 8.
+
+| h | σ tercile | Elevated n / spells | Normal n / spells | width Elevated | width Normal | ratio | comparable |
+|---|---|---|---|---|---|---|---|
+| 5 | σ:low | 38 / 8 | 81 / 13 | 3.957 | 2.07 | 1.912 | yes |
+| 5 | σ:mid | 53 / 6 | 66 / 10 | 3.305 | 2.568 | 1.287 | yes |
+| 5 | σ:high | 65 / 3 | 54 / 3 | 5.254 | 4.153 | 1.265 | yes |
+| 10 | σ:low | 38 / 8 | 81 / 13 | 3.178 | 2.965 | 1.072 | yes |
+| 10 | σ:mid | 53 / 6 | 66 / 10 | 5.492 | 2.552 | 2.152 | yes |
+| 10 | σ:high | 65 / 3 | 54 / 3 | 5.108 | 5.475 | 0.933 | yes |
+| 20 | σ:low | 38 / 8 | 81 / 13 | 5.739 | 2.308 | 2.487 | yes |
+| 20 | σ:mid | 53 / 6 | 66 / 10 | 5.723 | 3.498 | 1.636 | yes |
+| 20 | σ:high | 65 / 3 | 54 / 3 | 8.12 | 5.446 | 1.491 | yes |
+
+### H-008 SP500 h=5: stressed × OR state (where the HAR sigma quotes)
+
+| dd_stressed | or_state | n | spells | p25 | p50 | p75 | width | side | uncond_p50 |
+|---|---|---|---|---|---|---|---|---|---|
+| dd<=-5 | Elevated | 156 | 9 | -1.69 | 0.603 | 3.084 | 4.773 | right | 0.37 |
+| dd<=-5 | Normal | 201 | 16 | -0.449 | 1.11 | 2.336 | 2.785 | right | 0.37 |
+
+### H-008 SP500 h=5: stressed × HAR-sigma tercile — the rival
+
+| dd_stressed | har_tercile | n | spells | p25 | p50 | p75 | width | side | uncond_p50 |
+|---|---|---|---|---|---|---|---|---|---|
+| dd<=-5 | σ:high | 119 | 3 | -1.77 | 0.476 | 2.805 | 4.575 | right | 0.37 |
+| dd<=-5 | σ:low | 119 | 18 | -0.202 | 1.199 | 2.593 | 2.795 | right | 0.37 |
+| dd<=-5 | σ:mid | 119 | 13 | -1.05 | 1.167 | 2.209 | 3.258 | right | 0.37 |
+
+### H-008 SP500 h=5: stressed × HAR-sigma tercile × OR state
+
+| dd_stressed | har_tercile | or_state | n | spells | p25 | p50 | p75 | width | side | uncond_p50 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| dd<=-5 | σ:high | Elevated | 65 | 3 | -1.838 | 0.441 | 3.416 | 5.254 | right | 0.37 |
+| dd<=-5 | σ:high | Normal | 54 | 3 | -1.685 | 0.488 | 2.468 | 4.153 | right | 0.37 |
+| dd<=-5 | σ:low | Elevated | 38 | 8 | -0.412 | 0.97 | 3.545 | 3.957 | right | 0.37 |
+| dd<=-5 | σ:low | Normal | 81 | 13 | -0.019 | 1.204 | 2.05 | 2.07 | right | 0.37 |
+| dd<=-5 | σ:mid | Elevated | 53 | 6 | -1.363 | 0.155 | 1.942 | 3.305 | left | 0.37 |
+| dd<=-5 | σ:mid | Normal | 66 | 10 | -0.21 | 1.294 | 2.358 | 2.568 | right | 0.37 |
+
+### H-008 SP500 h=10: stressed × OR state (where the HAR sigma quotes)
+
+| dd_stressed | or_state | n | spells | p25 | p50 | p75 | width | side | uncond_p50 |
+|---|---|---|---|---|---|---|---|---|---|
+| dd<=-5 | Elevated | 156 | 9 | -1.289 | 1.928 | 4.204 | 5.493 | right | 0.685 |
+| dd<=-5 | Normal | 201 | 16 | -0.283 | 1.892 | 3.135 | 3.418 | right | 0.685 |
+
+### H-008 SP500 h=10: stressed × HAR-sigma tercile — the rival
+
+| dd_stressed | har_tercile | n | spells | p25 | p50 | p75 | width | side | uncond_p50 |
+|---|---|---|---|---|---|---|---|---|---|
+| dd<=-5 | σ:high | 119 | 3 | -1.382 | 1.715 | 3.705 | 5.087 | right | 0.685 |
+| dd<=-5 | σ:low | 119 | 18 | 0.276 | 2.113 | 3.911 | 3.635 | right | 0.685 |
+| dd<=-5 | σ:mid | 119 | 13 | -0.907 | 1.87 | 3.103 | 4.01 | right | 0.685 |
+
+### H-008 SP500 h=10: stressed × HAR-sigma tercile × OR state
+
+| dd_stressed | har_tercile | or_state | n | spells | p25 | p50 | p75 | width | side | uncond_p50 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| dd<=-5 | σ:high | Elevated | 65 | 3 | -0.971 | 1.69 | 4.137 | 5.108 | right | 0.685 |
+| dd<=-5 | σ:high | Normal | 54 | 3 | -2.232 | 2.132 | 3.243 | 5.475 | right | 0.685 |
+| dd<=-5 | σ:low | Elevated | 38 | 8 | 1.205 | 3.344 | 4.383 | 3.178 | right | 0.685 |
+| dd<=-5 | σ:low | Normal | 81 | 13 | 0.119 | 1.835 | 3.084 | 2.965 | right | 0.685 |
+| dd<=-5 | σ:mid | Elevated | 53 | 6 | -1.627 | 1.021 | 3.865 | 5.492 | right | 0.685 |
+| dd<=-5 | σ:mid | Normal | 66 | 10 | 0.382 | 1.901 | 2.934 | 2.552 | right | 0.685 |
+
+### H-008 SP500 h=20: stressed × OR state (where the HAR sigma quotes)
+
+| dd_stressed | or_state | n | spells | p25 | p50 | p75 | width | side | uncond_p50 |
+|---|---|---|---|---|---|---|---|---|---|
+| dd<=-5 | Elevated | 156 | 9 | -0.546 | 3.405 | 6.881 | 7.427 | right | 1.388 |
+| dd<=-5 | Normal | 201 | 16 | 0.757 | 3.252 | 4.512 | 3.754 | right | 1.388 |
+
+### H-008 SP500 h=20: stressed × HAR-sigma tercile — the rival
+
+| dd_stressed | har_tercile | n | spells | p25 | p50 | p75 | width | side | uncond_p50 |
+|---|---|---|---|---|---|---|---|---|---|
+| dd<=-5 | σ:high | 119 | 3 | -1.611 | 1.477 | 5.181 | 6.793 | right | 1.388 |
+| dd<=-5 | σ:low | 119 | 18 | 2.06 | 3.901 | 4.955 | 2.895 | right | 1.388 |
+| dd<=-5 | σ:mid | 119 | 13 | 0.982 | 3.39 | 5.231 | 4.248 | right | 1.388 |
+
+### H-008 SP500 h=20: stressed × HAR-sigma tercile × OR state
+
+| dd_stressed | har_tercile | or_state | n | spells | p25 | p50 | p75 | width | side | uncond_p50 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| dd<=-5 | σ:high | Elevated | 65 | 3 | -2.119 | 1.131 | 6.002 | 8.12 | left | 1.388 |
+| dd<=-5 | σ:high | Normal | 54 | 3 | -0.707 | 1.479 | 4.739 | 5.446 | right | 1.388 |
+| dd<=-5 | σ:low | Elevated | 38 | 8 | 1.435 | 4.427 | 7.174 | 5.739 | right | 1.388 |
+| dd<=-5 | σ:low | Normal | 81 | 13 | 2.188 | 3.848 | 4.495 | 2.308 | right | 1.388 |
+| dd<=-5 | σ:mid | Elevated | 53 | 6 | 0.836 | 3.834 | 6.559 | 5.723 | right | 1.388 |
+| dd<=-5 | σ:mid | Normal | 66 | 10 | 1.102 | 3.274 | 4.599 | 3.498 | right | 1.388 |
+
 ## Reproduce
 
 ```

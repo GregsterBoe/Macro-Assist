@@ -5566,8 +5566,8 @@
             "Bitcoin"
           ]
         },
-        "WTI Oil": -0.0169,
         "SP500": -0.0303,
+        "WTI Oil": -0.0169,
         "Gold": -0.0219
       },
       "Normal": {
@@ -5590,8 +5590,8 @@
             "Bitcoin"
           ]
         },
-        "WTI Oil": 0.0095,
         "SP500": 0.016,
+        "WTI Oil": 0.0095,
         "Gold": -0.0041
       }
     },
@@ -5616,8 +5616,8 @@
             "Bitcoin"
           ]
         },
-        "WTI Oil": -0.0321,
         "SP500": -0.0055,
+        "WTI Oil": -0.0321,
         "Gold": -0.0447
       },
       "Normal": {
@@ -5640,8 +5640,8 @@
             "Bitcoin"
           ]
         },
-        "WTI Oil": 0.0046,
         "SP500": 0.0138,
+        "WTI Oil": 0.0046,
         "Gold": -0.0076
       }
     },
@@ -5666,8 +5666,8 @@
             "Bitcoin"
           ]
         },
-        "WTI Oil": -0.0325,
         "SP500": 0.0445,
+        "WTI Oil": -0.0325,
         "Gold": -0.0992
       },
       "Normal": {
@@ -5690,8 +5690,8 @@
             "Bitcoin"
           ]
         },
-        "WTI Oil": -0.0032,
         "SP500": 0.0178,
+        "WTI Oil": -0.0032,
         "Gold": -0.0137
       }
     }
@@ -5718,8 +5718,8 @@
             "Bitcoin"
           ]
         },
-        "WTI Oil": -0.006,
         "SP500": 0.0134,
+        "WTI Oil": -0.006,
         "Gold": 0.0029
       },
       "dd<-10": {
@@ -5742,8 +5742,8 @@
             "Bitcoin"
           ]
         },
-        "WTI Oil": 0.0056,
         "SP500": 0.0182,
+        "WTI Oil": 0.0056,
         "Gold": 0.0003
       },
       "dd>-5": {
@@ -5766,8 +5766,8 @@
             "Bitcoin"
           ]
         },
-        "WTI Oil": 0.0071,
         "SP500": 0.0269,
+        "WTI Oil": 0.0071,
         "Gold": -0.0025
       }
     },
@@ -5792,8 +5792,8 @@
             "Bitcoin"
           ]
         },
-        "WTI Oil": -0.005,
         "SP500": 0.0416,
+        "WTI Oil": -0.005,
         "Gold": -0.0091
       },
       "dd<-10": {
@@ -5816,8 +5816,8 @@
             "Bitcoin"
           ]
         },
-        "WTI Oil": 0.0076,
         "SP500": 0.0139,
+        "WTI Oil": 0.0076,
         "Gold": 0.0012
       },
       "dd>-5": {
@@ -5840,8 +5840,8 @@
             "Bitcoin"
           ]
         },
-        "WTI Oil": 0.0035,
         "SP500": 0.026,
+        "WTI Oil": 0.0035,
         "Gold": -0.0009
       }
     },
@@ -5866,8 +5866,8 @@
             "Bitcoin"
           ]
         },
-        "WTI Oil": -0.0107,
         "SP500": 0.1034,
+        "WTI Oil": -0.0107,
         "Gold": -0.0203
       },
       "dd<-10": {
@@ -5890,8 +5890,8 @@
             "Bitcoin"
           ]
         },
-        "WTI Oil": -0.0265,
         "SP500": -0.0356,
+        "WTI Oil": -0.0265,
         "Gold": 0.0176
       },
       "dd>-5": {
@@ -5914,8 +5914,8 @@
             "Bitcoin"
           ]
         },
-        "WTI Oil": -0.0044,
         "SP500": 0.0255,
+        "WTI Oil": -0.0044,
         "Gold": 0.0029
       }
     }
@@ -6394,6 +6394,134 @@
         }
       }
     }
+  },
+  "vol_rival": {
+    "outcome": "survives",
+    "n_comparable": 9,
+    "n_elevated_wider": 8,
+    "cells": [
+      {
+        "h": 5,
+        "tercile": "\u03c3:low",
+        "n_elevated": 38,
+        "spells_elevated": 8,
+        "n_normal": 81,
+        "spells_normal": 13,
+        "comparable": true,
+        "width_elevated": 3.957,
+        "width_normal": 2.07,
+        "ratio": 1.912,
+        "elevated_wider": true
+      },
+      {
+        "h": 5,
+        "tercile": "\u03c3:mid",
+        "n_elevated": 53,
+        "spells_elevated": 6,
+        "n_normal": 66,
+        "spells_normal": 10,
+        "comparable": true,
+        "width_elevated": 3.305,
+        "width_normal": 2.568,
+        "ratio": 1.287,
+        "elevated_wider": true
+      },
+      {
+        "h": 5,
+        "tercile": "\u03c3:high",
+        "n_elevated": 65,
+        "spells_elevated": 3,
+        "n_normal": 54,
+        "spells_normal": 3,
+        "comparable": true,
+        "width_elevated": 5.254,
+        "width_normal": 4.153,
+        "ratio": 1.265,
+        "elevated_wider": true
+      },
+      {
+        "h": 10,
+        "tercile": "\u03c3:low",
+        "n_elevated": 38,
+        "spells_elevated": 8,
+        "n_normal": 81,
+        "spells_normal": 13,
+        "comparable": true,
+        "width_elevated": 3.178,
+        "width_normal": 2.965,
+        "ratio": 1.072,
+        "elevated_wider": true
+      },
+      {
+        "h": 10,
+        "tercile": "\u03c3:mid",
+        "n_elevated": 53,
+        "spells_elevated": 6,
+        "n_normal": 66,
+        "spells_normal": 10,
+        "comparable": true,
+        "width_elevated": 5.492,
+        "width_normal": 2.552,
+        "ratio": 2.152,
+        "elevated_wider": true
+      },
+      {
+        "h": 10,
+        "tercile": "\u03c3:high",
+        "n_elevated": 65,
+        "spells_elevated": 3,
+        "n_normal": 54,
+        "spells_normal": 3,
+        "comparable": true,
+        "width_elevated": 5.108,
+        "width_normal": 5.475,
+        "ratio": 0.933,
+        "elevated_wider": false
+      },
+      {
+        "h": 20,
+        "tercile": "\u03c3:low",
+        "n_elevated": 38,
+        "spells_elevated": 8,
+        "n_normal": 81,
+        "spells_normal": 13,
+        "comparable": true,
+        "width_elevated": 5.739,
+        "width_normal": 2.308,
+        "ratio": 2.487,
+        "elevated_wider": true
+      },
+      {
+        "h": 20,
+        "tercile": "\u03c3:mid",
+        "n_elevated": 53,
+        "spells_elevated": 6,
+        "n_normal": 66,
+        "spells_normal": 10,
+        "comparable": true,
+        "width_elevated": 5.723,
+        "width_normal": 3.498,
+        "ratio": 1.636,
+        "elevated_wider": true
+      },
+      {
+        "h": 20,
+        "tercile": "\u03c3:high",
+        "n_elevated": 65,
+        "spells_elevated": 3,
+        "n_normal": 54,
+        "spells_normal": 3,
+        "comparable": true,
+        "width_elevated": 8.12,
+        "width_normal": 5.446,
+        "ratio": 1.491,
+        "elevated_wider": true
+      }
+    ],
+    "edges": [
+      18.75,
+      23.76
+    ]
   },
   "meta": {
     "first_date": "2010-06-25",
@@ -7679,6 +7807,438 @@
         "p50": 3.184,
         "p75": 4.786,
         "width": 2.849,
+        "side": "right",
+        "uncond_p50": 1.388
+      }
+    ],
+    "H-008 SP500 h=5: stressed \u00d7 OR state (where the HAR sigma quotes)": [
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Elevated",
+        "n": 156,
+        "spells": 9,
+        "p25": -1.69,
+        "p50": 0.603,
+        "p75": 3.084,
+        "width": 4.773,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Normal",
+        "n": 201,
+        "spells": 16,
+        "p25": -0.449,
+        "p50": 1.11,
+        "p75": 2.336,
+        "width": 2.785,
+        "side": "right",
+        "uncond_p50": 0.37
+      }
+    ],
+    "H-008 SP500 h=5: stressed \u00d7 HAR-sigma tercile \u2014 the rival": [
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:high",
+        "n": 119,
+        "spells": 3,
+        "p25": -1.77,
+        "p50": 0.476,
+        "p75": 2.805,
+        "width": 4.575,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:low",
+        "n": 119,
+        "spells": 18,
+        "p25": -0.202,
+        "p50": 1.199,
+        "p75": 2.593,
+        "width": 2.795,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:mid",
+        "n": 119,
+        "spells": 13,
+        "p25": -1.05,
+        "p50": 1.167,
+        "p75": 2.209,
+        "width": 3.258,
+        "side": "right",
+        "uncond_p50": 0.37
+      }
+    ],
+    "H-008 SP500 h=5: stressed \u00d7 HAR-sigma tercile \u00d7 OR state": [
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:high",
+        "or_state": "Elevated",
+        "n": 65,
+        "spells": 3,
+        "p25": -1.838,
+        "p50": 0.441,
+        "p75": 3.416,
+        "width": 5.254,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:high",
+        "or_state": "Normal",
+        "n": 54,
+        "spells": 3,
+        "p25": -1.685,
+        "p50": 0.488,
+        "p75": 2.468,
+        "width": 4.153,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:low",
+        "or_state": "Elevated",
+        "n": 38,
+        "spells": 8,
+        "p25": -0.412,
+        "p50": 0.97,
+        "p75": 3.545,
+        "width": 3.957,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:low",
+        "or_state": "Normal",
+        "n": 81,
+        "spells": 13,
+        "p25": -0.019,
+        "p50": 1.204,
+        "p75": 2.05,
+        "width": 2.07,
+        "side": "right",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:mid",
+        "or_state": "Elevated",
+        "n": 53,
+        "spells": 6,
+        "p25": -1.363,
+        "p50": 0.155,
+        "p75": 1.942,
+        "width": 3.305,
+        "side": "left",
+        "uncond_p50": 0.37
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:mid",
+        "or_state": "Normal",
+        "n": 66,
+        "spells": 10,
+        "p25": -0.21,
+        "p50": 1.294,
+        "p75": 2.358,
+        "width": 2.568,
+        "side": "right",
+        "uncond_p50": 0.37
+      }
+    ],
+    "H-008 SP500 h=10: stressed \u00d7 OR state (where the HAR sigma quotes)": [
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Elevated",
+        "n": 156,
+        "spells": 9,
+        "p25": -1.289,
+        "p50": 1.928,
+        "p75": 4.204,
+        "width": 5.493,
+        "side": "right",
+        "uncond_p50": 0.685
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Normal",
+        "n": 201,
+        "spells": 16,
+        "p25": -0.283,
+        "p50": 1.892,
+        "p75": 3.135,
+        "width": 3.418,
+        "side": "right",
+        "uncond_p50": 0.685
+      }
+    ],
+    "H-008 SP500 h=10: stressed \u00d7 HAR-sigma tercile \u2014 the rival": [
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:high",
+        "n": 119,
+        "spells": 3,
+        "p25": -1.382,
+        "p50": 1.715,
+        "p75": 3.705,
+        "width": 5.087,
+        "side": "right",
+        "uncond_p50": 0.685
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:low",
+        "n": 119,
+        "spells": 18,
+        "p25": 0.276,
+        "p50": 2.113,
+        "p75": 3.911,
+        "width": 3.635,
+        "side": "right",
+        "uncond_p50": 0.685
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:mid",
+        "n": 119,
+        "spells": 13,
+        "p25": -0.907,
+        "p50": 1.87,
+        "p75": 3.103,
+        "width": 4.01,
+        "side": "right",
+        "uncond_p50": 0.685
+      }
+    ],
+    "H-008 SP500 h=10: stressed \u00d7 HAR-sigma tercile \u00d7 OR state": [
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:high",
+        "or_state": "Elevated",
+        "n": 65,
+        "spells": 3,
+        "p25": -0.971,
+        "p50": 1.69,
+        "p75": 4.137,
+        "width": 5.108,
+        "side": "right",
+        "uncond_p50": 0.685
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:high",
+        "or_state": "Normal",
+        "n": 54,
+        "spells": 3,
+        "p25": -2.232,
+        "p50": 2.132,
+        "p75": 3.243,
+        "width": 5.475,
+        "side": "right",
+        "uncond_p50": 0.685
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:low",
+        "or_state": "Elevated",
+        "n": 38,
+        "spells": 8,
+        "p25": 1.205,
+        "p50": 3.344,
+        "p75": 4.383,
+        "width": 3.178,
+        "side": "right",
+        "uncond_p50": 0.685
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:low",
+        "or_state": "Normal",
+        "n": 81,
+        "spells": 13,
+        "p25": 0.119,
+        "p50": 1.835,
+        "p75": 3.084,
+        "width": 2.965,
+        "side": "right",
+        "uncond_p50": 0.685
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:mid",
+        "or_state": "Elevated",
+        "n": 53,
+        "spells": 6,
+        "p25": -1.627,
+        "p50": 1.021,
+        "p75": 3.865,
+        "width": 5.492,
+        "side": "right",
+        "uncond_p50": 0.685
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:mid",
+        "or_state": "Normal",
+        "n": 66,
+        "spells": 10,
+        "p25": 0.382,
+        "p50": 1.901,
+        "p75": 2.934,
+        "width": 2.552,
+        "side": "right",
+        "uncond_p50": 0.685
+      }
+    ],
+    "H-008 SP500 h=20: stressed \u00d7 OR state (where the HAR sigma quotes)": [
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Elevated",
+        "n": 156,
+        "spells": 9,
+        "p25": -0.546,
+        "p50": 3.405,
+        "p75": 6.881,
+        "width": 7.427,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "or_state": "Normal",
+        "n": 201,
+        "spells": 16,
+        "p25": 0.757,
+        "p50": 3.252,
+        "p75": 4.512,
+        "width": 3.754,
+        "side": "right",
+        "uncond_p50": 1.388
+      }
+    ],
+    "H-008 SP500 h=20: stressed \u00d7 HAR-sigma tercile \u2014 the rival": [
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:high",
+        "n": 119,
+        "spells": 3,
+        "p25": -1.611,
+        "p50": 1.477,
+        "p75": 5.181,
+        "width": 6.793,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:low",
+        "n": 119,
+        "spells": 18,
+        "p25": 2.06,
+        "p50": 3.901,
+        "p75": 4.955,
+        "width": 2.895,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:mid",
+        "n": 119,
+        "spells": 13,
+        "p25": 0.982,
+        "p50": 3.39,
+        "p75": 5.231,
+        "width": 4.248,
+        "side": "right",
+        "uncond_p50": 1.388
+      }
+    ],
+    "H-008 SP500 h=20: stressed \u00d7 HAR-sigma tercile \u00d7 OR state": [
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:high",
+        "or_state": "Elevated",
+        "n": 65,
+        "spells": 3,
+        "p25": -2.119,
+        "p50": 1.131,
+        "p75": 6.002,
+        "width": 8.12,
+        "side": "left",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:high",
+        "or_state": "Normal",
+        "n": 54,
+        "spells": 3,
+        "p25": -0.707,
+        "p50": 1.479,
+        "p75": 4.739,
+        "width": 5.446,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:low",
+        "or_state": "Elevated",
+        "n": 38,
+        "spells": 8,
+        "p25": 1.435,
+        "p50": 4.427,
+        "p75": 7.174,
+        "width": 5.739,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:low",
+        "or_state": "Normal",
+        "n": 81,
+        "spells": 13,
+        "p25": 2.188,
+        "p50": 3.848,
+        "p75": 4.495,
+        "width": 2.308,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:mid",
+        "or_state": "Elevated",
+        "n": 53,
+        "spells": 6,
+        "p25": 0.836,
+        "p50": 3.834,
+        "p75": 6.559,
+        "width": 5.723,
+        "side": "right",
+        "uncond_p50": 1.388
+      },
+      {
+        "dd_stressed": "dd<=-5",
+        "har_tercile": "\u03c3:mid",
+        "or_state": "Normal",
+        "n": 66,
+        "spells": 10,
+        "p25": 1.102,
+        "p50": 3.274,
+        "p75": 4.599,
+        "width": 3.498,
         "side": "right",
         "uncond_p50": 1.388
       }
