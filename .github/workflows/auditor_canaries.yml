@@ -13,9 +13,10 @@ name: Auditor canaries (WP-25.A)
 # promotion. The record lands on the output branch under results/audit/canaries/
 # — a timestamped JSON with every finding, and latest.md.
 #
-# The switch (roadmap Phase 25): when WP-25.A–C are done and a run of this
-# workflow passes on the current instructions and canary set, delete the
-# "Until the auditor is switched on" subsection of how-we-explore §6.
+# A pass certifies one model / effort on one instructions file and canary set;
+# audit_entry.yml (WP-25.C) refuses to audit with any configuration this
+# workflow has not passed. The audit was switched on 2026-09-29 on the pass of
+# 2026-09-28; change the instructions or the canaries and run this again.
 #
 # MANUAL ONLY. It costs API money: seven audits, about $2.80 at the default
 # model and effort (claude-opus-5-5 / high; each record has its estimate).

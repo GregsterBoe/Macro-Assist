@@ -54,7 +54,7 @@ source of truth for *why*.
 | [ADR-0016](ADR-0016-phase-22-scores-the-distribution-only.md) | Phase 22 scores the conditional distribution only | Accepted |
 | [ADR-0017](ADR-0017-bss-floor-left-open.md) | `EDGE_MIN_BSS` stays at 0.0 — the floor is an open decision | Superseded → ADR-0020 |
 | [ADR-0020](ADR-0020-the-numeric-bar-has-a-skill-margin.md) | The numeric bar has a skill margin: `EDGE_MIN_BSS = 0.02` and the BSS interval must exclude zero | Accepted |
-| [ADR-0022](ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md) | The technical audit moves to an independent agent loop; the owner keeps the goals, the seal key and the money gate | Accepted — switched on by Phase 25 |
+| [ADR-0022](ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md) | The technical audit moves to an independent agent loop; the owner keeps the goals, the seal key and the money gate | Accepted — switched on 2026-09-29 (Phase 25) |
 
 ### Experiment tracks
 

@@ -72,7 +72,7 @@ Measured results live in `knowledge-base.md`.
 | 22 | Scoring the distribution product | 🟢 Open 2026-09-08 — the scorer follows the v1.6 cut. A/B shipped; the bar is sealed, first read ~2027-05 |
 | 23 | Exploration tier — the generation side of the method | 🔍 Open 2026-09-13 — harness built, three explore looks run 2026-09-14 and 09-21; seal decided (`SEAL_START` reused); next is the independent audit (Phase 25), then the WP-23.B class bar |
 | 24 | Record integrity & session continuity | ✅ Closed 2026-09-21 — every work package shipped: `record_audit.py` in CI (24.A/B since 2026-09-14, 24.C–F since 2026-09-21) and `/orient` (24.G); detail archived. The row said ⏸ Draft for a week after the board went Active — 24.D's first red |
-| 25 | Independent audit — the judge is not the proposer ([ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md)) | 🔍 Open 2026-09-27 — WP-25.A ✅ 2026-09-28 (auditor, bundle, six canaries; the CI canary run passed six of six on `claude-opus-5-5` / `high`); WP-25.B ✅ 2026-09-29 (five `record_audit.py` checks); WP-25.C built 2026-09-29 (`audit_entry.yml`, the `Audit record` field), done on its first CI dry run; then the switch, which is the owner's; until it, nothing is promoted |
+| 25 | Independent audit — the judge is not the proposer ([ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md)) | 🔍 Open 2026-09-27 — WP-25.A ✅ 2026-09-28 (auditor, bundle, six canaries; the CI canary run passed six of six on `claude-opus-5-5` / `high`); WP-25.B ✅ 2026-09-29 (five `record_audit.py` checks); WP-25.C ✅ 2026-09-29 (`audit_entry.yml`, the `Audit record` field; its CI dry run passed); **switched on 2026-09-29** — a promotion now passes the CI audit; a sealed read also waits on WP-25.D |
 
 The v1.5 **system-state snapshot** that used to open this file was archived on the
 same pass; `README.md` is the maintained system reference.
@@ -824,7 +824,7 @@ writes something gets an `ARTIFACTS` line, not a work package.
 
 ---
 
-## Independent Audit (Phase 25) — *the judge is not the proposer* 🔍 OPEN — accepted 2026-09-27; WP-25.A ✅ 2026-09-28; WP-25.B ✅ 2026-09-29; WP-25.C built 2026-09-29
+## Independent Audit (Phase 25) — *the judge is not the proposer* 🔍 OPEN — accepted 2026-09-27; WP-25.A ✅ 2026-09-28; WP-25.B ✅ 2026-09-29; WP-25.C ✅ 2026-09-29; switched on 2026-09-29
 
 **Why.** [ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md) moved the technical audit of a
 register entry from the owner to an auditor that is independent of the proposer
@@ -834,11 +834,12 @@ it adds is TOOLING or a CI job — nothing touches the published note. Budget: i
 runs on events (a promotion, a look), never continuously, inside the 20 €/month
 ceiling of [What is worth doing §1](../concepts/what-is-worth-doing.md#1-what-this-project-is-for).
 
-**The switch.** When WP-25.A–C are done and the auditor has rejected every
-canary, delete the *Until the auditor is switched on* subsection of
+**The switch — done 2026-09-29.** WP-25.A–C were done and the auditor had
+rejected every canary, so the owner had §6's *Until the auditor is switched on*
+subsection deleted from
 [how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis).
-Promotions can then run; a sealed read also needs WP-25.D. Until the switch,
-nothing is promoted by audit and the old rule still governs.
+Promotions now run by audit (`audit_entry.yml`); a sealed read also needs
+WP-25.D.
 
 ### WP-25.A — The auditor, its inputs, and the canaries ✅ 2026-09-28
 
@@ -927,7 +928,7 @@ One half of *No grinding* is not a check yet. The rule that each resubmission
 counts as a look needs a place where the audits are listed, and WP-25.C's
 `Audit record` field is that place.
 
-### WP-25.C — The CI audit job *(built 2026-09-29; done on its first CI dry run)*
+### WP-25.C — The CI audit job ✅ 2026-09-29
 
 A change that moves an entry toward `promoted` runs the auditor in CI on the
 bundle; CI, not the proposer, writes the result. The register's fixed format
@@ -965,9 +966,11 @@ Three things were decided in the build:
   retried into a pass without changing a word.
 
 **Done when** a dispatched dry run on H-008 passes every refusal check on a full
-clone, with the 2026-09-28 suite certifying it. Locally, a simulated CI
-environment already does. Then **the switch** is the owner's: delete §6's
-*Until the auditor is switched on* subsection, and promotions can run by audit.
+clone, with the 2026-09-28 suite certifying it. **Done 2026-09-29**
+([run 36601616925](https://github.com/GregsterBoe/Macro-Assist/actions/runs/36601616925)):
+a full clone, four commits in the entry's history, certified by
+`audit/canaries/2026-09-28T2005Z-9a67c70d.json`, no earlier audits, no API
+call. The owner switched the audit on the same day.
 
 ### WP-25.D — The seal key
 

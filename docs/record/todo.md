@@ -365,8 +365,8 @@ reused for the distribution class), #21 (H-005 changes nothing before Phase 22
 reads) and #22 (the scorer does not gain `har_scaled` before its first read) all
 closed 2026-09-14. All four → [`resolved.md`](resolved.md). H-001's artifact
 errand is done (register). What remains on this phase is not inbox work: the
-independent audit, built as Phase 25 — until it is switched on, nothing is
-promoted ([how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis))
+independent audit, built as Phase 25 and switched on 2026-09-29 — an entry is
+promoted only through `audit_entry.yml` ([how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis))
 — and WP-23.B's class bar, written before any member is promoted.*
 
 ---

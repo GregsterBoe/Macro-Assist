@@ -32,8 +32,10 @@ Then, in a few lines, say what the output changes about the session:
   included. You do **not** judge your own entry, you do not run a
   promotion-tier audit and report its verdict, and you do not read the
   sealed slice — that waits on the owner's key (how-we-explore §6,
-  ADR-0022, convention #7). While the block says *Not switched on yet*,
-  nothing is promoted by audit at all.
+  ADR-0022, convention #7). The audit is `audit_entry.yml`, which the
+  owner dispatches; a promotion needs its record stamped to the entry's
+  current text. If the block ever says *Not switched on yet*, nothing is
+  promoted by audit at all.
 - **The BOARD's `next:` lines** are what each track is waiting on. They are
   not instructions — ask what the session is for.
 

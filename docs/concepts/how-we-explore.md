@@ -219,14 +219,6 @@ What stays with the owner needs no code, and is what only the owner can do:
   it does, what it costs when it is wrong, and when to stop using it, in their
   own words.
 
-### Until the auditor is switched on
-
-Nothing is promoted by audit until the auditor exists and has rejected every
-canary (Phase 25). Until then the rule this section replaced still governs a
-promotion — the owner's rewrite and the six-item competence gate, linked above —
-so there is never a window with neither in place. Delete this subsection when
-the switch happens; `orient.py` stops printing it on its own.
-
 ## 7. The target space: never a signed forecast
 
 The strongest gravitational pull in this repository is back toward the
