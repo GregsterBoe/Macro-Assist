@@ -26,7 +26,8 @@ the fact that the job is running:
     preflight     the entry, before the key and again after it: `promoted`, a
                   CI audit stamped to its current text found nothing blocking
                   (record_audit's approval-stamp check, not a second copy of
-                  it), and no sealed read yet
+                  it), a pre-registration its class bar can read under a
+                  decided seal (class_bars.py, WP-23.B), and no sealed read yet
 
 What it cannot do: the data is public, so a deliberate look outside this
 workflow is not stopped — ADR-0022 says so. The key keeps an *unapproved*
@@ -35,8 +36,9 @@ cannot approve) is verified by trying it, once, on a dry run (WP-25.D's done
 condition). That split rests on the token's permissions, not on a separate
 account: re-verify it whenever that token is recreated.
 
-The read itself is WP-23.B's harness. Until it exists a real run stops after
-the key and before any data, with a refusal that says so.
+The read itself is WP-23.B's sealed runner, its second half. Until it exists
+a real run stops after the key and before any data, with a refusal that says
+so.
 
     python .macro-assist/seal_key.py H-008 --preflight --dry-run   # what the first job prints
     # in CI only: --environment FILE (the settings), --after-key --approvals FILE
@@ -63,7 +65,7 @@ SEAL_KEY_ENVIRONMENT = "seal-key"
 # narrowed token on this same account, so the split is that token's permissions.
 SEAL_KEY_OWNER = "GregsterBoe"
 WORKFLOW = Path(".github") / "workflows" / "sealed_read.yml"
-NO_HARNESS = ("the sealed read itself is WP-23.B's harness, which does not exist yet; "
+NO_HARNESS = ("the sealed read itself is WP-23.B's sealed runner, which does not exist yet; "
               "this run stopped after the key and before any data")
 
 
@@ -123,6 +125,20 @@ def approval_refusals(approvals: list[dict], owner: str = SEAL_KEY_OWNER,
 # the entry
 # ---------------------------------------------------------------------------
 
+def _bar_refusals(entry: str, hid: str) -> list[str]:
+    """A sealed read is read against the entry's pre-registration under its
+    class bar: one that no bar can read, or whose class has no decided seal,
+    is refused before anyone is asked to turn the key."""
+    import class_bars as cb
+    try:
+        spec = cb.parse_preregistration(entry)
+    except cb.PreregError as e:
+        return [f"{hid}'s pre-registration cannot be read by a class bar: {e}"]
+    if cb.BARS[spec["class"]].sealed_from is None:
+        return [f"{hid} is in the {spec['class']} class, which has no decided seal"]
+    return []
+
+
 def preflight(root: Path, hid: str) -> list[str]:
     """Every reason `hid` may not have its sealed read now; empty when it may."""
     env = os.environ
@@ -146,6 +162,7 @@ def preflight(root: Path, hid: str) -> list[str]:
                    "passes a CI audit first (audit_entry.yml)")
     else:
         out += [f.message for f in ra.check_approval_stamp(root) if f.subject == hid]
+    out += _bar_refusals(dp.entry_text(register, hid), hid)
     if dp.field_block(dp.entry_text(register, hid), dp.SEALED_READ) is not None:
         out.append(f"{hid} already has a `{dp.SEALED_READ}`; the sealed slice is read once")
     return out

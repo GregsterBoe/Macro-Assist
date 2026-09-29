@@ -294,7 +294,7 @@ next thing to do.
 **The bar**
 
 7. **Which class is this, and does that class's bar already exist?** (§5,
-   WP-23.B.) A conditioner faces the full class bar — skill margin, interval
+   WP-23.B, `class_bars.py`.) A conditioner faces the full class bar — skill margin, interval
    clear of zero, the second comparator, disqualifiers first — *plus* the
    mechanism clause. A structure claim that is not scored as a conditioner
    needs its own class bar, written before this entry is promoted.

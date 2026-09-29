@@ -84,10 +84,20 @@ def test_a_key_the_owner_did_not_turn_is_refused(approvals, says):
 # the entry
 # ---------------------------------------------------------------------------
 
-def _promote(root: Path, hid: str = "H-101", *, verdict: str = "no_blocking_finding") -> None:
-    """Promote `hid` on main and give it a certified CI audit of its current text."""
+PREREG = ('**Pre-registration.** Skill where the state is.\n\n```json\n{"class": "conditioner", '
+          '"arm": "frag_or", "clauses": [{"kind": "skill_in_state", "cell": {"or_state": "Elevated"}}]}\n```\n\n')
+
+
+def _promote(root: Path, hid: str = "H-101", *, verdict: str = "no_blocking_finding",
+             prereg: str | None = PREREG) -> None:
+    """Promote `hid` on main — with a pre-registration its class bar can read,
+    unless told otherwise — and give it a certified CI audit of its current text."""
     path = root / dp.HYPOTHESES
-    path.write_text(path.read_text().replace("**Status:** `draft`", "**Status:** `promoted`", 1))
+    text = path.read_text().replace("**Status:** `draft`", "**Status:** `promoted`", 1)
+    if prereg:
+        entry = dp.entry_text(text, hid)
+        text = text.replace(entry, entry.rstrip() + "\n\n" + prereg, 1)
+    path.write_text(text)
     subprocess.run(["git", "-C", str(root), "commit", "-qam", "promote"], check=True)
     entry = dp.entry_text(path.read_text(), hid)
     rec = {"schema": 1, "hid": hid, "tier": "ci", "run": "https://github.com/o/r/actions/runs/1",
@@ -113,6 +123,17 @@ def test_a_promoted_entry_edited_since_its_audit_is_not_read(ci_repo):
     path.write_text(path.read_text().replace("Gold", "Gold, edited", 1))
     subprocess.run(["git", "-C", str(ci_repo), "commit", "-qam", "edit"], check=True)
     assert any("no CI audit is stamped to its current text" in r for r in sk.preflight(ci_repo, "H-101"))
+
+
+@pytest.mark.parametrize("prereg, says", [
+    (None, "no `Pre-registration` field"),
+    ("**Pre-registration.** In words only.\n\n", "exactly one"),
+    (PREREG.replace('"clauses": [', '"clauses": [], "x": ['), "unknown key"),
+    (PREREG.replace('"conditioner"', '"gap_width"'), "gap_width class, which has no decided seal"),
+])
+def test_a_pre_registration_no_class_bar_can_read_is_not_read(ci_repo, prereg, says):
+    _promote(ci_repo, prereg=prereg)
+    assert any(says in r for r in sk.preflight(ci_repo, "H-101"))
 
 
 def test_a_rejected_entry_is_not_read(ci_repo):
@@ -178,7 +199,7 @@ def test_a_real_run_reads_nothing_until_the_harness_exists(ci_repo, tmp_path, ca
     _promote(ci_repo)
     ok = _json(tmp_path, "approvals.json", [_approval()])
     assert sk.main(["H-101", "--after-key", "--approvals", ok, "--root", str(ci_repo)]) == 2
-    assert "WP-23.B's harness" in capsys.readouterr().out
+    assert "WP-23.B's sealed runner" in capsys.readouterr().out
 
 
 # ---------------------------------------------------------------------------

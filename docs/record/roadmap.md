@@ -70,7 +70,7 @@ Measured results live in `knowledge-base.md`.
 | 16 | Fragility monitor + design-by-emergence prompt levers | ✅ Closed 2026-09-04 — 16.A shipped and alive (→ IMP-4), 16.B/C closed by Phase 21; detail archived |
 | 21 | Directional product validation → **the cut (v1.6)** | ✅ Closed 2026-09-04 — [KB-024]. WP-21.E bounded search: family 1 (VIX term structure) resolved **negative** 2026-09-08 → [KB-027]; 2 of 3 families remain, bar for them written 2026-09-13 ([ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md)) |
 | 22 | Scoring the distribution product | 🟢 Open 2026-09-08 — the scorer follows the v1.6 cut. A/B shipped; the bar is sealed, first read ~2027-05 |
-| 23 | Exploration tier — the generation side of the method | 🔍 Open 2026-09-13 — harness built, three explore looks run 2026-09-14 and 09-21; seal decided (`SEAL_START` reused); next is the independent audit (Phase 25), then the WP-23.B class bar |
+| 23 | Exploration tier — the generation side of the method | 🔍 Open 2026-09-13 — harness built, three explore looks run 2026-09-14 and 09-21; seal decided (`SEAL_START` reused); the independent audit built (Phase 25); WP-23.B's class bars written 2026-09-29, its sealed runner next |
 | 24 | Record integrity & session continuity | ✅ Closed 2026-09-21 — every work package shipped: `record_audit.py` in CI (24.A/B since 2026-09-14, 24.C–F since 2026-09-21) and `/orient` (24.G); detail archived. The row said ⏸ Draft for a week after the board went Active — 24.D's first red |
 | 25 | Independent audit — the judge is not the proposer ([ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md)) | 🔍 Open 2026-09-27 — WP-25.A ✅ 2026-09-28 (auditor, bundle, six canaries; the CI canary run passed six of six on `claude-opus-5-5` / `high`); WP-25.B ✅ 2026-09-29 (five `record_audit.py` checks); WP-25.C ✅ 2026-09-29 (`audit_entry.yml`, the `Audit record` field; its CI dry run passed); **switched on 2026-09-29** — a promotion now passes the CI audit; WP-25.D ✅ 2026-09-29 (`sealed_read.yml`, the seal key; the dry run paused for the owner and the assistant's token was refused) |
 
@@ -706,32 +706,105 @@ first. A promoted hypothesis reads 2018-01-01 → the day before Phase 22's live
 record, once, and that read burns the slice for its whole class. The harness
 keeps stopping at the seal.
 
-### WP-23.B — The class bars *(written before any candidate is promoted)*
+### WP-23.B — The class bars *(bars ✅ written 2026-09-29, before any candidate is promoted; the sealed runner is next)*
 
 One pre-registered bar per hypothesis *class*, not per hypothesis — the
 [ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md) move
-made a rule. Two classes are visible in the register today:
+made a rule ([how we explore §5](../concepts/how-we-explore.md#5-the-bar-precedes-the-candidate)).
+Two halves. **The bars** are code in `.macro-assist/class_bars.py` (research
+tier), written 2026-09-29 with every register entry `draft` or `seen` and
+nothing promoted. **The sealed runner** — the walk-forward on the sealed side
+that produces what a bar reads — is the second half and does not exist yet;
+until it does, `sealed_read.yml` stops after the owner's key and reads nothing.
 
-- **Shadow conditioner vs `unconditional`** (H-004, H-008): Phase 22's bar as
-  is — `MIN_SKILL = 0.02`, block-bootstrap interval clear of zero,
-  `underpowered → miscalibrated → inverted` first — **plus a mechanism clause**
-  named by the entry (H-002 held this slot until it closed 2026-09-24, its
-  clause — Elevated width > Normal width *and* medians on opposite sides of
-  unconditional — failing on the location half; **H-008's clause is not yet
-  written**, because the width-ratio prediction in the entry is flagged `seen`
-  rather than pre-registered and so cannot serve as one),
-  **plus `har_scaled` as a second comparator** (`resolved.md` #22): a promoted
-  conditioner must beat not only `unconditional` but the vol forecast the
-  product already has, applied to the empirical shape — on the explore slice
-  that rival matched the best arm at every horizon, so a conditioner that
-  clears `unconditional` and not `har_scaled` has found width, not a state.
-- **Gap → width** (H-003): no scorer exists. Pinball loss on a quantile pair of
-  the next-quarter rate change against `trailing_250` and `unconditional`,
-  quarterly blocks, an explicit `underpowered` floor given ~55 observations.
+**What a member adds, and where.** A bar is the class's; a member adds only
+what its own entry states, in a `Pre-registration` field: prose, then one
+```` ```json ```` block with its `class`, its `arm`, its `horizon` (default 5d,
+the published one — the member names one, and a verdict is read there and
+nowhere else), an optional stricter `floor`, and its mechanism `clauses`. The
+field is part of the stamped text, so an audit approves it and any edit voids
+the approval; it is part of the bar text, so `bar-before-result` holds it older
+than the read. `class_bars.validate` refuses an unknown key, a floor looser
+than the class's, an arm that is the benchmark or the rival, and an empty
+clause list. `seal_key.py` refuses the key for an entry whose pre-registration
+does not parse, before anyone is asked to turn it.
 
-Each bar ships with the tests [the method §10](../concepts/the-method.md#10-a-bar-is-not-tested-by-the-results-that-fail-it)
-requires: every disqualifier driven independently, and a planted-signal
-positive control.
+**The verdict — disqualifiers first, each returning its own verdict, each with
+a test that drives it alone ahead of a strong skill number** ([the method
+§10](../concepts/the-method.md#10-a-bar-is-not-tested-by-the-results-that-fail-it)):
+`exploratory` (not the sealed side) → `underpowered` (the headline, the
+rival's subsample, or any clause cell under its floor) → `miscalibrated`
+(P25–P75 coverage interval excludes 0.50) → `inverted` (skill reliably below
+zero) → `no_edge` → `explained_by_rival` → `unexplained` (the mechanism clause
+failed, or the entry named none) → `edge`. Every stage's number is carried
+whichever verdict fires.
+
+**The conditioner class** (H-004, H-008) — a shadow conditioner vs
+`unconditional`:
+
+- **Phase 22's bar as is.** `MIN_SKILL = 0.02`, `MIN_BLOCKS = 8` of 21 report
+  dates, the equal-weight pooled skill over `ORIGINAL_KEYS`, the coverage
+  disqualifier, the same bootstrap. Tests pin each to `score_distributions`,
+  and a test pins that `class_bars.pooled_skill` is the explore harness's own
+  statistic at its block.
+- **`har_scaled` as the rival, by the same pass clause** (`resolved.md` #22):
+  skill > 0.02 with an interval clear of zero against `har_scaled` too, on the
+  subsample where it quotes, which must itself have eight blocks. *Chosen over
+  "any interval clear of zero":* one definition of "beats" for both
+  comparators leaves no second threshold to argue about, and it is the
+  stricter of the two — the right side to err on when the author of the bar
+  has seen the explore numbers (`har_scaled` matched the best arm at every
+  horizon there).
+- **The mechanism clause**, in one of three kinds over cells matched on the
+  harness's labels: `width_contrast` (cell a's realized P75−P25 over cell b's,
+  bootstrap interval of the ratio above `min_ratio` ≥ 1), `median_side`
+  (a cell's median left / right of the slice's, interval clear of zero),
+  `skill_in_state` (the arm's skill in a cell clear of zero, optionally null
+  in another). These are H-008's, H-002's and H-004's shapes; a claim none of
+  them can state needs the kind added *before* its entry is promoted.
+- **The cell floor: 63 report dates (three blocks) and three episodes**, both,
+  checked before a clause's result is looked at — a cell of 70 rows can be
+  two episodes ([how we explore §9](../concepts/how-we-explore.md#9-the-checklist-an-entry-passes-before-it-is-promoted), question 8). An episode is a run of
+  the cell's dates with no gap longer than a block; a run longer than a year
+  counts once per year. *That last clause was found by the positive control on
+  its first run:* counted as plain runs, a calm cell covering most of the slice
+  is one episode, and a legitimate contrast against it would be refused as
+  thin. A stress spell is never a year long, so the floor still bites where it
+  was written for.
+- **The slice** is `resolved.md` #19's: report dates 2018-01-01 → 2026-09-06
+  (Phase 22's live record starts 2026-09-07), once, and the read burns it for
+  the class.
+
+**The gap → width class** (H-003) — pinball loss on a P25/P75 pair of the
+next-quarter change against `unconditional`, `trailing_250` as the rival by
+the same pass clause, one observation a quarter, **four-quarter blocks**
+(a rate regime outlasts a quarter), **≥ 10 blocks and ≥ 40 quarters**, cells
+≥ 12 quarters in three episodes. **Its seal is not decided** — on
+2018-01-01 the sealed side holds ~34 quarters, under the floor by
+construction — so a sealed read under this class is refused in code until
+[`todo.md`](todo.md) #33 decides it. No scorer data exists either: the
+point-in-time SEP errand in H-003 comes first.
+
+**The positive control.** A planted state — N(0, 1) in Normal, N(0, 3) in
+Elevated, runs of 60 and 20 report dates — reads `edge`; the same data with a
+rival that already knows σ reads `explained_by_rival`; noise does not pass;
+the opposite width contrast, or a median-side clause the data does not bear,
+reads `unexplained`; the same state on 240 report dates reads `underpowered`.
+
+**What this does not establish.** Nothing about any entry: no data was read,
+and the bar was not audited — it is class-level code the auditor judges
+entries *against*, and its defence is that it precedes every member's
+promotion (§5). The proposer wrote it having seen the explore slice, which is
+why each open choice above went the strict way and says so.
+
+**The second half — the sealed runner, next.** Walks the member's arm and the
+two comparators forward on the sealed side with the harness's labels, feeds
+`class_bars.read`, writes the report, and is called only from
+`sealed_read.yml`'s key job after the owner's approval is verified — never
+from a local shell. With it: the auditor's bundle gains the class bar's text,
+so question 7 and 8 are checked against the bar that will be applied; and a
+`record_audit.py` check that `class_bars.py` has not changed since its class's
+first sealed read.
 
 ### WP-23.C — The shadow-conditioner harness ✅ built 2026-09-14, first looks run
 
@@ -784,7 +857,8 @@ entry. Since [ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-in
 independent audit instead of the owner's rewrite; the owner may veto; its status
 moves `draft → promoted`, the ledger is attached, and the run reads the sealed
 slice once, after the owner turns the seal key. Result → KB, either way.
-**Blocked on Phase 25's switch.**
+**Blocked on WP-23.B's sealed runner** (Phase 25's switch landed 2026-09-29; the
+class bars 2026-09-29), and on an entry whose `Pre-registration` the bar can read.
 
 ---
 
@@ -997,7 +1071,7 @@ Three things were decided in the build:
 - **The split is the token's permissions, not a separate account.** The
   assistant's token is on the owner's account, so it is verified by trying,
   and verified again whenever that token changes.
-- **A real run reads nothing yet.** The read is WP-23.B's harness. Until it
+- **A real run reads nothing yet.** The read is WP-23.B's sealed runner. Until it
   exists, a real run stops after the key and says so.
 
 **Done 2026-09-29.** Two dispatched dry runs on H-008, both reading nothing:

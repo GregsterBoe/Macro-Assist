@@ -71,7 +71,7 @@ jobs:
         run: pip install -r .macro-assist/requirements.txt
 
       - name: Run the offline key tests first
-        run: python -m pytest .macro-assist/tests/test_seal_key.py -q
+        run: python -m pytest .macro-assist/tests/test_seal_key.py .macro-assist/tests/test_class_bars.py -q
 
       - name: Mount output branch at results/, with history
         env:

@@ -354,7 +354,7 @@ call). **`dry_run` is on by default.** It has two jobs:
 
 | Job | Does |
 |---|---|
-| `preflight` | Runs `seal_key.py <hid> --preflight` on a full clone with `output` mounted with its history. Refuses the entry unless it is `promoted`, `record_audit.py`'s `approval-stamp` check finds nothing against it (a certified CI audit of its current text with no blocking finding), and it has no `Sealed read (ledger)` yet. Also refuses the key itself, from GitHub's settings for `seal-key`: missing, a reviewer other than the owner, *Prevent self-review* on, or administrators allowed to bypass |
+| `preflight` | Runs `seal_key.py <hid> --preflight` on a full clone with `output` mounted with its history. Refuses the entry unless it is `promoted`, `record_audit.py`'s `approval-stamp` check finds nothing against it (a certified CI audit of its current text with no blocking finding), its `Pre-registration` parses under a class bar whose seal is decided (`class_bars.py`, WP-23.B), and it has no `Sealed read (ledger)` yet. Also refuses the key itself, from GitHub's settings for `seal-key`: missing, a reviewer other than the owner, *Prevent self-review* on, or administrators allowed to bypass |
 | `key` | Names `environment: seal-key`, so GitHub holds it until the owner approves it on the run page (*Review deployments*). When it starts, it reads the run's approval record from the API and runs `seal_key.py <hid> --after-key`, which refuses unless the owner approved `seal-key` on this run and nobody else did, then runs the preflight again against `output` as it is now |
 
 **Why the job checks the approval instead of trusting the pause.** GitHub
@@ -367,8 +367,9 @@ nobody did.
 run would refuse and still goes on to the key, so the pause can be shown on an
 entry that is not yet eligible. It is never soft on the key: a missing
 environment, a wrong setting or a missing approval fails it. **A real run reads
-nothing yet.** The read is WP-23.B's harness, which does not exist, so a real
-run that passes everything stops after the key with a refusal that says so.
+nothing yet.** The read is WP-23.B's sealed runner, which does not exist, so
+a real run that passes everything stops after the key with a refusal that says
+so.
 
 **Setting up the key** (the owner, once, in the repository's Settings →
 Environments → *New environment*):
@@ -405,7 +406,7 @@ What it does not do:
 - **It does not stop a deliberate look.** The data is public. The key keeps an
   unapproved sealed read out of the record, which is what ADR-0022 claims.
 - **It does not write the `Sealed read (ledger)` field.** That comes with the
-  harness (WP-23.B), and `bar-before-result` already holds it.
+  sealed runner (WP-23.B), and `bar-before-result` already holds it.
 
 ### model_compare.yml — the main model, compared on saved days (IMP-8)
 

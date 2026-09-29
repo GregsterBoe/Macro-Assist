@@ -14,7 +14,8 @@ Conventions:
   reasoning intact, and pull any "carry forward" caveat back up into this file
   as its own entry. A resolved item left here is noise; a lost caveat is worse.
 
-Last reviewed: 2026-09-22 (second pass, same day) — all three items from the
+Last reviewed: 2026-09-29 — **#33** opened by WP-23.B: the gap → width class has
+a bar and no seal. Before that, 2026-09-22 (second pass, same day) — all three items from the
 06:00 pipeline failure worked. **#28 closed** → [`resolved.md`](resolved.md)
 (monthly critical series carry forward seven days, marked; `treasury_10y` never
 does; the abort survives for a series with nothing available), leaving its one
@@ -359,15 +360,43 @@ metric) closed the same day: Phase 18 is closed at 18.3, negative-by-constructio
 
 ## Phase 23 — exploration tier
 
-*Nothing open. #32 (accept ADR-0022 — the technical audit moves to an
+### Open decision #33 — which seal governs the gap → width class (H-003)?
+
+**Opened 2026-09-29, by WP-23.B.** The class bar is written
+(`class_bars.GAP_WIDTH`: ≥ 40 quarters in ≥ 10 four-quarter blocks) and its
+seal is left `None`, so `class_bars.read` and `seal_key.py` refuse a sealed
+read under it. `resolved.md` #19 decided the seal for the *conditioner* class;
+it did not decide this one, and the choice here is not the same choice.
+Point-in-time SEP exists quarterly from 2012, so the whole record is ~55
+quarters, and on the 2018-01-01 seal the sealed side is ~34 — under the floor
+by construction.
+
+1. **The whole SEP record is the sealed side.** Nothing has ever looked at the
+   gap against realized width (H-003: *What was seen — nothing yet*), so no
+   part of 2012 → now has been seen for this question. One read, ~55 quarters,
+   clears the floor. Cost: no explore side at all. The data errand has to be
+   built without ever scoring the gap against outcomes, and the first look
+   *is* the read.
+2. **2018-01-01, reused, as #19 did.** One seal in the repo; 2012 → 2017
+   (~24 quarters) is the explore side. Cost: the sealed read is `underpowered`
+   by construction until ~2028, so this is a decision to wait.
+3. **No historical seal; read the live record forward.** Forty quarters is ten
+   years. In practice, never.
+
+*Lean, the proposer's:* (1), with the errand's output limited to the gap series
+and a test that nothing in it reads a realized rate change. The floor was set
+from a principle (ten years, more than one rate cycle) and not moved to fit
+any option. Nothing depends on this before H-003's data exists.
+
+*Earlier: nothing open. #32 (accept ADR-0022 — the technical audit moves to an
 independent agent loop) closed 2026-09-27, accepted. #19 (the seal — 2018-01-01
 reused for the distribution class), #21 (H-005 changes nothing before Phase 22
 reads) and #22 (the scorer does not gain `har_scaled` before its first read) all
 closed 2026-09-14. All four → [`resolved.md`](resolved.md). H-001's artifact
-errand is done (register). What remains on this phase is not inbox work: the
-independent audit, built as Phase 25 and switched on 2026-09-29 — an entry is
-promoted only through `audit_entry.yml` ([how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis))
-— and WP-23.B's class bar, written before any member is promoted.*
+errand is done (register). The independent audit was built as Phase 25 and
+switched on 2026-09-29 — an entry is promoted only through `audit_entry.yml`
+([how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis))
+— and WP-23.B's class bars were written 2026-09-29; its sealed runner is next.*
 
 ---
 

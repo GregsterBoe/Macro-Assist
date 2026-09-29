@@ -29,6 +29,13 @@ CI audit of the entry, one line each. CI writes it from its own records
 red, so it is never written by hand. Once a result exists, only the
 status and the ledgers may change.
 
+**Pre-registration** (WP-23.B). A promoted entry states what its class bar
+reads in a `Pre-registration` field: prose, then one fenced `json` block naming
+its class, arm, horizon, any stricter floor and its mechanism clauses
+([Scoring → class_bars.py](../reference/scoring.md#class_barspy-the-class-bars-a-promoted-hypothesis-is-read-against-wp-23b)).
+The audit stamps it with the rest of the entry. An entry without one cannot
+have its sealed read.
+
 | # | Status | One line |
 |---|---|---|
 | [H-001](#h-001) | `closed` | The SPF anchor's confidence bins are the first correctly ordered ones ever measured here — *confound resolved 2026-09-14: the ordering is carried by two crisis-rebound periods and inverts within three of six assets; closed on its own target-space rule, no KB entry* |

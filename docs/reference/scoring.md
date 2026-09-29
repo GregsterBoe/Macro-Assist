@@ -208,6 +208,70 @@ a test keeps the two equal.
     `test_the_new_bar_relabels_nothing_in_the_record` is the check that the new
     bar changes no published verdict.
 
+## class_bars.py — the class bars a promoted hypothesis is read against (WP-23.B)
+
+A research-tier module holding one pre-registered bar per hypothesis *class*,
+written before any member of the class is promoted
+([how we explore §5](../concepts/how-we-explore.md#5-the-bar-precedes-the-candidate)).
+It reads observations in `explore_conditioner.py`'s shape and does not fetch
+anything. The sealed runner that would feed it the sealed side does not exist
+yet (roadmap WP-23.B).
+
+| Class | Benchmark | Rival | Power | Clause cells | Seal |
+|---|---|---|---|---|---|
+| `conditioner` | `unconditional` | `har_scaled` | ≥ 8 blocks of 21 report dates, on the headline and on the rival's subsample | ≥ 63 report dates in ≥ 3 episodes | report dates 2018-01-01 → 2026-09-06 (`resolved.md` #19) |
+| `gap_width` | `unconditional` | `trailing_250` | ≥ 10 four-quarter blocks, ≥ 40 quarters | ≥ 12 quarters in ≥ 3 episodes | **not decided** ([`todo.md`](../record/todo.md) #33) — a sealed read is refused |
+
+Both classes use one pass clause for both comparators: pooled skill
+> `MIN_SKILL` (0.02, Phase 22's) with a block-bootstrap interval clear of zero.
+The headline is the equal-weight pooled skill over `ORIGINAL_KEYS` for the
+conditioner and over the entry's series for the gap class. It is computed by
+`pooled_skill`, which is the explore harness's statistic with the block as a
+parameter; a test keeps the two identical at 21.
+
+`verdict(bar, summary, clauses, sealed=…)` evaluates in this order and returns
+at the first that fires: `exploratory` → `underpowered` → `miscalibrated`
+(P25–P75 coverage interval excludes 0.50) → `inverted` → `no_edge` →
+`explained_by_rival` → `unexplained` → `edge`. Every number is carried in the
+result whichever verdict fires.
+
+**A member's pre-registration** is a `Pre-registration` field in its register
+entry: prose, then one fenced `json` block. `parse_preregistration` reads it,
+and `validate` refuses unknown keys, a floor looser than the class's, an arm
+that is the benchmark or the rival, and an empty clause list. An
+illustration only — no entry has a pre-registration yet:
+
+```json
+{"class": "conditioner", "arm": "dd_x_frag", "horizon": 5,
+ "floor": {"report_dates": 80, "episodes": 4},
+ "clauses": [{"kind": "width_contrast", "series": "SP500",
+              "a": {"dd_bin": ["dd-5..-10", "dd<-10"], "or_state": "Elevated"},
+              "b": {"dd_bin": ["dd-5..-10", "dd<-10"], "or_state": "Normal"},
+              "min_ratio": 1.0, "horizons": [5, 10, 20]}]}
+```
+
+The clause kinds:
+
+- `width_contrast` needs the bootstrap interval of cell a's realized
+  P75−P25 over cell b's to sit above `min_ratio`, which must be ≥ 1.
+- `median_side` needs a cell's median minus the slice's to be clear of zero,
+  on the named side.
+- `skill_in_state` needs the arm's skill in a cell to be clear of zero, and
+  optionally, with `null_in`, its skill in another cell to span zero.
+
+A cell names labels the harness writes on each observation, and a list means
+any of its values. A label the observations do not carry is refused, not
+treated as empty. An episode is a run of a cell's report dates with no gap
+longer than one block; a run longer than a year counts once per year.
+
+`seal_key.py`'s preflight refuses the key for a promoted entry whose
+pre-registration does not parse, or whose class has no decided seal.
+
+```bash
+python .macro-assist/class_bars.py          # print both bars
+python .macro-assist/class_bars.py H-008    # parse this entry's pre-registration
+```
+
 ## Window-Aware Calibration — retired in v1.6
 
 `load_accuracy_context()` identified each asset's best-performing scoring window
