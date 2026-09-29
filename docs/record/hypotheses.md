@@ -684,7 +684,37 @@ new fit) · `score_distributions._gaussian_quantiles` · the report.
 
 **Read first.** [KB-016] · [KB-017] · [KB-033] · [H-006](#h-006) · [H-007](#h-007) · `explore_conditioner.py` · `fragility_or.py::_pit_backtest`.
 
-**Explore-tier looks (ledger).** Inherited from [H-002](#h-002) — *2026-09-14* and *2026-09-21*: two runs, 12 arms, three cell configurations, two pre-written location predictions that failed in sign. The width reading comes from the first run's pre-fixed configuration (`DD_EDGES = (−5%, −10%)`, `MIN_N = 10`, `BURN_IN = 252`). Report: `results/explore_conditioner/report.md` (§ *H-002 structure check*). No look yet specific to this entry.
+**Pre-registration.** *Drafted by the assistant, the proposer, 2026-09-29; it does not judge it (§6).* Written before the counted explore look *What would test it* puts first (stressed bin × OR state against stressed bin × `har_scaled` σ tercile, widths only). That look ran on 2026-09-29, and the state survived it on the rule written before it (ledger below). Nothing here changed in its light. What it does not change: the headline this bar reads first is `dd_x_frag`'s *skill*, and on the explore record that skill clears neither comparator.
+- **Class `conditioner`** (`class_bars.py`). Disqualifiers first. Then `dd_x_frag` must beat `unconditional` *and then* `har_scaled` by `MIN_SKILL` (0.02), each block-bootstrap interval clear of zero. Skill is pinball, pooled equal-weight over SP500 / Gold / WTI Oil. The seal is 2018-01-01 → before 2026-09-07, the whole sealed side (`resolved.md` #19).
+- **Arm `dd_x_frag`**, the entry's claim scored as a conditioner: S&P drawdown bin × `fragility_or` state. **Horizon 5 days**, the class default and the horizon the note publishes. It is also the only horizon where this arm was above zero on the explore slice. **How strong that was:** +0.009 [−0.001, +0.020] against `unconditional` at 5d, +0.001 at 10d and −0.009 at 20d. That is below the 0.02 margin at every horizon. `har_scaled` alone scored +0.015 [+0.011, +0.019] at 5d. So on the explore record this arm clears neither comparator. The honest prior for this read is `no_edge` or `explained_by_rival`.
+- **Floor: the class floor, stated.** Each clause cell needs at least 63 report dates in at least 3 distinct episodes. It is written before the sealed cells' sizes are known. The explore cells (70 and 96 days, two or three episodes each) would have been at or under it.
+- **Mechanism clause: one width contrast, at every horizon.** "Stressed" is `dd_stressed = dd<=-5`: the S&P at least 5% below its 252-report-date high. On SP500, the realized P75−P25 of *stressed ∧ OR Elevated* must exceed that of *stressed ∧ OR Normal*, with the ratio's block-bootstrap interval above 1.0, at 5, 10 and 20 days. It must hold at all three. The ratio is 1.0 because the claim is "wider", not "this much wider".
+- **What the clause does not rule out.** Volatility clustering would pass it too: an Elevated tape is a high-vol tape. The rival comparator is what separates the two. An arm that clears `unconditional` and not `har_scaled` reads `explained_by_rival`, which means the state is not doing the work.
+- **Left out on purpose.** The "ratio grows with horizon" prediction above was written after its numbers were seen, and is not a clause.
+- **What the read costs.** It spends the conditioner class's one historical read, [H-004](#h-004) included (#19). One read, and the result goes to the Knowledge Base whichever verdict fires.
+
+```json
+{"class": "conditioner", "arm": "dd_x_frag", "horizon": 5,
+ "floor": {"report_dates": 63, "episodes": 3},
+ "clauses": [{"kind": "width_contrast", "series": "SP500",
+              "a": {"dd_stressed": "dd<=-5", "or_state": "Elevated"},
+              "b": {"dd_stressed": "dd<=-5", "or_state": "Normal"},
+              "min_ratio": 1.0, "horizons": [5, 10, 20]}]}
+```
+
+**Explore-tier looks (ledger).** Inherited from [H-002](#h-002) — *2026-09-14* and *2026-09-21*: two runs, 12 arms, three cell configurations, two pre-written location predictions that failed in sign. The width reading comes from the first run's pre-fixed configuration (`DD_EDGES = (−5%, −10%)`, `MIN_N = 10`, `BURN_IN = 252`). Report: `results/explore_conditioner/report.md` (§ *H-002 structure check*). No look yet specific to this entry before the one below.
+
+*2026-09-29* — **the vol-rival look, this entry's first** (*What would test it*). No new arm. Realized S&P widths on the stressed report dates (dd ≤ −5%) where the S&P's HAR sigma quotes: 357 of them, 25 spells. They are cut at that sigma's terciles (18.75 / 23.76, edges fixed once) and crossed with OR state.
+- **Rule, written in `explore_conditioner.py` before the run.** A tercile × horizon is *comparable* if its Elevated and Normal cells each hold ≥ 10 report dates in ≥ 2 spells. Fewer than 3 comparable cells, or all in one tercile, means *cannot separate*. Otherwise the state *survives* if Elevated is wider in ≥ 75% of comparable cells.
+- **Edited before the run, and stricter.** "All in one tercile" was added when a unit test showed that one tercile at three horizons — the same dates three times — would have counted as three comparisons. The receipt is `dirty: true`. The ordering rests on this entry, not on a commit.
+- **Outcome: survives** — 9 comparable cells, Elevated wider in 8. Ratios 1.91 / 1.29 / 1.27 at 5d, 1.07 / 2.15 / **0.93** at 10d, and 2.49 / 1.64 / 1.49 at 20d (low / mid / high σ). The σ tercile alone splits the width too (2.80 / 3.26 / 4.58 at 5d). Both dimensions carry width, and the state's split persists inside the rival's.
+- **Easy to forget.**
+  - The high-σ tercile — where the confound bites hardest — holds **3 spells** on each side. There the split is 1.27 / 0.93 / 1.49: one miss, and the weakest of the three.
+  - Within a tercile σ still varies. Elevated could sit higher inside each one. This look does not test that; the class bar's continuous `har_scaled` comparator does.
+  - The 20d ratios are larger than 5d in every tercile. That is the `seen` growth prediction again, still not a clause.
+  - It is a width look. It says nothing about `dd_x_frag`'s pinball skill (+0.009 at 5d, below `MIN_SKILL`), and skill is what the conditioner bar reads first.
+
+Report: `results/explore_conditioner/report.md` § *H-008 rival check*.
 
 ## Closed
 

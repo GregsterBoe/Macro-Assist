@@ -298,3 +298,57 @@ def test_every_run_appends_its_own_receipt(tmp_path):
     assert first["seal"] == SEAL_START.isoformat() and first["arms"] == list(ec.ALL_ARMS)
     assert datetime.fromisoformat(first["run_at"]).tzinfo is not None
     assert first["commit"] is None or len(first["commit"]) == 40
+
+
+# ---------------------------------------------------------------------------
+# H-008's vol-rival look (2026-09-29): the rule as written before the look
+# ---------------------------------------------------------------------------
+
+def _cross(rows) -> pd.DataFrame:
+    """A cross table as `realized_by_cell` returns it: (tercile, state) → n, spells, width."""
+    df = pd.DataFrame([{"dd_stressed": "dd<=-5", "har_tercile": t, "or_state": s,
+                        "n": n, "spells": sp, "width": w} for t, s, n, sp, w in rows])
+    return df.set_index(["dd_stressed", "har_tercile", "or_state"])
+
+
+def _all_horizons(rows):
+    return {h: _cross(rows) for h in (5, 10, 20)}
+
+
+def test_the_state_survives_when_elevated_is_wider_within_the_vol_terciles():
+    rows = [(t, "Elevated", 20, 2, 4.0) for t in ec.SIGMA_TERCILES] + \
+           [(t, "Normal", 20, 2, 3.0) for t in ec.SIGMA_TERCILES]
+    got = ec.vol_rival_rule(_all_horizons(rows))
+    assert (got["outcome"], got["n_comparable"], got["n_elevated_wider"]) == ("survives", 9, 9)
+
+
+def test_the_state_fails_when_the_vol_tercile_already_carries_the_width():
+    rows = [(t, "Elevated", 20, 2, 3.0) for t in ec.SIGMA_TERCILES] + \
+           [(t, "Normal", 20, 2, 3.2) for t in ec.SIGMA_TERCILES]
+    assert ec.vol_rival_rule(_all_horizons(rows))["outcome"] == "fails"
+
+
+def test_two_thirds_wider_is_not_enough():
+    rows = [("σ:low", "Elevated", 20, 2, 4.0), ("σ:mid", "Elevated", 20, 2, 4.0), ("σ:high", "Elevated", 20, 2, 2.0)] + \
+           [(t, "Normal", 20, 2, 3.0) for t in ec.SIGMA_TERCILES]
+    assert ec.vol_rival_rule(_all_horizons(rows))["outcome"] == "fails"
+
+
+@pytest.mark.parametrize("elevated", [
+    [("σ:high", "Elevated", 90, 4, 6.0)],                                     # Elevated only where vol is high
+    [(t, "Elevated", 9, 3, 6.0) for t in ec.SIGMA_TERCILES],                  # under MIN_N
+    [(t, "Elevated", 40, 1, 6.0) for t in ec.SIGMA_TERCILES],                 # one spell each
+])
+def test_a_state_collinear_with_vol_or_too_thin_cannot_be_separated(elevated):
+    rows = elevated + [(t, "Normal", 40, 3, 3.0) for t in ec.SIGMA_TERCILES]
+    assert ec.vol_rival_rule(_all_horizons(rows))["outcome"] == "cannot separate"
+
+
+def test_sigma_terciles_stop_before_the_seal_and_label_only_stressed_dates():
+    idx = pd.bdate_range("2017-10-02", periods=120)
+    frame = pd.DataFrame({"dd_stressed": ["dd<=-5", "dd>-5"] * 60, "or_state": "Normal"}, index=idx)
+    sigma = np.linspace(10, 40, len(idx))
+    lab = ec.sigma_terciles(frame, sigma)
+    assert lab[idx >= pd.Timestamp(SEAL_START)].isna().all()
+    assert lab[(frame["dd_stressed"] == "dd>-5").to_numpy()].isna().all()
+    assert set(lab.dropna()) == set(ec.SIGMA_TERCILES)

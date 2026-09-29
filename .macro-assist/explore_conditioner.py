@@ -76,6 +76,24 @@ register's next counted look:
                     empirical shape and location kept. Splits H-006's width
                     claim from the Gaussian's zero mean
 
+One look added 2026-09-29, H-008's own first (its `What would test it`):
+does the stressed tape's width split by OR state survive the vol forecast?
+No new arm — realized S&P widths only, on the stressed report dates
+(dd ≤ DD_EDGES[0]) where the S&P's HAR sigma quotes, cut at that sigma's
+terciles (the edges fixed once, on those dates, the same at every horizon):
+
+    rival   stressed × HAR-sigma tercile
+    cross   stressed × HAR-sigma tercile × OR state
+
+    Rule written before looking. A tercile × horizon is *comparable* when its
+    Elevated and its Normal cell each hold ≥ MIN_N report dates in ≥ 2
+    distinct stress spells. Fewer than 3 comparable cells of the 9, or
+    comparable cells in only one tercile (the horizons share their dates, so
+    one tercile at three horizons is one comparison): the slice CANNOT
+    SEPARATE the state from the vol level. Otherwise the state
+    SURVIVES if Elevated is wider (P75 − P25) than Normal in ≥ 75% of the
+    comparable cells, and FAILS if not. H-008 predicts it survives.
+
 Scoring
 -------
 Pinball loss on the three quantiles, `skill_vs` = 1 − loss(arm)/loss(benchmark)
@@ -731,6 +749,54 @@ def realized_by_cell(frame: pd.DataFrame, fr: dict, asset: str, horizon: int,
     return out.round(3)
 
 
+SIGMA_TERCILES = ("σ:low", "σ:mid", "σ:high")
+VOL_RIVAL_MIN_SPELLS = 2        # H-008's look: a comparable cell's floor in distinct spells
+VOL_RIVAL_MIN_COMPARABLE = 3    # ... fewer comparable cells than this: cannot separate
+VOL_RIVAL_SHARE = 0.75          # ... Elevated wider in at least this share: survives
+
+
+def sigma_terciles(frame: pd.DataFrame, sigma: np.ndarray, seal: date = SEAL_START) -> pd.Series:
+    """H-008's look: each stressed pre-seal report date's HAR-sigma tercile,
+    edges fixed once on those dates (where the sigma quotes); None elsewhere."""
+    ok = ((frame.index < pd.Timestamp(seal)) & (frame["dd_stressed"] == "dd<=-5").to_numpy()
+          & frame["or_state"].notna().to_numpy() & np.isfinite(sigma))
+    lo, hi = np.percentile(sigma[ok], [100 / 3, 200 / 3])
+    lab = np.where(sigma <= lo, SIGMA_TERCILES[0], np.where(sigma <= hi, SIGMA_TERCILES[1], SIGMA_TERCILES[2]))
+    return pd.Series(np.where(ok, lab, None), index=frame.index, dtype=object)
+
+
+def vol_rival_rule(cross: dict[int, pd.DataFrame]) -> dict:
+    """The rule the docstring wrote before the look, applied to the cross
+    tables (stressed × sigma tercile × OR state, one per horizon)."""
+    cells = []
+    for h, df in cross.items():
+        d = df.reset_index()
+        for t in SIGMA_TERCILES:
+            e = d[(d["har_tercile"] == t) & (d["or_state"] == "Elevated")]
+            n = d[(d["har_tercile"] == t) & (d["or_state"] == "Normal")]
+            row = {"h": h, "tercile": t,
+                   "n_elevated": int(e["n"].sum()), "spells_elevated": int(e["spells"].sum()),
+                   "n_normal": int(n["n"].sum()), "spells_normal": int(n["spells"].sum())}
+            row["comparable"] = bool(len(e) and len(n)
+                                     and row["n_elevated"] >= MIN_N and row["n_normal"] >= MIN_N
+                                     and row["spells_elevated"] >= VOL_RIVAL_MIN_SPELLS
+                                     and row["spells_normal"] >= VOL_RIVAL_MIN_SPELLS)
+            if len(e) and len(n):
+                we, wn = float(e["width"].iloc[0]), float(n["width"].iloc[0])
+                row.update(width_elevated=we, width_normal=wn,
+                           ratio=round(we / wn, 3) if wn else None, elevated_wider=we > wn)
+            cells.append(row)
+    comp = [c for c in cells if c["comparable"]]
+    wider = sum(c["elevated_wider"] for c in comp)
+    if len(comp) < VOL_RIVAL_MIN_COMPARABLE or len({c["tercile"] for c in comp}) < 2:
+        outcome = "cannot separate"
+    elif wider >= VOL_RIVAL_SHARE * len(comp):
+        outcome = "survives"
+    else:
+        outcome = "fails"
+    return {"outcome": outcome, "n_comparable": len(comp), "n_elevated_wider": wider, "cells": cells}
+
+
 # ---------------------------------------------------------------------------
 # Report
 # ---------------------------------------------------------------------------
@@ -852,7 +918,29 @@ def report_md(summary: dict, cells: dict[str, pd.DataFrame], meta: dict) -> str:
           f"spell age (`fresh` ≤ {AGE_EDGE} trading days) and by the sign of the trailing "
           f"{SIGN_WINDOW}-day S&P return; each has its rival without the OR state beside it.", ""]
     for name, df in cells.items():
-        L += [f"### {name}", "", _md_table(df), ""]
+        if not name.startswith("H-008"):
+            L += [f"### {name}", "", _md_table(df), ""]
+    vr = summary.get("vol_rival")
+    if vr:
+        L += ["## H-008 rival check — does the stressed width split by OR state survive the vol forecast?", "",
+              "Realized S&P forward change on the stressed report dates (dd ≤ −5%) where the S&P's HAR "
+              f"sigma quotes, cut at that sigma's terciles (edges {vr['edges']}, fixed once on those dates). "
+              f"Rule written before looking (2026-09-29): a tercile × horizon is comparable when its Elevated "
+              f"and its Normal cell each hold ≥ {MIN_N} report dates in ≥ {VOL_RIVAL_MIN_SPELLS} spells; "
+              f"fewer than {VOL_RIVAL_MIN_COMPARABLE} comparable cells of 9, or all in one tercile → *cannot separate*; otherwise "
+              f"*survives* if Elevated is wider in ≥ {VOL_RIVAL_SHARE:.0%} of them, else *fails*.", "",
+              f"**Outcome: {vr['outcome']}** — {vr['n_comparable']} comparable cell(s), Elevated wider in "
+              f"{vr['n_elevated_wider']}.", "",
+              "| h | σ tercile | Elevated n / spells | Normal n / spells | width Elevated | width Normal | ratio | comparable |",
+              "|---|---|---|---|---|---|---|---|"]
+        for c in vr["cells"]:
+            L.append(f"| {c['h']} | {c['tercile']} | {c['n_elevated']} / {c['spells_elevated']} | "
+                     f"{c['n_normal']} / {c['spells_normal']} | {c.get('width_elevated', '—')} | "
+                     f"{c.get('width_normal', '—')} | {c.get('ratio', '—')} | {'yes' if c['comparable'] else 'no'} |")
+        L.append("")
+        for name, df in cells.items():
+            if name.startswith("H-008"):
+                L += [f"### {name}", "", _md_table(df), ""]
     L += ["## Reproduce", "", "```", "cd .macro-assist && python explore_conditioner.py --cached",
           "```", "", "Inputs: `refit_models._fetch_price_history(TABLE_START)`, "
           "`refit_models._fetch_fred_series`, `fragility_or.build_channels(stride=1)`; "
@@ -911,6 +999,23 @@ def run(cached: bool = False, out_dir: Path = RESULTS_DIR) -> dict:
             frame, fr, "SP500", h, ["dd_bin", "or_state", "dd_age"], where=stressed)
         cells[f"SP500 h={h}: drawdown bin × OR state × trailing-5d sign — look B, fine bins"] = realized_by_cell(
             frame, fr, "SP500", h, ["dd_bin", "or_state", "sp_sign"], where=stressed)
+
+    vframe = frame.copy()
+    sig = sigmas["SP500"]
+    vframe["har_tercile"] = sigma_terciles(frame, sig)
+    in_look = vframe["har_tercile"].notna()
+    ok = in_look.to_numpy()
+    edges = np.percentile(sig[ok], [100 / 3, 200 / 3])
+    cross = {}
+    for h in HORIZONS:
+        cells[f"H-008 SP500 h={h}: stressed × OR state (where the HAR sigma quotes)"] = realized_by_cell(
+            vframe, fr, "SP500", h, ["dd_stressed", "or_state"], where=in_look)
+        cells[f"H-008 SP500 h={h}: stressed × HAR-sigma tercile — the rival"] = realized_by_cell(
+            vframe, fr, "SP500", h, ["dd_stressed", "har_tercile"], where=in_look)
+        cross[h] = cells[f"H-008 SP500 h={h}: stressed × HAR-sigma tercile × OR state"] = realized_by_cell(
+            vframe, fr, "SP500", h, ["dd_stressed", "har_tercile", "or_state"], where=in_look)
+    summary["vol_rival"] = {**vol_rival_rule(cross),
+                            "edges": [round(float(e), 2) for e in edges]}
 
     dates = sorted({o["date"] for o in obs})
     meta = {"first_date": dates[0], "last_date": dates[-1], "n_report_dates": len(dates),
