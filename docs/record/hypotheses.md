@@ -330,7 +330,7 @@ read of the gap is not taken even if it appears.
 
 ## H-004 — A fragility-state conditioner beats the macro bucket {: #h-004 }
 
-**Status:** `draft` — needs an independent audit before it is a hypothesis (§6, ADR-0022).
+**Status:** `closed` · explore look 2026-09-14 (with H-002's run) · closed 2026-09-29 at the owner's call, on the explore record. It never reached a bar or an audit, and has no KB entry: its one look was explore tier (`verdict(sealed=False)`). **Skill is zero:** `frag_or` scores +0.001 / −0.002 / −0.005 against `unconditional` at 5 / 10 / 20d, pooled over SP500/Gold/WTI, every interval spanning zero. That is far below the class margin of 0.02. **The mechanism failed in the opposite direction.** The gain was to sit in Elevated. Elevated is where the arm *loses* (−0.027 [−0.046, −0.013] at 5d): the flag fires mid-selloff, and reversion follows. **No further look was run, on purpose.** A vol-rival look has no gain to explain. The state-adjusted vol forecast is H-008's `har_x_frag`, which already splits on the OR state, and it was worse than `har_scaled` at every horizon (2026-09-29). A new variant chosen after these numbers would be fishing. With H-008 closed the same day, the conditioner class has no member, and its sealed slice stays unspent. The ledger and the original text stay as written.
 Related to H-002 but a narrower and cheaper question; either can be run first.
 
 **What was seen.** [KB-028]: the published conditional table was, until

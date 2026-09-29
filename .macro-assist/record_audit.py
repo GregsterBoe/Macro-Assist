@@ -1287,9 +1287,8 @@ RUN_LOG = "explore_conditioner/runs.jsonl"
 # entry's ledger, or that a logged run now covers, is itself red. A look added
 # after 2026-09-29 cannot be pinned without this diff showing it.
 LOOKS_BEFORE_RECEIPTS: frozenset[tuple[str, str]] = frozenset({
-    ("H-004", "2026-09-14"),
     ("H-006", "2026-09-14"),
-})   # H-008's two, inherited from H-002, dropped when it closed (2026-09-29)
+})   # H-004's and H-008's (two, inherited from H-002) dropped when they closed, 2026-09-29
 
 # Entries the owner let past two rejections (ADR-0022, *No grinding*), each
 # against the number of the resolved.md item that records the decision, e.g.

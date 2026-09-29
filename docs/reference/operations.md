@@ -871,9 +871,10 @@ the approval.
 appends one line per run to `results/explore_conditioner/runs.jsonl`. The line
 holds the time of the run, the commit it ran from and whether the tree was
 dirty, the seal, the arms, and the sha256 of the report it wrote. The looks
-before the log began (H-004 and H-006 on 2026-09-14) are pinned exactly in
-`LOOKS_BEFORE_RECEIPTS`; H-008's two, inherited from H-002, were dropped
-when it closed on 2026-09-29, since only an open entry's looks are checked. A pin is red once its look leaves the ledger or a
+before the log began (H-006 on 2026-09-14) is pinned exactly in
+`LOOKS_BEFORE_RECEIPTS`. H-004's pin and H-008's two (inherited from H-002)
+were dropped when those entries closed on 2026-09-29: only an open entry's
+looks are checked. A pin is red once its look leaves the ledger or a
 logged run covers it. A look dated after 2026-09-29 cannot be pinned without
 that diff showing it. A run matches a ledger date on either its local or its
 UTC date. A run that is never committed to `output` has no receipt.
