@@ -206,7 +206,7 @@ def _fence(text: str, lang: str = "") -> list[str]:
 @dataclass
 class Bundle:
     hid: str
-    fingerprint: str        # sha256 of the entry's text — what an approval would be stamped to
+    fingerprint: str        # sha256 of dp.stamped_text(entry) — what an approval is stamped to
     rules: str              # how-we-explore.md as it reads; the system prompt's second block
     material: str           # everything specific to this entry; the user message
     sources: dict[str, str]  # where each part was read from, for the record
@@ -216,14 +216,7 @@ class Bundle:
         return _sha(self.rules + "\0" + self.material)
 
 
-def entry_text(register: str, hid: str) -> str:
-    """One entry, from its `## H-###` heading to the next `## ` heading of any
-    kind — so the last entry does not carry the register's `## Closed` index."""
-    m = re.search(rf"^## {re.escape(hid)} — .*$", register, re.M)
-    if m is None:
-        raise KeyError(hid)
-    nxt = _H2_RE.search(register, m.end())
-    return register[m.start(): nxt.start() if nxt else len(register)].rstrip() + "\n"
+entry_text = dp.entry_text
 
 
 def seal_start(root: Path) -> str | None:
@@ -348,7 +341,7 @@ def build_bundle(root: Path, hid: str, *, now: datetime | None = None) -> Bundle
     history = "" if shallow else entry_history(root, hid)
     ref, views = report_views(root, entry)
     kb, wps = cited_kb(root, entry), cited_wps(root, entry)
-    fingerprint = _sha(entry)
+    fingerprint = _sha(dp.stamped_text(entry))
 
     register_line = f"- **The register** was read at `HEAD` {head}"
     if dirty:
@@ -373,7 +366,8 @@ def build_bundle(root: Path, hid: str, *, now: datetime | None = None) -> Bundle
         (f"- **Reports** were read from `{ref}`"
          + (" in a shallow clone, so their commit lists may be cut short." if shallow else ".")
          if ref else f"- **Reports:** no `{OUTPUT_BRANCH}` branch is reachable."),
-        f"- **Entry fingerprint:** `sha256:{fingerprint}`, over the text in §2.",
+        f"- **Entry fingerprint:** `sha256:{fingerprint}`, over the text in §2 less its Status "
+        "line and any Audit record, which a promotion writes itself (`decision_packet.stamped_text`).",
         "",
         "## 2. The entry under audit",
         "",

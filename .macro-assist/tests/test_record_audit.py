@@ -147,6 +147,8 @@ def repo(tmp_path: Path, monkeypatch) -> Path:
     monkeypatch.setattr(ra, "RESERVED_KB_NUMBERS", frozenset())
     monkeypatch.setattr(ra, "KNOWN_ITEM_COLLISIONS", frozenset())
     monkeypatch.setattr(ra, "KNOWN_CONTRADICTIONS", {})
+    monkeypatch.setattr(ra, "LOOKS_BEFORE_RECEIPTS", frozenset())
+    monkeypatch.setattr(ra, "OWNER_RESUBMISSIONS", {})
     _init(tmp_path)
     wf = tmp_path / ".github" / "workflows"
     wf.mkdir(parents=True)
@@ -1272,7 +1274,8 @@ def test_orient_prints_the_board_the_inbox_the_audit_and_the_gate(oriented):
     # the audit: every check counted, so a zero is visible
     assert b["AUDIT"].startswith("AUDIT — record_audit.py: 0 red, 0 report-only  (workflow-orphans 0 · "
                                  "schedule-table 0 · artifact-liveness 0 · referential-integrity 0 · "
-                                 "contradictions 0 · adr-revisit 0)\n  clean\n")
+                                 "contradictions 0 · adr-revisit 0 · approval-stamp 0 · no-grinding 0 · "
+                                 "instruction-freeze 0 · bar-before-result 0 · receipts 0)\n  clean\n")
     assert b["ADR"].strip().splitlines()[1:] == ["  none"]
     # the gate: the pending entries, the transition line while §6 carries
     # it, then §6's owner bullets — and none from inside the subsection
@@ -1351,3 +1354,298 @@ def test_orient_on_this_checkout_and_the_skill_that_runs_it():
     assert skill.startswith("---\nname: orient\n")
     assert "python .macro-assist/orient.py" in skill
     assert (_REPO / ".macro-assist" / "orient.py").is_file()
+
+
+# ---------------------------------------------------------------------------
+# WP-25.B — the audit's code checks (ADR-0022)
+#
+# A synthetic register on `main` and an `output` branch written with git
+# plumbing (so `main`'s working tree is never switched), both at pinned dates.
+# Each check is driven one defect at a time; the real checkout is asserted
+# clean in test_this_checkout_is_clean_of_the_audit_checks.
+# ---------------------------------------------------------------------------
+
+import json
+
+import decision_packet as dp
+
+REG = "docs/record/hypotheses.md"
+INSTR = ".macro-assist/auditor/instructions.md"
+CFG = {"requested_model": "claude-opus-5-5", "effort": "high", "instructions_sha256": "abc123"}
+
+
+def _entry(hid: str, status: str = "draft", *, test: str = "Width ratio at least 1.2.",
+           ledger: str = "", extra: str = "") -> str:
+    out = (f"## {hid} — A width claim {{: #{hid.lower()} }}\n\n"
+           f"**Status:** `{status}` · drafted 2026-09-01\n\n"
+           "**What was seen.** Something.\n\n"
+           f"**What would test it.** {test}\n\n"
+           "**The confound.** Vol clustering.\n")
+    if ledger:
+        out += f"\n**Explore-tier looks (ledger).** {ledger}\n"
+    return out + extra + "\n---\n\n"
+
+
+def _register_text(*entries: str) -> str:
+    return "# Hypothesis register\n\n---\n\n" + "".join(entries)
+
+
+def _output(root: Path, files: dict[str, str], date: datetime, msg: str = "output") -> str:
+    """Commit `files` onto `output` (orphan if new) without touching the working tree."""
+    env = dict(os.environ, GIT_INDEX_FILE=str(root / ".git" / "output-index"),
+               GIT_AUTHOR_NAME="bot", GIT_AUTHOR_EMAIL="b@b", GIT_COMMITTER_NAME="bot",
+               GIT_COMMITTER_EMAIL="b@b", GIT_AUTHOR_DATE=date.isoformat(),
+               GIT_COMMITTER_DATE=date.isoformat())
+
+    def g(*args: str, stdin: str | None = None) -> str:
+        r = subprocess.run(["git", "-C", str(root), *args], input=stdin, capture_output=True,
+                           text=True, env=env)
+        assert r.returncode == 0, r.stderr
+        return r.stdout.strip()
+
+    parent = subprocess.run(["git", "-C", str(root), "rev-parse", "-q", "--verify", "output"],
+                            capture_output=True, text=True).stdout.strip()
+    g("read-tree", parent) if parent else g("read-tree", "--empty")
+    for path, text in files.items():
+        blob = g("hash-object", "-w", "--stdin", stdin=text)
+        g("update-index", "--add", "--cacheinfo", f"100644,{blob},{path}")
+    tree = g("write-tree")
+    sha = g("commit-tree", tree, *(["-p", parent] if parent else []), "-m", msg)
+    g("update-ref", "refs/heads/output", sha)
+    return sha[:9]
+
+
+def _record(hid: str, entry: str, verdict: str = "no_blocking_finding", *, tier: str = "ci",
+            cfg: dict = CFG) -> str:
+    return json.dumps({"schema": 1, "hid": hid, "tier": tier,
+                       "run": "https://github.com/o/r/actions/runs/1" if tier == "ci" else None,
+                       "entry_fingerprint": "sha256:" + ra._sha256(dp.stamped_text(entry)),
+                       "verdict": verdict, **cfg})
+
+
+def _suite(passed: bool = True, cfg: dict = CFG) -> str:
+    return json.dumps({"schema": 1, "passed": passed, "tier": "ci", **cfg})
+
+
+@pytest.fixture
+def audited(repo: Path) -> Path:
+    _commit_text(repo, INSTR, "Default reject.\n", T0 - timedelta(days=20), "auditor")
+    _output(repo, {"audit/canaries/2026-08-11T1000Z-abc12345.json": _suite()}, T0 - timedelta(days=20))
+    return repo
+
+
+def _check(root: Path, fn) -> tuple[list[str], list[str]]:
+    fs = fn(root)
+    return ([f.subject + ": " + f.message for f in fs if f.red],
+            [f.subject + ": " + f.message for f in fs if not f.red])
+
+
+# --- the stamp ---------------------------------------------------------------
+
+def test_the_stamp_ignores_what_the_promotion_writes_and_nothing_else():
+    e = _entry("H-101", ledger="*2026-09-02* — one run.")
+    promoted = e.replace("`draft` · drafted 2026-09-01", "`promoted` · promoted 2026-09-10 by CI")
+    stamped = promoted.replace("\n---\n", "\n**Audit record.** CI run 1, no blocking finding.\n\n---\n")
+    assert dp.stamped_text(e) == dp.stamped_text(promoted) == dp.stamped_text(stamped)
+    assert dp.stamped_text(e) != dp.stamped_text(e.replace("1.2", "1.15"))       # the bar
+    assert dp.stamped_text(e) != dp.stamped_text(e.replace("one run", "two runs"))  # the ledger
+    read = e.replace("\n---\n", "\n**Sealed read (ledger).** `results/x/read.md`.\n\n---\n")
+    assert dp.stamped_text(read) == dp.stamped_text(e)
+    # the bar is frozen harder than the stamp only in that ledgers may grow
+    assert dp.bar_text(e) == dp.bar_text(e.replace("one run", "two runs"))
+    assert dp.bar_text(e) != dp.bar_text(e.replace("1.2", "1.15"))
+
+
+def test_a_promotion_needs_a_ci_audit_stamped_to_its_current_text(audited):
+    entry = _entry("H-101", "promoted")
+    _commit_text(audited, REG, _register_text(entry), T0 - timedelta(days=5), "promote")
+    reds, _ = _check(audited, ra.check_approval_stamp)
+    assert reds == ["H-101: promoted with no audit CI recorded (none under `output:audit/entries/H-101/`)"]
+
+    _output(audited, {"audit/entries/H-101/2026-08-25T1000Z-local.json": _record("H-101", entry, tier="local")},
+            T0 - timedelta(days=6))
+    assert _check(audited, ra.check_approval_stamp)[0][0].startswith("H-101: promoted with no audit CI recorded")
+
+    _output(audited, {"audit/entries/H-101/2026-08-25T1100Z-ci.json": _record("H-101", entry)},
+            T0 - timedelta(days=6))
+    assert _check(audited, ra.check_approval_stamp) == ([], [])
+
+
+def test_an_edit_after_the_approval_voids_it(audited):
+    entry = _entry("H-101", "promoted")
+    _output(audited, {"audit/entries/H-101/2026-08-25T1100Z-ci.json": _record("H-101", entry)},
+            T0 - timedelta(days=6))
+    _commit_text(audited, REG, _register_text(entry.replace("1.2", "1.15")), T0 - timedelta(days=5))
+    (red,) = _check(audited, ra.check_approval_stamp)[0]
+    assert "no CI audit is stamped to its current text" in red and "2026-08-25T1100Z-ci.json" in red
+
+
+def test_a_rejection_or_an_uncertified_auditor_is_not_an_approval(audited):
+    entry = _entry("H-101", "promoted")
+    _commit_text(audited, REG, _register_text(entry), T0 - timedelta(days=5))
+    _output(audited, {"audit/entries/H-101/2026-08-25T1100Z-ci.json": _record("H-101", entry, "reject")},
+            T0 - timedelta(days=6))
+    assert "the latest CI audit of its current text rejected it" in _check(audited, ra.check_approval_stamp)[0][0]
+    cheap = {**CFG, "effort": "low"}
+    _output(audited, {"audit/entries/H-101/2026-08-26T1100Z-ci.json": _record("H-101", entry, cfg=cheap)},
+            T0 - timedelta(days=5))
+    (red,) = _check(audited, ra.check_approval_stamp)[0]
+    assert "approved by `claude-opus-5-5` / `low`" in red and "no passing canary suite" in red
+
+
+# --- no grinding -------------------------------------------------------------
+
+def _three_audits(root: Path, entry: str, last: str = "no_blocking_finding") -> None:
+    _output(root, {f"audit/entries/H-101/2026-08-2{i}T1000Z-ci.json": _record("H-101", entry, v)
+                   for i, v in enumerate(("reject", "reject", last), 1)}, T0 - timedelta(days=4))
+
+
+def test_a_third_audit_after_two_rejections_is_red_even_when_it_passes(audited):
+    entry = _entry("H-101")
+    _commit_text(audited, REG, _register_text(entry), T0 - timedelta(days=5))
+    _output(audited, {f"audit/entries/H-101/2026-08-2{i}T1000Z-ci.json": _record("H-101", entry, "reject")
+                      for i in (1, 2)}, T0 - timedelta(days=4))
+    assert _check(audited, ra.check_no_grinding) == ([], [])      # two rejections: close it or ask
+    _three_audits(audited, entry)
+    (red,) = _check(audited, ra.check_no_grinding)[0]
+    assert red.startswith("H-101: audited again after two rejections (`audit/entries/H-101/2026-08-23T1000Z-ci.json`)")
+
+
+def test_grinding_clears_when_the_entry_closes_or_the_owner_decides(audited, monkeypatch):
+    entry = _entry("H-101")
+    _three_audits(audited, entry)
+    _commit_text(audited, REG, _register_text(_entry("H-101", "closed")), T0 - timedelta(days=3))
+    assert _check(audited, ra.check_no_grinding) == ([], [])
+    _commit_text(audited, REG, _register_text(entry), T0 - timedelta(days=2))
+    _commit_text(audited, "docs/record/resolved.md", "# Resolved\n\n### #31 — H-101 may resubmit\n", T0)
+    monkeypatch.setattr(ra, "OWNER_RESUBMISSIONS", {"H-101": "31"})
+    assert _check(audited, ra.check_no_grinding) == ([], [])
+
+
+def test_the_owner_pin_is_held_exactly(audited, monkeypatch):
+    _commit_text(audited, REG, _register_text(_entry("H-101")), T0 - timedelta(days=2))
+    monkeypatch.setattr(ra, "OWNER_RESUBMISSIONS", {"H-101": "31"})
+    assert _check(audited, ra.check_no_grinding)[0] == [
+        "OWNER_RESUBMISSIONS[H-101]: points at resolved.md #31, which has no heading there",
+        "OWNER_RESUBMISSIONS[H-101]: pinned, but the entry has not been audited past two rejections — drop the pin"]
+
+
+# --- the instruction freeze --------------------------------------------------
+
+def _both(root: Path, instructions: str, register: str, date: datetime) -> str:
+    (root / INSTR).write_text(instructions)
+    (root / REG).parent.mkdir(parents=True, exist_ok=True)
+    (root / REG).write_text(register)
+    _git(root, "add", INSTR, REG)
+    _git(root, "commit", "-q", "-m", "together", date=date)
+    return _git(root, "rev-parse", "HEAD")
+
+
+def test_instructions_and_a_promoted_entry_in_one_commit_is_red(audited):
+    _commit_text(audited, REG, _register_text(_entry("H-101"), _entry("H-102")), T0 - timedelta(days=9))
+    # a draft and the instructions together: nothing is promoted, nothing to freeze against
+    _both(audited, "Default reject, softer.\n", _register_text(_entry("H-101", test="Ratio 1.1."),
+                                                               _entry("H-102")), T0 - timedelta(days=8))
+    assert _check(audited, ra.check_instruction_freeze) == ([], [])
+    # ... until that entry is promoted, later and on its own: the earlier commit is now red
+    _commit_text(audited, REG, _register_text(_entry("H-101", "promoted", test="Ratio 1.1."), _entry("H-102")),
+                 T0 - timedelta(days=2), "promote")
+    (red,) = _check(audited, ra.check_instruction_freeze)[0]
+    assert red.startswith("H-101: commit ") and "changed the auditor's instructions and this entry together" in red
+    assert "H-102" not in red
+
+
+def test_instructions_alone_or_the_register_alone_is_clean(audited):
+    _commit_text(audited, REG, _register_text(_entry("H-101", "promoted")), T0 - timedelta(days=9))
+    _commit_text(audited, INSTR, "Default reject, sharper.\n", T0 - timedelta(days=8))
+    _commit_text(audited, REG, _register_text(_entry("H-101", "promoted", ledger="*2026-08-30*")),
+                 T0 - timedelta(days=7))
+    assert _check(audited, ra.check_instruction_freeze) == ([], [])
+
+
+# --- the bar before the result -----------------------------------------------
+
+READ = "\n**Sealed read (ledger).** *2026-08-29* — `results/sealed/H-101.md`.\n"
+
+
+def test_a_bar_older_than_its_result_is_clean_and_the_ledger_may_grow(audited):
+    _commit_text(audited, REG, _register_text(_entry("H-101", "promoted")), T0 - timedelta(days=9))
+    _output(audited, {"sealed/H-101.md": "the read\n"}, T0 - timedelta(days=2))
+    _commit_text(audited, REG, _register_text(_entry("H-101", "closed", extra=READ, ledger="*2026-08-20*")),
+                 T0 - timedelta(days=1))
+    assert _check(audited, ra.check_bar_before_result) == ([], [])
+
+
+def test_a_bar_edited_after_its_result_is_red(audited):
+    _commit_text(audited, REG, _register_text(_entry("H-101", "promoted")), T0 - timedelta(days=9))
+    _output(audited, {"sealed/H-101.md": "the read\n"}, T0 - timedelta(days=2))
+    moved = _entry("H-101", "closed", test="Width ratio at least 1.1.", extra=READ)
+    sha = _commit_text(audited, REG, _register_text(moved), T0 - timedelta(days=1))
+    (red,) = _check(audited, ra.check_bar_before_result)[0]
+    assert red.startswith(f"H-101: its bar was last changed ") and f"({sha[:7]}" in red
+    assert "not before its result `results/sealed/H-101.md` first landed" in red
+    # an uncommitted edit counts too
+    _commit_text(audited, REG, _register_text(_entry("H-101", "closed", extra=READ)), T0 - timedelta(days=1))
+    (audited / REG).write_text(_register_text(_entry("H-101", "closed", test="Width ratio 1.3.", extra=READ)))
+    assert "(the working tree)" in _check(audited, ra.check_bar_before_result)[0][0]
+
+
+def test_a_sealed_read_names_a_result_that_exists(audited):
+    _commit_text(audited, REG, _register_text(_entry("H-101", "closed", extra=READ)), T0 - timedelta(days=1))
+    assert _check(audited, ra.check_bar_before_result)[0] == [
+        "H-101: its result `results/sealed/H-101.md` is not on `output`"]
+    bare = "\n**Sealed read (ledger).** Done, see the KB.\n"
+    _commit_text(audited, REG, _register_text(_entry("H-101", "closed", extra=bare)), T0)
+    assert _check(audited, ra.check_bar_before_result)[0] == [
+        "H-101: its Sealed read (ledger) names no report under results/"]
+
+
+# --- receipts ----------------------------------------------------------------
+
+def _run(at: str) -> str:
+    return json.dumps({"run_at": at, "commit": "f" * 40, "report_sha256": "0" * 64}) + "\n"
+
+
+def test_every_dated_look_has_a_logged_run(audited):
+    _commit_text(audited, REG, _register_text(_entry("H-101", ledger="*2026-08-20* — one run. "
+                                                                "*2026-08-22, later* — a second.")), T0)
+    reds, _ = _check(audited, ra.check_receipts)
+    assert reds == [f"H-101: look dated 2026-08-{d} has no run logged that day in `output:explore_conditioner/runs.jsonl`"
+                    for d in ("20", "22")]
+    # a run late in the evening, local time, is the next day in UTC; either date is the run's
+    _output(audited, {ra.RUN_LOG: _run("2026-08-20T10:00:00+02:00") + _run("2026-08-21T23:30:00-03:00")}, T0)
+    assert _check(audited, ra.check_receipts) == ([], [])
+
+
+def test_a_closed_entry_needs_no_receipt_and_an_uncounted_run_is_a_note(audited):
+    _commit_text(audited, REG, _register_text(_entry("H-101", "closed", ledger="*2026-08-20*")), T0)
+    _output(audited, {ra.RUN_LOG: _run("2026-08-25T10:00:00+00:00") + "not json\n"}, T0)
+    reds, notes = _check(audited, ra.check_receipts)
+    assert reds == ["output:results/explore_conditioner/runs.jsonl: line 2 does not parse as a run"]
+    assert notes == ["run 2026-08-25T10:00:00+00:00: logged, and in no entry's ledger — an uncounted look "
+                     "(how-we-explore §4)"]
+
+
+def test_the_pre_log_pins_are_held_exactly(audited, monkeypatch):
+    monkeypatch.setattr(ra, "LOOKS_BEFORE_RECEIPTS", frozenset({("H-101", "2026-08-20"), ("H-101", "2026-08-21"),
+                                                                ("H-102", "2026-08-20")}))
+    _commit_text(audited, REG, _register_text(_entry("H-101", ledger="*2026-08-20* and *2026-08-21*")), T0)
+    _output(audited, {ra.RUN_LOG: _run("2026-08-21T10:00:00+00:00")}, T0)
+    assert _check(audited, ra.check_receipts)[0] == [
+        "LOOKS_BEFORE_RECEIPTS H-101 2026-08-21: a logged run covers it now — drop the pin",
+        "LOOKS_BEFORE_RECEIPTS H-102 2026-08-20: no longer a look in an open entry's ledger — drop the pin"]
+
+
+# --- this checkout -----------------------------------------------------------
+
+def test_this_checkout_is_clean_of_the_audit_checks():
+    """No entry is promoted yet, so the stamp, grinding and bar checks have
+    nothing to read; the receipts check holds the pre-log looks pinned, and
+    the freeze reads the instructions' real history."""
+    findings = [f for fn in (ra.check_approval_stamp, ra.check_no_grinding, ra.check_instruction_freeze,
+                             ra.check_bar_before_result, ra.check_receipts) for f in fn(_REPO)]
+    assert not [f for f in findings if f.red], "\n".join(str(f) for f in findings)
+
+
+def test_the_pre_log_pins_predate_the_log():
+    assert ra.LOOKS_BEFORE_RECEIPTS and all(d < "2026-09-29" for _, d in ra.LOOKS_BEFORE_RECEIPTS)

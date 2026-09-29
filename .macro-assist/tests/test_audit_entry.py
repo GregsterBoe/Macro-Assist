@@ -111,7 +111,7 @@ def test_the_entry_is_exactly_the_register_text(h008):
     assert entry.startswith("## H-008 — ")
     assert "## Closed" not in entry, "the last entry must not carry the register's index"
     assert "## H-007" not in h008.material
-    assert h008.fingerprint == hashlib.sha256(entry.encode()).hexdigest()
+    assert h008.fingerprint == hashlib.sha256(dp.stamped_text(entry).encode()).hexdigest()
     assert entry.rstrip() in h008.material
 
 

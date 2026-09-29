@@ -65,6 +65,35 @@ returning Findings; `audit()` runs them all.
                                "cited condition may have fired". Prose
                                conditions are not read.
 
+The audit's own checks — ADR-0022's mechanisms that git can settle, so the
+auditor model is not trusted with them (WP-25.B, Phase 25). Each reads the
+register and, where it needs one, the output branch.
+
+  approval-stamp     WP-25.B   A `promoted` entry has a CI audit record whose
+                               entry_fingerprint is its current stamped text
+                               (`decision_packet.stamped_text`: the entry less
+                               what the promotion and the sealed read write),
+                               whose newest such record found nothing
+                               blocking, and whose model / effort /
+                               instructions a passing canary suite certifies.
+  no-grinding        WP-25.B   A third CI audit after two rejections is red,
+                               pass or not, until the entry closes or the
+                               owner's decision is pinned in
+                               OWNER_RESUBMISSIONS (held exactly).
+  instruction-freeze WP-25.B   No commit changes the auditor's instructions
+                               and the status or stamped text of an entry that
+                               is or was ever promoted.
+  bar-before-result  WP-25.B   An entry's bar (`decision_packet.bar_text`: the
+                               entry less status, audit record and ledgers)
+                               last changed before the first commit of the
+                               report its `Sealed read (ledger)` names.
+  receipts           WP-25.B   Every dated look in an open entry's ledger has
+                               a run the harness logged that day
+                               (explore_conditioner/runs.jsonl on output). The
+                               looks before the log are pinned exactly in
+                               LOOKS_BEFORE_RECEIPTS. Report-only: a logged run
+                               no ledger dates, which is an uncounted look.
+
 The two workflow checks and the liveness check are a pair. 24.A catches a stage
 the repo cannot reach; it cannot see a dispatch-only workflow whose *external*
 caller has stopped calling — that is what froze the refit for eleven days
@@ -92,6 +121,8 @@ Run:
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import re
 import subprocess
 import sys
@@ -1213,11 +1244,325 @@ def check_adr_revisit(root: Path, *, now: datetime | None = None) -> list[Findin
 
 
 # ---------------------------------------------------------------------------
+# WP-25.B — the audit's code checks (ADR-0022)
+# ---------------------------------------------------------------------------
+
+HYPOTHESES = RECORD_DIR / "hypotheses.md"
+AUDITOR_INSTRUCTIONS = Path(".macro-assist") / "auditor" / "instructions.md"
+# On the output branch, whose root is results/ (ADR-0001). audit_entry.py
+# writes the records; explore_conditioner.py appends the run log.
+AUDIT_RECORDS = "audit/entries"
+CANARY_RECORDS = "audit/canaries"
+RUN_LOG = "explore_conditioner/runs.jsonl"
+
+# Dated looks that ran before the harness kept a run log (WP-25.B, 2026-09-29),
+# so no receipt can exist for them. Held exactly: a pin whose look has left its
+# entry's ledger, or that a logged run now covers, is itself red. A look added
+# after 2026-09-29 cannot be pinned without this diff showing it.
+LOOKS_BEFORE_RECEIPTS: frozenset[tuple[str, str]] = frozenset({
+    ("H-004", "2026-09-14"),
+    ("H-006", "2026-09-14"),
+    ("H-008", "2026-09-14"),   # both inherited from H-002's ledger
+    ("H-008", "2026-09-21"),
+})
+
+# Entries the owner let past two rejections (ADR-0022, *No grinding*), each
+# against the number of the resolved.md item that records the decision, e.g.
+# {"H-008": "31"}. Held exactly: a pin
+# on an entry that has not been rejected twice, or whose item does not exist,
+# is red.
+OWNER_RESUBMISSIONS: dict[str, str] = {}
+
+_LOOK_DATE_RE = re.compile(r"\*(\d{4}-\d{2}-\d{2})\b[^*\n]*\*")   # an italic span that opens with a date
+_REPORT_PATH_RE = re.compile(r"`results/([^`]+)`")
+_PROMOTED_LINE = r"^\*\*Status:\*\* `promoted`"
+
+
+def _dp():
+    # decision_packet parses the register and imports this module at its top,
+    # so the import is deferred to call time rather than made circular.
+    import decision_packet
+    return decision_packet
+
+
+def _register(root: Path, rev: str | None = None) -> dict[str, tuple[object, str]]:
+    """hid → (Entry, its text) in the register at `rev` (None: the working tree)."""
+    dp = _dp()
+    text = _text_at(root, HYPOTHESES.as_posix(), rev)
+    if text is None:
+        return {}
+    return {e.hid: (e, dp.entry_text(text, e.hid)) for e in dp.parse_entries(text)}
+
+
+def _sha256(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _json_files(root: Path, ref: str, prefix: str) -> list[tuple[str, dict | None]]:
+    """(path, parsed JSON or None when it does not parse) for every .json under
+    `prefix` on `ref`, sorted by path — the records' names open with their stamp."""
+    names = (_git(root, "ls-tree", "-r", "--name-only", ref, "--", prefix) or "").splitlines()
+    out = []
+    for p in sorted(n for n in names if n.endswith(".json")):
+        try:
+            out.append((p, json.loads(_git(root, "show", f"{ref}:{p}") or "")))
+        except ValueError:
+            out.append((p, None))
+    return out
+
+
+def ci_audits(root: Path, ref: str) -> dict[str, list[dict]]:
+    """hid → CI's audit records of it on `ref`, oldest first. A record counts
+    only if it says CI ran it and links the run; a local audit is not a
+    submission (audit_entry.py), and a record that does not parse is nothing."""
+    out: dict[str, list[dict]] = {}
+    for path, rec in _json_files(root, ref, AUDIT_RECORDS):
+        if isinstance(rec, dict) and rec.get("tier") == "ci" and rec.get("run") and rec.get("hid"):
+            out.setdefault(rec["hid"], []).append({**rec, "_path": path})
+    return out
+
+
+def certified_configs(root: Path, ref: str) -> set[tuple[str, str, str]]:
+    """(requested_model, effort, instructions_sha256) of every canary suite CI
+    ran that passed — the configurations an audit may approve with (WP-25.A)."""
+    return {(s.get("requested_model"), s.get("effort"), s.get("instructions_sha256"))
+            for _, s in _json_files(root, ref, CANARY_RECORDS)
+            if isinstance(s, dict) and s.get("passed") is True and s.get("tier") == "ci"}
+
+
+def check_approval_stamp(root: Path) -> list[Finding]:
+    """A `promoted` entry has a CI audit stamped to its current text that found
+    nothing blocking, made with a configuration the canaries certified."""
+    check = "approval-stamp"
+    dp = _dp()
+    promoted = {h: t for h, (e, t) in _register(root).items() if e.status == "promoted"}
+    if not promoted:
+        return []
+    ref = _resolve_ref(root, "output")
+    if ref is None:
+        return [Finding(check, h, "promoted, and the output branch that holds audit records is not "
+                                  "available here — `git fetch origin output`") for h in promoted]
+    audits, certified = ci_audits(root, ref), certified_configs(root, ref)
+    out: list[Finding] = []
+    for hid, text in sorted(promoted.items()):
+        stamp = f"sha256:{_sha256(dp.stamped_text(text))}"
+        recs = audits.get(hid, [])
+        mine = [r for r in recs if r.get("entry_fingerprint") == stamp]
+        if not recs:
+            out.append(Finding(check, hid, f"promoted with no audit CI recorded (none under "
+                                           f"`{ref}:{AUDIT_RECORDS}/{hid}/`)"))
+        elif not mine:
+            out.append(Finding(check, hid, f"promoted, but no CI audit is stamped to its current text "
+                                           f"({stamp[:19]}…) — edited since its last audit, "
+                                           f"`{recs[-1]['_path']}`"))
+        elif mine[-1].get("verdict") != "no_blocking_finding":
+            out.append(Finding(check, hid, f"promoted, and the latest CI audit of its current text "
+                                           f"rejected it (`{mine[-1]['_path']}`)"))
+        else:
+            r = mine[-1]
+            cfg = (r.get("requested_model"), r.get("effort"), r.get("instructions_sha256"))
+            if cfg not in certified:
+                out.append(Finding(check, hid, f"approved by `{cfg[0]}` / `{cfg[1]}` on instructions "
+                                               f"{str(cfg[2])[:12]}…, which no passing canary suite on "
+                                               f"`{ref}` certifies (`{r['_path']}`)"))
+    return out
+
+
+def check_no_grinding(root: Path) -> list[Finding]:
+    """A third CI audit of an entry after two rejections is red, until the
+    entry closes or the owner decides (OWNER_RESUBMISSIONS)."""
+    check = "no-grinding"
+    entries = _register(root)
+    ref = _resolve_ref(root, "output")
+    audits = ci_audits(root, ref) if ref else {}
+    resolved = _text_at(root, RESOLVED.as_posix(), None) or ""
+    items = set(_ITEM_HEADING_RE.findall(resolved))
+    out: list[Finding] = []
+    ground: set[str] = set()
+    for hid, recs in sorted(audits.items()):
+        rejects = 0
+        for r in recs:
+            if rejects >= 2:
+                ground.add(hid)
+                entry = entries.get(hid)
+                if entry is not None and entry[0].status != "closed" and hid not in OWNER_RESUBMISSIONS:
+                    out.append(Finding(check, hid, f"audited again after two rejections (`{r['_path']}`) — "
+                                                   "the entry closes or the owner decides (ADR-0022)"))
+                break
+            rejects += r.get("verdict") == "reject"
+    for hid, item in sorted(OWNER_RESUBMISSIONS.items()):
+        n = item.lstrip("#")
+        if n not in items:
+            out.append(Finding(check, f"OWNER_RESUBMISSIONS[{hid}]",
+                               f"points at resolved.md #{n}, which has no heading there"))
+        if hid not in ground:
+            out.append(Finding(check, f"OWNER_RESUBMISSIONS[{hid}]",
+                               "pinned, but the entry has not been audited past two rejections — drop the pin"))
+    return out
+
+
+def _commits_touching(root: Path, path: str, *extra: str) -> list[tuple[str, datetime]]:
+    """(sha, committer date) of every commit on HEAD touching `path`, oldest first."""
+    lines = (_git(root, "log", "--reverse", "--format=%H%x1f%cI", *extra, "HEAD", "--", path) or "").splitlines()
+    return [(sha, datetime.fromisoformat(d)) for sha, d in (ln.split("\x1f") for ln in lines if ln)]
+
+
+def _ever_promoted(root: Path) -> set[str]:
+    """Every entry that is `promoted` at HEAD, in the working tree, or at any
+    revision where a `promoted` status line came or went."""
+    hids = {h for h, (e, _) in _register(root).items() if e.status == "promoted"}
+    for sha, _ in _commits_touching(root, HYPOTHESES.as_posix(), "-G", _PROMOTED_LINE):
+        for rev in (sha, f"{sha}^"):
+            hids |= {h for h, (e, _) in _register(root, rev).items() if e.status == "promoted"}
+    return hids
+
+
+def check_instruction_freeze(root: Path) -> list[Finding]:
+    """No commit edits the auditor's instructions and, in the same commit, an
+    entry that is or was ever promoted — its status or its stamped text."""
+    check = "instruction-freeze"
+    if _git(root, "rev-parse", "--git-dir") is None:
+        return []
+    if _git(root, "rev-parse", "--is-shallow-repository") == "true":
+        return [Finding(check, str(root), "shallow clone — the instructions' history is cut short and "
+                                          "the check would pass vacuously")]
+    promoted = _ever_promoted(root)
+    if not promoted:
+        return []
+    dp = _dp()
+    reg = HYPOTHESES.as_posix()
+    out: list[Finding] = []
+    for sha, when in _commits_touching(root, AUDITOR_INSTRUCTIONS.as_posix()):
+        files = (_git(root, "diff-tree", "--root", "--no-commit-id", "--name-only", "-r", sha) or "").splitlines()
+        if reg not in files:
+            continue
+        def view(reg: dict, hid: str) -> tuple[str, str] | None:
+            hit = reg.get(hid)
+            return None if hit is None else (hit[0].status, dp.stamped_text(hit[1]))
+
+        after, before = _register(root, sha), _register(root, f"{sha}^")
+        for hid in sorted(promoted & (set(after) | set(before))):
+            if view(after, hid) != view(before, hid):
+                out.append(Finding(check, hid, f"commit {sha[:9]} ({when:%Y-%m-%d}) changed the auditor's "
+                                               f"instructions and this entry together; it is or was promoted"))
+    return out
+
+
+def _bar_changed(root: Path, hid: str) -> tuple[datetime, str] | None:
+    """When the entry's bar text last changed: the newest commit that changed
+    it, or now if the working tree differs from HEAD."""
+    dp = _dp()
+    last, prev = None, None
+    for sha, when in _commits_touching(root, HYPOTHESES.as_posix()):
+        cur = _register(root, sha).get(hid)
+        bar = None if cur is None else dp.bar_text(cur[1])
+        if bar is not None and bar != prev:
+            last = (when, sha[:9])
+        prev = bar
+    work = _register(root).get(hid)
+    if work is not None and dp.bar_text(work[1]) != prev:
+        last = (datetime.now(timezone.utc), "the working tree")
+    return last
+
+
+def check_bar_before_result(root: Path) -> list[Finding]:
+    """An entry's bar — everything but its status, audit record and ledgers —
+    last changed before the first commit of the sealed read it is read against."""
+    check = "bar-before-result"
+    dp = _dp()
+    read = {h: e for h, (e, _) in _register(root).items() if dp.SEALED_READ in e.fields}
+    if not read:
+        return []
+    ref = _resolve_ref(root, "output")
+    out: list[Finding] = []
+    for hid, e in sorted(read.items()):
+        paths = _REPORT_PATH_RE.findall(e.fields[dp.SEALED_READ])
+        if not paths:
+            out.append(Finding(check, hid, f"its {dp.SEALED_READ} names no report under results/"))
+            continue
+        if ref is None:
+            out.append(Finding(check, hid, "the output branch that holds its result is not available here"))
+            continue
+        bar = _bar_changed(root, hid)
+        for p in paths:
+            first = (_git(root, "log", "--reverse", "--format=%cI%x1f%h", ref, "--", p) or "").splitlines()
+            if not first:
+                out.append(Finding(check, hid, f"its result `results/{p}` is not on `{ref}`"))
+                continue
+            stamp, short = first[0].split("\x1f")
+            landed = datetime.fromisoformat(stamp)
+            if bar is None or bar[0] >= landed:
+                where = "never committed" if bar is None else f"last changed {bar[0]:%Y-%m-%d %H:%M} ({bar[1]})"
+                out.append(Finding(check, hid, f"its bar was {where}, not before its result "
+                                               f"`results/{p}` first landed {landed:%Y-%m-%d %H:%M} ({short}) — "
+                                               "a result file older than the bar cannot be checked either"))
+    return out
+
+
+def _look_dates(entry) -> set[str]:
+    """Dates of the looks an entry's ledgers record, less the sealed read's."""
+    dp = _dp()
+    return {d for name, body in entry.fields.items()
+            if name.endswith("(ledger)") and name != dp.SEALED_READ
+            for d in _LOOK_DATE_RE.findall(body)}
+
+
+def logged_runs(root: Path, ref: str) -> tuple[list[dict], list[int]]:
+    """The harness's run log on `ref`, and the line numbers that do not parse."""
+    runs, bad = [], []
+    for i, line in enumerate((_git(root, "show", f"{ref}:{RUN_LOG}") or "").splitlines(), 1):
+        try:
+            rec = json.loads(line)
+            at = datetime.fromisoformat(rec["run_at"])
+        except (ValueError, KeyError, TypeError):
+            bad.append(i)
+            continue
+        rec["_dates"] = {at.date().isoformat(), at.astimezone(timezone.utc).date().isoformat()}
+        runs.append(rec)
+    return runs, bad
+
+
+def check_receipts(root: Path) -> list[Finding]:
+    """Every dated look in an open entry's ledger has a run the harness logged
+    that day (red). A logged run no entry's ledger dates is report-only — a
+    look nobody counted."""
+    check = "receipts"
+    entries = _register(root)
+    looks = {(h, d) for h, (e, _) in entries.items() if e.status != "closed" for d in _look_dates(e)}
+    cited = {d for _, (e, _) in entries.items() for d in _look_dates(e)}
+    ref = _resolve_ref(root, "output")
+    runs, bad = logged_runs(root, ref) if ref else ([], [])
+    logged = set().union(*(r["_dates"] for r in runs)) if runs else set()
+    out: list[Finding] = []
+    for n in bad:
+        out.append(Finding(check, f"output:results/{RUN_LOG}", f"line {n} does not parse as a run"))
+    for hid, d in sorted(looks - LOOKS_BEFORE_RECEIPTS):
+        if d not in logged:
+            where = f"`{ref}:{RUN_LOG}`" if ref else "the output branch (not available here)"
+            out.append(Finding(check, hid, f"look dated {d} has no run logged that day in {where}"))
+    for hid, d in sorted(LOOKS_BEFORE_RECEIPTS):
+        if (hid, d) not in looks:
+            out.append(Finding(check, f"LOOKS_BEFORE_RECEIPTS {hid} {d}",
+                               "no longer a look in an open entry's ledger — drop the pin"))
+        elif d in logged:
+            out.append(Finding(check, f"LOOKS_BEFORE_RECEIPTS {hid} {d}",
+                               "a logged run covers it now — drop the pin"))
+    for r in runs:
+        if not r["_dates"] & cited:
+            out.append(Finding(check, f"run {r['run_at']}",
+                               "logged, and in no entry's ledger — an uncounted look (how-we-explore §4)",
+                               red=False))
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
 
 CHECKS = (check_workflow_orphans, check_schedule_table, check_artifact_liveness,
-          check_referential_integrity, check_contradictions, check_adr_revisit)
+          check_referential_integrity, check_contradictions, check_adr_revisit,
+          check_approval_stamp, check_no_grinding, check_instruction_freeze,
+          check_bar_before_result, check_receipts)
 _DATED_CHECKS = (check_artifact_liveness, check_adr_revisit)   # the ones `--now` replays
 
 

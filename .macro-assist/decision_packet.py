@@ -157,6 +157,56 @@ def parse_entries(text: str) -> list[Entry]:
 
 
 # ---------------------------------------------------------------------------
+# what an approval is stamped to, and what the bar is (WP-25.B)
+# ---------------------------------------------------------------------------
+
+# Fields a promotion writes itself, so an approval cannot be stamped to them:
+# the status moves to `promoted`, and CI writes the Audit record (WP-25.C). The
+# sealed read's ledger is written after the read, which the stamp came before.
+WRITTEN_BY_PROMOTION = ("Status", "Audit record")
+SEALED_READ = "Sealed read (ledger)"
+_H2_RE = re.compile(r"^## ", re.M)
+
+
+def entry_text(register: str, hid: str) -> str:
+    """One entry, from its `## H-###` heading to the next `## ` heading of any
+    kind — so the last entry does not carry the register's `## Closed` index."""
+    m = re.search(rf"^## {re.escape(hid)} — .*$", register, re.M)
+    if m is None:
+        raise KeyError(hid)
+    nxt = _H2_RE.search(register, m.end())
+    return register[m.start(): nxt.start() if nxt else len(register)].rstrip() + "\n"
+
+
+def _without_fields(entry: str, drop) -> str:
+    """`entry` less every field whose name `drop` accepts, one paragraph per
+    block and the page's horizontal rules gone — so where a field is inserted
+    does not change what is left."""
+    marks = list(_FIELD_RE.finditer(entry))
+    kept, last = [], 0
+    for j, m in enumerate(marks):
+        if drop(m.group(1).strip()):
+            kept.append(entry[last:m.start()])
+            last = marks[j + 1].start() if j + 1 < len(marks) else len(entry)
+    kept.append(entry[last:])
+    blocks = ("\n".join(ln.rstrip() for ln in b.strip().splitlines())
+              for b in re.split(r"\n\s*\n", "".join(kept)))
+    return "\n\n".join(b for b in blocks if b and not _RULE_RE.match(b)) + "\n"
+
+
+def stamped_text(entry: str) -> str:
+    """What an audit approves: the entry, less what the promotion and the read
+    write. Any other edit changes it, and voids the approval."""
+    return _without_fields(entry, lambda n: n in WRITTEN_BY_PROMOTION or n == SEALED_READ)
+
+
+def bar_text(entry: str) -> str:
+    """What a sealed read is read against: the entry, less its status, audit
+    record and ledgers. The ledgers may grow after a result; nothing else may."""
+    return _without_fields(entry, lambda n: n in WRITTEN_BY_PROMOTION or n.endswith("(ledger)"))
+
+
+# ---------------------------------------------------------------------------
 # the twelve questions, read from the page (convention #8)
 # ---------------------------------------------------------------------------
 

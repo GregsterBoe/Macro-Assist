@@ -172,6 +172,8 @@ the [artifact-liveness rule](#a-reachable-stage-that-produces-nothing), the
 [referential-integrity rule](#the-identifiers-that-are-not-links), the
 [contradiction rule](#a-claim-the-repo-makes-twice-differently) and the
 [ADR revisit rule](#a-decision-whose-condition-may-have-come-true) below,
+the five [checks the auditor is not trusted with](#what-the-auditor-cannot-be-trusted-to-check-wp-25b)
+(Phase 25, WP-25.B),
 plus the [ages table](#the-ages-computed), which is printed and never fails.
 The same readers feed [`/orient`](#orient-the-session-start-ritual), the
 session-start screen, which the job's test step also covers. It is the only
@@ -280,7 +282,10 @@ A local run (`audit_entry.py H-008`) needs `ANTHROPIC_API_KEY`, writes its
 record under `results/audit/entries/`, and is labelled `tier: local`: it can
 inform an explore look, and it does not satisfy §9 question 12, which wants
 an audit that CI ran and recorded (WP-25.C). The `tier` field is a label; what
-makes a record CI's is that CI committed it.
+makes a record CI's is that CI committed it. The record's `entry_fingerprint`
+is taken over the entry minus what a promotion writes itself, so
+`record_audit.py` can tell whether the approval still matches the entry
+([below](#what-the-auditor-cannot-be-trusted-to-check-wp-25b)).
 
 ### model_compare.yml — the main model, compared on saved days (IMP-8)
 
@@ -687,6 +692,61 @@ last edited. Replayed to 2026-09-12 the check is red on exactly the two pages
 (superseded 09-13); the test suite asserts that replay. `--now` reads the
 pages, the record and the blame at that date.
 
+### What the auditor cannot be trusted to check (WP-25.B)
+
+[ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md)
+puts a model between an entry and its promotion, and names five things that
+are not left to the model's judgement, because git can settle them. They are
+five more checks in `record_audit.py`, shipped 2026-09-29. Each reads the
+register on `main` and, where it needs one, the output branch: the audit
+records under `results/audit/`, the harness's run log, a sealed read's report.
+The audit records and a sealed read's report are committed by CI.
+
+| Check | Red when |
+|---|---|
+| `approval-stamp` | an entry is `promoted` without a CI audit record stamped to its **current** text, or the newest such record rejected it, or the model / effort / instructions that approved it have no passing canary suite on `output` |
+| `no-grinding` | an entry was audited by CI a third time after two rejections, even if the third passed, unless the entry is `closed` or the owner's decision is pinned in `OWNER_RESUBMISSIONS` against a `resolved.md` item |
+| `instruction-freeze` | one commit changed `.macro-assist/auditor/instructions.md` and, in the same commit, the status or stamped text of an entry that is or was ever promoted. An entry promoted later still turns the earlier commit red |
+| `bar-before-result` | an entry's bar changed at or after the first commit of the sealed-read report its `Sealed read (ledger)` field names. The bar is the entry less its status, its audit record and its ledgers. It is also red when the named report is not on `output` |
+| `receipts` | a dated look in an open entry's ledger has no run logged that day in `explore_conditioner/runs.jsonl` on `output`, or a line of that log does not parse. A logged run whose date no entry's ledger mentions is **report-only**: a look nobody counted |
+
+**The stamp** is `decision_packet.stamped_text`: the entry, minus its Status
+paragraph, its Audit record field and its Sealed read ledger. The promotion
+writes the first two and the sealed read writes the third, so they cannot be
+part of what was approved. Paragraph breaks and horizontal rules are
+normalised, so it does not matter where a field is inserted. `audit_entry.py`
+fingerprints the same text, so a record's `entry_fingerprint` is directly
+comparable. Any other edit to the entry, including a new ledger line, voids
+the approval.
+
+**The receipts** start with this work package. `explore_conditioner.py` now
+appends one line per run to `results/explore_conditioner/runs.jsonl`. The line
+holds the time of the run, the commit it ran from and whether the tree was
+dirty, the seal, the arms, and the sha256 of the report it wrote. The looks
+before the log began (H-004, H-006 and H-008 on 2026-09-14, and H-008 on
+2026-09-21, the last two inherited from H-002) are pinned exactly in
+`LOOKS_BEFORE_RECEIPTS`. A pin is red once its look leaves the ledger or a
+logged run covers it. A look dated after 2026-09-29 cannot be pinned without
+that diff showing it. A run matches a ledger date on either its local or its
+UTC date. A run that is never committed to `output` has no receipt.
+
+What these checks do not do:
+- **Commit dates are what the committer says they are.** The output side is
+  written by CI, but a backdated commit on `main` would pass
+  `bar-before-result`.
+- **The freeze counts commits, not pushes.** An instructions edit and a
+  promotion split over two commits in one push pass it. The canary gate in
+  `approval-stamp` is what catches a weakened auditor: an edited instructions
+  file has no passing suite until the canaries pass again.
+- **A receipt proves a run happened that day, not which numbers it printed.**
+  Matching each number in the entry to the report stays the auditor's job,
+  from the bundle.
+- **The Status paragraph is outside the stamp**, so text written there after
+  an approval does not void it. The auditor still reads it.
+
+Today no entry is `promoted` and none has had a sealed read, so four of the
+five checks find nothing to read. `receipts` reads the four pinned looks.
+
 ### `/orient` — the session-start ritual
 
 Every rule above has a reader problem: the board wins on status, the owner
@@ -702,7 +762,7 @@ script reads; it never writes. One screen, five blocks:
 |---|---|---|
 | **BOARD** | the board's *Right now*, its latest changelog row, every **Active** row with its `Next:` line and every **Queued / dormant** row — each with the days since it was last edited and the commit that did it | `active-experiments.md`, ages (24.E) |
 | **INBOX** | every open `todo.md` item, oldest first, with its age and last commit | `todo.md`, ages (24.E) |
-| **AUDIT** | `record_audit.py`'s findings and its red / report-only summary, with a count per check so that `contradictions 0` is visible rather than absent | `audit()` (24.A–D, 24.F reds) |
+| **AUDIT** | `record_audit.py`'s findings and its red / report-only summary, with a count per check so that `contradictions 0` is visible rather than absent | `audit()` (24.A–D, 24.F reds, 25.B) |
 | **ADR REVISIT** | the report-only lines of the [revisit rule](#a-decision-whose-condition-may-have-come-true): a decision whose cited condition closed after its section was last edited, or `none` | 24.F |
 | **PROMOTION GATE** | printed whenever the register holds an entry in `draft`, `seen` or `proposed` — a state whose next transition is `promoted`, which since [ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md) takes an independent audit: the pending entries; the first paragraph of §6's *Until the auditor is switched on* subsection while the page carries it; then the bullets of [how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis) before that subsection — what stays with the owner — as the page has them today | `hypotheses.md`, `how-we-explore.md` |
 

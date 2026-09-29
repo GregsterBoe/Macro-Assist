@@ -279,3 +279,22 @@ def test_an_optional_arm_never_drops_an_observation():
     assert s["n"] == sum("har_gaussian" in o["arms"] for o in with_ if o["horizon"] == 5)
     assert s["n_report_dates"] < ec.summarize_arm(with_, "dd_bin", 5)["n_report_dates"]
     assert s["verdict"]["verdict"] == "exploratory"
+
+
+def test_every_run_appends_its_own_receipt(tmp_path):
+    """The run log is the harness's, not the proposer's (ADR-0022, WP-25.B):
+    one line per run, appended, tied to the report it wrote by sha256 — and
+    it parses the way record_audit.py reads it."""
+    import hashlib
+    import json
+    from datetime import datetime
+
+    meta = {"first_date": "2011-01-03", "last_date": "2017-12-29", "n_report_dates": 1759}
+    first = ec.log_run(tmp_path, "report one\n", meta, cached=True)
+    ec.log_run(tmp_path, "report two\n", meta, cached=False)
+    lines = (tmp_path / ec.RUN_LOG).read_text(encoding="utf-8").splitlines()
+    assert [json.loads(ln)["cached"] for ln in lines] == [True, False]
+    assert first["report_sha256"] == hashlib.sha256(b"report one\n").hexdigest()
+    assert first["seal"] == SEAL_START.isoformat() and first["arms"] == list(ec.ALL_ARMS)
+    assert datetime.fromisoformat(first["run_at"]).tzinfo is not None
+    assert first["commit"] is None or len(first["commit"]) == 40

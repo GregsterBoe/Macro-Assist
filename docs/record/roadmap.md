@@ -72,7 +72,7 @@ Measured results live in `knowledge-base.md`.
 | 22 | Scoring the distribution product | 🟢 Open 2026-09-08 — the scorer follows the v1.6 cut. A/B shipped; the bar is sealed, first read ~2027-05 |
 | 23 | Exploration tier — the generation side of the method | 🔍 Open 2026-09-13 — harness built, three explore looks run 2026-09-14 and 09-21; seal decided (`SEAL_START` reused); next is the independent audit (Phase 25), then the WP-23.B class bar |
 | 24 | Record integrity & session continuity | ✅ Closed 2026-09-21 — every work package shipped: `record_audit.py` in CI (24.A/B since 2026-09-14, 24.C–F since 2026-09-21) and `/orient` (24.G); detail archived. The row said ⏸ Draft for a week after the board went Active — 24.D's first red |
-| 25 | Independent audit — the judge is not the proposer ([ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md)) | 🔍 Open 2026-09-27 — WP-25.A ✅ 2026-09-28 (auditor, bundle, six canaries; the CI canary run passed six of six on `claude-opus-5-5` / `high`); next WP-25.B; until 25.A–C are done, nothing is promoted |
+| 25 | Independent audit — the judge is not the proposer ([ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md)) | 🔍 Open 2026-09-27 — WP-25.A ✅ 2026-09-28 (auditor, bundle, six canaries; the CI canary run passed six of six on `claude-opus-5-5` / `high`); WP-25.B ✅ 2026-09-29 (five `record_audit.py` checks); next WP-25.C; until 25.A–C are done, nothing is promoted |
 
 The v1.5 **system-state snapshot** that used to open this file was archived on the
 same pass; `README.md` is the maintained system reference.
@@ -824,7 +824,7 @@ writes something gets an `ARTIFACTS` line, not a work package.
 
 ---
 
-## Independent Audit (Phase 25) — *the judge is not the proposer* 🔍 OPEN — accepted 2026-09-27; WP-25.A ✅ 2026-09-28
+## Independent Audit (Phase 25) — *the judge is not the proposer* 🔍 OPEN — accepted 2026-09-27; WP-25.A ✅ 2026-09-28; WP-25.B ✅ 2026-09-29
 
 **Why.** [ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md) moved the technical audit of a
 register entry from the owner to an auditor that is independent of the proposer
@@ -888,7 +888,7 @@ base itself drew no blocking finding. **Done.** That pass certifies
 `claude-opus-5-5` / `high` on instructions `sha256:9a67c70d…` and canary set
 `sha256:758ac0d1…`; changing any of the four needs a new pass (WP-25.C).
 
-### WP-25.B — The code checks, in `record_audit.py`
+### WP-25.B — The code checks, in `record_audit.py` ✅ 2026-09-29
 
 - **Bar older than result:** the commit holding an entry's bar predates the
   commit holding the result it is read against.
@@ -902,6 +902,30 @@ base itself drew no blocking finding. **Done.** That pass certifies
 - **No grinding:** each resubmission after a rejection is a counted look; a third
   submission after two rejections is red until the entry is closed or the owner
   decides.
+
+**Done.** Five checks, each red in CI, with 18 tests driving each one defect at a
+time against a throwaway git repository. How each is read, and what it cannot
+see, is in [Operations](../reference/operations.md#what-the-auditor-cannot-be-trusted-to-check-wp-25b).
+Three things were decided in the build:
+- **The stamp** covers the entry less its Status paragraph, its `Audit record`
+  and its `Sealed read (ledger)`, which the promotion and the read write
+  themselves (`decision_packet.stamped_text`). `audit_entry.py` fingerprints
+  the same text.
+- **The bar** is the entry less its status, audit record and ledgers. The
+  result is the first commit of the report that the `Sealed read (ledger)`
+  field names.
+- **The approval must come from a certified auditor.** Its model, effort and
+  instructions need a passing canary suite on `output`, so weakening the
+  instructions is caught by the canaries rather than by commit order alone.
+
+The receipts start now: `explore_conditioner.py` appends to
+`results/explore_conditioner/runs.jsonl`. The four looks from before the log are
+pinned exactly in `LOOKS_BEFORE_RECEIPTS`. No entry is promoted, so the other four
+checks read nothing yet. WP-25.C's job writes what they read: the CI audit records
+and the `Audit record` field.
+One half of *No grinding* is not a check yet. The rule that each resubmission
+counts as a look needs a place where the audits are listed, and WP-25.C's
+`Audit record` field is that place.
 
 ### WP-25.C — The CI audit job
 

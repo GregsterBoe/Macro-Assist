@@ -105,16 +105,23 @@ Run
     python explore_conditioner.py --cached       # reuse the cached inputs
 
 Writes `results/explore_conditioner/{report.md, summary.json}` and caches the
-fetched inputs under the same directory (`inputs.pkl`).
+fetched inputs under the same directory (`inputs.pkl`). Every run also appends
+one line to `runs.jsonl` there — its receipt (ADR-0022, WP-25.B): when it ran,
+on which commit, and the sha256 of the report it wrote. `record_audit.py`
+reads that log from the output branch, and a dated look in a register entry
+with no logged run behind it is red. The log is append-only; a run that is not
+committed to `output` has no receipt.
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import pickle
+import subprocess
 from collections import defaultdict
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 import numpy as np
@@ -132,6 +139,7 @@ from vol_forecast import har_forecast_or_none
 
 _HERE = Path(__file__).resolve().parent
 RESULTS_DIR = _HERE.parent / "results" / "explore_conditioner"
+RUN_LOG = "runs.jsonl"
 
 MIN_N = 10                      # conditional.build_distribution_table's default
 QUANTILES = (0.25, 0.50, 0.75)
@@ -900,8 +908,39 @@ def run(cached: bool = False, out_dir: Path = RESULTS_DIR) -> dict:
     (out_dir / "summary.json").write_text(json.dumps(summary, indent=2, default=str), encoding="utf-8")
     md = report_md(summary, cells, meta)
     (out_dir / "report.md").write_text(md, encoding="utf-8")
+    log_run(out_dir, md, meta, cached=cached)
     print(md)
     return summary
+
+
+def _code_version() -> dict:
+    """The commit the harness ran from, and whether the tree differed from it."""
+    def git(*args: str) -> str | None:
+        try:
+            r = subprocess.run(["git", "-C", str(_HERE), *args], capture_output=True, text=True)
+        except OSError:
+            return None
+        return r.stdout.strip() if r.returncode == 0 else None
+    status = git("status", "--porcelain", "--", ".")
+    return {"commit": git("rev-parse", "HEAD"), "dirty": None if status is None else bool(status)}
+
+
+def log_run(out_dir: Path, report: str, meta: dict, *, cached: bool) -> dict:
+    """Append this run's receipt to `runs.jsonl`. Written by the harness, not
+    by whoever ran it, so the ledger stops being self-reported (ADR-0022)."""
+    rec = {
+        "run_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+        **_code_version(),
+        "cached": cached,
+        "seal": SEAL_START.isoformat(),
+        "arms": list(ALL_ARMS),
+        "first_date": meta["first_date"], "last_date": meta["last_date"],
+        "n_report_dates": meta["n_report_dates"],
+        "report_sha256": hashlib.sha256(report.encode("utf-8")).hexdigest(),
+    }
+    with (out_dir / RUN_LOG).open("a", encoding="utf-8") as f:
+        f.write(json.dumps(rec, default=str) + "\n")
+    return rec
 
 
 def main() -> None:

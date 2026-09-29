@@ -18,6 +18,14 @@ not yet looked at · `promoted` — bar written, confirm run scheduled ·
 the confound → what would test it → target-space check → read first. An entry
 missing a confound is not finished.
 
+**Ledgers, stamps and receipts** (ADR-0022, WP-25.B; checked by
+`record_audit.py`). A field whose name ends `(ledger)` records looks, and every
+italic date in one needs a run logged by the harness that day. After a sealed
+read, its report is named in a `Sealed read (ledger)` field. An audit approves
+the entry less its Status line and its `Audit record`, which the promotion
+writes. Any other edit voids the approval. Once a result exists, only the
+status and the ledgers may change.
+
 | # | Status | One line |
 |---|---|---|
 | [H-001](#h-001) | `closed` | The SPF anchor's confidence bins are the first correctly ordered ones ever measured here — *confound resolved 2026-09-14: the ordering is carried by two crisis-rebound periods and inverts within three of six assets; closed on its own target-space rule, no KB entry* |
