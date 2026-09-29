@@ -739,7 +739,7 @@ zero) → `no_edge` → `explained_by_rival` → `unexplained` (the mechanism cl
 failed, or the entry named none) → `edge`. Every stage's number is carried
 whichever verdict fires.
 
-**The conditioner class** (H-004, H-008) — a shadow conditioner vs
+**The conditioner class** (H-004; H-008 closed on explore 2026-09-29) — a shadow conditioner vs
 `unconditional`:
 
 - **Phase 22's bar as is.** `MIN_SKILL = 0.02`, `MIN_BLOCKS = 8` of 21 report
