@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted — drafted by the assistant at the owner's request, accepted by the owner the same day (`resolved.md` #32). Switched on 2026-09-29 by the owner, once the auditor had rejected every canary and the CI audit job had passed its dry run (Phase 25, WP-25.A–C) |
+| **Status** | Accepted — drafted by the assistant at the owner's request, accepted by the owner the same day (`resolved.md` #32). Switched on 2026-09-29 by the owner, once the auditor had rejected every canary and the CI audit job had passed its dry run (Phase 25, WP-25.A–C). The seal key was built and its credential split verified the same day: the assistant's token was refused at the approval (WP-25.D) |
 | **Decided** | 2026-09-27 |
 | **Related** | [How we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis) (the rule it changes) · [ADR-0020](ADR-0020-the-numeric-bar-has-a-skill-margin.md) (the bar precedes the candidate) · [ADR-0019](ADR-0019-paper-portfolio-mechanical-and-paper-only.md) (the money side) · [What is worth doing](../concepts/what-is-worth-doing.md) (the goals the owner keeps) |
 

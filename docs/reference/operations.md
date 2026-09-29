@@ -386,10 +386,20 @@ the owner's account, limited to reading Actions and Contents on this
 repository. It cannot approve a deployment. The split is
 that token's permissions, not a separate account: a token on the owner's
 account with more permissions could approve in the owner's name. So the split
-is verified by trying it. While a dry run waits at the key, the assistant asks
-the API to approve it with its own token, and the refusal is the evidence
-(WP-25.D's done condition). **Verify it again whenever that token is
-recreated or its permissions change.**
+is verified by trying it. While a dry run waits at the key, the owner runs the
+approval call with the assistant's token (the assistant's own permission layer
+will not let it try to approve its own gate), and a refusal is the evidence:
+`Resource not accessible by personal access token (HTTP 403)`, as on
+2026-09-29, [run 36605611826](https://github.com/GregsterBoe/Macro-Assist/actions/runs/36605611826). The API's `current_user_can_approve` reads `true` for
+that token because it describes the account; it is not evidence. **Verify it
+again whenever that token is recreated or its permissions change.** The call:
+
+```bash
+R=repos/GregsterBoe/Macro-Assist/actions/runs/<run id>
+GH_TOKEN="$(cat ~/.config/macro-assist/gh-token)" gh api -X POST $R/pending_deployments \
+  -F "environment_ids[]=$(GH_TOKEN="$(cat ~/.config/macro-assist/gh-token)" gh api $R/pending_deployments --jq '.[0].environment.id')" \
+  -f state=approved -f comment="credential-split test: this must be refused"
+```
 
 What it does not do:
 - **It does not stop a deliberate look.** The data is public. The key keeps an

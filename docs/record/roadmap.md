@@ -72,7 +72,7 @@ Measured results live in `knowledge-base.md`.
 | 22 | Scoring the distribution product | 🟢 Open 2026-09-08 — the scorer follows the v1.6 cut. A/B shipped; the bar is sealed, first read ~2027-05 |
 | 23 | Exploration tier — the generation side of the method | 🔍 Open 2026-09-13 — harness built, three explore looks run 2026-09-14 and 09-21; seal decided (`SEAL_START` reused); next is the independent audit (Phase 25), then the WP-23.B class bar |
 | 24 | Record integrity & session continuity | ✅ Closed 2026-09-21 — every work package shipped: `record_audit.py` in CI (24.A/B since 2026-09-14, 24.C–F since 2026-09-21) and `/orient` (24.G); detail archived. The row said ⏸ Draft for a week after the board went Active — 24.D's first red |
-| 25 | Independent audit — the judge is not the proposer ([ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md)) | 🔍 Open 2026-09-27 — WP-25.A ✅ 2026-09-28 (auditor, bundle, six canaries; the CI canary run passed six of six on `claude-opus-5-5` / `high`); WP-25.B ✅ 2026-09-29 (five `record_audit.py` checks); WP-25.C ✅ 2026-09-29 (`audit_entry.yml`, the `Audit record` field; its CI dry run passed); **switched on 2026-09-29** — a promotion now passes the CI audit; WP-25.D built 2026-09-29 (`sealed_read.yml`, the seal key), waiting on the owner's setup and a dry run |
+| 25 | Independent audit — the judge is not the proposer ([ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md)) | 🔍 Open 2026-09-27 — WP-25.A ✅ 2026-09-28 (auditor, bundle, six canaries; the CI canary run passed six of six on `claude-opus-5-5` / `high`); WP-25.B ✅ 2026-09-29 (five `record_audit.py` checks); WP-25.C ✅ 2026-09-29 (`audit_entry.yml`, the `Audit record` field; its CI dry run passed); **switched on 2026-09-29** — a promotion now passes the CI audit; WP-25.D ✅ 2026-09-29 (`sealed_read.yml`, the seal key; the dry run paused for the owner and the assistant's token was refused) |
 
 The v1.5 **system-state snapshot** that used to open this file was archived on the
 same pass; `README.md` is the maintained system reference.
@@ -824,7 +824,7 @@ writes something gets an `ARTIFACTS` line, not a work package.
 
 ---
 
-## Independent Audit (Phase 25) — *the judge is not the proposer* 🔍 OPEN — accepted 2026-09-27; WP-25.A ✅ 2026-09-28; WP-25.B ✅ 2026-09-29; WP-25.C ✅ 2026-09-29; switched on 2026-09-29
+## Independent Audit (Phase 25) — *the judge is not the proposer* 🔍 OPEN — accepted 2026-09-27; WP-25.A ✅ 2026-09-28; WP-25.B ✅ 2026-09-29; WP-25.C ✅ 2026-09-29; switched on 2026-09-29; WP-25.D ✅ 2026-09-29
 
 **Why.** [ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md) moved the technical audit of a
 register entry from the owner to an auditor that is independent of the proposer
@@ -838,8 +838,8 @@ ceiling of [What is worth doing §1](../concepts/what-is-worth-doing.md#1-what-t
 rejected every canary, so the owner had §6's *Until the auditor is switched on*
 subsection deleted from
 [how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis).
-Promotions now run by audit (`audit_entry.yml`); a sealed read also needs
-WP-25.D.
+Promotions now run by audit (`audit_entry.yml`). A sealed read also waits on
+the owner's key (`sealed_read.yml`, WP-25.D, done the same day).
 
 ### WP-25.A — The auditor, its inputs, and the canaries ✅ 2026-09-28
 
@@ -972,15 +972,14 @@ a full clone, four commits in the entry's history, certified by
 `audit/canaries/2026-09-28T2005Z-9a67c70d.json`, no earlier audits, no API
 call. The owner switched the audit on the same day.
 
-### WP-25.D — The seal key
+### WP-25.D — The seal key ✅ 2026-09-29
 
 A GitHub Actions environment with the owner as required reviewer; the
 sealed-read job waits until they approve. **Done when** a dry run shows the job
 paused *and* the assistant's credentials refused at the approval — otherwise the
 key is decorative.
 
-**Built 2026-09-29; waiting on the owner's setup and a dry run.**
-`sealed_read.yml` (dispatch-only, free, `dry_run` on by default) has a
+**Built.** `sealed_read.yml` (dispatch-only, free, `dry_run` on by default) has a
 `preflight` job and a `key` job that names `environment: seal-key`. The
 preflight refuses an entry that is not `promoted`, has no certified CI approval
 stamped to its current text (the `approval-stamp` check, reused), or has
@@ -1001,6 +1000,29 @@ Three things were decided in the build:
 - **A real run reads nothing yet.** The read is WP-23.B's harness. Until it
   exists, a real run stops after the key and says so.
 
+**Done 2026-09-29.** Two dispatched dry runs on H-008, both reading nothing:
+- **[run 36604782387](https://github.com/GregsterBoe/Macro-Assist/actions/runs/36604782387) was refused at the preflight, and should have been.** The
+  owner had created `seal-key`, but its reviewer and its bypass setting had not
+  been saved, so GitHub held only the branch rule. Without the preflight the
+  `key` job would have run straight through: the silent failure the check
+  exists for, caught on its first run.
+- **[run 36605611826](https://github.com/GregsterBoe/Macro-Assist/actions/runs/36605611826) passed.** The preflight passed on the key and listed H-008 as
+  `draft`, which a dry run reports and does not stop for. The `key` job then
+  **waited**. While it waited, the assistant's token was tried at the approval
+  endpoint and GitHub refused it: `Resource not accessible by personal access
+  token (HTTP 403)`, with no approval left on record. The owner then approved
+  it on the run page, and the job read GitHub's record (one approval of
+  `seal-key`, by GregsterBoe) and ended *"The key was turned by GregsterBoe.
+  Dry run: nothing was read."*
+
+Two things the verification taught:
+- **The assistant did not run the refused attempt itself.** Its own permission
+  layer blocked it from trying to approve its own gate, even as a test. The
+  owner ran the same call with the assistant's token, which tests the right
+  thing: the credentials, not who typed the command.
+- **GitHub's `current_user_can_approve` says `true` for that token.** It
+  describes the account, not the token's permissions, so it is no evidence
+  either way. Only the refused call is evidence.
 ### WP-25.E — A second model family *(optional, last)*
 
 The same bundle to an auditor from another provider, at promotions and sealed
