@@ -94,6 +94,29 @@ terciles (the edges fixed once, on those dates, the same at every horizon):
     SURVIVES if Elevated is wider (P75 − P25) than Normal in ≥ 75% of the
     comparable cells, and FAILS if not. H-008 predicts it survives.
 
+It survived (8 of 9), so a third OPTIONAL arm, added 2026-09-29 the same day
+as H-008's strongest form — the vol forecast, widened by the state:
+
+    har_x_frag      `har_scaled`'s quote, its width about the median times
+                    k(cell), cell = S&P stressed (dd ≤ DD_EDGES[0]) × OR state.
+                    k = IQR of the known standardized moves y_i / σ_h,i in the
+                    report date's cell ÷ their IQR in every cell, σ_h,i the
+                    HAR sigma of report date i scaled to h; known = closed by
+                    t and σ quoted on i. Fewer than MIN_N in the cell: k = 1,
+                    which is `har_scaled` exactly
+
+    Rule written before looking, on the class bar's own pass clause
+    (`score_distributions.MIN_SKILL`, pooled SP500 / Gold / WTI Oil at h = 5, where
+    `har_scaled` quotes): the arm WOULD HAVE CLEARED THE HEADLINE on the
+    explore slice if its skill vs `unconditional` and vs `har_scaled` each
+    exceed MIN_SKILL with the interval clear of zero; otherwise it would not.
+    Reported with it, not deciding: its skill vs `har_scaled` on stressed ∧
+    Elevated dates (where the mechanism puts the gain), and at 10d and 20d.
+    H-008 predicts it clears. The proposer's prior is that the 0.02 margin
+    against `har_scaled` does not: the state moves the quote on a minority of
+    dates, and `har_scaled` itself is +0.015 against `unconditional` here.
+    The verdict stays `exploratory` whatever it shows.
+
 Scoring
 -------
 Pinball loss on the three quantiles, `skill_vs` = 1 − loss(arm)/loss(benchmark)
@@ -150,7 +173,7 @@ from conditional import TABLE_START, assign_bucket, _bucket_drop_credit, _bucket
 from fragility_or import build_channels, _Q, _MIN_WARMUP, _CH_KEYS
 from numeric_baseline import SEAL_START, DRAWDOWN_WINDOW
 from score_distributions import (
-    BLOCK_DAYS, N_BOOT, SEED, MIN_POOL_BLOCKS, TRADING_DAYS_PER_YEAR, _VOL_LOG_KEYS,
+    BLOCK_DAYS, N_BOOT, SEED, MIN_POOL_BLOCKS, MIN_SKILL, TRADING_DAYS_PER_YEAR, _VOL_LOG_KEYS,
     _gaussian_quantiles, pinball_loss, pit_bin, skill_vs, verdict,
 )
 from vol_forecast import har_forecast_or_none
@@ -169,7 +192,7 @@ SIGN_WINDOW = 5                 # the trailing S&P return whose sign labels the 
 ARMS = ("unconditional", "trailing_250", "macro", "frag_or", "frag_comp",
         "frag_or_x_nfci", "dd_bin", "dd_x_frag",
         "dd_x_age", "dd_x_frag_x_age", "dd_x_sign", "dd_x_frag_x_sign")
-OPTIONAL_ARMS = ("har_gaussian", "har_scaled")      # quoted where available, own subsample
+OPTIONAL_ARMS = ("har_gaussian", "har_scaled", "har_x_frag")      # quoted where available, own subsample
 ALL_ARMS = ARMS + OPTIONAL_ARMS
 BENCH = "unconditional"
 
@@ -381,6 +404,34 @@ def har_scaled_quantiles(uncond: dict[float, float], sigma_annual_pct: float, ho
     return {q: float(med + (v - med) * r) for q, v in uncond.items()}
 
 
+def frag_cells(frame: pd.DataFrame) -> np.ndarray:
+    """`har_x_frag`'s cell on each report date: S&P stressed × OR state, None
+    where either is undefined."""
+    dd, st = frame["dd_stressed"].to_numpy(dtype=object), frame["or_state"].to_numpy(dtype=object)
+    return np.array([f"{d}|{o}" if isinstance(d, str) and isinstance(o, str) else None
+                     for d, o in zip(dd, st)], dtype=object)
+
+
+def frag_factor(y: np.ndarray, sigma: np.ndarray, cells: np.ndarray, t: int, h: int) -> tuple[float, str, int]:
+    """`har_x_frag`'s width factor on report date t: the IQR of the known
+    standardized moves y_i / σ_h,i in t's cell over their IQR in every cell
+    (known = window closed by t, σ quoted on i). (1.0, "har", n) — exactly
+    `har_scaled` — when the cell has fewer than MIN_N."""
+    last = t - h
+    if last < 0 or cells[t] is None:
+        return 1.0, "har", 0
+    s = sigma[:last + 1] * np.sqrt(h / TRADING_DAYS_PER_YEAR)
+    z = y[:last + 1] / s
+    ok = np.isfinite(z) & (cells[:last + 1] != None)  # noqa: E711 — elementwise over an object array
+    mine = ok & (cells[:last + 1] == cells[t])
+    if mine.sum() < MIN_N:
+        return 1.0, "har", int(mine.sum())
+    whole = float(np.subtract(*np.percentile(z[ok], [75, 25])))
+    if whole <= 0:
+        return 1.0, "har", int(mine.sum())
+    return float(np.subtract(*np.percentile(z[mine], [75, 25]))) / whole, str(cells[t]), int(mine.sum())
+
+
 # ---------------------------------------------------------------------------
 # Quoting and scoring
 # ---------------------------------------------------------------------------
@@ -464,6 +515,7 @@ def observations_on(frame: pd.DataFrame, fr: dict, ladders: dict, positions,
         raise ValueError("`har_scaled` is rescaled from the benchmark's quote; walk it too")
     dates = frame.index
     sigmas = sigmas or {}
+    cells = frag_cells(frame) if sigmas else None
     obs: list[dict] = []
     for t in positions:
         ts = dates[t]
@@ -494,6 +546,10 @@ def observations_on(frame: pd.DataFrame, fr: dict, ladders: dict, positions,
                                               float(np.nanstd(known)))
                     if sq:
                         quoted["har_scaled"] = _score_arm(sq, realized, "har", quoted[BENCH]["n"])
+                        k, cell, n_cell = frag_factor(fr[a.key][h], sigmas[a.key], cells, t, h)
+                        med = sq[0.50]
+                        fq = {q: float(med + (v - med) * k) for q, v in sq.items()}
+                        quoted["har_x_frag"] = _score_arm(fq, realized, cell, n_cell)
                 obs.append({
                     "date": ts.date().isoformat(), "asset": a.key, "horizon": h,
                     "unit": a.unit, "realized": float(realized),
@@ -702,6 +758,35 @@ def har_rival(obs: list[dict], horizon: int, keys=ORIGINAL_KEYS) -> dict:
             if sk is not None:
                 row[a.key] = {"skill": round(sk, 4), "ci": skill_ci(s, arm, benchmark=bench)}
         out["pairs"][name] = row
+    return out
+
+
+def _clears(p: dict | None) -> bool:
+    return bool(p and p["skill"] > MIN_SKILL and p["ci"]["lo"] > 0)
+
+
+def har_x_frag_read(obs: list[dict], keys=ORIGINAL_KEYS) -> dict:
+    """The rule the docstring wrote before `har_x_frag` was looked at: the
+    class bar's pass clause against both comparators at h = 5, pooled over
+    `keys`, on the dates `har_scaled` quotes; the other horizons and the
+    stressed ∧ Elevated dates alongside, not deciding."""
+    out: dict = {"by_horizon": {}}
+    for h in HORIZONS:
+        sub = [o for o in obs if o["horizon"] == h and "har_x_frag" in o["arms"]]
+        hot = [o for o in sub if o["dd_bin"] != "dd>-5" and o["or_state"] == "Elevated"]
+        ks = [o["arms"]["har_x_frag"]["width"] / o["arms"]["har_scaled"]["width"]
+              for o in sub if o["arms"]["har_scaled"]["width"] > 0]
+        out["by_horizon"][str(h)] = {
+            "n_report_dates": len({o["date"] for o in sub}),
+            "vs_unconditional": pooled(sub, "har_x_frag", keys),
+            "vs_har_scaled": pooled(sub, "har_x_frag", keys, benchmark="har_scaled"),
+            "hot_n_report_dates": len({o["date"] for o in hot}),
+            "hot_vs_har_scaled": pooled(hot, "har_x_frag", keys, benchmark="har_scaled"),
+            "share_moved": round(float(np.mean([abs(k - 1) > 1e-9 for k in ks])), 3) if ks else None,
+            "coverage": coverage(sub, "har_x_frag"),
+        }
+    five = out["by_horizon"]["5"]
+    out["clears"] = _clears(five["vs_unconditional"]) and _clears(five["vs_har_scaled"])
     return out
 
 
@@ -941,6 +1026,23 @@ def report_md(summary: dict, cells: dict[str, pd.DataFrame], meta: dict) -> str:
         for name, df in cells.items():
             if name.startswith("H-008"):
                 L += [f"### {name}", "", _md_table(df), ""]
+    hx = summary.get("har_x_frag")
+    if hx:
+        L += ["## H-008 in its strongest form — `har_x_frag`, the vol forecast widened by the state", "",
+              "Pooled SP500 / Gold / WTI Oil on the dates `har_scaled` quotes. Rule written before looking "
+              f"(2026-09-29): the class bar's pass clause at h = 5 — skill > {MIN_SKILL}, interval clear of "
+              "zero — against `unconditional` *and* against `har_scaled`. The other horizons and the "
+              "stressed ∧ Elevated dates are reported, not deciding.", "",
+              f"**Would have cleared the headline on the explore slice: {'yes' if hx['clears'] else 'no'}.**", "",
+              "| h | n dates | vs `unconditional` | 95% CI | vs `har_scaled` | 95% CI | stressed ∧ Elevated n | "
+              "there vs `har_scaled` | 95% CI | share of quotes moved | coverage |",
+              "|---|---|---|---|---|---|---|---|---|---|---|"]
+        for h, r in hx["by_horizon"].items():
+            u, v, w = r["vs_unconditional"], r["vs_har_scaled"], r["hot_vs_har_scaled"]
+            f = lambda p: (f"{p['skill']:+.4f}", _ci(p["ci"])) if p else ("n/a", "n/a")
+            L.append(f"| {h} | {r['n_report_dates']} | {' | '.join(f(u))} | {' | '.join(f(v))} | "
+                     f"{r['hot_n_report_dates']} | {' | '.join(f(w))} | {r['share_moved']} | {r['coverage']:.3f} |")
+        L.append("")
     L += ["## Reproduce", "", "```", "cd .macro-assist && python explore_conditioner.py --cached",
           "```", "", "Inputs: `refit_models._fetch_price_history(TABLE_START)`, "
           "`refit_models._fetch_fred_series`, `fragility_or.build_channels(stride=1)`; "
@@ -1014,6 +1116,7 @@ def run(cached: bool = False, out_dir: Path = RESULTS_DIR) -> dict:
             vframe, fr, "SP500", h, ["dd_stressed", "har_tercile"], where=in_look)
         cross[h] = cells[f"H-008 SP500 h={h}: stressed × HAR-sigma tercile × OR state"] = realized_by_cell(
             vframe, fr, "SP500", h, ["dd_stressed", "har_tercile", "or_state"], where=in_look)
+    summary["har_x_frag"] = har_x_frag_read(obs)
     summary["vol_rival"] = {**vol_rival_rule(cross),
                             "edges": [round(float(e), 2) for e in edges]}
 

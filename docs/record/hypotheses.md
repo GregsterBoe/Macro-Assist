@@ -684,7 +684,7 @@ new fit) · `score_distributions._gaussian_quantiles` · the report.
 
 **Read first.** [KB-016] · [KB-017] · [KB-033] · [H-006](#h-006) · [H-007](#h-007) · `explore_conditioner.py` · `fragility_or.py::_pit_backtest`.
 
-**Pre-registration.** *Drafted by the assistant, the proposer, 2026-09-29; it does not judge it (§6).* Written before the counted explore look *What would test it* puts first (stressed bin × OR state against stressed bin × `har_scaled` σ tercile, widths only). That look ran on 2026-09-29, and the state survived it on the rule written before it (ledger below). Nothing here changed in its light. What it does not change: the headline this bar reads first is `dd_x_frag`'s *skill*, and on the explore record that skill clears neither comparator.
+**Pre-registration.** *Drafted by the assistant, the proposer, 2026-09-29; it does not judge it (§6).* Written before the counted explore look *What would test it* puts first (stressed bin × OR state against stressed bin × `har_scaled` σ tercile, widths only). That look ran on 2026-09-29, and the state survived it on the rule written before it (ledger below). Nothing here changed in its light. A second look the same day tested the entry in its strongest form, the vol forecast widened by the state (`har_x_frag`, ledger). It was reliably *worse* than `har_scaled` at every horizon. What neither look changes: the headline this bar reads first is `dd_x_frag`'s *skill*, and on the explore record that skill clears neither comparator.
 - **Class `conditioner`** (`class_bars.py`). Disqualifiers first. Then `dd_x_frag` must beat `unconditional` *and then* `har_scaled` by `MIN_SKILL` (0.02), each block-bootstrap interval clear of zero. Skill is pinball, pooled equal-weight over SP500 / Gold / WTI Oil. The seal is 2018-01-01 → before 2026-09-07, the whole sealed side (`resolved.md` #19).
 - **Arm `dd_x_frag`**, the entry's claim scored as a conditioner: S&P drawdown bin × `fragility_or` state. **Horizon 5 days**, the class default and the horizon the note publishes. It is also the only horizon where this arm was above zero on the explore slice. **How strong that was:** +0.009 [−0.001, +0.020] against `unconditional` at 5d, +0.001 at 10d and −0.009 at 20d. That is below the 0.02 margin at every horizon. `har_scaled` alone scored +0.015 [+0.011, +0.019] at 5d. So on the explore record this arm clears neither comparator. The honest prior for this read is `no_edge` or `explained_by_rival`.
 - **Floor: the class floor, stated.** Each clause cell needs at least 63 report dates in at least 3 distinct episodes. It is written before the sealed cells' sizes are known. The explore cells (70 and 96 days, two or three episodes each) would have been at or under it.
@@ -715,6 +715,17 @@ new fit) · `score_distributions._gaussian_quantiles` · the report.
   - It is a width look. It says nothing about `dd_x_frag`'s pinball skill (+0.009 at 5d, below `MIN_SKILL`), and skill is what the conditioner bar reads first.
 
 Report: `results/explore_conditioner/report.md` § *H-008 rival check*.
+
+*2026-09-29* — **H-008 in its strongest form: `har_x_frag`, a new optional arm.** It takes `har_scaled`'s quote and multiplies its width about the median by k(cell). The cell is S&P stressed × OR state. k is estimated point-in-time as the IQR of the known standardized moves y / σ_h in the report date's cell, over their IQR in every cell. It falls back to `har_scaled` below `MIN_N`.
+- **Rule, written in `explore_conditioner.py` before the run.** The class bar's pass clause at 5d, pooled SP500 / Gold / WTI Oil: skill > 0.02, interval clear of zero, against `unconditional` *and* against `har_scaled`. H-008 predicted it clears. The proposer's written prior was that it would not clear the margin against `har_scaled`.
+- **Outcome: would not have cleared.** Against `unconditional`: +0.012 [+0.007, +0.017] at 5d. That is *below* `har_scaled`'s own +0.015. Against `har_scaled`: **−0.0027 [−0.004, −0.001]** at 5d, −0.0037 at 10d and −0.0054 at 20d, every interval below zero. On the 156 stressed ∧ Elevated dates, where the mechanism puts the gain: −0.003 [−0.007, +0.001] at 5d and −0.016 [−0.029, −0.000] at 20d. Coverage is 0.488 / 0.504 / 0.471.
+- **Easy to forget.**
+  - k moves 95% of the quotes, not only the stressed ∧ Elevated ones: the ratio re-scales every cell. So this arm tests "state-adjusted vol" as a whole, not the one cell.
+  - The previous look found the realized width *is* wider there. What fails is turning that into a better quote, not the width itself.
+  - One form of the arm was tried, and no variants. A second form chosen after this number would be a new counted look.
+- **What it changes.** The conditioner class bar reads skill against `har_scaled` first. On the explore record H-008 fails that in both forms, `dd_x_frag` and `har_x_frag`. The width claim is a structure claim, and §9 question 7 says such a claim needs its own class bar. None exists.
+
+Report: `results/explore_conditioner/report.md` § *H-008 in its strongest form*.
 
 ## Closed
 

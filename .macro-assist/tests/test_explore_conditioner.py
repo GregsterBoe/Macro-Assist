@@ -352,3 +352,48 @@ def test_sigma_terciles_stop_before_the_seal_and_label_only_stressed_dates():
     assert lab[idx >= pd.Timestamp(SEAL_START)].isna().all()
     assert lab[(frame["dd_stressed"] == "dd>-5").to_numpy()].isna().all()
     assert set(lab.dropna()) == set(ec.SIGMA_TERCILES)
+
+
+# ---------------------------------------------------------------------------
+# har_x_frag (2026-09-29): the vol forecast widened by the state
+# ---------------------------------------------------------------------------
+
+def _frag_world(n=400, seed=3):
+    rng = np.random.default_rng(seed)
+    cells = np.array(["dd<=-5|Elevated" if i % 4 == 0 else "dd>-5|Normal" for i in range(n)], dtype=object)
+    sigma = np.full(n, 16.0)
+    s_h = 16.0 * np.sqrt(5 / 252)
+    y = rng.normal(0, s_h, n) * np.where(cells == "dd<=-5|Elevated", 2.0, 1.0)
+    return y, sigma, cells
+
+
+def test_frag_factor_widens_the_cell_that_is_wider_given_its_sigma():
+    y, sigma, cells = _frag_world()
+    k_hot, lvl, n = ec.frag_factor(y, sigma, cells, 396, 5)       # cells[396] is the hot cell
+    k_calm, _, _ = ec.frag_factor(y, sigma, cells, 397, 5)
+    assert lvl == "dd<=-5|Elevated" and n >= ec.MIN_N
+    assert k_hot > 1.4 and k_calm < 1.0
+
+
+def test_frag_factor_uses_only_windows_closed_by_the_report_date():
+    y, sigma, cells = _frag_world()
+    t, h = 200, 5
+    base = ec.frag_factor(y, sigma, cells, t, h)
+    y2 = y.copy()
+    y2[t - h + 1:] = 1e6                                             # the future, and the open windows
+    assert ec.frag_factor(y2, sigma, cells, t, h) == base
+
+
+def test_frag_factor_is_har_scaled_below_min_n_or_without_a_cell():
+    y, sigma, cells = _frag_world()
+    assert ec.frag_factor(y, sigma, cells, 4 * (ec.MIN_N - 2), 5)[:2] == (1.0, "har")
+    none = cells.copy()
+    none[300] = None
+    assert ec.frag_factor(y, sigma, none, 300, 5)[:2] == (1.0, "har")
+
+
+def test_the_sealed_runner_does_not_walk_har_x_frag():
+    import sealed_runner as sr
+    assert "har_x_frag" not in sr.WALKABLE
+    assert sr.refusals({"class": "conditioner", "arm": "har_x_frag", "horizon": 5,
+                        "floor": {"report_dates": 63, "episodes": 3}, "clauses": []})
