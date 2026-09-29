@@ -21,7 +21,9 @@ missing a confound is not finished.
 **Ledgers, stamps and receipts** (ADR-0022, WP-25.B; checked by
 `record_audit.py`). A field whose name ends `(ledger)` records looks, and every
 italic date in one needs a run logged by the harness that day. After a sealed
-read, its report is named in a `Sealed read (ledger)` field. An audit approves
+read, its report is named in a `Sealed read (ledger)` field, which CI writes
+from its sealed-read records (`sealed_read.yml`, WP-23.B) and `record_audit.py`
+holds to them — including a claim whose result was lost. An audit approves
 the entry less its Status line and its `Audit record`, which the promotion
 writes. Any other edit voids the approval. The `Audit record` field lists every
 CI audit of the entry, one line each. CI writes it from its own records

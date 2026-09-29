@@ -1276,7 +1276,7 @@ def test_orient_prints_the_board_the_inbox_the_audit_and_the_gate(oriented):
                                  "schedule-table 0 · artifact-liveness 0 · referential-integrity 0 · "
                                  "contradictions 0 · adr-revisit 0 · approval-stamp 0 · no-grinding 0 · "
                                  "instruction-freeze 0 · bar-before-result 0 · receipts 0 · "
-                                 "audit-record-field 0)\n  clean\n")
+                                 "audit-record-field 0 · sealed-reads 0 · sealed-read-field 0)\n  clean\n")
     assert b["ADR"].strip().splitlines()[1:] == ["  none"]
     # the gate: the pending entries, the transition line while §6 carries
     # it, then §6's owner bullets — and none from inside the subsection

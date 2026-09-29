@@ -70,7 +70,7 @@ Measured results live in `knowledge-base.md`.
 | 16 | Fragility monitor + design-by-emergence prompt levers | ✅ Closed 2026-09-04 — 16.A shipped and alive (→ IMP-4), 16.B/C closed by Phase 21; detail archived |
 | 21 | Directional product validation → **the cut (v1.6)** | ✅ Closed 2026-09-04 — [KB-024]. WP-21.E bounded search: family 1 (VIX term structure) resolved **negative** 2026-09-08 → [KB-027]; 2 of 3 families remain, bar for them written 2026-09-13 ([ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md)) |
 | 22 | Scoring the distribution product | 🟢 Open 2026-09-08 — the scorer follows the v1.6 cut. A/B shipped; the bar is sealed, first read ~2027-05 |
-| 23 | Exploration tier — the generation side of the method | 🔍 Open 2026-09-13 — harness built, three explore looks run 2026-09-14 and 09-21; seal decided (`SEAL_START` reused); the independent audit built (Phase 25); WP-23.B's class bars written 2026-09-29, its sealed runner next |
+| 23 | Exploration tier — the generation side of the method | 🔍 Open 2026-09-13 — harness built, three explore looks run 2026-09-14 and 09-21; seal decided (`SEAL_START` reused); the independent audit built (Phase 25); WP-23.B built 2026-09-29 — class bars and sealed runner; a read waits on an entry with a `Pre-registration` through its CI audit |
 | 24 | Record integrity & session continuity | ✅ Closed 2026-09-21 — every work package shipped: `record_audit.py` in CI (24.A/B since 2026-09-14, 24.C–F since 2026-09-21) and `/orient` (24.G); detail archived. The row said ⏸ Draft for a week after the board went Active — 24.D's first red |
 | 25 | Independent audit — the judge is not the proposer ([ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md)) | 🔍 Open 2026-09-27 — WP-25.A ✅ 2026-09-28 (auditor, bundle, six canaries; the CI canary run passed six of six on `claude-opus-5-5` / `high`); WP-25.B ✅ 2026-09-29 (five `record_audit.py` checks); WP-25.C ✅ 2026-09-29 (`audit_entry.yml`, the `Audit record` field; its CI dry run passed); **switched on 2026-09-29** — a promotion now passes the CI audit; WP-25.D ✅ 2026-09-29 (`sealed_read.yml`, the seal key; the dry run paused for the owner and the assistant's token was refused) |
 
@@ -706,7 +706,7 @@ first. A promoted hypothesis reads 2018-01-01 → the day before Phase 22's live
 record, once, and that read burns the slice for its whole class. The harness
 keeps stopping at the seal.
 
-### WP-23.B — The class bars *(bars ✅ written 2026-09-29, before any candidate is promoted; the sealed runner is next)*
+### WP-23.B — The class bars and the sealed runner *(✅ built 2026-09-29, before any candidate is promoted; nothing read)*
 
 One pre-registered bar per hypothesis *class*, not per hypothesis — the
 [ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md) move
@@ -714,8 +714,8 @@ made a rule ([how we explore §5](../concepts/how-we-explore.md#5-the-bar-preced
 Two halves. **The bars** are code in `.macro-assist/class_bars.py` (research
 tier), written 2026-09-29 with every register entry `draft` or `seen` and
 nothing promoted. **The sealed runner** — the walk-forward on the sealed side
-that produces what a bar reads — is the second half and does not exist yet;
-until it does, `sealed_read.yml` stops after the owner's key and reads nothing.
+that produces what a bar reads — is the second half, `sealed_runner.py`, built
+the same day; it runs only in `sealed_read.yml`'s key job, after the owner's key.
 
 **What a member adds, and where.** A bar is the class's; a member adds only
 what its own entry states, in a `Pre-registration` field: prose, then one
@@ -797,14 +797,50 @@ entries *against*, and its defence is that it precedes every member's
 promotion (§5). The proposer wrote it having seen the explore slice, which is
 why each open choice above went the strict way and says so.
 
-**The second half — the sealed runner, next.** Walks the member's arm and the
-two comparators forward on the sealed side with the harness's labels, feeds
-`class_bars.read`, writes the report, and is called only from
-`sealed_read.yml`'s key job after the owner's approval is verified — never
-from a local shell. With it: the auditor's bundle gains the class bar's text,
-so question 7 and 8 are checked against the bar that will be applied; and a
-`record_audit.py` check that `class_bars.py` has not changed since its class's
-first sealed read.
+**The second half — the sealed runner ✅ 2026-09-29** (`sealed_runner.py`,
+research tier). It walks the member's arm and the benchmark on the class's
+sealed report dates, and the rival where it quotes, with the explore harness's
+own walk (`explore_conditioner.observations_on`, split out of
+`build_observations` so both sides run one loop; the explore side still stops
+at the seal by construction), then applies `class_bars.read(sealed=True)`.
+Five decisions:
+
+- **Claim, then read.** The key job fetches the public inputs first (a failure
+  there spends nothing), then writes a claim to `output` and pushes it, and only
+  then scores anything. A run that dies after the claim has spent the slice and
+  says so — a *lost read*, red in `record_audit.py` until the owner decides — so
+  a read can never happen without a record of it. The owner's out is
+  `VOIDED_CLAIMS`, for a run that failed before any sealed number existed.
+- **Read once per class, in code.** `seal_key.py` refuses any entry of a class
+  whose slice has a claim on `output` (`resolved.md` #19), except the claiming
+  run's own attempt; a re-run of that run is a second read and is refused.
+  `sealed_read.yml` runs one sealed read at a time, repo-wide.
+- **A typo cannot spend the slice.** A cell naming a label or value the harness
+  never writes would be empty, and an empty cell reads `underpowered` on the
+  class's one read. The runner's `--check` refuses it — and an arm the harness
+  does not walk — from the code alone, and the seal key runs that check before
+  the owner is asked.
+- **The bar freezes per class.** `record_audit.bar_fingerprint` hashes what a
+  class is read by — `class_bars.py` less its command line and the *other*
+  classes' bars, plus the source of what it imports (`MIN_SKILL`, `skill_vs`, the
+  seal dates, the asset registry) — read as text, so the audit needs no numpy.
+  The claim records it; the `sealed-reads` check is red when it moves after the
+  read. Settling the gap class's seal (#33) later does not touch the
+  conditioner's fingerprint. `BAR_EDITS_AFTER_READ` is the owner's pin for a
+  defect fix the pre-registration already required.
+- **The auditor sees the bar it approves against.** For an entry with a
+  `Pre-registration`, the bundle carries the pre-registration as the bar reads
+  it and `class_bars.py` itself. An entry without one gets nothing new, so the
+  certified canary bundles are byte-for-byte what the canary run certified.
+
+The result (`<stamp>.json`, every number the verdict read, and `<stamp>.md`)
+goes to `output` under `sealed_reads/<hid>/`, and CI writes the entry's
+`Sealed read (ledger)` on `main` from those records; `sealed-read-field` holds
+the field to them. A planted state walked through the whole runner reads
+`edge`; the same walk on noise does not. **Not yet exercised in CI:** the data
+steps have run only on made-up data; the first real run is the first time the
+fetch runs inside the key job. **After a read:** the result goes to the KB
+either way (convention #2).
 
 ### WP-23.C — The shadow-conditioner harness ✅ built 2026-09-14, first looks run
 
@@ -857,8 +893,9 @@ entry. Since [ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-in
 independent audit instead of the owner's rewrite; the owner may veto; its status
 moves `draft → promoted`, the ledger is attached, and the run reads the sealed
 slice once, after the owner turns the seal key. Result → KB, either way.
-**Blocked on WP-23.B's sealed runner** (Phase 25's switch landed 2026-09-29; the
-class bars 2026-09-29), and on an entry whose `Pre-registration` the bar can read.
+**Blocked on an entry whose `Pre-registration` the bar can read and the runner
+can walk, through its CI audit** (Phase 25's switch, the class bars and the
+sealed runner all landed 2026-09-29).
 
 ---
 
@@ -1071,8 +1108,9 @@ Three things were decided in the build:
 - **The split is the token's permissions, not a separate account.** The
   assistant's token is on the owner's account, so it is verified by trying,
   and verified again whenever that token changes.
-- **A real run reads nothing yet.** The read is WP-23.B's sealed runner. Until it
-  exists, a real run stops after the key and says so.
+- **A real run read nothing at first.** The read is WP-23.B's sealed runner;
+  until it landed (2026-09-29, the same day) a real run stopped after the key and
+  said so.
 
 **Done 2026-09-29.** Two dispatched dry runs on H-008, both reading nothing:
 - **[run 36604782387](https://github.com/GregsterBoe/Macro-Assist/actions/runs/36604782387) was refused at the preflight, and should have been.** The

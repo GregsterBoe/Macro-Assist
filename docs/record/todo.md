@@ -396,7 +396,7 @@ closed 2026-09-14. All four → [`resolved.md`](resolved.md). H-001's artifact
 errand is done (register). The independent audit was built as Phase 25 and
 switched on 2026-09-29 — an entry is promoted only through `audit_entry.yml`
 ([how we explore §6](../concepts/how-we-explore.md#6-the-owner-writes-the-hypothesis))
-— and WP-23.B's class bars were written 2026-09-29; its sealed runner is next.*
+— and WP-23.B, the class bars and the sealed runner, was built 2026-09-29.*
 
 ---
 

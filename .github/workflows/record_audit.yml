@@ -18,6 +18,9 @@ name: Record Audit
 # instructions together with a promoted entry, a bar older than its sealed
 # result, and a logged harness run behind every dated look; and since WP-25.C,
 # every entry's Audit record field is exactly what CI's audit records say.
+# Since WP-23.B: a class's sealed slice is claimed once, before its read, every
+# claim has a result, the class's bar has not moved since, and every entry's
+# Sealed read (ledger) is exactly what CI's sealed-read records say.
 # It also prints, report-only, the days since each open todo.md item and each
 # board row was last edited, oldest first, and any ADR revisit section whose
 # cited todo item / WP / KB entry / phase closed after the section was last

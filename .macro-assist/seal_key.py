@@ -27,7 +27,10 @@ the fact that the job is running:
                   CI audit stamped to its current text found nothing blocking
                   (record_audit's approval-stamp check, not a second copy of
                   it), a pre-registration its class bar can read under a
-                  decided seal (class_bars.py, WP-23.B), and no sealed read yet
+                  decided seal and the sealed runner can walk (class_bars.py,
+                  sealed_runner.py, WP-23.B), no sealed read of the entry, and
+                  no claim of its class's slice on output — the slice is read
+                  once for the whole class (resolved.md #19)
 
 What it cannot do: the data is public, so a deliberate look outside this
 workflow is not stopped — ADR-0022 says so. The key keeps an *unapproved*
@@ -36,9 +39,8 @@ cannot approve) is verified by trying it, once, on a dry run (WP-25.D's done
 condition). That split rests on the token's permissions, not on a separate
 account: re-verify it whenever that token is recreated.
 
-The read itself is WP-23.B's sealed runner, its second half. Until it exists
-a real run stops after the key and before any data, with a refusal that says
-so.
+The read itself is `sealed_runner.py` (WP-23.B), which the key job runs after
+`--after-key` passes: it claims the slice on output, then reads.
 
     python .macro-assist/seal_key.py H-008 --preflight --dry-run   # what the first job prints
     # in CI only: --environment FILE (the settings), --after-key --approvals FILE
@@ -65,8 +67,6 @@ SEAL_KEY_ENVIRONMENT = "seal-key"
 # narrowed token on this same account, so the split is that token's permissions.
 SEAL_KEY_OWNER = "GregsterBoe"
 WORKFLOW = Path(".github") / "workflows" / "sealed_read.yml"
-NO_HARNESS = ("the sealed read itself is WP-23.B's sealed runner, which does not exist yet; "
-              "this run stopped after the key and before any data")
 
 
 # ---------------------------------------------------------------------------
@@ -125,17 +125,42 @@ def approval_refusals(approvals: list[dict], owner: str = SEAL_KEY_OWNER,
 # the entry
 # ---------------------------------------------------------------------------
 
-def _bar_refusals(entry: str, hid: str) -> list[str]:
-    """A sealed read is read against the entry's pre-registration under its
-    class bar: one that no bar can read, or whose class has no decided seal,
-    is refused before anyone is asked to turn the key."""
+def _bar_refusals(entry: str, hid: str) -> tuple[dict | None, list[str]]:
+    """(the pre-registration, what is wrong with it). A sealed read is read
+    against it under its class bar: one that no bar can read, whose class has
+    no decided seal, or that the sealed runner cannot walk — an arm it does not
+    walk, a cell no observation could fall in — is refused before anyone is
+    asked to turn the key. A misspelt cell is an empty cell, and an empty cell
+    reads `underpowered` on the class's one read."""
     import class_bars as cb
     try:
         spec = cb.parse_preregistration(entry)
     except cb.PreregError as e:
-        return [f"{hid}'s pre-registration cannot be read by a class bar: {e}"]
+        return None, [f"{hid}'s pre-registration cannot be read by a class bar: {e}"]
     if cb.BARS[spec["class"]].sealed_from is None:
-        return [f"{hid} is in the {spec['class']} class, which has no decided seal"]
+        return spec, [f"{hid} is in the {spec['class']} class, which has no decided seal"]
+    import sealed_runner as sr
+    return spec, [f"{hid}'s pre-registration: {r}" for r in sr.refusals(spec)]
+
+
+def _slice_refusals(root: Path, spec: dict | None) -> list[str]:
+    """The slice is read once for the whole class (resolved.md #19): refused
+    once any claim of it is on output, except this run attempt's own — the key
+    job claims the slice, then checks again before it reads."""
+    if spec is None:
+        return []
+    ref = ra._resolve_ref(root, ae.OUTPUT_BRANCH)
+    if ref is None:
+        return ["the output branch is not available here, so whether the slice is already read "
+                "cannot be checked"]
+    env = os.environ
+    this = (env.get("GITHUB_RUN_ID"), env.get("GITHUB_RUN_ATTEMPT"))
+    claims = [c for c in ra.class_claims(ra.ci_sealed_reads(root, ref)).get(spec["class"], [])
+              if (c.get("run_id"), c.get("run_attempt")) != this]
+    if claims:
+        c = claims[0]
+        return [f"the {spec['class']} slice is already read — {c['hid']}, `{c['_path']}`; it is read "
+                "once for the whole class"]
     return []
 
 
@@ -162,7 +187,8 @@ def preflight(root: Path, hid: str) -> list[str]:
                    "passes a CI audit first (audit_entry.yml)")
     else:
         out += [f.message for f in ra.check_approval_stamp(root) if f.subject == hid]
-    out += _bar_refusals(dp.entry_text(register, hid), hid)
+    spec, bad = _bar_refusals(dp.entry_text(register, hid), hid)
+    out += bad + _slice_refusals(root, spec)
     if dp.field_block(dp.entry_text(register, hid), dp.SEALED_READ) is not None:
         out.append(f"{hid} already has a `{dp.SEALED_READ}`; the sealed slice is read once")
     return out
@@ -215,10 +241,11 @@ def main(argv: list[str] | None = None) -> int:
         title = "before the key"
     else:
         comment, key = approval_refusals(_load(a.approvals) or [])
-        if not a.dry_run and not entry:
-            entry = [NO_HARNESS]
         done = (f"The key was turned by {SEAL_KEY_OWNER}"
-                + (f" (“{comment}”)" if comment else "") + ". Dry run: nothing was read.")
+                + (f" (“{comment}”)" if comment else "") + ". "
+                + ("Dry run: nothing was read." if a.dry_run else
+                   "The sealed runner reads next: the slice is claimed on output before anything "
+                   "is scored."))
         title = "after the key"
     text, code = _report(f"Sealed read of {a.hid} — {title}", key, entry, a.dry_run, done)
     sys.stdout.write(text)

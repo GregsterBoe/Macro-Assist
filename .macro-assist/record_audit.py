@@ -101,6 +101,25 @@ register and, where it needs one, the output branch.
                                submission shows in the entry as a counted look,
                                and none is written by hand.
 
+The sealed read's checks (WP-23.B). Each reads CI's sealed-read records on the
+output branch (`sealed_reads/<hid>/`), which `sealed_runner.py` writes in
+`sealed_read.yml`'s key job — a claim before the read, a result after it.
+
+  sealed-reads       WP-23.B   A class's slice is claimed once (resolved.md
+                               #19: the read burns it for the class); every
+                               claim has a result, or it is a lost read; a
+                               result landed after its claim; and the class's
+                               bar (`bar_fingerprint`: class_bars.py less the
+                               CLI and the other classes' bars, plus the
+                               sources of what it imports) is what it was when
+                               the slice was claimed. Pins: VOIDED_CLAIMS,
+                               BAR_EDITS_AFTER_READ, each the owner's, held
+                               exactly.
+  sealed-read-field  WP-23.B   An entry's `Sealed read (ledger)` is exactly
+                               what those records render to
+                               (`decision_packet.sealed_read_paragraph`), and
+                               an entry CI never read has none.
+
 The two workflow checks and the liveness check are a pair. 24.A catches a stage
 the repo cannot reach; it cannot see a dispatch-only workflow whose *external*
 caller has stopped calling — that is what froze the refit for eleven days
@@ -128,6 +147,7 @@ Run:
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 import re
@@ -1607,13 +1627,206 @@ def check_receipts(root: Path) -> list[Finding]:
 
 
 # ---------------------------------------------------------------------------
+# the sealed read's own checks (WP-23.B)
+# ---------------------------------------------------------------------------
+
+SEALED_RECORDS = "sealed_reads"                   # on output: <hid>/<stamp>.claim.json, <stamp>.json, <stamp>.md
+CLASS_BARS = Path(".macro-assist") / "class_bars.py"
+
+# A claim the owner has judged read nothing — its run failed after the claim
+# and before any sealed number was computed — so it does not spend its class's
+# slice. Path on output → the resolved.md item that decided it. Held exactly:
+# a pin whose claim is not on output is red.
+VOIDED_CLAIMS: dict[str, str] = {}
+
+# A class bar that changed after its class's sealed read, with the owner's
+# decision that the change was a defect fix the pre-registration already
+# required, not a goalpost move (CLAUDE.md #7): class → (the fingerprint now in
+# force, the resolved.md item). A pin for any other fingerprint is red.
+BAR_EDITS_AFTER_READ: dict[str, tuple[str, str]] = {}
+
+# What a class's bar is NOT: the command line, the printer, and the registry
+# (built from each bar's own `name=`, so the bar's own definition covers it).
+_NOT_THE_BAR = frozenset({"describe", "main", "BARS"})
+
+
+def ci_sealed_reads(root: Path, ref: str) -> list[dict]:
+    """CI's sealed-read records on `ref` — claims and results — sorted by
+    path. Like an audit, a record counts only if CI made it and links the run."""
+    return [{**rec, "_path": path} for path, rec in _json_files(root, ref, SEALED_RECORDS)
+            if isinstance(rec, dict) and rec.get("tier") == "ci" and rec.get("run")
+            and rec.get("hid") and rec.get("kind") in ("claim", "result")]
+
+
+def class_claims(records: list[dict], voided=None) -> dict[str, list[dict]]:
+    """class → its claims on record, less the voided ones, oldest first."""
+    voided = VOIDED_CLAIMS if voided is None else voided
+    out: dict[str, list[dict]] = {}
+    for r in sorted((r for r in records if r["kind"] == "claim"),
+                    key=lambda r: str(r.get("claimed_at"))):
+        if r["_path"] not in voided:
+            out.setdefault(str(r.get("class")), []).append(r)
+    return out
+
+
+def _segment(lines: list[str], node) -> str:
+    start = min([d.lineno for d in getattr(node, "decorator_list", [])] + [node.lineno])
+    return "\n".join(ln.rstrip() for ln in lines[start - 1: node.end_lineno])
+
+
+def _defined(node) -> set[str]:
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        return {node.name}
+    targets = node.targets if isinstance(node, ast.Assign) else \
+        [node.target] if isinstance(node, ast.AnnAssign) else []
+    return {t.id for t in targets if isinstance(t, ast.Name)}
+
+
+def _bar_named(node) -> str | None:
+    """The `name=` of a module-level `X = ClassBar(name=..., ...)`, else None."""
+    call = getattr(node, "value", None)
+    if isinstance(node, (ast.Assign, ast.AnnAssign)) and isinstance(call, ast.Call) \
+            and getattr(call.func, "id", None) == "ClassBar":
+        for kw in call.keywords:
+            if kw.arg == "name" and isinstance(kw.value, ast.Constant):
+                return kw.value.value
+    return None
+
+
+def bar_fingerprint(root: Path, cls: str) -> str | None:
+    """sha256 over what the class `cls` is read by: `class_bars.py` less its
+    docstring, its command line and every OTHER class's bar, plus the source of
+    each name it imports from a module of this repo (MIN_SKILL, skill_vs, the
+    seal dates, the asset registry). Read as text, not imported — this module
+    runs without numpy — and as source lines, not `ast.dump`, which differs
+    between the Python versions CI uses. None when there is no such class."""
+    path = root / CLASS_BARS
+    if not path.is_file():
+        return None
+    src = path.read_text(encoding="utf-8")
+    lines, tree = src.splitlines(), ast.parse(src)
+    parts, found = [], False
+    for i, node in enumerate(tree.body):
+        if i == 0 and isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant):
+            continue
+        if isinstance(node, ast.If) or _defined(node) & _NOT_THE_BAR:
+            continue
+        named = _bar_named(node)
+        if named is not None and named != cls:
+            continue
+        found |= named == cls
+        if isinstance(node, ast.ImportFrom) and not node.level \
+                and (root / CLASS_BARS.parent / f"{node.module}.py").is_file():
+            dep = (root / CLASS_BARS.parent / f"{node.module}.py").read_text(encoding="utf-8")
+            dlines = dep.splitlines()
+            defs = {n: _segment(dlines, d) for d in ast.parse(dep).body for n in _defined(d)}
+            parts += [f"{node.module}.{a.name}:\n{defs.get(a.name, '<not defined at module level>')}"
+                      for a in node.names]
+            continue
+        parts.append(_segment(lines, node))
+    return f"sha256:{_sha256(chr(10).join(parts))}" if found else None
+
+
+def check_sealed_reads(root: Path) -> list[Finding]:
+    """A class's slice is claimed once, the claim lands before its result, a
+    claim has a result, and the class's bar has not changed since its claim."""
+    check = "sealed-reads"
+    ref = _resolve_ref(root, "output")
+    if ref is None:
+        return []
+    recs = ci_sealed_reads(root, ref)
+    claims = {r["_path"]: r for r in recs if r["kind"] == "claim"}
+    results = [r for r in recs if r["kind"] == "result"]
+    answered = {r.get("claim") for r in results}
+    resolved = _text_at(root, RESOLVED.as_posix(), None) or ""
+    items = set(_ITEM_HEADING_RE.findall(resolved))
+    out: list[Finding] = []
+    for cls, cs in sorted(class_claims(recs).items()):
+        if len(cs) > 1:
+            out.append(Finding(check, cls, f"the {cls} slice was claimed {len(cs)} times ("
+                                           + ", ".join(f"`{c['_path']}`" for c in cs)
+                                           + ") — it is read once for the whole class"))
+        for c in cs:
+            if c["_path"] not in answered:
+                out.append(Finding(check, c["hid"], f"`{c['_path']}` claimed the {cls} slice and no "
+                                                    "result was recorded — a lost read, which counts as "
+                                                    "a read; only the owner voids it (VOIDED_CLAIMS)"))
+        now, was = bar_fingerprint(root, cls), cs[0].get("bar_fingerprint")
+        if now != was:
+            pin = BAR_EDITS_AFTER_READ.get(cls)
+            if pin and pin[0] == now and pin[1].lstrip("#") in items:
+                out.append(Finding(check, cls, f"the {cls} bar changed since its read; the owner "
+                                               f"accepted it (resolved.md {pin[1]})", red=False))
+            else:
+                out.append(Finding(check, cls, f"the {cls} bar changed since its sealed read "
+                                               f"(`{cs[0]['_path']}`): {str(was)[:19]}… then, "
+                                               f"{str(now)[:19]}… now — a bar does not move once its "
+                                               "data is visible"))
+    for r in results:
+        c = claims.get(r.get("claim"))
+        if c is None:
+            out.append(Finding(check, r["hid"], f"`{r['_path']}` is a result with no claim on `{ref}`"))
+            continue
+        first = [(_git(root, "log", "--reverse", "--format=%H", ref, "--", p) or "").split("\n")[0]
+                 for p in (c["_path"], r["_path"])]
+        if not all(first) or first[0] == first[1] or \
+                _git(root, "merge-base", "--is-ancestor", first[0], first[1]) is None:
+            out.append(Finding(check, r["hid"], f"`{r['_path']}` did not land after its claim "
+                                                f"`{c['_path']}` — the slice is claimed before it is read"))
+    for p, item in sorted(VOIDED_CLAIMS.items()):
+        if p not in claims:
+            out.append(Finding(check, f"VOIDED_CLAIMS[{p}]", f"no such claim on `{ref}` — drop the pin"))
+        elif item.lstrip("#") not in items:
+            out.append(Finding(check, f"VOIDED_CLAIMS[{p}]", f"points at resolved.md {item}, which has "
+                                                             "no heading there"))
+    for cls, (fp, item) in sorted(BAR_EDITS_AFTER_READ.items()):
+        if fp != bar_fingerprint(root, cls) or cls not in class_claims(recs):
+            out.append(Finding(check, f"BAR_EDITS_AFTER_READ[{cls}]", "not the bar in force after a "
+                                                                      "read — drop the pin"))
+    return out
+
+
+def check_sealed_read_field(root: Path) -> list[Finding]:
+    """Every entry's `Sealed read (ledger)` is exactly what CI's sealed-read
+    records on output make of it, and an entry CI never read has none."""
+    check = "sealed-read-field"
+    dp = _dp()
+    entries = _register(root)
+    ref = _resolve_ref(root, "output")
+    by_hid: dict[str, list[dict]] = {}
+    for r in (ci_sealed_reads(root, ref) if ref else []):
+        by_hid.setdefault(r["hid"], []).append(r)
+    fix = "`python .macro-assist/sealed_runner.py {} --sync-field` rewrites it from the records"
+    out: list[Finding] = []
+    for hid, (e, text) in sorted(entries.items()):
+        got = dp.field_block(text, dp.SEALED_READ)
+        if ref is None:
+            if got is not None:
+                out.append(Finding(check, hid, f"carries a {dp.SEALED_READ}, and the output branch that "
+                                               "holds CI's records is not available here"))
+            continue
+        want = dp.sealed_read_paragraph(by_hid.get(hid, []))
+        if want is None and got is not None:
+            out.append(Finding(check, hid, f"carries a {dp.SEALED_READ} with no sealed-read record of it "
+                                           f"on `{ref}` — only CI writes that field"))
+        elif want is not None and got is None:
+            out.append(Finding(check, hid, f"CI claimed its sealed read and the entry has no "
+                                           f"{dp.SEALED_READ} — {fix.format(hid)}"))
+        elif want is not None and _norm(got) != _norm(want):
+            out.append(Finding(check, hid, f"its {dp.SEALED_READ} is not what CI's records on "
+                                           f"`{ref}` say — {fix.format(hid)}"))
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
 
 CHECKS = (check_workflow_orphans, check_schedule_table, check_artifact_liveness,
           check_referential_integrity, check_contradictions, check_adr_revisit,
           check_approval_stamp, check_no_grinding, check_instruction_freeze,
-          check_bar_before_result, check_receipts, check_audit_record_field)
+          check_bar_before_result, check_receipts, check_audit_record_field,
+          check_sealed_reads, check_sealed_read_field)
 _DATED_CHECKS = (check_artifact_liveness, check_adr_revisit)   # the ones `--now` replays
 
 

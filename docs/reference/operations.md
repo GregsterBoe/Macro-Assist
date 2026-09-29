@@ -354,8 +354,8 @@ call). **`dry_run` is on by default.** It has two jobs:
 
 | Job | Does |
 |---|---|
-| `preflight` | Runs `seal_key.py <hid> --preflight` on a full clone with `output` mounted with its history. Refuses the entry unless it is `promoted`, `record_audit.py`'s `approval-stamp` check finds nothing against it (a certified CI audit of its current text with no blocking finding), its `Pre-registration` parses under a class bar whose seal is decided (`class_bars.py`, WP-23.B), and it has no `Sealed read (ledger)` yet. Also refuses the key itself, from GitHub's settings for `seal-key`: missing, a reviewer other than the owner, *Prevent self-review* on, or administrators allowed to bypass |
-| `key` | Names `environment: seal-key`, so GitHub holds it until the owner approves it on the run page (*Review deployments*). When it starts, it reads the run's approval record from the API and runs `seal_key.py <hid> --after-key`, which refuses unless the owner approved `seal-key` on this run and nobody else did, then runs the preflight again against `output` as it is now |
+| `preflight` | Runs `seal_key.py <hid> --preflight` on a full clone with `output` mounted with its history. Refuses the entry unless it is `promoted`, `record_audit.py`'s `approval-stamp` check finds nothing against it (a certified CI audit of its current text with no blocking finding), its `Pre-registration` parses under a class bar whose seal is decided (`class_bars.py`, WP-23.B), the sealed runner can walk it (an arm the harness walks, cells naming labels and values the harness writes — `sealed_runner.py --check`), it has no `Sealed read (ledger)`, and no claim of its class's slice is on `output` (the slice is read once for the whole class, `resolved.md` #19). Also refuses the key itself, from GitHub's settings for `seal-key`: missing, a reviewer other than the owner, *Prevent self-review* on, or administrators allowed to bypass |
+| `key` | Names `environment: seal-key`, so GitHub holds it until the owner approves it on the run page (*Review deployments*). When it starts, it reads the run's approval record from the API and runs `seal_key.py <hid> --after-key`, which refuses unless the owner approved `seal-key` on this run and nobody else did, then runs the preflight again against `output` as it is now. On a real run, the sealed runner follows (below) |
 
 **Why the job checks the approval instead of trusting the pause.** GitHub
 creates an environment, unprotected, the first time a job names it. A missing
@@ -366,10 +366,35 @@ nobody did.
 **The dry run** reads nothing and is soft on the entry: it prints what a real
 run would refuse and still goes on to the key, so the pause can be shown on an
 entry that is not yet eligible. It is never soft on the key: a missing
-environment, a wrong setting or a missing approval fails it. **A real run reads
-nothing yet.** The read is WP-23.B's sealed runner, which does not exist, so
-a real run that passes everything stops after the key with a refusal that says
-so.
+environment, a wrong setting or a missing approval fails it. A dry run skips everything
+below.
+
+**The read** (a real run, after the key; `sealed_runner.py`, WP-23.B). Four
+steps in the `key` job, each refusing outside that job on `main`:
+
+1. **Fetch** the public inputs (prices, FRED, the fragility channels) with
+   `FRED_API_KEY`, the only secret the workflow holds. Nothing is scored, so a
+   failure here spends nothing: re-dispatch.
+2. **Claim** the class's slice: a `sealed_reads/<hid>/<stamp>.claim.json` pushed
+   to `output` **before anything is scored**.
+3. **Read**: the entry's arm and the benchmark walked on report dates
+   2018-01-01 → 2026-09-06, the rival where it quotes, the class bar applied.
+   The report is the step summary, and `<stamp>.json` / `<stamp>.md` are pushed
+   to `output`.
+4. **Ledger**: CI writes the entry's `Sealed read (ledger)` on `main` from its
+   records, also after a failed read.
+
+**If the read fails after the claim**, the slice counts as read: the ledger
+says *no result recorded — a lost read*, and `record_audit.py` is red. Do not
+re-run the job (a re-run is a second read and is refused anyway). If the run
+failed before any sealed number existed — the log shows it died in the fetch
+of the panel, not in the scoring — the owner may void the claim: a
+`resolved.md` item, then a `VOIDED_CLAIMS` pin in `record_audit.py`. Whether it
+did is the owner's call, not the assistant's.
+
+**After a read:** the result goes to the KB whatever the verdict (convention
+#2), and the class's bar is frozen — `record_audit.py`'s `sealed-reads` check
+is red if what the class is read by changes.
 
 **Setting up the key** (the owner, once, in the repository's Settings →
 Environments → *New environment*):
@@ -405,8 +430,8 @@ GH_TOKEN="$(cat ~/.config/macro-assist/gh-token)" gh api -X POST $R/pending_depl
 What it does not do:
 - **It does not stop a deliberate look.** The data is public. The key keeps an
   unapproved sealed read out of the record, which is what ADR-0022 claims.
-- **It does not write the `Sealed read (ledger)` field.** That comes with the
-  sealed runner (WP-23.B), and `bar-before-result` already holds it.
+- **It is not a second chance.** One sealed read at a time repo-wide, and one
+  per class ever; `record_audit.py`'s `sealed-reads` check is the backstop.
 
 ### model_compare.yml — the main model, compared on saved days (IMP-8)
 

@@ -418,6 +418,9 @@ def quote_arm(ladder: list[np.ndarray], fr_h: np.ndarray, t: int, h: int,
     return None
 
 
+OBS_LABELS = ("or_state", "comp_state", "dd_bin", "bucket")   # the frame labels an observation carries
+
+
 def build_observations(frame: pd.DataFrame, fr: dict, ladders: dict,
                        seal: date = SEAL_START,
                        sigmas: dict[str, np.ndarray] | None = None) -> list[dict]:
@@ -426,11 +429,25 @@ def build_observations(frame: pd.DataFrame, fr: dict, ladders: dict,
     WP-21.A.2). Report dates start BURN_IN readings after the first evaluable
     OR flag. `sigmas` (from `har_sigmas`) adds the OPTIONAL_ARMS where a HAR
     forecast exists; their absence never drops an observation."""
-    dates = frame.index
     first, stop = report_range(frame, seal)
+    return observations_on(frame, fr, ladders, range(first, min(stop, len(frame.index))),
+                           sigmas=sigmas)
+
+
+def observations_on(frame: pd.DataFrame, fr: dict, ladders: dict, positions,
+                    *, arms=ARMS, sigmas: dict[str, np.ndarray] | None = None,
+                    labels=OBS_LABELS) -> list[dict]:
+    """The walk itself, on the report-date `positions` it is given: every arm
+    in `arms` quotes from what was known at t, or the observation is dropped.
+    The explore slice's positions come from `report_range`, which stops at the
+    seal; the only other caller is the sealed runner (WP-23.B), after the
+    owner's key."""
+    if sigmas and BENCH not in arms:
+        raise ValueError("`har_scaled` is rescaled from the benchmark's quote; walk it too")
+    dates = frame.index
     sigmas = sigmas or {}
     obs: list[dict] = []
-    for t in range(first, min(stop, len(dates))):
+    for t in positions:
         ts = dates[t]
         if not isinstance(frame["or_state"].iat[t], str) or not isinstance(frame["bucket"].iat[t], str):
             continue
@@ -440,33 +457,30 @@ def build_observations(frame: pd.DataFrame, fr: dict, ladders: dict,
                 realized = fr[a.key][h][t]
                 if not np.isfinite(realized):
                     continue
-                arms: dict[str, dict] = {}
-                for arm in ARMS:
+                quoted: dict[str, dict] = {}
+                for arm in arms:
                     q = quote_arm(ladders[arm], fr[a.key][h], t, h,
                                   window=250 if arm == "trailing_250" else None)
                     if q is None:
                         break
                     quantiles, level, n = q
-                    arms[arm] = _score_arm(quantiles, realized, level, n)
-                if len(arms) < len(ARMS):
+                    quoted[arm] = _score_arm(quantiles, realized, level, n)
+                if len(quoted) < len(arms):
                     continue
                 if np.isfinite(sig):
                     gq = _gaussian_quantiles(float(sig), h, a)
                     if gq:
-                        arms["har_gaussian"] = _score_arm(gq, realized, "har", HAR_WINDOW)
+                        quoted["har_gaussian"] = _score_arm(gq, realized, "har", HAR_WINDOW)
                     known = fr[a.key][h][:t - h + 1]
-                    sq = har_scaled_quantiles(arms[BENCH]["quantiles"], float(sig), h, a,
+                    sq = har_scaled_quantiles(quoted[BENCH]["quantiles"], float(sig), h, a,
                                               float(np.nanstd(known)))
                     if sq:
-                        arms["har_scaled"] = _score_arm(sq, realized, "har", arms[BENCH]["n"])
+                        quoted["har_scaled"] = _score_arm(sq, realized, "har", quoted[BENCH]["n"])
                 obs.append({
                     "date": ts.date().isoformat(), "asset": a.key, "horizon": h,
                     "unit": a.unit, "realized": float(realized),
-                    "or_state": frame["or_state"].iat[t],
-                    "comp_state": frame["comp_state"].iat[t],
-                    "dd_bin": frame["dd_bin"].iat[t],
-                    "bucket": frame["bucket"].iat[t],
-                    "arms": arms,
+                    **{k: frame[k].iat[t] for k in labels},
+                    "arms": quoted,
                 })
     return obs
 

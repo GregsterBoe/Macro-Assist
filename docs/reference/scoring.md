@@ -214,8 +214,7 @@ A research-tier module holding one pre-registered bar per hypothesis *class*,
 written before any member of the class is promoted
 ([how we explore §5](../concepts/how-we-explore.md#5-the-bar-precedes-the-candidate)).
 It reads observations in `explore_conditioner.py`'s shape and does not fetch
-anything. The sealed runner that would feed it the sealed side does not exist
-yet (roadmap WP-23.B).
+anything; [`sealed_runner.py`](#sealed_runnerpy-the-sealed-read-wp-23b) feeds it the sealed side.
 
 | Class | Benchmark | Rival | Power | Clause cells | Seal |
 |---|---|---|---|---|---|
@@ -270,6 +269,52 @@ pre-registration does not parse, or whose class has no decided seal.
 ```bash
 python .macro-assist/class_bars.py          # print both bars
 python .macro-assist/class_bars.py H-008    # parse this entry's pre-registration
+```
+
+## sealed_runner.py — the sealed read (WP-23.B)
+
+The research-tier module that feeds a class bar the sealed side, once per
+class. It walks the member's arm and the class's benchmark on the sealed report
+dates, and the rival where it quotes, with the explore harness's own walk
+(`explore_conditioner.observations_on`: known-by-*t* quantiles, `MIN_N = 10`,
+the collapse ladder), carrying every label a cell may name. Quotes on the first
+sealed date use everything known before it — the walk runs forward from 2010,
+not fresh at the seal. `read_walked` then calls `class_bars.read(sealed=True)`,
+which is honest because `walk` checks that no observation left the sealed side.
+
+| Step | Where | Does |
+|---|---|---|
+| `--check` | anywhere, free | refuses a class with no walk (today: `gap_width`), an arm not in the harness's `ARMS`, a series that is not an asset, and a cell label or value the harness never writes (`LABELS`) — an empty cell would read `underpowered`. `seal_key.py`'s preflight runs it |
+| `--fetch` | `sealed_read.yml` key job | the public inputs, to a file; nothing scored |
+| `--claim` | key job | `sealed_reads/<hid>/<stamp>.claim.json`: the entry's stamped and bar text hashes, its pre-registration, the class bar's fingerprint, the run and the owner's approval. Pushed before the read |
+| `--read` | key job | only once this run attempt's claim is on `output`: walk, read, write `<stamp>.json` (the verdict with every stage's number, the observations' sha256) and `<stamp>.md` (the report, verdict first) |
+| `--sync-field` | anywhere, free | the entry's `Sealed read (ledger)` from CI's records |
+
+Every data step refuses outside the key job of `sealed_read.yml` on `main`,
+without the owner's approval on the run's record, or when `seal_key.py`'s
+preflight refuses the entry — which includes a class whose slice already has a
+claim. The guard stops an accident; the data is public, so it does not stop a
+deliberate look (ADR-0022).
+
+`record_audit.py` holds the records (on `output`, `sealed_reads/`):
+
+- **`sealed-reads`** — one claim per class; every claim has a result, or it is
+  a *lost read*; a result landed in a later commit than its claim; the class's
+  bar fingerprint is what the claim recorded. Pins, each the owner's:
+  `VOIDED_CLAIMS` (a claim whose run failed before any sealed number existed),
+  `BAR_EDITS_AFTER_READ` (a defect fix the pre-registration already required).
+- **`sealed-read-field`** — the entry's `Sealed read (ledger)` is exactly what
+  those records render to, and an entry never read has none.
+
+`bar_fingerprint(root, cls)` is sha256 over `class_bars.py` less its docstring,
+its command line, `describe`, `BARS` and every other class's `ClassBar`, plus
+the source of each name it imports from this repo. It is read as source text,
+not imported and not `ast.dump`'d, so it is the same under the Python versions
+CI runs and needs no numpy.
+
+```bash
+python .macro-assist/sealed_runner.py H-008 --check        # could it be walked?
+python .macro-assist/sealed_runner.py H-008 --sync-field   # the ledger from CI's records
 ```
 
 ## Window-Aware Calibration — retired in v1.6

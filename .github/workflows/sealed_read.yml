@@ -18,11 +18,21 @@ name: Sealed read — the seal key (WP-25.D)
 #               time a job names one, so a running job proves nothing on its
 #               own. Then the preflight again, against output as it is now.
 #
-# The read itself is WP-23.B's harness, which does not exist yet: a real run
-# stops after the key, before any data, and says so. A dry run (the default)
-# reads nothing and reports what the entry would be refused for, so the pause
-# can be shown on an entry that is not yet eligible; it still fails on an
-# unsound key, because testing the key is what it is for.
+#   then, on a real run only, the sealed runner (sealed_runner.py, WP-23.B):
+#   fetch       the public inputs; nothing scored, so a failure spends nothing
+#   claim       the class's slice, pushed to output BEFORE anything is scored.
+#               The read is irreversible: a run that dies after this line has
+#               spent the slice and says so (a lost read), never the reverse
+#   read        the entry's arm, the benchmark and the rival walked on the
+#               sealed side, the class bar applied; result and report pushed
+#   ledger      the entry's `Sealed read (ledger)` written on main from CI's
+#               records — also after a failed read, so a lost read shows
+#
+# A dry run (the default) reads nothing: it skips all four and reports what
+# the entry would be refused for, so the pause can be shown on an entry that
+# is not yet eligible; it still fails on an unsound key, because testing the
+# key is what it is for. One sealed read at a time, repo-wide: the slice is
+# spent per class, and two runs must not both find it unspent.
 #
 # MANUAL ONLY, and free: no API call. Trigger: Actions tab -> this workflow ->
 # Run; then, on the run page, Review deployments -> seal-key -> Approve.
@@ -40,7 +50,7 @@ on:
         default: true
 
 concurrency:
-  group: sealed-read-${{ inputs.hid }}
+  group: sealed-read
   cancel-in-progress: false
 
 permissions:
@@ -71,7 +81,7 @@ jobs:
         run: pip install -r .macro-assist/requirements.txt
 
       - name: Run the offline key tests first
-        run: python -m pytest .macro-assist/tests/test_seal_key.py .macro-assist/tests/test_class_bars.py -q
+        run: python -m pytest .macro-assist/tests/test_seal_key.py .macro-assist/tests/test_class_bars.py .macro-assist/tests/test_sealed_runner.py -q
 
       - name: Mount output branch at results/, with history
         env:
@@ -105,11 +115,14 @@ jobs:
   key:
     needs: preflight
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 120
     # GitHub holds this job here until a required reviewer of `seal-key`
     # approves it. Do not move this line, or add a step above it that reads
     # data: test_seal_key.py holds the job to this shape.
     environment: seal-key
+    permissions:
+      contents: write     # the claim and the result to output, the ledger to main
+      actions: read
     steps:
       - name: Checkout, with history
         uses: actions/checkout@v4
@@ -152,3 +165,69 @@ jobs:
           cat key.md
           cat key.md >> "$GITHUB_STEP_SUMMARY"
           exit $status
+
+      - name: Fetch the inputs (nothing scored)
+        if: ${{ !inputs.dry_run }}
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          HID: ${{ inputs.hid }}
+        run: |
+          python .macro-assist/sealed_runner.py "$HID" --fetch \
+            --inputs "$RUNNER_TEMP/inputs.pkl" --approvals "$RUNNER_TEMP/approvals.json"
+
+      - name: Claim the slice, before anything is scored
+        id: claim
+        if: ${{ !inputs.dry_run }}
+        env:
+          HID: ${{ inputs.hid }}
+        run: |
+          python .macro-assist/sealed_runner.py "$HID" --claim --approvals "$RUNNER_TEMP/approvals.json"
+          bash .macro-assist/ci_publish_results.sh "sealed read: $HID claims its class's slice (run $GITHUB_RUN_ID)"
+
+      - name: The sealed read
+        if: ${{ !inputs.dry_run }}
+        env:
+          HID: ${{ inputs.hid }}
+        run: |
+          git fetch -q origin +refs/heads/output:refs/remotes/origin/output
+          set +e
+          python .macro-assist/sealed_runner.py "$HID" --read \
+            --inputs "$RUNNER_TEMP/inputs.pkl" --approvals "$RUNNER_TEMP/approvals.json" > read.md
+          status=$?
+          cat read.md
+          cat read.md >> "$GITHUB_STEP_SUMMARY"
+          exit $status
+
+      - name: Publish the result
+        if: ${{ !inputs.dry_run }}
+        env:
+          HID: ${{ inputs.hid }}
+        run: |
+          bash .macro-assist/ci_publish_results.sh "sealed read: $HID result (run $GITHUB_RUN_ID)"
+
+      - name: Write the entry's Sealed read (ledger) on main
+        # after a failed read too: a claim with no result is a lost read, and it shows
+        if: ${{ !cancelled() && !inputs.dry_run && steps.claim.outcome == 'success' }}
+        env:
+          HID: ${{ inputs.hid }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            git fetch -q origin +refs/heads/main:refs/remotes/origin/main \
+                                +refs/heads/output:refs/remotes/origin/output \
+              && git reset -q --hard origin/main || { sleep 3; continue; }
+            python .macro-assist/sealed_runner.py "$HID" --sync-field
+            git add docs/record/hypotheses.md
+            if git diff --cached --quiet; then
+              echo "The Sealed read (ledger) is already current."
+              exit 0
+            fi
+            git commit -q -m "sealed read: $HID — Sealed read (ledger) from CI's records"
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "push to main failed (attempt $attempt/5) — retrying." >&2
+            sleep $(( attempt * 3 ))
+          done
+          echo "error: the records are on output but the ledger did not reach main;" \
+               "record_audit.py will say so until 'sealed_runner.py $HID --sync-field' is committed." >&2
+          exit 1

@@ -325,6 +325,39 @@ def cited_wps(root: Path, entry: str) -> dict[str, str | None]:
             for w in sorted(set(ra._WP_RE.findall(entry)))}
 
 
+CLASS_BARS = MODULE_DIR / "class_bars.py"
+
+
+def class_bar_section(root: Path, entry: str) -> list[str]:
+    """What a sealed read would apply to the entry, when it states a
+    pre-registration (WP-23.B): the pre-registration as the class bar reads it,
+    and the bar itself — code, so the auditor checks questions 7 and 8 against
+    the bar that will be applied, not a description of it. Nothing for an entry
+    without the field: the seal key refuses it, which code settles, and the
+    certified canary bundles stay what they were."""
+    if dp.field_block(entry, "Pre-registration") is None:
+        return []
+    import class_bars as cb
+    path = root / CLASS_BARS
+    if not path.is_file():
+        raise BundleError(f"the entry states a pre-registration and {CLASS_BARS} is not here")
+    out = ["### The class bar its `Pre-registration` names", ""]
+    try:
+        spec = cb.parse_preregistration(entry)
+    except cb.PreregError as e:
+        return out + [f"**It does not parse:** {e}. The seal key refuses a sealed read until it "
+                      "does; code checks that, not this audit.", ""]
+    return out + [
+        "As `class_bars.validate` normalises it — the class floor filled in where the entry "
+        "states none:", "", *_fence(json.dumps(spec, indent=2, ensure_ascii=False), "json"), "",
+        "The class bar, as `class_bars.describe` prints it:", "",
+        *_fence(cb.describe(cb.BARS[spec["class"]])), "",
+        f"The bar is code. `{CLASS_BARS.as_posix()}` as this checkout holds it — the verdict order, "
+        "the pass clause and each clause kind are defined here and nowhere else:", "",
+        *_fence(path.read_text(encoding="utf-8"), "python"), "",
+    ]
+
+
 def build_bundle(root: Path, hid: str, *, now: datetime | None = None) -> Bundle:
     """The auditor's whole world for one entry. Raises BundleError rather than
     sending a short bundle: an auditor that approves what it was not shown is
@@ -386,6 +419,7 @@ def build_bundle(root: Path, hid: str, *, now: datetime | None = None) -> Bundle
         "",
         *_fence(entry, "markdown"),
         "",
+        *class_bar_section(root, entry),
         "## 3. The entry's history",
         "",
     ]

@@ -193,13 +193,13 @@ def test_after_the_key_a_dry_run_names_who_turned_it(ci_repo, tmp_path, capsys):
     assert "turned by GregsterBoe (“go”). Dry run: nothing was read." in capsys.readouterr().out
 
 
-def test_a_real_run_reads_nothing_until_the_harness_exists(ci_repo, tmp_path, capsys):
-    """Everything in order — promoted, approved, the owner's key — and still no
-    read: WP-23.B's harness is what reads, and it does not exist."""
+def test_a_real_run_hands_on_to_the_sealed_runner(ci_repo, tmp_path, capsys):
+    """Everything in order — promoted, approved, the owner's key — and the key
+    step passes: the sealed runner, the next step, claims the slice and reads."""
     _promote(ci_repo)
     ok = _json(tmp_path, "approvals.json", [_approval()])
-    assert sk.main(["H-101", "--after-key", "--approvals", ok, "--root", str(ci_repo)]) == 2
-    assert "WP-23.B's sealed runner" in capsys.readouterr().out
+    assert sk.main(["H-101", "--after-key", "--approvals", ok, "--root", str(ci_repo)]) == 0
+    assert "The sealed runner reads next" in capsys.readouterr().out
 
 
 # ---------------------------------------------------------------------------

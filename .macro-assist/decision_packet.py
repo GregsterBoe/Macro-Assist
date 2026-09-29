@@ -272,6 +272,12 @@ def with_audit_record(register: str, hid: str, paragraph: str | None) -> str:
     """`register` with entry `hid`'s Audit record field set to `paragraph`:
     replaced where it is, appended after the entry's last field where it is
     not, removed when `paragraph` is None."""
+    return with_field(register, hid, AUDIT_RECORD, paragraph)
+
+
+def with_field(register: str, hid: str, name: str, paragraph: str | None) -> str:
+    """`register` with entry `hid`'s field `name` set to `paragraph`, as
+    `with_audit_record` does it — for the fields CI writes from its records."""
     m = re.search(rf"^## {re.escape(hid)} — .*$", register, re.M)
     if m is None:
         raise KeyError(hid)
@@ -279,7 +285,7 @@ def with_audit_record(register: str, hid: str, paragraph: str | None) -> str:
     start, end = m.start(), nxt.start() if nxt else len(register)
     region = register[start:end]
     marks = list(_FIELD_RE.finditer(region))
-    idx = next((j for j, f in enumerate(marks) if f.group(1).strip() == AUDIT_RECORD), None)
+    idx = next((j for j, f in enumerate(marks) if f.group(1).strip() == name), None)
     if idx is None:
         if paragraph is None:
             return register
@@ -292,6 +298,44 @@ def with_audit_record(register: str, hid: str, paragraph: str | None) -> str:
         new = (region[:s].rstrip("\n") + ("\n\n" + paragraph if paragraph else "")
                + tail + region[e:])
     return register[:start] + new + register[end:]
+
+
+# ---------------------------------------------------------------------------
+# the Sealed read (ledger) field (WP-23.B)
+# ---------------------------------------------------------------------------
+
+# Written by CI from its sealed-read records on the output branch, like the
+# Audit record: the slice is claimed before the read and the result lands
+# after it, so a claim with no result — a read whose number was lost — shows
+# here too, and is never tidied away by hand.
+
+def _sealed_line(rec: dict, result: dict | None) -> str:
+    stem = Path(rec["_path"]).name.split(".", 1)[0]
+    m = _STEM_RE.match(stem)
+    when = f"{m.group(1)} {m.group(2)}:{m.group(3)} UTC" if m else stem
+    run = f"[run]({rec.get('run')})"
+    what = f"`{rec.get('arm')}` at h={rec.get('horizon')}"
+    if result is None:
+        return (f"- {when} · claimed by {run} · {what} · **no result recorded** — a lost read; "
+                "the slice counts as read")
+    report = result["_path"].rsplit(".", 1)[0] + ".md"
+    return (f"- {when} · `{result.get('verdict')}` — {result.get('reason')} · {what} · "
+            f"report `results/{report}` · {run}")
+
+
+def sealed_read_paragraph(records: list[dict]) -> str | None:
+    """The field as CI writes it, from its sealed-read records of one entry,
+    oldest first (`record_audit.ci_sealed_reads`); None when there are none."""
+    claims = [r for r in records if r.get("kind") == "claim"]
+    if not claims:
+        return None
+    results = {r.get("claim"): r for r in records if r.get("kind") == "result"}
+    c0 = claims[0]
+    head = (f"**{SEALED_READ}.** Written by CI from its sealed-read records on `output`, never by "
+            f"hand; `record_audit.py` holds this field to them (WP-23.B). The {c0.get('class')} "
+            f"class's read of report dates {c0.get('sealed_from')} → before {c0.get('sealed_until')}, "
+            "which is read once for the whole class.")
+    return "\n".join([head, *(_sealed_line(c, results.get(c["_path"])) for c in claims)])
 
 
 # ---------------------------------------------------------------------------
