@@ -48,6 +48,12 @@ returning Findings; `audit()` runs them all.
                                (resolved #23): KNOWN_CONTRADICTIONS names the
                                pair against an open todo.md item, and a pin
                                whose sources agree again is itself red.
+  register-index     WP-24.D   The register's index table states each entry's
+                               status as the entry's own `Status` line does:
+                               one row per entry, no row without one. Added
+                               2026-09-29, when H-004 and H-008 closed in
+                               their entries and the table still read
+                               `draft`. Prose elsewhere is not read.
   ages               WP-24.E   Not a check: days since each open todo.md
                                item and each board row was last edited, per
                                line from `git blame`, printed oldest first.
@@ -1623,6 +1629,34 @@ def check_receipts(root: Path) -> list[Finding]:
     return out
 
 
+_INDEX_ROW_RE = re.compile(r"^\| \[(H-\d{3})\]\(#h-\d{3}\) \| `([a-z]+)` \|", re.M)
+
+
+def check_register_index(root: Path) -> list[Finding]:
+    """The register's index table says what each entry's `Status` line says
+    (red): the entry is the source, the table a summary of it."""
+    check = "register-index"
+    text = _text_at(root, HYPOTHESES.as_posix(), None)
+    if text is None:
+        return []
+    rows: dict[str, list[str]] = {}
+    for m in _INDEX_ROW_RE.finditer(text):
+        rows.setdefault(m.group(1), []).append(m.group(2))
+    entries = {e.hid: e for e in _dp().parse_entries(text)}
+    out: list[Finding] = []
+    for hid, e in entries.items():
+        got = rows.get(hid, [])
+        if not got:
+            out.append(Finding(check, hid, "has no row in the register's index table"))
+        elif len(got) > 1:
+            out.append(Finding(check, hid, f"has {len(got)} rows in the register's index table"))
+        elif got[0] != e.status:
+            out.append(Finding(check, hid, f"the index table says `{got[0]}`, its Status line `{e.status}`"))
+    for hid in sorted(set(rows) - set(entries)):
+        out.append(Finding(check, hid, "is in the register's index table and has no entry"))
+    return out
+
+
 # ---------------------------------------------------------------------------
 # the sealed read's own checks (WP-23.B)
 # ---------------------------------------------------------------------------
@@ -1820,7 +1854,7 @@ def check_sealed_read_field(root: Path) -> list[Finding]:
 # ---------------------------------------------------------------------------
 
 CHECKS = (check_workflow_orphans, check_schedule_table, check_artifact_liveness,
-          check_referential_integrity, check_contradictions, check_adr_revisit,
+          check_referential_integrity, check_contradictions, check_register_index, check_adr_revisit,
           check_approval_stamp, check_no_grinding, check_instruction_freeze,
           check_bar_before_result, check_receipts, check_audit_record_field,
           check_sealed_reads, check_sealed_read_field)

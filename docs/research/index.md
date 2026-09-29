@@ -66,7 +66,11 @@ Every instrument carries a positive and a negative control in the test suite
   inverts within three of six assets; closed on its own target-space rule, no
   KB entry); H-002 `closed` 2026-09-24, refuted on the explore slice (the
   location half failed in sign on both looks; no KB entry), its width half
-  split out as H-008 `draft`; H-003 and H-004 `draft`. Every `draft` and `seen`
+  split out as H-008; H-004 and H-008 `closed` 2026-09-29 at the owner's call
+  on the explore record (H-004: zero skill, its mechanism check failed in
+  sign; H-008: the width held within vol terciles, but no form of it
+  forecast better; no KB entries, and the conditioner class's sealed slice
+  unspent); H-003 `draft`. Every `draft` and `seen`
   entry waits on an independent audit, not the owner's rewrite
   ([ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md), built as Phase 25). H-004 has a
   first explore-tier look on the ledger (2026-09-14, its structure check failed

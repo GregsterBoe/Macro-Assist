@@ -43,11 +43,11 @@ have its sealed read.
 | [H-001](#h-001) | `closed` | The SPF anchor's confidence bins are the first correctly ordered ones ever measured here — *confound resolved 2026-09-14: the ordering is carried by two crisis-rebound periods and inverts within three of six assets; closed on its own target-space rule, no KB entry* |
 | [H-002](#h-002) | `closed` | The stress-reversion mechanism is conditional on fragility state: stress continues in Elevated tapes, reverts in Normal ones — *refuted on explore 2026-09-24: the location half failed in sign on both looks (09-14, 09-21); no KB entry; the width half carried to [H-008](#h-008)* |
 | [H-003](#h-003) | `draft` | The SPF-vs-SEP gap predicts the *width* of the realized rate path, not its direction |
-| [H-004](#h-004) | `draft` | The published conditioner's dimensions are not the ones that move the distribution; a fragility-state conditioner beats the macro bucket — *explore look 2026-09-14: structure check failed in direction* |
+| [H-004](#h-004) | `closed` | The published conditioner's dimensions are not the ones that move the distribution; a fragility-state conditioner beats the macro bucket — *explore look 2026-09-14: structure check failed in direction; closed 2026-09-29 at the owner's call (zero skill, the gain was to sit in Elevated and Elevated is where it loses); no KB entry* |
 | [H-005](#h-005) | `seen` | On the explore slice the published macro bucket is reliably *worse* than not conditioning, and the deficit grows with horizon |
 | [H-006](#h-006) | `seen` | The only conditioner that beats `unconditional` on the explore slice is the S&P's own drawdown bin — and its gain is a narrower interval in calm, not the reversion — *rival look 2026-09-14: the width claim holds; the product's `har_gaussian` does not carry it, the same σ on the empirical shape does* |
 | [H-007](#h-007) | `seen` | The product's `har_gaussian` comparator is handicapped by its shape and its zero mean, not its σ: too wide in calm (coverage 0.57 at nominal 0.50), skewed PIT, −0.044 on the S&P at 20d, while the same forecast on the empirical shape is +0.016 … +0.026 |
-| [H-008](#h-008) | `draft` | Within a stressed drawdown bin, the OR flag's state widens the forward distribution beyond what drawdown depth explains |
+| [H-008](#h-008) | `closed` | Within a stressed drawdown bin, the OR flag's state widens the forward distribution beyond what drawdown depth explains — *closed on explore 2026-09-29 at the owner's call: the width held within vol terciles (8 of 9), but neither `dd_x_frag` nor the vol forecast widened by the state forecasts better; no KB entry, no sealed read spent* |
 
 ---
 

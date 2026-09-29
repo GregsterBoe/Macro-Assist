@@ -1192,6 +1192,18 @@ ORIENT_REGISTER = """# Register
 | [H-001](#h-001) | `closed` | Done — *pointer kept* |
 | [H-002](#h-002) | `draft` | A [linked](x.md) claim — *explore look: half seen* |
 | [H-003](#h-003) | `seen` | Another claim |
+
+## H-001 — Done {: #h-001 }
+
+**Status:** `closed`
+
+## H-002 — A linked claim {: #h-002 }
+
+**Status:** `draft`
+
+## H-003 — Another claim {: #h-003 }
+
+**Status:** `seen`
 """
 ORIENT_HOW = """# How we explore
 
@@ -1274,7 +1286,7 @@ def test_orient_prints_the_board_the_inbox_the_audit_and_the_gate(oriented):
     # the audit: every check counted, so a zero is visible
     assert b["AUDIT"].startswith("AUDIT — record_audit.py: 0 red, 0 report-only  (workflow-orphans 0 · "
                                  "schedule-table 0 · artifact-liveness 0 · referential-integrity 0 · "
-                                 "contradictions 0 · adr-revisit 0 · approval-stamp 0 · no-grinding 0 · "
+                                 "contradictions 0 · register-index 0 · adr-revisit 0 · approval-stamp 0 · no-grinding 0 · "
                                  "instruction-freeze 0 · bar-before-result 0 · receipts 0 · "
                                  "audit-record-field 0 · sealed-reads 0 · sealed-read-field 0)\n  clean\n")
     assert b["ADR"].strip().splitlines()[1:] == ["  none"]
@@ -1601,6 +1613,33 @@ def test_a_sealed_read_names_a_result_that_exists(audited):
         "H-101: its Sealed read (ledger) names no report under results/"]
 
 
+# --- register-index ----------------------------------------------------------
+
+def _indexed(rows: str, *entries: str) -> str:
+    return "# Hypothesis register\n\n| # | Status | One line |\n|---|---|---|\n" + rows + "\n---\n\n" + "".join(entries)
+
+
+def test_the_index_table_agrees_with_every_status_line(audited):
+    _commit_text(audited, REG, _indexed("| [H-101](#h-101) | `closed` | A width claim |\n",
+                                        _entry("H-101", "closed")), T0)
+    assert _check(audited, ra.check_register_index) == ([], [])
+
+
+@pytest.mark.parametrize("rows, says", [
+    ("| [H-101](#h-101) | `draft` | A width claim |\n", "H-101: the index table says `draft`, its Status line `closed`"),
+    ("", "H-101: has no row in the register's index table"),
+    ("| [H-101](#h-101) | `closed` | a |\n| [H-101](#h-101) | `closed` | b |\n",
+     "H-101: has 2 rows in the register's index table"),
+    ("| [H-101](#h-101) | `closed` | a |\n| [H-102](#h-102) | `draft` | gone |\n",
+     "H-102: is in the register's index table and has no entry"),
+])
+def test_an_index_table_that_disagrees_with_the_entries_is_red(audited, rows, says):
+    """2026-09-29: H-004 and H-008 closed in their entries, the table still read
+    `draft` — and orient's promotion gate reads the table."""
+    _commit_text(audited, REG, _indexed(rows, _entry("H-101", "closed")), T0)
+    assert _check(audited, ra.check_register_index)[0] == [says]
+
+
 # --- receipts ----------------------------------------------------------------
 
 def _run(at: str) -> str:
@@ -1644,7 +1683,8 @@ def test_this_checkout_is_clean_of_the_audit_checks():
     nothing to read; the receipts check holds the pre-log looks pinned, and
     the freeze reads the instructions' real history."""
     findings = [f for fn in (ra.check_approval_stamp, ra.check_no_grinding, ra.check_instruction_freeze,
-                             ra.check_bar_before_result, ra.check_receipts, ra.check_audit_record_field)
+                             ra.check_bar_before_result, ra.check_receipts, ra.check_audit_record_field,
+                             ra.check_register_index)
                 for f in fn(_REPO)]
     assert not [f for f in findings if f.red], "\n".join(str(f) for f in findings)
 

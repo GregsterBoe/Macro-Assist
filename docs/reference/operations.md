@@ -761,6 +761,18 @@ on 09-14 (6bd8310, 7107428) on Phase 23, whose roadmap heading said `⏸ DRAFT`
 after the board had it at 🔍 with the harness run. Both fixed by hand; the
 pin table is empty.
 
+### The register's index table, against its entries
+
+`hypotheses.md` opens with a table: one row per entry, with its status and one
+line. Each entry's own `**Status:**` line is the source, and the table is a
+summary of it. `check_register_index` is red when they differ: an entry
+with no row or two rows, a row with no entry, or a row whose status is not
+the entry's. It was added on 2026-09-29. H-004 and H-008 were closed in
+their entries that day, but the table still read `draft`. `orient.py`'s
+promotion gate reads the table, so it would have gone on listing both as
+waiting for promotion. Prose summaries elsewhere (the Research page, the
+board) are not read.
+
 ### The ages, computed
 
 `todo.md` carries a hand-written `Last reviewed:` line. On 2026-09-21 it said
