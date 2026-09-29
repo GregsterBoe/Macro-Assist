@@ -1,0 +1,156 @@
+{
+ "asof": "2026-09-29",
+ "series": {
+  "breakeven_10y": {
+   "date": "2026-09-28",
+   "days_stale": 1,
+   "five_yr_mean": 2.357,
+   "frequency": "daily",
+   "mean_window_start": "2021-09-30",
+   "mean_window_years": 5.0,
+   "prev": 2.34,
+   "value": 2.34,
+   "vs_mean": -0.017
+  },
+  "cpi": {
+   "date": "2026-08-01",
+   "days_stale": 59,
+   "five_yr_mean_yoy": 3.68,
+   "frequency": "monthly",
+   "prev": 332.813,
+   "value": 334.131,
+   "yoy_pct": 3.71
+  },
+  "fed_funds_rate": {
+   "date": "2026-08-01",
+   "days_stale": 59,
+   "frequency": "monthly",
+   "prev": 3.63,
+   "value": 3.63
+  },
+  "fed_total_assets": {
+   "date": "2026-09-23",
+   "days_stale": 6,
+   "frequency": "weekly",
+   "prev": 6746548.0,
+   "value": 6747704.0
+  },
+  "gdp": {
+   "date": "2026-04-01",
+   "days_stale": 181,
+   "frequency": "quarterly",
+   "prev": 31865.721,
+   "value": 32486.066
+  },
+  "hy_spread": {
+   "date": "2026-09-25",
+   "days_stale": 4,
+   "five_yr_mean": 3.107,
+   "frequency": "daily",
+   "mean_window_start": "2023-09-29",
+   "mean_window_years": 3.0,
+   "prev": 2.8,
+   "value": 2.93,
+   "vs_mean": -0.177
+  },
+  "jobless_claims": {
+   "date": "2026-09-19",
+   "days_stale": 10,
+   "five_yr_mean": 221076.923,
+   "frequency": "weekly",
+   "mean_window_start": "2021-10-02",
+   "mean_window_years": 5.0,
+   "prev": 198000.0,
+   "trend": "Falling",
+   "value": 197000.0,
+   "vs_mean": -24076.923,
+   "wow_pct": -0.51
+  },
+  "m2": {
+   "date": "2026-08-01",
+   "days_stale": 59,
+   "five_yr_mean_yoy": 1.34,
+   "frequency": "monthly",
+   "prev": 23217.9,
+   "value": 23342.8,
+   "yoy_pct": 5.66
+  },
+  "net_liquidity": {
+   "date": "2026-09-29",
+   "mom_pct": 0.02,
+   "trend": "Expanding",
+   "trend_summary": "Expanding, +-0.0% WoW, +0.0% MoM",
+   "value_bn": 5769.8,
+   "wow_pct": -0.0
+  },
+  "nfci": {
+   "date": "2026-09-18",
+   "days_stale": 11,
+   "five_yr_mean": -0.396,
+   "frequency": "weekly",
+   "mean_window_start": "2021-10-01",
+   "mean_window_years": 5.0,
+   "prev": -0.557,
+   "value": -0.555,
+   "vs_mean": -0.159
+  },
+  "philly_fed_mfg": {
+   "date": "2026-09-01",
+   "days_stale": 28,
+   "five_yr_mean": 4.425,
+   "frequency": "monthly",
+   "mean_window_start": "2021-09-01",
+   "mean_window_years": 5.0,
+   "mom_change": -9.6,
+   "prev": 47.4,
+   "value": 37.8,
+   "vs_mean": 33.375
+  },
+  "real_yield_10y": {
+   "date": "2026-09-25",
+   "days_stale": 4,
+   "five_yr_mean": 1.467,
+   "frequency": "daily",
+   "mean_window_start": "2021-09-30",
+   "mean_window_years": 5.0,
+   "prev": 2.85,
+   "value": 2.83,
+   "vs_mean": 1.363
+  },
+  "reverse_repo": {
+   "date": "2026-09-28",
+   "days_stale": 1,
+   "frequency": "daily",
+   "prev": 0.576,
+   "value": 0.851
+  },
+  "treasury_10y": {
+   "date": "2026-09-25",
+   "days_stale": 4,
+   "frequency": "daily",
+   "prev": 5.18,
+   "value": 5.17
+  },
+  "treasury_2y": {
+   "date": "2026-09-25",
+   "days_stale": 4,
+   "frequency": "daily",
+   "prev": 4.87,
+   "value": 4.81
+  },
+  "treasury_gen_acct": {
+   "date": "2026-09-23",
+   "days_stale": 6,
+   "frequency": "weekly",
+   "prev": 877028.0,
+   "value": 977084.0
+  },
+  "unemployment": {
+   "date": "2026-08-01",
+   "days_stale": 59,
+   "frequency": "monthly",
+   "prev": 4.1,
+   "value": 4.1
+  }
+ }
+}
