@@ -60,10 +60,10 @@ series should be able to abort the note at all is [`todo.md`
 | `nasdaq` | `^IXIC` | |
 | `gold` | `GC=F` | |
 | `wti_oil` | `CL=F` | |
-| `vix` | `^VIX` | |
+| `vix` | `^VIX` | Critical (a missing value aborts the note). CBOE fallback as for `vix3m` below |
 | `dxy` | `DX-Y.NYB` | |
 | `bitcoin` | `BTC-USD` | |
-| `vix3m` | `^VIX3M` | Term ratio only; not in snapshot table. yfinance's copy stopped updating 2026-07-17; the fragility fetches fall back to CBOE's CSV when it is stale (one retry, and the failure reason is recorded). The fallback chain is one deep and has failed twice — 2026-07-17 and 2026-09-16 ([KB-029], [KB-034]); a third tier is `todo.md` #26 |
+| `vix3m` | `^VIX3M` | Term ratio only; not in snapshot table. yfinance's copy stopped updating 2026-07-17; the fragility fetches fall back to CBOE's CSV when it is stale (one retry, and the failure reason is recorded). Since 2026-10-01 the payload fetch does too (`market_data._vol_fallback`): a missing or stale VIX / VIX3M payload value is taken from CBOE's file **only when it is dated the S&P 500's last session** — otherwise the leg stays missing and `vix_term_ratio` is omitted rather than built across two days. The outcome, and any ticker a retry was needed for, is logged as `market_feed` in the quant log (absent on a normal day). The fallback chain is one deep and has failed twice — 2026-07-17 and 2026-09-16 ([KB-029], [KB-034]); a third tier is `todo.md` #26 |
 
 **Technical indicators** (computed in Python, injected as `## Technical & Positioning State`):
 - 14-day Wilder RSI — Overbought (>70) / Oversold (<30) / Neutral

@@ -37,7 +37,7 @@ from market_data import (
     MARKET_TICKERS, MARKET_LABELS, SECTOR_TICKERS, SECTOR_LABELS,
     SECTOR_PE_REFERENCE, SECTOR_HOLDINGS, _TECHNICAL_ASSETS,
     fetch_equity_momentum, fetch_market_data, fetch_sector_data, fetch_sector_fundamentals,
-    fetch_vol_histories,
+    fetch_vol_histories, market_feed_report,
     detect_notable_moves, compute_technicals, format_technicals_block, fetch_cot_data,
 )
 from calendar_events import fetch_upcoming_events, _check_fomc_dates_expiry
@@ -582,6 +582,12 @@ def main():
             )
             if _raw:
                 quant_raw = _raw
+                # todo #26: what the payload's market fetch needed beyond a
+                # first-attempt answer — a retry, or CBOE standing in for a vol
+                # leg. Absent on a normal day, like `fragility.feed`.
+                _mfeed = market_feed_report()
+                if _mfeed:
+                    _raw = {**_raw, "market_feed": _mfeed}
                 _qlog_dir  = REPO_ROOT / "results" / "quant_context_log"
                 _qlog_dir.mkdir(parents=True, exist_ok=True)
                 _qlog_path = _qlog_dir / f"{today.strftime('%Y-%m-%d')}.jsonl"

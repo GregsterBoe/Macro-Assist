@@ -50,7 +50,8 @@ convention #7 hazard; it stays with the owner. Readings logged before
 2026-10-01 carry no `retries` key and count as first-attempt days, which they
 may not have been. And the record covers the fragility fetch only:
 `market_data._ticker_snapshot` (the payload's `vix_term_ratio`) retries through
-the same helper without a report, still part of #26's open remainder.
+the same helper without a report, still part of #26's open remainder *(recorded
+since, the same day, as `market_feed` — `todo.md` #26)*.
 `test_yfinance_retry.py`, `test_feed_audit.py`.
 
 ### RESOLVED 2026-09-22 — #28 "critical" now means *without a value*, not *without a freshly fetched one*

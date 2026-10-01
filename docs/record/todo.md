@@ -258,7 +258,8 @@ later.
    may well draw the same empty frame twice. It removes the cheapest failure,
    it does not remove the cause — item 3 does. *Since 2026-10-01 a rescue is
    recorded (`fragility.retries`) and counted by `feed_gate` → #31 in
-   [`resolved.md`](resolved.md); the payload path still retries unrecorded.*
+   [`resolved.md`](resolved.md); the payload path's retries land in
+   `market_feed` (below).*
 2. **Let the 10:47 UTC catch-up call re-check the feeds.** ~~It runs today and
    no-ops~~ — *corrected 2026-09-22: it does not run at all. No pipeline run
    since 2026-08-28 carries `source=cron-catchup` (→ #27).* The limitation
@@ -294,9 +295,22 @@ a measured reason. The "no fallback" caveat lifts.
 `freshen_vol_indices` — the splice itself has still never completed in
 production. Smaller gap, not a closed one.
 
-**Also carried:** `market_data`'s `vix3m` has no fallback on any path —
+~~**Also carried:** `market_data`'s `vix3m` has no fallback on any path —
 `vix_term_ratio` vanished from the LLM payload on all three days and no
-mechanism covers it.
+mechanism covers it.~~ **Done 2026-10-01.** `market_data._vol_fallback` runs
+the same `freshen_vol_indices` splice over the payload's VIX and VIX3M, a no-op
+without a network call when both are fresh. One rule stricter than the
+fragility path: a CBOE value is used only when dated the S&P's last session, so
+the ratio is never one day's VIX over an older VIX3M — a missing ratio is the
+honest alternative ([KB-029]'s shape). It covers VIX too, which is
+`_CRITICAL_MARKET`: a dead `^VIX` used to abort the note. Retries and the
+fallback's outcome are logged as `market_feed` in the quant log. Like the
+fragility splice, it has **not yet run in production** — a green test is not a
+completed splice.
+
+**What is left of #26:** item 2 (the catch-up call cannot help a run that
+*succeeded* with a hole in it) and the unproven production splice. Item 4 stays
+closed.
 
 ### The original question, kept for its admission rule — a second issuer feed
 **Source:** [KB-034]. The fallback chain is one deep: yfinance's `^VIX3M`, then

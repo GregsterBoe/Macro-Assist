@@ -82,7 +82,7 @@ def yf_history_with_retry(
     label: str,
     *,
     attempts: int = _YF_ATTEMPTS,
-    backoff: float = _YF_BACKOFF_SECONDS,
+    backoff: float | None = None,
     sleep=None,
     report: dict | None = None,
 ):
@@ -105,6 +105,8 @@ def yf_history_with_retry(
     if sleep is None:
         import time
         sleep = time.sleep
+    if backoff is None:
+        backoff = _YF_BACKOFF_SECONDS   # read at call time, so a test can zero it
     attempts = max(1, attempts)
     reason: str | None = None
     failures: list[str] = []

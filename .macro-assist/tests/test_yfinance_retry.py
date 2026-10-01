@@ -305,3 +305,94 @@ def test_the_log_line_names_a_rescue_and_stays_ok():
     (_, level, msg), = quant_context.fragility_log_lines(raw)
     assert level == "OK", "a rescued leg is not a degraded reading"
     assert "retry rescued vix3m" in msg
+
+
+# ---------------------------------------------------------------------------
+# todo #26 — the payload's vol legs get the issuer fallback the fragility path has
+#
+# On 2026-09-16 → 09-18 `^VIX3M` came back empty and `vix_term_ratio` vanished
+# from the prompt with nothing standing in. And VIX is critical: a missing one
+# aborts the note. CBOE's own file may now fill either payload value — only
+# when it is dated the S&P's last session, so a ratio is never one day's VIX
+# over an older VIX3M (the KB-029 shape).
+# ---------------------------------------------------------------------------
+
+def _cboe_series(rows: int = 300, lag: int = 0) -> pd.Series:
+    """CBOE's file as `fetch_cboe_index` returns it: tz-naive, plain dates."""
+    idx = pd.date_range("2026-09-14", periods=rows - lag)
+    return pd.Series([20.0 + 0.01 * i for i in range(rows - lag)], index=idx)
+
+
+@pytest.fixture
+def cboe(monkeypatch):
+    """Route `freshen_vol_indices` to a scripted CBOE and count its calls."""
+    calls: list[str] = []
+    script: dict = {}
+    real = fragility_panel.freshen_vol_indices
+
+    def fake_fetch(symbol):
+        calls.append(symbol)
+        return script.get(symbol, _cboe_series())
+
+    monkeypatch.setattr(fragility_panel, "freshen_vol_indices",
+                        lambda hist, **kw: real(hist, fetch=fake_fetch, **kw))
+    return calls, script
+
+
+def test_a_normal_day_never_asks_cboe(monkeypatch, ticker, cboe):
+    calls, _ = cboe
+    data, _hist = market_data.fetch_market_data()
+    assert calls == [], "both legs fresh: the fallback must be a no-op"
+    assert market_data.market_feed_report() == {}
+    assert data["vix3m"]["date"] == data["sp500"]["date"]
+
+
+def test_an_empty_vix3m_is_filled_from_cboe_on_the_same_day(monkeypatch, ticker, cboe):
+    calls, _ = cboe
+    ticker.script["^VIX3M"] = [EMPTY, EMPTY]
+    data, hist = market_data.fetch_market_data()
+    assert calls == ["VIX3M"]
+    assert data["vix3m"]["date"] == data["sp500"]["date"]
+    assert data["vix3m"]["price"] == round(_cboe_series().iloc[-1], 2)
+    assert "vix3m" not in hist, "only the payload value is replaced"
+    report = market_data.market_feed_report()
+    assert report["vol"]["vix3m"]["source"] == "cboe" and report["vol"]["vix3m"]["used"]
+    assert report["retries"]["vix3m"] == {"attempts": 2, "rescued": False,
+                                          "failures": ["empty frame", "empty frame"]}
+
+
+def test_a_cboe_value_from_an_older_session_is_refused(monkeypatch, ticker, cboe):
+    """A missing ratio is honest; one day's VIX over yesterday's VIX3M is not."""
+    _, script = cboe
+    script["VIX3M"] = _cboe_series(lag=1)
+    ticker.script["^VIX3M"] = [EMPTY, EMPTY]
+    data, _ = market_data.fetch_market_data()
+    assert "vix3m" not in data
+    rec = market_data.market_feed_report()["vol"]["vix3m"]
+    assert rec["used"] is False and "is not the S&P's" in rec["error"]
+
+
+def test_a_missing_vix_no_longer_costs_the_note(monkeypatch, ticker, cboe):
+    """VIX is in `_CRITICAL_MARKET`; before the fallback this day aborted."""
+    import collect_and_analyze
+    ticker.script["^VIX"] = [EMPTY, EMPTY]
+    data, _ = market_data.fetch_market_data()
+    assert "vix" in data
+    assert all(k in data for k in collect_and_analyze._CRITICAL_MARKET)
+
+
+def test_a_dead_fallback_leaves_the_leg_missing_and_says_why(monkeypatch, ticker, cboe):
+    _, script = cboe
+    script["VIX3M"] = None
+    ticker.script["^VIX3M"] = [EMPTY, EMPTY]
+    data, _ = market_data.fetch_market_data()
+    assert "vix3m" not in data
+    assert market_data.market_feed_report()["vol"]["vix3m"]["source"] == "none"
+
+
+def test_a_rescued_payload_ticker_is_recorded(monkeypatch, ticker, cboe):
+    ticker.script["^GSPC"] = [EMPTY, _frame(300)]
+    market_data.fetch_market_data()
+    assert market_data.market_feed_report() == {
+        "retries": {"sp500": {"attempts": 2, "rescued": True,
+                              "failures": ["empty frame"]}}}

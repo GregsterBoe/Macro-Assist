@@ -122,15 +122,32 @@ VOL_HISTORY_ASSETS: tuple[str, ...] = ("sp500", "gold", "wti_oil", "bitcoin")
 VOL_HISTORY_PERIOD = "5y"
 
 
-def _ticker_snapshot(ticker: str, period: str) -> tuple[dict | None, object]:
+# What the payload fetch needed beyond a first-attempt yfinance answer, for the
+# quant log: `retries` per ticker (as `quant_context` records for the fragility
+# fetch, todo #31) and `vol` — the CBOE fallback's outcome per vol leg whenever
+# it was asked. `{}` on a normal day. Process-lifetime, filled by
+# `fetch_market_data`, read by `market_feed_report`.
+_FEED_REPORT: dict = {}
+
+
+def market_feed_report() -> dict:
+    """The last `fetch_market_data` call's retries and vol-leg fallback, or `{}`
+    when every ticker answered first time and no vol leg needed CBOE.
+    Diagnostic only."""
+    return {k: dict(v) for k, v in _FEED_REPORT.items()}
+
+
+def _ticker_snapshot(ticker: str, period: str,
+                     report: dict | None = None) -> tuple[dict | None, object]:
     """
     Fetch latest close and daily % change for a single ticker.
     Returns (snapshot_dict, close_series). Either may be None on failure.
+    `report` is passed through to `yf_history_with_retry`.
     """
     # One attempt used to be the whole budget here, and an empty frame was read
     # as "no such data" — the 2026-09-16..18 `vix3m` hole (todo #26 work item 1).
     hist, reason = yf_history_with_retry(
-        lambda: yf.Ticker(ticker).history(period=period), ticker)
+        lambda: yf.Ticker(ticker).history(period=period), ticker, report=report)
     if hist is None:
         print(f"  Warning: failed to fetch {ticker}: {reason}")
         return None, None
@@ -183,11 +200,19 @@ def fetch_market_data() -> tuple[dict, dict]:
     """Return (price_data, histories) where histories maps name → Close price Series."""
     data: dict = {}
     histories: dict = {}
+    _FEED_REPORT.clear()
     for name, ticker in MARKET_TICKERS.items():
-        snapshot, close = _ticker_snapshot(ticker, "90d")  # 90d needed for RSI/50dMA/Z-score
+        tries: dict = {}
+        snapshot, close = _ticker_snapshot(ticker, "90d", report=tries)  # 90d needed for RSI/50dMA/Z-score
+        if tries.get("failures"):
+            _FEED_REPORT.setdefault("retries", {})[name] = {
+                "attempts": tries["attempts"], "rescued": snapshot is not None,
+                "failures": list(tries["failures"])}
         if snapshot:
             data[name] = snapshot
             histories[name] = close
+
+    _vol_fallback(data, histories)
 
     _missing = [k for k in MARKET_TICKERS if k not in data]
     _log("MARKET", "WARN" if _missing else "OK",
@@ -202,6 +227,73 @@ def fetch_market_data() -> tuple[dict, dict]:
         data["sp500"]["momentum"] = momentum
 
     return data, histories
+
+
+# The vol legs whose payload value the issuer's own file may stand in for.
+_VOL_LEGS: tuple[str, ...] = ("vix", "vix3m")
+
+
+def _naive(close) -> pd.Series:
+    """A tz-naive copy, so yfinance's exchange-local index compares with CBOE's
+    plain dates inside `freshen_vol_indices`."""
+    out = pd.Series(close).copy()
+    try:
+        out.index = out.index.tz_localize(None)
+    except (TypeError, AttributeError):
+        pass
+    return out
+
+
+def _vol_fallback(data: dict, histories: dict) -> None:
+    """Fill a missing or stale VIX / VIX3M payload value from CBOE's own file.
+
+    The payload's `vix_term_ratio` had no fallback on any path: on 2026-09-16
+    → 09-18 `^VIX3M` came back empty and the ratio simply vanished from the
+    prompt, while the fragility fetch beside it had the CBOE splice (todo #26).
+    And VIX is critical — a missing one aborts the day's note.
+
+    Same splice and staleness rule as the fragility path
+    (`fragility_panel.freshen_vol_indices`, a no-op without a network call when
+    both legs are fresh), with one stricter condition: a CBOE value is used only
+    when it is dated the S&P 500's last session. A ratio of one day's VIX over an
+    older VIX3M is the frozen-leg failure of [KB-029] in miniature, and a missing
+    ratio is the honest alternative. Only the snapshot is replaced — `histories`
+    keeps what yfinance returned, since nothing downstream reads the vol legs'
+    history and a CBOE series is indexed differently. Never raises.
+    """
+    anchor = histories.get("sp500")
+    if anchor is None or not len(anchor):
+        return
+    legs = {"sp500": _naive(anchor)}
+    legs.update({k: _naive(histories[k]) for k in _VOL_LEGS if k in histories})
+    report: dict = {}
+    try:
+        from fragility_panel import freshen_vol_indices
+        fresh = freshen_vol_indices(legs, report=report)
+    except Exception as exc:   # noqa: BLE001 — a fallback must never break the fetch
+        _FEED_REPORT["vol"] = {"error": f"{type(exc).__name__}: {exc}"}
+        return
+    if all((report.get(k) or {}).get("source") == "yfinance" for k in _VOL_LEGS):
+        return   # the normal day: both legs fresh, CBOE never asked
+    anchor_day = legs["sp500"].index[-1].strftime("%Y-%m-%d")
+    for leg in _VOL_LEGS:
+        rec = report.get(leg)
+        if not rec or rec.get("source") != "cboe":
+            continue
+        close = fresh[leg]
+        used = len(close) >= 2 and close.index[-1].strftime("%Y-%m-%d") == anchor_day
+        rec["used"] = used
+        if not used:
+            rec["error"] = f"CBOE's last date {rec.get('last')} is not the S&P's {anchor_day}"
+            continue
+        c, p = float(close.iloc[-1]), float(close.iloc[-2])
+        data[leg] = {"price": round(c, 2), "change_pct": round(((c - p) / p) * 100, 2),
+                     "date": anchor_day}
+    _FEED_REPORT["vol"] = report
+    _log("MARKET", "WARN", "vol legs: " + "; ".join(
+        f"{leg} from {r.get('source')}" + (" (used)" if r.get("used") else "")
+        + (f" — {r['error']}" if r.get("error") else "")
+        for leg, r in report.items() if leg in _VOL_LEGS))
 
 
 def fetch_vol_histories() -> dict:
