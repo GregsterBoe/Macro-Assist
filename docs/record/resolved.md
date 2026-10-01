@@ -682,6 +682,29 @@ window and is not acted on here.
 
 ## Fragility monitor
 
+### RESOLVED 2026-10-01 — #36 IMP-9 tries CBOE SKEW first, then the commercial-paper spread
+**Resolution: option 2.** The owner chose it the same day, before any
+candidate's values were read.
+
+**The question.** IMP-9's step 1 (`improvement-track.md`) checked nine outside
+inputs for history, point-in-time eligibility and cost, and left three:
+CBOE SKEW (1990 →), the VIX's own realized vol (overlaps what is in), and
+the commercial-paper spread over T-bills (1997 →, revision behaviour
+unchecked). Which goes first as a filter on the OR flag?
+
+**What it changes.** SKEW runs first, under a bar written in IMP-9 before its
+values are read. The commercial-paper spread follows as a second, separate
+run with its own bar, after a bounded ALFRED check that its history is not
+revised. The second run happens whatever the first one finds: the owner chose
+both, not "C if A fails". The VIX's realized vol is not run.
+
+**The cost, kept.** Two counted runs instead of one. Two tries at the same
+target raise the chance that one passes by luck. Each bar carries its own
+luck check (shifted-filter null), and the KB entry for the second states that
+it was the second.
+
+**Rejected:** (1) SKEW alone, the proposer's lean. (3) No attempt.
+
 ### RESOLVED 2026-09-14 — #15 "turbulence alone is not an alarm" stays a hindsight read; the OR is unchanged
 **Resolution: leave it.** The observation ([KB-031] nuance (b): of the OR's 18
 PIT alarms at 5d, all 6 true ones had a second channel firing and 10 of the 12

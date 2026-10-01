@@ -14,7 +14,10 @@ Conventions:
   reasoning intact, and pull any "carry forward" caveat back up into this file
   as its own entry. A resolved item left here is noise; a lost caveat is worse.
 
-Last reviewed: 2026-10-01 — **#35** opened by the risk-rule build (does H-009's clause
+Last reviewed: 2026-10-01 — **#36** opened by IMP-9's step 1 (which outside
+input is tried first as a filter on the OR flag) and closed the same day →
+[`resolved.md`](resolved.md): CBOE SKEW first, then the commercial-paper
+spread. Earlier the same day, **#35** opened by the risk-rule build (does H-009's clause
 count a firing just before an episode's peak?) and closed the same day → [`resolved.md`](resolved.md):
 yes, up to 19 trading days. Before that, 2026-09-29 — **#33** opened by WP-23.B: the gap → width class has
 a bar and no seal. Before that, 2026-09-22 (second pass, same day) — all three items from the

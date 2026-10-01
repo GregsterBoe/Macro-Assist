@@ -513,3 +513,147 @@ override the profile). No code change; unsetting it reverts. Every note's
 frontmatter records the model, so the change is visible in the record from the
 first note. No version bump: the note's structure and contract do not change
 (convention 9).
+
+## IMP-9 — An outside input as a filter on the OR flag: which data could carry it
+
+**Status:** 🔨 **9.A (SKEW) ❌ closed negative 2026-10-01 → [KB-035]:
+`recall_lost` on both windows. As a filter it kept 2 of 10 live crises, at
+precision 0.10, below random timing. 9.C (the commercial-paper spread) is
+next, as the owner chose (`resolved.md` #36): first its ALFRED revision check,
+then its own bar written before its values are read.** Step 1 (feasibility)
+2026-10-01. Step 1 read no
+candidate's values: coverage was checked by listing dates only (first, last,
+row count, gaps).
+
+**Why.** Goal 2 ([What is worth doing §2](../concepts/what-is-worth-doing.md#2-the-standing-goals))
+asks for OR-flag precision of 0.4 at 5d, with recall no worse than today;
+today's is about 0.3 ([KB-017], [KB-021]). H-009's explore look (2026-10-01,
+[hypotheses.md](hypotheses.md#h-009)) showed what that precision costs a
+real decision. 111 of the rule's 154 hold windows were false alarms, and
+they carried nearly all of its return cost. The goal ranks above goal 3,
+and a flag with fewer false alarms is what a later risk rule would need.
+
+**What is already closed, so this does not repeat it.**
+- *Adding a channel* (OR admission): credit [KB-019], downside variance
+  [KB-018], and four panel companions [KB-032]. Each was redundant in the OR set.
+- *Recombining the trio*: persistence, two-of-three tiers and a logistic
+  [KB-031]. Each lost crises without buying precision.
+
+**What is new here.** An input from **outside** the equity panel and the VIX
+term structure, used as a **filter**: a firing of the trio stands only when
+the outside input agrees. As far as the record shows, this role has not been
+tested. The KB-019 / KB-032 gates asked whether an input *adds* crises.
+A filter can only remove firings. So its way to fail is losing a crisis, and
+"no crisis lost" is the disqualifier it has to clear first.
+
+**Honest prior: low.** Every route that changed the flag's parts has failed so far,
+and on 17–21 crises at 5d in the live window ([KB-031] caveat e), a move from
+0.3 to 0.4 is hard to tell from luck. This is why candidates with long
+histories rank first: they can also be checked on the panel-only flag (AR OR
+TURB on the Fama-French industries, the H-009 flag) over far more crises.
+
+### Step 1 — the candidates, checked 2026-10-01
+
+Eligibility follows [ADR-0014](../decisions/ADR-0014-point-in-time-without-alfred.md):
+only never-revised inputs may enter a backtest. The budget is the €20 a
+month in [What is worth doing](../concepts/what-is-worth-doing.md).
+
+| Candidate | What it measures | History (dates only, checked) | Point in time | Cost / licence | Overlap with what is in | Step 2? |
+|---|---|---|---|---|---|---|
+| **A. CBOE SKEW** | Price of far out-of-the-money S&P puts: the market's fear of a tail, separate from the vol level | CBOE CSV `SKEW_History.csv`: 1990-01-02 → 2026-09-30, 9,238 rows, one gap over 7 days (13 days) | Market-observed, never revised: eligible like `VIXCLS` | Free. Same CBOE endpoint the composite's fallback uses (`fragility_panel._CBOE_URL`). CBOE's website terms to be read before any live use | Low by construction: it is the shape of the option smile, not its level | **Yes, first** |
+| **B. Volatility of the VIX** | How unstable the fear gauge itself is | VVIX: 2006-03-06 →, 5,115 rows, six gaps over 7 days (longest 21). The long form is the 21-day realized vol of the VIX, from CBOE VIX 1990-01-02 → (9,284 rows, no gap over 7 days) | Both market-observed: eligible | Free | **High.** The composite already reads the VIX term structure and the S&P variance trend. VVIX starts too late to add crises beyond the 2008+ window | Only the realized long form, after A |
+| **C. Funding stress: commercial paper over T-bills** | What banks pay to borrow for 90 days, over the risk-free rate | FRED `DCPF3M` (90-day AA financial CP) − `DTB3`: daily, 1997-01-02 → 2026-09-29. `CPFF` (CP − fed funds) same start | Rates, but a Fed compilation, not a quote. **Revision behaviour not yet checked.** A bounded ALFRED check (a few vintages) comes before any use | Free (FRED key in hand) | **Moderate to high.** [KB-019] found credit redundant, and funding stress moves with credit in a crash | After A, behind the revision check |
+| TED spread | The classic funding gauge | FRED `TEDRATE` 1986 → **2022-01-21, discontinued** (LIBOR) | — | — | — | **No:** cannot run live |
+| NFCI and its risk / leverage subindices; St. Louis `STLFSI4` | Composite financial-conditions indices | Weekly from 1971 / 1993 | **Re-estimated every week** (798 / 204 vintages, first vintage 2011 / 2022) | Free | Includes credit and vol | **No:** ADR-0014 excludes it |
+| VXO | S&P 100 vol, from 1986 | FRED `VXOCLS` **ends 2021-09-23**; the CBOE file refuses (403) | — | — | Vol level | **No:** discontinued |
+| Option-surface tail measures (risk-neutral skew, tail-loss prices) | The full options tail | Academic and commercial (OptionMetrics) | — | **Paid, far above €20 a month** | — | **No** |
+| Short-dated vol (VIX9D, VIX1D) | Very near-term fear | 2011 → / 2022 → | Eligible | Free | Vol level | **No:** too short |
+| Treasury market noise (Hu–Pan–Wang) | Liquidity in the bond market | Research dataset, not a maintained daily feed | — | Free, unmaintained | — | **No:** cannot run live |
+
+### Step 2 — what would run, once a candidate is chosen (not started)
+
+One candidate at a time, A first. For each, a bar is written here before its
+values are read:
+
+1. **Role.** The filter: a trio firing stands only if the candidate is at or
+   above one cut of its own point-in-time history. The cut is fixed in the
+   bar, not swept. As a secondary read, OR admission under the [KB-019]
+   protocol (in-sample → PIT → LOCO), so the record says both.
+2. **Disqualifier first:** any crisis the trio catches with lead that the
+   filtered flag loses under LOCO. Then the goal-2 bar: precision ≥ 0.40 at
+   5d.
+3. **Windows.** The live trio, 2008-07 →, on the KB-021 grid. Then, for A,
+   B-long and C, the panel-only flag over the candidate's whole history. Its
+   crisis count is taken from the label before the candidate is read.
+4. **Scored the de-overlapped way:** episodes, not daily readings.
+5. **A KB entry either way.** If one passes, its next test is a decision: a
+   new risk-rule member using the filtered flag, read against `static_matched`
+   and `vol_matched` ([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md)).
+
+### 9.A — CBOE SKEW as a filter: the bar, written 2026-10-01 before any SKEW value was read
+
+Harness `.macro-assist/filter_testing.py`. Constants are fixed here and not
+swept.
+
+**The input.** `x_t` is the 5-trading-day mean of CBOE SKEW ending the CBOE
+day **before** *t*, minus the median of the 252 SKEW closes ending on that
+same day.
+- *One day's lag:* [ADR-0014]'s shift. The note runs before the US open, so
+  yesterday's close is what is known live.
+- *5-day mean:* turbulence's smoothing, so one noisy print does not decide.
+- *Measured against the trailing year:* SKEW's level has drifted up over
+  decades, so a percentile of its whole history would read "high" in every
+  recent year. This is a property of the published series, known before
+  this run.
+- *Stale data fails open:* with no SKEW print in the 10 calendar days before
+  *t*, the filter lets a firing stand. A missing feed never silences a
+  warning ([KB-029]'s lesson).
+- *Too little history drops the reading:* with fewer than 252 + 5 prior
+  closes, the reading is out of the window. Both rows are scored on the same
+  readings.
+
+**The filtered flag.** OR(trio) ∧ (`x_t` ≥ 0): a warning stands only when tail
+fear is at or above its own past-year median.
+
+**Windows. Both must pass.**
+1. **Live.** The KB-021 trio (composite ∨ AR ∨ TURB) on its grid, 2008-07 →,
+   labelled on ^GSPC. This is the flag goal 2 names.
+2. **Long.** The panel-only flag (AR ∨ TURB, the Fama-French 30 industries,
+   `fragility_or`'s constants: H-009's flag), labelled on the FF market. It
+   runs from where both it and SKEW are warmed up (about 1991) to the FF
+   data's end. It exists for power: more crises than the live window's 17–21.
+
+**Scored** with `fragility_backtest`'s de-overlapped episode metrics, against
+the unfiltered flag on the same readings. The protocols are PIT and LOCO,
+both as in IMP-6. In LOCO the trio's cuts are fit outside the held-out crisis.
+The filter fits nothing: it is trailing by construction. **Decisive horizon:
+5d** (goal 2). 10d is reported.
+
+**The verdict, per window, in this order. Each disqualifier returns at once:**
+1. `underpowered`: fewer than 10 alarm episodes for the filtered flag at
+   5d (PIT).
+2. `too_late`: median lead to trough at 5d (PIT true positives) below 2
+   days, or undefined.
+3. `recall_lost`: **any** crisis lost against the unfiltered flag at 5d,
+   under PIT or under LOCO. Goal 2 says "recall no worse than today".
+4. `no_edge`: PIT precision at 5d below the unfiltered flag's + 0.05.
+   On the live window it must also reach **0.40**, goal 2's target.
+5. `luck`: the precision does not beat the 90th percentile of 200 shifted
+   filters. Each shifts the filter's pass / block series against the grid by
+   a random 52 readings (about a year) up to n − 52, seed fixed. Each keeps
+   the filter's rate and runs and breaks its timing.
+6. `pass`.
+
+**9.A passes only if both windows read `pass`.** Either way, the result goes
+to the KB.
+
+**Reported, not read.**
+- SKEW as a fourth OR channel instead of a filter (`x_t` at its own PIT p90,
+  the [KB-019] admission protocol), so the record has both roles.
+- Which crises and which alarms the filter removed, and the share of firings
+  it blocks.
+
+**Prior, the proposer's, written before the run.** `recall_lost` on at least
+one window. A filter that blocks about half the firings has to lose no crisis
+among about 20 live and more long ones, and SKEW's record as a crash
+predictor is weak in the published literature.

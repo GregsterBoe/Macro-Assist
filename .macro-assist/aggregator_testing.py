@@ -104,7 +104,7 @@ def pit_channel_table(
     channels IS the live flag. A NaN reading (degraded composite, KB-029) neither
     fires nor enters its channel's history; its percentile is NaN.
     """
-    idx = channels["comp"].index
+    idx = channels[keys[0]].index
     arrs = {k: channels[k].reindex(idx).to_numpy(dtype=float) for k in keys}
     rows, keep = [], []
     for i in range(len(idx)):
@@ -249,7 +249,7 @@ def _train_table(channels: dict, train: np.ndarray, keys: tuple,
                  q_watch: float, q_alert: float) -> pd.DataFrame:
     """Feature table for ALL readings with the transform fit on `train` only:
     percentile = ECDF of the training values, cuts = training quantiles."""
-    idx = channels["comp"].index
+    idx = channels[keys[0]].index
     cols = {}
     for k in keys:
         v = channels[k].reindex(idx).to_numpy(dtype=float)
@@ -283,7 +283,7 @@ def loco_recall(
     anywhere inside the span. The logistic's cut is the OR flag's firing rate on
     the training readings (the equal-budget rule).
     """
-    idx = channels["comp"].index
+    idx = channels[keys[0]].index
     close = pd.Series(gspc).astype(float)
     labels = drawdown_label(close, threshold, horizon)
     y = labels.reindex(idx)

@@ -3323,3 +3323,108 @@ the run moved from ~06:04 to 06:23 UTC, the yfinance legs gained a retry, and
 the feed may simply have recovered. **One healthy day separates none of them.**
 The 06:04-versus-16:24 asymmetry that [KB-034] measured has not been re-measured
 since, and `todo.md` #26 item 3 (move the run) is still open on its own terms.
+
+---
+
+## KB-035 — CBOE SKEW as a filter on the OR flag loses half the crises and keeps the false alarms; as an extra channel its gain is time on alarm, no better than random timing on the long record (IMP-9 §9.A)
+
+**Date:** 2026-10-01 · **Branch:** `main` · **Harness:**
+`.macro-assist/filter_testing.py` (**zero LLM/API cost**; CBOE's free SKEW
+file, the KB-021 channels, the Fama-French 30 industries). Reproduce: `python
+filter_testing.py --cached` (about 6 minutes cold, 20 s cached). The bar is in
+`improvement-track.md` IMP-9 §9.A. It was written before any SKEW value was
+read, with the verdict function and its disqualifier-first tests passing
+before the run. **The bar and the harness were in the working tree, not
+committed, when the run happened.** The ordering rests on this entry and the
+session record, not on a commit.
+
+**What we tested.** Goal 2 asks the OR flag for precision 0.4 at 5d at recall
+no worse than today. Adding channels and recombining the trio are closed
+([KB-018], [KB-019], [KB-031], [KB-032]). IMP-9 tried the one role left: an
+input from outside the equity panel and the VIX term structure, used as a
+**filter**, so a firing stands only when the input agrees. The first
+candidate, chosen by the owner (`resolved.md` #36), was CBOE SKEW: the price
+of far out-of-the-money S&P puts, free from 1990.
+- **Input.** *x* = the 5-day mean of SKEW, less the median of its trailing
+  252 closes, ending the CBOE day before the reading.
+- **Filter.** Pass when *x* ≥ 0: tail fear at or above its own past-year
+  median.
+- **Windows. Both had to pass.** Live: the KB-021 trio, 2013-07-10 →, 667
+  readings, 17 crises at 5d. Long: the panel-only AR ∨ TURB flag on the FF
+  industries, 1991-01 → 2026-06, 1,787 readings, 37 crises.
+- **The bar.** No crisis lost at 5d under PIT or LOCO, precision +0.05 and
+  ≥ 0.40 live, and beating 200 shifted filters.
+
+**Headline — fails on both windows at the first substantive disqualifier,
+`recall_lost`.**
+
+| 5d | crises | caught: filtered (unfiltered) | alarms | precision | LOCO caught | shifted filters: median / 90% precision | verdict |
+|---|---|---|---|---|---|---|---|
+| **live** | 17 | **2 (10)** | 20 (18) | **0.10 (0.333)** | 2 (6) | 0.263 / 0.375 | `recall_lost` |
+| **long** | 37 | **10 (18)** | 50 (76) | 0.18 (0.171) | 8 (15) | 0.167 / 0.207 | `recall_lost` |
+
+The filter blocked 64% of the live firings and 58% of the long ones. The
+unfiltered live row reproduces `fragility_or._pit_backtest` exactly (17 / 10
+/ 18 / 0.333 at 5d), the regression guard.
+
+**The nuance that is easy to forget — the filter is worse than random, not
+merely useless.** On the live window, 2 of its 20 alarms were real. A filter
+with the same rate and runs at random times keeps a median 0.263. So SKEW
+sits **below** its past-year median exactly when the trio's alarms are real.
+That is consistent with how the index is built: once a sell-off is under way,
+at-the-money vol rises and the smile flattens, so SKEW falls. The filter
+selected for calm-tape false alarms. **The inverse filter (pass when x < 0)
+was not run, on purpose.** Its sign would be chosen after seeing this number,
+on the same windows. It would need its own bar, and no clean data is left to
+read it on.
+
+**Reported, not read — SKEW as a fourth OR channel at its own PIT p90.** This
+is the [KB-019] admission role. 9.A reported it beside the filter, without
+making it a bar.
+
+| 5d | trio + SKEW: caught / alarms / precision | trio | LOCO caught (trio) | time on alarm (trio) | 200 shifted SKEW channels: caught median · share ≥ real; precision median · share ≥ real |
+|---|---|---|---|---|---|
+| live | **15/17 · 23 · 0.391** | 10/17 · 18 · 0.333 | 10 (9) of 21 | **44% (24%)** | 12 · 0.02; 0.278 · 0.01 |
+| long (1996 →) | 24/37 · 75 · 0.213 | 18/37 · 61 · 0.213 | 22 (19) of 42 | **40% (22%)** | **24 · 0.56; 0.234 · 0.78** |
+
+- **What the KB-032 rule would say.** By the mechanical admission rule of
+  [KB-032] (PIT recall +1 crisis at both horizons, PIT precision within 0.02,
+  LOCO not below the trio), the live row would read `admit`: +5 crises at 5d
+  and +5 at 10d, against +1 for the best companion ever tested here.
+- **The mechanism that undoes it.** SKEW fires on 21% of readings, not 10%.
+  Its expanding-PIT p90 trails a drifting distribution. 130 of its 140 live
+  firings fall where the trio is silent, so the flag would be on 44% of the
+  time instead of 24%. Episode precision counts a merged two-month run as
+  one alarm, so it rose while time on alarm nearly doubled.
+- **The three live crises gained**:
+  - 2015-12-31: SKEW on continuously from 2015-11-10;
+  - 2016-06-23: Brexit, on the same week;
+  - 2020-09-01: on continuously from 2020-07-07.
+- **The shift control is what separates the two windows.** Live, only 2% of
+  same-rate shifted channels catch as many crises. On the long window, which
+  contains the live years, the real SKEW channel is a **typical** shifted one:
+  median 24 caught, and 78% of shifts have higher precision. The live gain
+  rests on three crises in thirteen years and does not survive 1996–2013.
+- **A defect fixed before this entry, in this reported line only.** As first
+  run, the channel's history began where the filter's window began, which
+  shortened the live channel window to 2018 →. It was rerun from the cache
+  with the channel's whole grid. The verdict path was unchanged by the fix:
+  the same values on the same readings.
+
+**What it changes.**
+- **SKEW as a filter on the OR flag is closed**, negative on both windows.
+  The inverse is not proposed (above).
+- **SKEW is not admitted as a channel.** Its live gain is time on alarm, and
+  on the long record it is no better than random timing at the same rate.
+  This is a reported read, not a bar, so it closes nothing formally. It is
+  the reason not to propose it.
+- **A gap in earlier admission gates.** [KB-019] and [KB-032] admitted or
+  refused channels on episode recall and precision **without a same-rate
+  shift control**. KB-032's CORR `admit` rested on two readings and its
+  mechanism was read by hand. Any future channel gate should carry the shift
+  control. Episode precision alone rewards a channel that is simply on more
+  often.
+- **IMP-9 continues as the owner chose** (`resolved.md` #36). The
+  commercial-paper spread runs next as a filter (§9.C), after its ALFRED
+  revision check, under its own bar written before its values are read. It is
+  the second candidate against the same target, and its entry will say so.

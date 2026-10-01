@@ -65,6 +65,7 @@ RESEARCH: frozenset[str] = frozenset({
     "input_ledger", "citation_screen", "synthetic",
     "explore_conditioner",          # explore-tier shadow conditioners (register H-002 … H-007)
     "explore_rules",                # explore-tier risk rules, read on drawdown (ADR-0023, H-009)
+    "filter_testing",               # an outside input as a filter on the OR flag (IMP-9)
     "class_bars",                   # the class bars a promoted hypothesis is read against (WP-23.B)
     "sealed_runner",                # the sealed read itself, in sealed_read.yml's key job only (WP-23.B)
     "model_compare",                # the main analysis call on several models, same saved days, side by side

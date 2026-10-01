@@ -103,6 +103,7 @@ Macro-Assist/
 │   ├── input_testing.py             # improvement-track harness (IMP-1/IMP-4)
 │   ├── aggregator_testing.py        # OR-flag aggregator gate (IMP-6, closed negative)
 │   ├── companion_testing.py         # OR-channel companion gate (IMP-7, closed negative)
+│   ├── filter_testing.py            # an outside input as a filter on the OR flag (IMP-9)
 │   ├── citation_screen.py           # which inputs the model actually cites
 │   ├── backtest.py                  # point-in-time backtesting harness
 │   ├── regime_backtest.py           # walk-forward regime validation
@@ -148,6 +149,7 @@ Macro-Assist/
 │   ├── numeric_baseline/            #   learnability harness output
 │   ├── explore_conditioner/         #   explore-tier report + cached inputs (Phase 23)
 │   ├── explore_rules/               #   risk-rule explore report, cached inputs, run log (ADR-0023)
+│   ├── filter_testing/              #   IMP-9 filter gate: report, summary, cached channels and SKEW
 │   ├── quant_context_log/           #   daily JSONL snapshots of quant outputs
 │   └── accuracy_report.md
 │
