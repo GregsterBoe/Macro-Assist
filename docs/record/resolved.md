@@ -421,6 +421,33 @@ prose is the point.
 
 ## Phase 23 — exploration tier
 
+### RESOLVED 2026-10-01 — #35 H-009's clause counts a firing up to 19 trading days before the peak
+**Resolution: option 1, `before_peak` = 19.** The owner chose it the same
+day, before any rule was read.
+
+**The question.** H-009's mechanism clause calls an episode *caught* if the
+flag fired between its peak and the day buy-and-hold first lost half of the
+episode's final depth. The member stays half out for 20 trading days after
+any firing. So a firing a few days *before* the peak already has it half out
+at the peak, which is the early warning it is for. As drafted, that episode
+counted as **missed**. The planted test
+(`test_a_firing_before_the_peak_counts_only_within_before_peak`) showed the
+strict wording calling most such catches missed.
+
+**What it changes.** A firing from 19 trading days before the peak to the
+half-way day now counts as caught: the hold window less a day, so the flag had
+the rule de-risked at some point between the peak and the half-way day. It
+changes which episodes are labelled caught. It does not change the saving the
+bar reads or any threshold. `explore_rules.SPEC` and H-009's clause state it
+together.
+
+**The cost, kept.** A firing up to 19 days early whose window lapsed before
+the peak still counts as caught, though the rule was back in full at the peak.
+With a 20-day hold that window is narrow.
+
+**Rejected:** 0, the wording as drafted. It could fail the clause on the
+episodes the rule got right, reading `unexplained` for the wrong reason.
+
 ### RESOLVED 2026-10-01 — #34 a fragility rule for a real decision is a target class, read on drawdown: accepted
 **Resolution: accept [ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md),** the same day it was
 drafted, on all four of its questions:

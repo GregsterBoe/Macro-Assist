@@ -54,6 +54,7 @@ question. None runs in the pipeline; each is run by hand or by its own
 | Does a label separate forward returns? | `bias_separation.py` — block permutation | Shuffled labels | Yes, backwards — KB-022; the stress-reversion mechanism |
 | Does the conditional table beat the unconditional one? | `score_distributions.py` *read against its bar* — the scorer itself is product | `unconditional`, `trailing_250` | Sealed. First honest read ~2027-05 |
 | What does a *shadow* conditioner do on the explore slice? | `explore_conditioner.py` — walk-forward quantiles per arm on 2010–2017, scored the Phase 22 way; `verdict(sealed=False)` by construction; the scorer's `har_gaussian` walked forward beside them | `unconditional` (and the HAR arms, for H-006) | Explore tier only — writes to the [register](../record/hypotheses.md), never the KB. Two looks 2026-09-14: H-002/H-004 ledgers, H-005/H-006 seen; H-006's rival check → H-007 seen |
+| Does a mechanical rule take less of each market drop than holding less stock? | `explore_rules.py` — the member's daily exposure from the 1932 Fama-French history to 2017, read by `class_bars.RISK_RULE` against `static_matched` and `vol_matched`; `exploratory` by construction | `static_matched`, `vol_matched` (ADR-0023) | Explore tier only. Built 2026-10-01 for H-009; no look yet |
 
 Every instrument carries a positive and a negative control in the test suite
 ([Foundations › Inference §7](../foundations/inference.md#7-controls)).

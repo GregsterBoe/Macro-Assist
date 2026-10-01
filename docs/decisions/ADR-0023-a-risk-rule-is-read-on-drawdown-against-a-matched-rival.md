@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | **Accepted** — drafted 2026-10-01 by the assistant at the owner's request, and accepted by the owner the same day with the proposed return budget and seal ([`resolved.md`](../record/resolved.md) #34). Not yet built, and no data has been read for it |
+| **Status** | **Accepted** — drafted 2026-10-01 by the assistant at the owner's request, and accepted by the owner the same day with the proposed return budget and seal ([`resolved.md`](../record/resolved.md) #34). Built the same day — `class_bars.RISK_RULE` and `explore_rules.py` ([Scoring](../reference/scoring.md#the-risk-rule-class-risk_rule-adr-0023)) — and no member has been read |
 | **Decided** | 2026-10-01 |
 | **Related** | [What is worth doing §2](../concepts/what-is-worth-doing.md#2-the-standing-goals) (goal 3) · [How we explore §5, §7](../concepts/how-we-explore.md#7-the-target-space-never-a-signed-forecast) · [ADR-0009](ADR-0009-cut-the-directional-product.md) · [ADR-0019](ADR-0019-paper-portfolio-mechanical-and-paper-only.md) · [ADR-0020](ADR-0020-the-numeric-bar-has-a-skill-margin.md) · [ADR-0022](ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md) · the first member, [H-009](../record/hypotheses.md#h-009) |
 

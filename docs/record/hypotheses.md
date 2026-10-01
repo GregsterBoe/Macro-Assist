@@ -48,7 +48,7 @@ have its sealed read.
 | [H-006](#h-006) | `seen` | The only conditioner that beats `unconditional` on the explore slice is the S&P's own drawdown bin — and its gain is a narrower interval in calm, not the reversion — *rival look 2026-09-14: the width claim holds; the product's `har_gaussian` does not carry it, the same σ on the empirical shape does* |
 | [H-007](#h-007) | `seen` | The product's `har_gaussian` comparator is handicapped by its shape and its zero mean, not its σ: too wide in calm (coverage 0.57 at nominal 0.50), skewed PIT, −0.044 on the S&P at 20d, while the same forecast on the empirical shape is +0.016 … +0.026 |
 | [H-008](#h-008) | `closed` | Within a stressed drawdown bin, the OR flag's state widens the forward distribution beyond what drawdown depth explains — *closed on explore 2026-09-29 at the owner's call: the width held within vol terciles (8 of 9), but neither `dd_x_frag` nor the vol forecast widened by the state forecasts better; no KB entry, no sealed read spent* |
-| [H-009](#h-009) | `draft` | Halving equity exposure while the cross-section flag fires takes less of each market drop than holding less stock does — *the first member of the risk-rule class ([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md), accepted 2026-10-01, `resolved.md` #34); no look taken* |
+| [H-009](#h-009) | `draft` | Halving equity exposure while the cross-section flag fires takes less of each market drop than holding less stock does — *the first member of the risk-rule class ([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md), accepted and built 2026-10-01, `resolved.md` #34); no look taken; its clause settled before it, `resolved.md` #35* |
 
 ---
 
@@ -735,9 +735,12 @@ Report: `results/explore_conditioner/report.md` § *H-008 in its strongest form*
 **Status:** `draft` · drafted 2026-10-01 · no look taken. Its class bar,
 `risk_rule`, was accepted the same day
 ([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md),
-`resolved.md` #34: 0.5 pp return budget, the 2018-01-01 seal reused). It is
-not yet built in `class_bars.py`, so this entry cannot have its
-`Pre-registration` read yet.
+`resolved.md` #34: 0.5 pp return budget, the 2018-01-01 seal reused), and
+built the same day: `class_bars.RISK_RULE` and the harness `explore_rules.py`.
+A dry run (no rule read) found the explore side runs 1932-01-08 → 2017-12-29
+and holds 32 buy-and-hold drops of 10% or more. The one gap the build found
+in the clause below was closed before any look (`resolved.md` #35), so the
+first counted look is next.
 
 **What was seen.** Nothing yet. This is proposed, not observed. It comes from
 the owner's goal 3 ([What is worth doing §2](../concepts/what-is-worth-doing.md#2-the-standing-goals)),
@@ -789,6 +792,9 @@ volatility, it shows as **earlier** de-risking than `vol_matched`.
    if `panel_or` fired between its peak and the day buy-and-hold first lost
    half of that episode's final depth. The mean saving against
    `static_matched` in caught episodes exceeds the mean in missed ones.
+   A firing up to 19 trading days before the peak also counts as caught: the
+   20-day hold already has the rule half out at the peak (the class's
+   `before_peak` = 19, decided before any look, [`resolved.md`](resolved.md) #35).
 2. **Reported, not a clause.** The return cost sits after false alarms: the
    shortfall against `static_matched` comes mostly from flag windows not
    followed by a 5% drop within 20 days. That is [KB-022]'s reversion.

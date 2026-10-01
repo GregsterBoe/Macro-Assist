@@ -110,6 +110,7 @@ Macro-Assist/
 │   ├── fragility_backtest.py        # de-overlapped fragility backtest (research)
 │   ├── fragility_panel.py           # feeds, history walk, drawdown target — the live path's data (product)
 │   ├── explore_conditioner.py       # explore-tier shadow conditioners on the pre-seal slice (research, Phase 23)
+│   ├── explore_rules.py             # explore-tier risk rules read on drawdown, pre-seal (research, ADR-0023)
 │   ├── point_in_time.py             # ALFRED-vintage reconstruction
 │   ├── synthetic.py                 # synthetic data generator for tests
 │   ├── kimi_arm.py                  # ensemble confidence arm — DEACTIVATED
@@ -146,6 +147,7 @@ Macro-Assist/
 │   ├── dist_scores/                 #   distribution score JSON (Phase 22)
 │   ├── numeric_baseline/            #   learnability harness output
 │   ├── explore_conditioner/         #   explore-tier report + cached inputs (Phase 23)
+│   ├── explore_rules/               #   risk-rule explore report, cached inputs, run log (ADR-0023)
 │   ├── quant_context_log/           #   daily JSONL snapshots of quant outputs
 │   └── accuracy_report.md
 │

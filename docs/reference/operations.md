@@ -875,7 +875,7 @@ The audit records and a sealed read's report are committed by CI.
 | `no-grinding` | an entry was audited by CI a third time after two rejections, even if the third passed, unless the entry is `closed` or the owner's decision is pinned in `OWNER_RESUBMISSIONS` against a `resolved.md` item |
 | `instruction-freeze` | one commit changed `.macro-assist/auditor/instructions.md` and, in the same commit, the status or stamped text of an entry that is or was ever promoted. An entry promoted later still turns the earlier commit red |
 | `bar-before-result` | an entry's bar changed at or after the first commit of the sealed-read report its `Sealed read (ledger)` field names. The bar is the entry less its status, its audit record and its ledgers. It is also red when the named report is not on `output` |
-| `receipts` | a dated look in an open entry's ledger has no run logged that day in `explore_conditioner/runs.jsonl` on `output`, or a line of that log does not parse. A logged run whose date no entry's ledger mentions is **report-only**: a look nobody counted |
+| `receipts` | a dated look in an open entry's ledger has no run logged that day in `explore_conditioner/runs.jsonl` or `explore_rules/runs.jsonl` on `output`, or a line of either log does not parse. A logged run whose date no entry's ledger mentions is **report-only**: a look nobody counted |
 
 **The stamp** is `decision_packet.stamped_text`: the entry, minus its Status
 paragraph, its Audit record field and its Sealed read ledger. The promotion
@@ -896,7 +896,9 @@ were dropped when those entries closed on 2026-09-29: only an open entry's
 looks are checked. A pin is red once its look leaves the ledger or a
 logged run covers it. A look dated after 2026-09-29 cannot be pinned without
 that diff showing it. A run matches a ledger date on either its local or its
-UTC date. A run that is never committed to `output` has no receipt.
+UTC date. A run that is never committed to `output` has no receipt. `explore_rules.py` (ADR-0023) appends the same
+receipt to `results/explore_rules/runs.jsonl` for each look; its `--dry-run`
+reads no rule and writes none.
 
 What these checks do not do:
 - **Commit dates are what the committer says they are.** The output side is

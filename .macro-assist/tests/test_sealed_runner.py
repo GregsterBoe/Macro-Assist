@@ -388,6 +388,7 @@ def _edit(root: Path, name: str, old: str, new: str) -> None:
 
 @pytest.mark.parametrize("name, old, new, moves", [
     ("class_bars", 'block=4, min_blocks=10', 'block=4, min_blocks=11', False),     # the other class's bar
+    ("class_bars", 'episode_depth=0.10, min_episodes=5', 'episode_depth=0.10, min_episodes=4', False),  # ADR-0023's bar
     ("class_bars", 'print("\\n\\n".join', 'print("\\n\\n\\n".join', False),       # the command line
     ("class_bars", 'f"  seal: {seal}",', 'f"  seal (decided): {seal}",', False),      # the printer
     ("class_bars", 'cell_min_episodes=3, episode_gap=BLOCK_DAYS', 'cell_min_episodes=2, episode_gap=BLOCK_DAYS', True),
@@ -401,8 +402,16 @@ def test_the_fingerprint_moves_with_the_class_bar_and_nothing_else(bar_repo, nam
     assert (ra.bar_fingerprint(bar_repo, "conditioner") != before) is moves
 
 
+def test_the_risk_bar_moves_its_own_fingerprint_and_not_the_conditioners(bar_repo):
+    risk, cond = ra.bar_fingerprint(bar_repo, "risk_rule"), ra.bar_fingerprint(bar_repo, "conditioner")
+    _edit(bar_repo, "class_bars", "episode_depth=0.10, min_episodes=5", "episode_depth=0.10, min_episodes=4")
+    assert ra.bar_fingerprint(bar_repo, "risk_rule") != risk
+    assert ra.bar_fingerprint(bar_repo, "conditioner") == cond
+
+
 def test_a_class_that_does_not_exist_has_no_fingerprint():
     assert ra.bar_fingerprint(ROOT, "conditioner") and ra.bar_fingerprint(ROOT, "gap_width")
+    assert ra.bar_fingerprint(ROOT, "risk_rule")
     assert ra.bar_fingerprint(ROOT, "nope") is None
 
 

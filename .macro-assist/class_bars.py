@@ -9,8 +9,8 @@ adds only what its own entry states — its arm, its horizon, a stricter floor,
 and its mechanism clause — in a `Pre-registration` field the independent audit
 stamps with the rest of the entry (ADR-0022).
 
-Two classes
------------
+Three classes
+-------------
     conditioner   a shadow conditioner vs `unconditional` (H-004, H-008).
                   Phase 22's bar as is — MIN_SKILL, a block-bootstrap interval
                   clear of zero, disqualifiers first — plus `har_scaled` as a
@@ -24,8 +24,16 @@ Two classes
                   blocks, an explicit floor. **Its seal is not decided**
                   (todo.md): a sealed read under this class is refused until
                   it is.
+    risk_rule     a mechanical rule's equity exposure vs the same average
+                  exposure held (`static_matched`) and spent by a volatility
+                  rule (`vol_matched`), read on how much of each buy-and-hold
+                  drop of 10% or more its portfolio takes (ADR-0023, H-009).
+                  Its own reader and verdict, below — the order there is
+                  underpowered → inverted → too_costly → no_edge →
+                  explained_by_rival → unexplained, return only a cost limit.
+                  Sealed side 2018-01-01 → the last day with data, once.
 
-The verdict — disqualifiers first, each returning its own verdict
+The verdict (the quantile classes) — disqualifiers first, each returning its own verdict
 ---------------------------------------------------------------------
     exploratory         the sample is not the sealed side; reported, never passed
     underpowered        too few blocks (the headline or the rival's subsample),
@@ -66,7 +74,7 @@ can be two episodes, and a median on two episodes is not a measurement. An
 episode is a run of the cell's dates with no gap longer than a block; a run
 longer than a year counts once per year.
 
-    python class_bars.py              # print both bars
+    python class_bars.py              # print every bar
     python class_bars.py H-008        # does this entry's pre-registration parse?
 """
 from __future__ import annotations
@@ -140,8 +148,6 @@ GAP_WIDTH = ClassBar(
     horizons=("1q",), default_horizon="1q",
     sealed_from=None, sealed_until=None,
 )
-
-BARS: dict[str, ClassBar] = {b.name: b for b in (CONDITIONER, GAP_WIDTH)}
 
 VERDICTS = ("exploratory", "underpowered", "miscalibrated", "inverted", "no_edge",
             "explained_by_rival", "unexplained", "edge")
@@ -497,6 +503,374 @@ def evaluate_clause(bar: ClassBar, clause: dict, obs: list[dict], arm: str, hori
 
 
 # ---------------------------------------------------------------------------
+# the risk-rule class (ADR-0023): read on a path, not on quoted quantiles
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class RiskBar:
+    name: str
+    rival: str                   # the pass clause's comparator: the member's average exposure, held
+    second_rival: str            # a volatility rule at that same average exposure
+    episode_depth: float         # a buy-and-hold drop, peak to trough, at least this deep
+    min_episodes: int
+    max_shortfall: float         # net annualized return behind `rival`, a year
+    cost_bps: tuple              # every leg pays each in turn; too_costly fires on either
+    min_saving: float
+    interval: float              # the two-sided episode-bootstrap interval of the saving
+    vol_window: int              # trailing returns in the volatility rule's sigma
+    vol_majority: float          # share of episodes the member must take less of than `second_rival`
+    tax_rate: float              # reported only, never read
+    sealed_from: date | None
+    sealed_until: date | None    # None: to the last day with data at read time
+
+
+RISK_RULE = RiskBar(
+    name="risk_rule", rival="static_matched", second_rival="vol_matched",
+    # Five episodes: the fewest at which a member that wins every one reaches
+    # one-sided p < 0.05 on a sign test (1/32). 0.10 of each drop: three points
+    # on a 30% fall. 10 bps is `portfolio/book.py`'s DEFAULT_COST_BPS; 30 is
+    # three times it, because retail spreads and fees are uncertain. The 0.5 pp
+    # budget is the owner's (resolved.md #34).
+    episode_depth=0.10, min_episodes=5, max_shortfall=0.005, cost_bps=(10.0, 30.0),
+    min_saving=0.10, interval=0.90, vol_window=21, vol_majority=2 / 3,
+    # The 26.375% flat tax on the 70% of an equity fund's gain that is taxable
+    # (#34); the yearly allowance is left out — it depends on other income.
+    tax_rate=0.26375 * 0.70,
+    sealed_from=SEALED_FROM, sealed_until=None,
+)
+
+BARS: dict[str, ClassBar | RiskBar] = {b.name: b for b in (CONDITIONER, GAP_WIDTH, RISK_RULE)}
+
+RISK_VERDICTS = ("exploratory", "underpowered", "inverted", "too_costly", "no_edge",
+                 "explained_by_rival", "unexplained", "edge")
+RISK_LEGS = ("member", "static_matched", "vol_matched", "buy_and_hold")
+_TIE = 1e-9    # of a drop: a smaller difference between two legs is floating-point noise, a tie
+
+
+def risk_episodes(level: np.ndarray, depth: float) -> list[tuple[int, int]]:
+    """(peak, trough) positions of each distinct drop of `level` at least
+    `depth` deep. A stretch runs from one high to the next new high, so a new
+    episode begins only after a new high; a stretch still open at the end of
+    the slice counts, with its trough so far."""
+    out, peak, n = [], 0, len(level)
+
+    def close(p: int, end: int) -> None:
+        t = p + int(np.argmin(level[p:end]))
+        if 1.0 - level[t] / level[p] >= depth:
+            out.append((p, t))
+
+    for i in range(1, n):
+        if level[i] > level[peak]:
+            close(peak, i)
+            peak = i
+    if n:
+        close(peak, n)
+    return out
+
+
+def _drop(v: np.ndarray, a: int, b: int) -> float:
+    """The deepest fall of `v` inside positions [a, b], from its running high there."""
+    w = v[a:b + 1]
+    return float(np.max(1.0 - w / np.maximum.accumulate(w)))
+
+
+def _held(decided: np.ndarray) -> np.ndarray:
+    """The exposure held over each day: decided at the close of t, traded at
+    the close of t + 1, so it earns day t + 2's return. Every leg starts the
+    slice already holding its first decided exposure."""
+    d = np.asarray(decided, dtype=float)
+    return np.r_[d[:1], d[:1], d[:-2]][:len(d)]
+
+
+def _vol_rule(equity: np.ndarray, mean_exposure: float, window: int) -> np.ndarray:
+    """e_t = min(1, c / sigma_t), sigma_t the sd of the trailing `window` daily
+    returns to close t (fewer at the slice's start, five at least, ē before),
+    with c set so the mean exposure is the member's. c is fitted on the whole
+    slice's sigma path — information the member does not have, which only
+    strengthens the rival."""
+    n = len(equity)
+    if mean_exposure >= 1.0 - 1e-12:
+        return np.ones(n)
+    sig = np.full(n, np.nan)
+    for t in range(4, n):
+        sig[t] = np.std(equity[max(0, t - window + 1):t + 1], ddof=1)
+    ok = np.isfinite(sig) & (sig > 0)
+
+    def path(c: float) -> np.ndarray:
+        e = np.full(n, mean_exposure)
+        e[ok] = np.minimum(1.0, c / sig[ok])
+        return e
+
+    lo, hi = 0.0, float(np.nanmax(sig)) * 1e3
+    for _ in range(200):
+        mid = 0.5 * (lo + hi)
+        lo, hi = (mid, hi) if path(mid).mean() < mean_exposure else (lo, mid)
+    return path(0.5 * (lo + hi))
+
+
+def _leg(equity: np.ndarray, cash: np.ndarray, decided: np.ndarray, cost_bps: float) -> dict:
+    """A portfolio that holds the decided exposure on the equity leg and the
+    rest in cash, rebalanced at each close to the next day's exposure, paying
+    `cost_bps` on every unit traded. Value path from 1.0, the turnover, and
+    the gains its sales realize on an average cost basis (the tax line)."""
+    held = _held(decided)
+    n = len(equity)
+    v, turnover, realized = np.empty(n), np.zeros(n), np.zeros(n)
+    price, E, C = 1.0, held[0], 1.0 - held[0]
+    units, cost_basis = E / price, E                 # cost_basis: what the units held cost
+    for s in range(n):
+        price *= 1.0 + equity[s]
+        E, C = units * price, C * (1.0 + cash[s])
+        val = E + C
+        nxt = held[s + 1] if s + 1 < n else held[s]
+        fee = abs(nxt * val - E) * cost_bps / 1e4    # paid from the portfolio, then the target is held
+        val -= fee
+        trade = nxt * val - E
+        if trade < 0 and units > 0:                  # a sale realizes gain on the average cost
+            sold = -trade / price
+            realized[s] = sold * (price - cost_basis / units)
+            cost_basis *= 1.0 - sold / units
+        elif trade > 0:
+            cost_basis += trade
+        E = nxt * val
+        units, C = E / price, val - E
+        v[s], turnover[s] = val, abs(trade) / val
+    return {"value": v, "turnover": turnover, "realized": realized, "decided": np.asarray(decided, float)}
+
+
+def _years(dates: list[str]) -> float:
+    return max((date.fromisoformat(dates[-1]) - date.fromisoformat(dates[0])).days / 365.25, 1e-9)
+
+
+def _tax_line(leg: dict, dates: list[str], rate: float) -> dict:
+    """Gains realized a year, net of losses carried forward, and the tax on
+    them, each as a share of the portfolio's value at the year's start."""
+    years = sorted({d[:4] for d in dates})
+    yr = np.array([d[:4] for d in dates])
+    carry, gains, taxes = 0.0, [], []
+    for y in years:
+        idx = np.where(yr == y)[0]
+        base = leg["value"][idx[0] - 1] if idx[0] > 0 else 1.0
+        g = float(leg["realized"][idx].sum()) - carry
+        carry = max(0.0, -g)
+        gains.append(max(0.0, g) / base)
+        taxes.append(rate * max(0.0, g) / base)
+    return {"realized_gain_per_year": round(float(np.mean(gains)), 5),
+            "tax_brought_forward_per_year": round(float(np.mean(taxes)), 5)}
+
+
+def _leg_report(leg: dict, dates: list[str], rate: float) -> dict:
+    v, years = leg["value"], _years(dates)
+    daily = np.diff(np.r_[1.0, v]) / np.r_[1.0, v[:-1]]
+    changes = np.abs(np.diff(leg["decided"])) >= 0.05
+    return {"worst_drop": round(_drop(np.r_[1.0, v], 0, len(v)), 4),
+            "annual_return": round(float(v[-1] ** (1.0 / years) - 1.0), 5),
+            "annual_vol": round(float(np.std(daily, ddof=1) * np.sqrt(len(v) / years)), 4),
+            "time_reduced": round(float(np.mean(leg["decided"] < 1.0 - 1e-9)), 4),
+            "trades_per_year": round(float(changes.sum() / years), 2),
+            "turnover_per_year": round(float(leg["turnover"].sum() / years), 3),
+            **_tax_line(leg, dates, rate)}
+
+
+def risk_legs(bar: RiskBar, path: dict, cost_bps: float) -> dict[str, dict]:
+    """The member and its rivals on one path, at one cost. Both rivals hold
+    the member's own average exposure; buy-and-hold never trades."""
+    eq, cash = np.asarray(path["equity"], float), np.asarray(path["cash"], float)
+    member = np.asarray(path["exposure"], float)
+    ebar = float(member.mean())
+    return {"member": _leg(eq, cash, member, cost_bps),
+            bar.rival: _leg(eq, cash, np.full(len(eq), ebar), cost_bps),
+            bar.second_rival: _leg(eq, cash, _vol_rule(eq, ebar, bar.vol_window), cost_bps),
+            "buy_and_hold": _leg(eq, cash, np.ones(len(eq)), 0.0)}
+
+
+def _interval(vals: np.ndarray, level: float, n_boot: int = N_BOOT, seed: int = SEED) -> dict:
+    """The episode bootstrap: whole episodes resampled with replacement."""
+    rng = np.random.default_rng(seed)
+    means = vals[rng.integers(0, len(vals), size=(n_boot, len(vals)))].mean(axis=1)
+    tail = 50.0 * (1.0 - level)
+    lo, hi = np.percentile(means, [tail, 100.0 - tail])
+    return {"lo": round(float(lo), 4), "hi": round(float(hi), 4), "level": level, "n_boot": n_boot}
+
+
+def _check_path(bar: RiskBar, path: dict, sealed: bool) -> list[str]:
+    dates = list(path["dates"])
+    n = len(dates)
+    for k in ("equity", "cash", "exposure"):
+        if len(path[k]) != n:
+            raise PreregError(f"the path's `{k}` has {len(path[k])} days, its dates {n}")
+    e = np.asarray(path["exposure"], float)
+    if not np.all(np.isfinite(e)) or e.min() < 0 or e.max() > 1:
+        raise PreregError("the member's exposure must lie in [0, 1] on every day")
+    if dates != sorted(dates):
+        raise PreregError("the path's dates must be in order")
+    seal = bar.sealed_from.isoformat()
+    if sealed and dates[0] < seal:
+        raise PreregError(f"a sealed read starts on the sealed side ({seal}), not {dates[0]}")
+    if not sealed and dates[-1] >= seal:
+        raise PreregError(f"an explore read stops before the seal ({seal}); this path runs to {dates[-1]}")
+    return dates
+
+
+def risk_summary(bar: RiskBar, path: dict, arm: str, *, sealed: bool = False) -> dict:
+    """Everything the risk verdict reads, and everything it only reports."""
+    dates = _check_path(bar, path, sealed)
+    base = bar.cost_bps[0]
+    legs = {c: risk_legs(bar, path, c) for c in bar.cost_bps}
+    level = np.r_[1.0, legs[base]["buy_and_hold"]["value"]]
+    eps = risk_episodes(level, bar.episode_depth)
+    episodes_out, ratios = [], {k: [] for k in RISK_LEGS}
+    for p, t in eps:
+        depth = _drop(level, p, t)
+        row = {"peak": dates[max(p - 1, 0)], "trough": dates[t - 1], "depth": round(depth, 4),
+               "open": bool(np.all(level[p + 1:] <= level[p])), "_pos": (p, t)}
+        for k in RISK_LEGS:
+            r = _drop(np.r_[1.0, legs[base][k]["value"]], p, t) / depth
+            row[f"r_{k}"] = round(r, 4)
+            ratios[k].append(r)
+        episodes_out.append(row)
+    r = {k: np.array(v) for k, v in ratios.items()}
+    out = {"class": bar.name, "arm": arm, "first_date": dates[0], "last_date": dates[-1],
+           "n_days": len(dates), "mean_exposure": round(float(np.mean(path["exposure"])), 4),
+           "n_episodes": len(eps), "episodes": episodes_out,
+           "legs": {c: {k: _leg_report(legs[c][k], dates, bar.tax_rate) for k in RISK_LEGS}
+                    for c in bar.cost_bps}}
+    out["shortfall"] = {str(c): round(out["legs"][c]["member"]["annual_return"]
+                                      - out["legs"][c][bar.rival]["annual_return"], 5)
+                        for c in bar.cost_bps}
+    if eps:
+        s, sv = r[bar.rival] - r["member"], r[bar.second_rival] - r["member"]
+        out.update({
+            "mean_r": round(float(r["member"].mean()), 4),
+            "saving": {"mean": round(float(s.mean()), 4), "ci": _interval(s, bar.interval)},
+            "saving_vs_vol": {"mean": round(float(sv.mean()), 4) if abs(sv.mean()) > _TIE else 0.0,
+                              "share_better": round(float(np.mean(sv > _TIE)), 4)},
+        })
+    return out
+
+
+def risk_verdict(bar: RiskBar, summary: dict, clauses: list[dict] | None, *,
+                 sealed: bool, floor: dict | None = None) -> dict:
+    """ADR-0023's order: each disqualifier returns at once, every number is
+    carried whichever fires."""
+    floor = floor or {"episodes": bar.min_episodes}
+    clauses = clauses or []
+    out = {"class": bar.name, "summary": summary, "clauses": clauses, "floor": floor}
+
+    def done(v: str, reason: str) -> dict:
+        return {**out, "verdict": v, "reason": reason}
+
+    if not sealed:
+        return done("exploratory", "the sample is not the sealed side; reported, cannot pass")
+    if summary["n_episodes"] < floor["episodes"]:
+        return done("underpowered", f"{summary['n_episodes']} episodes of a {bar.episode_depth:.0%} "
+                                    f"drop < {floor['episodes']} required")
+    if summary["mean_r"] > 1.0:
+        return done("inverted", f"mean r {summary['mean_r']} > 1: the member deepens drops")
+    worst = min(summary["shortfall"].items(), key=lambda kv: kv[1])
+    if worst[1] < -bar.max_shortfall:
+        return done("too_costly", f"net annual return {worst[1]:+.4f} behind `{bar.rival}` at "
+                                  f"{worst[0]} bps; the budget is {bar.max_shortfall}")
+    s = summary["saving"]
+    if s["mean"] < bar.min_saving or s["ci"]["lo"] <= 0:
+        return done("no_edge", f"saving vs `{bar.rival}` {s['mean']:+.4f} "
+                               f"[{s['ci']['lo']:+.4f}, {s['ci']['hi']:+.4f}] needs ≥ {bar.min_saving} "
+                               "with its interval clear of zero")
+    sv = summary["saving_vs_vol"]
+    if sv["mean"] <= 0 or sv["share_better"] < bar.vol_majority:
+        return done("explained_by_rival", f"saving vs `{bar.second_rival}` {sv['mean']:+.4f}, better in "
+                                          f"{sv['share_better']:.0%} of episodes; needs > 0 and "
+                                          f"≥ {bar.vol_majority:.0%}")
+    if not clauses:
+        return done("unexplained", "the entry names no mechanism clause")
+    failed = [c for c in clauses if not c["passed"]]
+    if failed:
+        return done("unexplained", "; ".join(f"{c['kind']} failed: {c['detail']}" for c in failed))
+    return done("edge", f"saving {s['mean']:+.4f} vs `{bar.rival}`, {sv['mean']:+.4f} vs "
+                        f"`{bar.second_rival}`, {len(clauses)} clause(s) held")
+
+
+RISK_KINDS = {
+    "caught_split": {"required": {"kind", "signal"}, "optional": {"before_peak"}},
+}
+
+
+def evaluate_risk_clause(bar: RiskBar, clause: dict, path: dict, summary: dict) -> dict:
+    """`caught_split`: an episode is caught if the named signal fired between
+    its peak and the day buy-and-hold first lost half the episode's final
+    depth — or up to `before_peak` trading days before the peak, for a rule
+    that stays de-risked that long after a firing; the mean saving against
+    `rival` in caught episodes must exceed the mean in missed ones. With no
+    caught or no missed episode the split cannot be seen, and the clause
+    fails (decided at build, before any look)."""
+    sig = (path.get("signals") or {}).get(clause["signal"])
+    if sig is None:
+        raise PreregError(f"the path carries no signal {clause['signal']!r}")
+    sig = np.asarray(sig, bool)
+    bh = np.r_[1.0, np.cumprod(1.0 + np.asarray(path["equity"], float))]
+    caught, missed = [], []
+    for ep in summary["episodes"]:
+        p, t = ep["_pos"]
+        fall = 1.0 - bh[p:t + 1] / bh[p]
+        half = p + int(np.argmax(fall >= ep["depth"] / 2))
+        # path position = level position − 1
+        fired = bool(sig[max(p - 1 - clause.get("before_peak", 0), 0):half].any())
+        saving = ep[f"r_{bar.rival}"] - ep["r_member"]
+        (caught if fired else missed).append(saving)
+        ep["caught"] = fired
+    ok = bool(caught and missed and np.mean(caught) > np.mean(missed))
+    detail = (f"mean saving in {len(caught)} caught episode(s) "
+              f"{np.mean(caught) if caught else float('nan'):+.4f}, in {len(missed)} missed "
+              f"{np.mean(missed) if missed else float('nan'):+.4f}; needs both present and caught > missed")
+    return {"kind": clause["kind"], "passed": ok, "detail": detail,
+            "cells": [{"name": "caught", "n_episodes": len(caught)},
+                      {"name": "missed", "n_episodes": len(missed)}]}
+
+
+def _validate_risk(bar: RiskBar, spec: dict) -> dict:
+    extra = set(spec) - {"class", "arm", "floor", "clauses"}
+    if extra:
+        raise PreregError(f"unknown key(s) {sorted(extra)} for the {bar.name} class")
+    arm = spec.get("arm")
+    if not isinstance(arm, str) or not arm or arm in RISK_LEGS[1:]:
+        raise PreregError(f"arm must name the candidate, not a rival or buy-and-hold: {arm!r}")
+    floor = {"episodes": bar.min_episodes}
+    for k, v in (spec.get("floor") or {}).items():
+        if k != "episodes" or not isinstance(v, int):
+            raise PreregError(f"floor takes integer episodes, not {k!r}: {v!r}")
+        if v < floor[k]:
+            raise PreregError(f"floor episodes = {v} is looser than the class floor {floor[k]}")
+        floor[k] = v
+    clauses = spec.get("clauses")
+    if not isinstance(clauses, list) or not clauses:
+        raise PreregError("clauses must be a non-empty list — an entry with no mechanism clause "
+                          "cannot pass the bar (How we explore §9, question 4)")
+    for i, c in enumerate(clauses):
+        kind = c.get("kind") if isinstance(c, dict) else None
+        if kind not in RISK_KINDS:
+            raise PreregError(f"clause {i}: kind must be one of {sorted(RISK_KINDS)}, not {kind!r}")
+        missing = RISK_KINDS[kind]["required"] - set(c)
+        unknown = set(c) - RISK_KINDS[kind]["required"] - RISK_KINDS[kind]["optional"]
+        if missing or unknown:
+            raise PreregError(f"clause {i} ({kind}): missing {sorted(missing)}, unknown {sorted(unknown)}")
+        if not isinstance(c["signal"], str) or not c["signal"]:
+            raise PreregError(f"clause {i}: signal must name a series the harness writes")
+        bp = c.get("before_peak", 0)
+        if not isinstance(bp, int) or isinstance(bp, bool) or not 0 <= bp <= 63:
+            raise PreregError(f"clause {i}: before_peak must be whole trading days, 0 to 63, not {bp!r}")
+    return {"class": bar.name, "arm": arm, "floor": floor, "clauses": clauses}
+
+
+def risk_read(path: dict, prereg: dict, *, sealed: bool) -> dict:
+    bar = BARS[prereg["class"]]
+    summary = risk_summary(bar, path, prereg["arm"], sealed=sealed)
+    clauses = [evaluate_risk_clause(bar, c, path, summary) for c in prereg["clauses"]]
+    for ep in summary["episodes"]:
+        ep.pop("_pos", None)
+    return risk_verdict(bar, summary, clauses, sealed=sealed, floor=prereg["floor"])
+
+
+# ---------------------------------------------------------------------------
 # the member's pre-registration, as its entry states it
 # ---------------------------------------------------------------------------
 
@@ -522,6 +896,8 @@ def validate(spec) -> dict:
     bar = BARS.get(spec.get("class"))
     if bar is None:
         raise PreregError(f"class must be one of {sorted(BARS)}, not {spec.get('class')!r}")
+    if isinstance(bar, RiskBar):
+        return _validate_risk(bar, spec)
     arm = spec.get("arm")
     if not isinstance(arm, str) or not arm or arm in (bar.benchmark, bar.rival):
         raise PreregError(f"arm must name the candidate, not the benchmark or the rival: {arm!r}")
@@ -581,6 +957,8 @@ def read(obs: list[dict], prereg: dict, *, sealed: bool) -> dict:
     """The member's read: summary, clauses, verdict. A sealed read under a
     class whose seal is not decided is refused, not scored."""
     bar = BARS[prereg["class"]]
+    if isinstance(bar, RiskBar):
+        return risk_read(obs, prereg, sealed=sealed)
     if sealed and bar.sealed_from is None:
         raise PreregError(f"the {bar.name} class has no decided seal; a sealed read is refused")
     summary = summarize(bar, obs, prereg["arm"], prereg["horizon"])
@@ -590,7 +968,21 @@ def read(obs: list[dict], prereg: dict, *, sealed: bool) -> dict:
 
 # ---------------------------------------------------------------------------
 
-def describe(bar: ClassBar) -> str:
+def describe(bar: ClassBar | RiskBar) -> str:
+    if isinstance(bar, RiskBar):
+        until = "the last day with data at read time" if bar.sealed_until is None else f"before {bar.sealed_until}"
+        return "\n".join([
+            f"{bar.name}: vs `{bar.rival}`, rival `{bar.second_rival}`, both at the member's mean exposure",
+            f"  episodes: buy-and-hold drops of ≥ {bar.episode_depth:.0%} peak to trough; ≥ {bar.min_episodes} "
+            "on the sealed side",
+            f"  too costly: net return > {bar.max_shortfall * 100:.1f} pp a year behind `{bar.rival}` at "
+            + " or ".join(f"{c:g}" for c in bar.cost_bps) + " bps",
+            f"  pass: mean saving vs `{bar.rival}` ≥ {bar.min_saving}, {bar.interval:.0%} episode-bootstrap "
+            f"interval clear of zero; vs `{bar.second_rival}` > 0 in ≥ {bar.vol_majority:.0%} of episodes",
+            f"  reported, never read: worst drop, return, volatility, time reduced, trades, "
+            f"tax brought forward at {bar.tax_rate:.2%}",
+            f"  seal: {bar.sealed_from} → {until}, read once",
+        ])
     seal = ("not decided — a sealed read is refused" if bar.sealed_from is None
             else f"report dates {bar.sealed_from} → before {bar.sealed_until}, read once")
     return "\n".join([

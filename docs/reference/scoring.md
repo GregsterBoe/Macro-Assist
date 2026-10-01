@@ -213,7 +213,8 @@ a test keeps the two equal.
 A research-tier module holding one pre-registered bar per hypothesis *class*,
 written before any member of the class is promoted
 ([how we explore §5](../concepts/how-we-explore.md#5-the-bar-precedes-the-candidate)).
-It reads observations in `explore_conditioner.py`'s shape and does not fetch
+The two quantile classes read observations in `explore_conditioner.py`'s
+shape; the risk-rule class reads a daily path (below). It does not fetch
 anything; [`sealed_runner.py`](#sealed_runnerpy-the-sealed-read-wp-23b) feeds it the sealed side.
 
 | Class | Benchmark | Rival | Power | Clause cells | Seal |
@@ -266,8 +267,58 @@ longer than one block; a run longer than a year counts once per year.
 `seal_key.py`'s preflight refuses the key for a promoted entry whose
 pre-registration does not parse, or whose class has no decided seal.
 
+### The risk-rule class (`RISK_RULE`, ADR-0023)
+
+A member's output is an equity exposure *e<sub>t</sub>* in [0, 1], decided at
+the close of *t* and traded at the close of *t* + 1, so it earns from day
+*t* + 2. The rest sits in cash. `risk_read(path, spec, sealed=…)` takes a
+daily path — `dates`, `equity` and `cash` daily returns, the member's
+`exposure`, and the `signals` a clause may name — and builds every comparator
+from it itself:
+
+| Leg | Holds | Role |
+|---|---|---|
+| `member` | its own exposure | the candidate |
+| `static_matched` | the member's mean exposure ē, every day | the pass clause's comparator: "just hold less stock" |
+| `vol_matched` | min(1, *c* / σ̂<sub>t</sub>), σ̂ the sd of the trailing 21 daily returns, *c* set so the mean is ē | the rival: a volatility rule at the same average exposure |
+| `buy_and_hold` | 1.0, no trades | reported only — "doing nothing" |
+
+Every leg rebalances at each close and pays 10 bps (`DEFAULT_COST_BPS`) on
+each unit traded; the whole read is repeated at 30 bps. An **episode** is a
+stretch of buy-and-hold from one high to the next new high whose deepest point
+is ≥ 10% below the high (`risk_episodes`; one still open at the end counts).
+For each, *r* is a leg's deepest fall inside [peak, trough] over buy-and-hold's.
+
+`risk_verdict` returns at the first that fires: `exploratory` → `underpowered`
+(< 5 episodes, or the entry's stricter floor) → `inverted` (mean *r* > 1) →
+`too_costly` (net annual return more than 0.5 pp behind `static_matched` at
+10 *or* 30 bps) → `no_edge` (mean saving vs `static_matched` < 0.10, or its
+90% episode-bootstrap interval touches zero) → `explained_by_rival` (mean
+saving vs `vol_matched` not above zero, or better in fewer than two thirds of
+episodes; a difference under 10⁻⁹ of a drop is a tie) → `unexplained` → `edge`.
+
+Its one clause kind, `caught_split`, labels an episode *caught* when the named
+signal fired between its peak and the day buy-and-hold first lost half the
+episode's final depth — or up to `before_peak` trading days (0–63, default 0)
+before the peak — and needs the mean saving in caught episodes to exceed the
+mean in missed ones. With no caught or no missed episode it fails.
+
+Reported for every leg at both costs and never read: worst drop, annual
+return and volatility, time at reduced exposure, trades and turnover a year,
+and the **tax brought forward** — the gain its sales realize a year on an
+average cost basis, net of losses carried forward, × 18.46% (26.375% on the
+taxable 70% of an equity fund's gain), as a share of the portfolio at the
+year's start. An explore read refuses a path that reaches 2018-01-01; a sealed
+read refuses one that starts before it. The sealed runner has no walk for this
+class yet, so `--check` refuses it.
+
+```json
+{"class": "risk_rule", "arm": "h009_panel_or_half", "floor": {"episodes": 5},
+ "clauses": [{"kind": "caught_split", "signal": "panel_or", "before_peak": 19}]}
+```
+
 ```bash
-python .macro-assist/class_bars.py          # print both bars
+python .macro-assist/class_bars.py          # print every bar
 python .macro-assist/class_bars.py H-008    # parse this entry's pre-registration
 ```
 
@@ -284,7 +335,7 @@ which is honest because `walk` checks that no observation left the sealed side.
 
 | Step | Where | Does |
 |---|---|---|
-| `--check` | anywhere, free | refuses a class with no walk (today: `gap_width`), an arm not in the harness's `ARMS`, a series that is not an asset, and a cell label or value the harness never writes (`LABELS`) — an empty cell would read `underpowered`. `seal_key.py`'s preflight runs it |
+| `--check` | anywhere, free | refuses a class with no walk (today: `gap_width`, `risk_rule`), an arm not in the harness's `ARMS`, a series that is not an asset, and a cell label or value the harness never writes (`LABELS`) — an empty cell would read `underpowered`. `seal_key.py`'s preflight runs it |
 | `--fetch` | `sealed_read.yml` key job | the public inputs, to a file; nothing scored |
 | `--claim` | key job | `sealed_reads/<hid>/<stamp>.claim.json`: the entry's stamped and bar text hashes, its pre-registration, the class bar's fingerprint, the run and the owner's approval. Pushed before the read |
 | `--read` | key job | only once this run attempt's claim is on `output`: walk, read, write `<stamp>.json` (the verdict with every stage's number, the observations' sha256) and `<stamp>.md` (the report, verdict first) |
@@ -307,7 +358,7 @@ deliberate look (ADR-0022).
   those records render to, and an entry never read has none.
 
 `bar_fingerprint(root, cls)` is sha256 over `class_bars.py` less its docstring,
-its command line, `describe`, `BARS` and every other class's `ClassBar`, plus
+its command line, `describe`, `BARS` and every other class's `ClassBar` or `RiskBar`, plus
 the source of each name it imports from this repo. It is read as source text,
 not imported and not `ast.dump`'d, so it is the same under the Python versions
 CI runs and needs no numpy.

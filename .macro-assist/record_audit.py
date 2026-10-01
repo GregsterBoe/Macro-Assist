@@ -96,7 +96,8 @@ register and, where it needs one, the output branch.
                                report its `Sealed read (ledger)` names.
   receipts           WP-25.B   Every dated look in an open entry's ledger has
                                a run the harness logged that day
-                               (explore_conditioner/runs.jsonl on output). The
+                               (explore_conditioner/ or explore_rules/runs.jsonl
+                               on output). The
                                looks before the log are pinned exactly in
                                LOOKS_BEFORE_RECEIPTS. Report-only: a logged run
                                no ledger dates, which is an uncounted look.
@@ -1287,6 +1288,8 @@ AUDITOR_INSTRUCTIONS = Path(".macro-assist") / "auditor" / "instructions.md"
 AUDIT_RECORDS = "audit/entries"
 CANARY_RECORDS = "audit/canaries"
 RUN_LOG = "explore_conditioner/runs.jsonl"
+# Every explore harness that appends a receipt; a look is covered by a run in any.
+RUN_LOGS = (RUN_LOG, "explore_rules/runs.jsonl")
 
 # Dated looks that ran before the harness kept a run log (WP-25.B, 2026-09-29),
 # so no receipt can exist for them. Held exactly: a pin whose look has left its
@@ -1581,18 +1584,20 @@ def _look_dates(entry) -> set[str]:
             for d in _LOOK_DATE_RE.findall(body)}
 
 
-def logged_runs(root: Path, ref: str) -> tuple[list[dict], list[int]]:
-    """The harness's run log on `ref`, and the line numbers that do not parse."""
+def logged_runs(root: Path, ref: str) -> tuple[list[dict], list[tuple[str, int]]]:
+    """The harnesses' run logs on `ref`, and the (log, line number) pairs that
+    do not parse."""
     runs, bad = [], []
-    for i, line in enumerate((_git(root, "show", f"{ref}:{RUN_LOG}") or "").splitlines(), 1):
-        try:
-            rec = json.loads(line)
-            at = datetime.fromisoformat(rec["run_at"])
-        except (ValueError, KeyError, TypeError):
-            bad.append(i)
-            continue
-        rec["_dates"] = {at.date().isoformat(), at.astimezone(timezone.utc).date().isoformat()}
-        runs.append(rec)
+    for log in RUN_LOGS:
+        for i, line in enumerate((_git(root, "show", f"{ref}:{log}") or "").splitlines(), 1):
+            try:
+                rec = json.loads(line)
+                at = datetime.fromisoformat(rec["run_at"])
+            except (ValueError, KeyError, TypeError):
+                bad.append((log, i))
+                continue
+            rec["_dates"] = {at.date().isoformat(), at.astimezone(timezone.utc).date().isoformat()}
+            runs.append(rec)
     return runs, bad
 
 
@@ -1608,11 +1613,12 @@ def check_receipts(root: Path) -> list[Finding]:
     runs, bad = logged_runs(root, ref) if ref else ([], [])
     logged = set().union(*(r["_dates"] for r in runs)) if runs else set()
     out: list[Finding] = []
-    for n in bad:
-        out.append(Finding(check, f"output:results/{RUN_LOG}", f"line {n} does not parse as a run"))
+    for log, n in bad:
+        out.append(Finding(check, f"output:results/{log}", f"line {n} does not parse as a run"))
     for hid, d in sorted(looks - LOOKS_BEFORE_RECEIPTS):
         if d not in logged:
-            where = f"`{ref}:{RUN_LOG}`" if ref else "the output branch (not available here)"
+            where = (" or ".join(f"`{ref}:{log}`" for log in RUN_LOGS) if ref
+                     else "the output branch (not available here)")
             out.append(Finding(check, hid, f"look dated {d} has no run logged that day in {where}"))
     for hid, d in sorted(LOOKS_BEFORE_RECEIPTS):
         if (hid, d) not in looks:
@@ -1714,10 +1720,11 @@ def _defined(node) -> set[str]:
 
 
 def _bar_named(node) -> str | None:
-    """The `name=` of a module-level `X = ClassBar(name=..., ...)`, else None."""
+    """The `name=` of a module-level `X = ClassBar(name=..., ...)` (or
+    `RiskBar`, ADR-0023), else None."""
     call = getattr(node, "value", None)
     if isinstance(node, (ast.Assign, ast.AnnAssign)) and isinstance(call, ast.Call) \
-            and getattr(call.func, "id", None) == "ClassBar":
+            and getattr(call.func, "id", None) in ("ClassBar", "RiskBar"):
         for kw in call.keywords:
             if kw.arg == "name" and isinstance(kw.value, ast.Constant):
                 return kw.value.value

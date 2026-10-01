@@ -63,7 +63,7 @@ source of truth for *why*.
 | [ADR-0018](ADR-0018-market-data-barred-from-the-exogenous-branch.md) | Market data is barred from the exogenous branch's core inputs | Accepted |
 | [ADR-0019](ADR-0019-paper-portfolio-mechanical-and-paper-only.md) | The paper portfolio is mechanical and paper-only in v1 | Accepted |
 | [ADR-0015](ADR-0015-soft-kill-convention.md) | Soft-kill: deactivate, never delete | Accepted |
-| [ADR-0023](ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md) | A fragility rule for a real decision is a target class, read on drawdown against an exposure-matched rival | Accepted 2026-10-01 ([resolved.md](../record/resolved.md) #34) — not yet built |
+| [ADR-0023](ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md) | A fragility rule for a real decision is a target class, read on drawdown against an exposure-matched rival | Accepted 2026-10-01 ([resolved.md](../record/resolved.md) #34) — built the same day |
 
 ## Decisions that are still open
 

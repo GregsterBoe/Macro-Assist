@@ -1650,10 +1650,17 @@ def test_every_dated_look_has_a_logged_run(audited):
     _commit_text(audited, REG, _register_text(_entry("H-101", ledger="*2026-08-20* — one run. "
                                                                 "*2026-08-22, later* — a second.")), T0)
     reds, _ = _check(audited, ra.check_receipts)
-    assert reds == [f"H-101: look dated 2026-08-{d} has no run logged that day in `output:explore_conditioner/runs.jsonl`"
+    assert reds == [f"H-101: look dated 2026-08-{d} has no run logged that day in "
+                    "`output:explore_conditioner/runs.jsonl` or `output:explore_rules/runs.jsonl`"
                     for d in ("20", "22")]
     # a run late in the evening, local time, is the next day in UTC; either date is the run's
     _output(audited, {ra.RUN_LOG: _run("2026-08-20T10:00:00+02:00") + _run("2026-08-21T23:30:00-03:00")}, T0)
+    assert _check(audited, ra.check_receipts) == ([], [])
+
+
+def test_a_run_in_the_rules_harness_log_is_a_receipt_too(audited):
+    _commit_text(audited, REG, _register_text(_entry("H-101", ledger="*2026-08-20* — one run.")), T0)
+    _output(audited, {"explore_rules/runs.jsonl": _run("2026-08-20T10:00:00+00:00")}, T0)
     assert _check(audited, ra.check_receipts) == ([], [])
 
 
