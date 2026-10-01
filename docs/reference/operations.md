@@ -111,6 +111,13 @@ self-heals, and an alarm on day one would cry wolf. Two in a row is a feed that
 is not coming back on its own, the shape both the 2026-07 and 2026-09 outages
 had.
 
+It also prints one `INFO` line when a yfinance retry rescued a leg on any of
+the last 30 readings (`fragility.retries` in the quant log): how many, which
+legs, the most recent day. That line never turns the run red — a rescued
+reading was whole — but it is the only place a feed the retry carries every
+morning shows up, which is what watching the 06:23 slot needs (`resolved.md`
+#31).
+
 **Why a job and not a step of stage 2.** It shipped as the daily stage's last
 step, reasoning that the note is already written and published by then, so a red
 gate "costs nothing but a notification". That was wrong, and a Monday would have

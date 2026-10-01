@@ -200,3 +200,108 @@ def test_panel_fetch_histories_retries(monkeypatch, ticker):
     out = fragility_panel.fetch_histories(start=None, period="1y")
     assert "vix3m" in out
     assert ticker.calls["^VIX3M"] == 2
+
+
+# ---------------------------------------------------------------------------
+# todo #31 — a rescued leg must be recorded, not just printed
+#
+# The retry above fixes the cheapest failure and hides it in the same move: a
+# day where `^VIX3M` came back empty and then answered was logged exactly like
+# a healthy day. Watching the 06:23 slot is the alternative to moving the run,
+# so a retry that carries the slot every morning has to be visible in the log.
+# ---------------------------------------------------------------------------
+
+def test_report_on_a_first_attempt_success_has_no_failures():
+    report: dict = {}
+    yf_history_with_retry(_frame, "^VIX3M", sleep=_Sleeper(), report=report)
+    assert report == {"attempts": 1, "failures": []}
+
+
+def test_report_records_a_rescue():
+    results = [EMPTY, _frame()]
+    report: dict = {}
+    hist, _ = yf_history_with_retry(lambda: results.pop(0), "^VIX3M",
+                                    sleep=_Sleeper(), report=report)
+    assert hist is not None
+    assert report == {"attempts": 2, "failures": ["empty frame"]}
+
+
+def test_report_records_every_failure_when_the_leg_is_lost():
+    results = [ConnectionResetError("reset"), EMPTY]
+
+    def fetch():
+        r = results.pop(0)
+        if isinstance(r, Exception):
+            raise r
+        return r
+
+    report: dict = {}
+    hist, _ = yf_history_with_retry(fetch, "^VIX3M", sleep=_Sleeper(), report=report)
+    assert hist is None
+    assert report == {"attempts": 2,
+                      "failures": ["ConnectionResetError: reset", "empty frame"]}
+
+
+def test_live_fetch_records_only_the_legs_that_retried(monkeypatch, ticker):
+    import yfinance as yf_real
+    monkeypatch.setattr(yf_real, "Ticker", _Ticker)
+    monkeypatch.setattr(quant_context, "_FEED_REPORT", {}, raising=False)
+    monkeypatch.setattr(quant_context, "_RETRY_REPORT", {"stale": {}}, raising=False)
+    monkeypatch.setattr(fragility_panel, "freshen_vol_indices",
+                        lambda hist, **kw: hist)
+    ticker.script["^VIX3M"] = [EMPTY, _frame(300)]
+    ticker.script["GC=F"] = [EMPTY, EMPTY]
+
+    quant_context._fetch_fragility_histories()
+    assert quant_context.yf_retry_report() == {
+        "vix3m": {"attempts": 2, "rescued": True, "failures": ["empty frame"]},
+        "gold": {"attempts": 2, "rescued": False,
+                 "failures": ["empty frame", "empty frame"]},
+    }, "a previous run's record must be cleared, and a healthy leg must be absent"
+
+
+def test_live_fetch_on_a_healthy_day_records_nothing(monkeypatch, ticker):
+    import yfinance as yf_real
+    monkeypatch.setattr(yf_real, "Ticker", _Ticker)
+    monkeypatch.setattr(quant_context, "_FEED_REPORT", {}, raising=False)
+    monkeypatch.setattr(quant_context, "_RETRY_REPORT", {}, raising=False)
+    monkeypatch.setattr(fragility_panel, "freshen_vol_indices",
+                        lambda hist, **kw: hist)
+
+    quant_context._fetch_fragility_histories()
+    assert quant_context.yf_retry_report() == {}
+
+
+_FRAG = {"composite": 24.0, "label": "Resilient", "trend": "Falling",
+         "components": {"variance_trend": {"score": 23.0}},
+         "weights": {"variance_trend": 0.9}, "degraded": []}
+
+
+def _quant_raw(monkeypatch, retries: dict) -> dict:
+    from datetime import date
+    monkeypatch.setattr(quant_context, "_compute_fragility", lambda *a, **kw: dict(_FRAG))
+    monkeypatch.setattr(quant_context, "_compute_or_mode", lambda *a, **kw: None)
+    monkeypatch.setattr(quant_context, "vol_feed_report", lambda: {})
+    monkeypatch.setattr(quant_context, "yf_retry_report", lambda: retries)
+    return quant_context.collect_quant_raw({}, date(2026, 10, 1), histories={"x": 1},
+                                           distribution_table={})
+
+
+def test_a_rescued_leg_reaches_the_log_on_an_otherwise_healthy_day(monkeypatch):
+    rescued = {"vix3m": {"attempts": 2, "rescued": True, "failures": ["empty frame"]}}
+    frag = _quant_raw(monkeypatch, rescued)["fragility"]
+    assert frag["degraded"] == [] and "feed" not in frag, "the reading itself is whole"
+    assert frag["retries"] == rescued
+
+
+def test_a_first_attempt_day_logs_exactly_as_before(monkeypatch):
+    assert "retries" not in _quant_raw(monkeypatch, {})["fragility"]
+
+
+def test_the_log_line_names_a_rescue_and_stays_ok():
+    raw = {"fragility": {**_FRAG, "components": {"variance_trend": 23.0}, "mode": "log",
+                         "retries": {"vix3m": {"attempts": 2, "rescued": True,
+                                               "failures": ["empty frame"]}}}}
+    (_, level, msg), = quant_context.fragility_log_lines(raw)
+    assert level == "OK", "a rescued leg is not a degraded reading"
+    assert "retry rescued vix3m" in msg

@@ -314,3 +314,51 @@ def test_probe_cboe_fails_when_only_one_leg_is_missing(monkeypatch):
         lambda sym, **k: pd.Series(21.5, index=idx, name=sym) if sym == "VIX" else None)
     code, _lines = probe_cboe()
     assert code == 1, "VIX3M is the leg that matters — a half-working fallback is not one"
+
+
+# ---------------------------------------------------------------------------
+# todo #31 — a rescued leg is countable, never red
+# ---------------------------------------------------------------------------
+
+_RESCUED = {"vix3m": {"attempts": 2, "rescued": True, "failures": ["empty frame"]}}
+
+
+def _write_rescued(log_dir, day: str, retries=_RESCUED):
+    path = _write(log_dir, day, label="Resilient")
+    rec = json.loads(path.read_text(encoding="utf-8").splitlines()[-1])
+    rec["fragility"]["retries"] = retries
+    path.write_text(json.dumps(rec) + "\n", encoding="utf-8")
+
+
+def test_rescued_readings_are_counted_and_stay_green(tmp_path):
+    log = tmp_path / "quant_context_log"
+    _write(log, "2026-09-29", label="Resilient")
+    _write_rescued(log, "2026-09-30")
+    _write_rescued(log, "2026-10-01")
+    assert read_log(log)[-1].rescued() == ["vix3m"]
+    assert degraded_streak(read_log(log)) == [], "a rescue is not a degraded reading"
+    code, lines = audit(log)
+    assert code == 0
+    info = [msg for _, lvl, msg in lines if lvl == "INFO"]
+    assert any("rescued a leg on 2 of the last 3 readings" in m
+               and "vix3m" in m and "2026-10-01" in m for m in info)
+
+
+def test_no_retry_line_when_nothing_was_rescued(tmp_path):
+    log = tmp_path / "quant_context_log"
+    _write(log, "2026-09-30", label="Resilient")
+    # a retry that failed is already a degraded reading or a lost leg — not a rescue
+    _write_rescued(log, "2026-10-01",
+                   retries={"gold": {"attempts": 2, "rescued": False,
+                                     "failures": ["empty frame", "empty frame"]}})
+    _code, lines = audit(log)
+    assert not any("rescued" in msg for _, _, msg in lines)
+
+
+def test_rescues_are_reported_beside_a_degraded_streak_too(tmp_path):
+    log = tmp_path / "quant_context_log"
+    _write_rescued(log, "2026-09-30")
+    _write(log, "2026-10-01", degraded=["vix_term"], label="Unavailable")
+    code, lines = audit(log, max_streak=2)
+    assert code == 0
+    assert any("rescued a leg on 1 of the last 2" in msg for _, _, msg in lines)

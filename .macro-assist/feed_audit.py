@@ -69,6 +69,12 @@ from pipeline_common import REPO_ROOT, _log
 # module docstring: 1 is a vendor hiccup, 2 is a feed that has stopped.
 MAX_DEGRADED_STREAK = 2
 
+# How far back the rescued-by-retry count looks. Reported, never red: a leg the
+# second attempt rescued is not a degraded reading, but a retry firing most
+# mornings is the early slot failing quietly — the thing watching the 06:23 run
+# exists to see (todo #26 item 3, #31).
+RETRY_WINDOW = 30
+
 QUANT_LOG_DIR = REPO_ROOT / "results" / "quant_context_log"
 
 
@@ -80,6 +86,12 @@ class Reading:
     label: str
     detail: dict = field(default_factory=dict)
     feed: dict = field(default_factory=dict)
+    retries: dict = field(default_factory=dict)
+
+    def rescued(self) -> list[str]:
+        """Legs a retry rescued on this reading — empty on a first-attempt day."""
+        return sorted(k for k, v in (self.retries or {}).items()
+                      if isinstance(v, dict) and v.get("rescued"))
 
     def why(self) -> str:
         """The recorded cause, or a note that the run did not record one."""
@@ -130,6 +142,7 @@ def read_log(log_dir: Path = QUANT_LOG_DIR,
                 label=str(frag.get("label", "?")),
                 detail=dict(frag.get("degraded_detail") or {}),
                 feed=dict(frag.get("feed") or {}),
+                retries=dict(frag.get("retries") or {}),
             )
     return [by_day[d] for d in sorted(by_day)]
 
@@ -160,7 +173,7 @@ def audit(log_dir: Path = QUANT_LOG_DIR,
     if not streak:
         return 0, [("FEED", "OK",
                     f"fragility feeds healthy — {latest.day} reading is {latest.label}, "
-                    f"{len(readings)} readings on file")]
+                    f"{len(readings)} readings on file")] + retry_lines(readings)
 
     missing = ", ".join(sorted({c for r in streak for c in r.degraded}))
     span = f"{streak[0].day} → {streak[-1].day}" if len(streak) > 1 else str(streak[0].day)
@@ -168,6 +181,7 @@ def audit(log_dir: Path = QUANT_LOG_DIR,
             f"{missing} missing, calibrated label withheld")
     lines = [("FEED", "WARN" if len(streak) <= max_streak else "FAIL", head),
              ("FEED", "INFO", f"latest cause — {latest.why()}")]
+    lines += retry_lines(readings)
     if len(streak) <= max_streak:
         lines.append(("FEED", "INFO",
                       f"within tolerance ({len(streak)}/{max_streak}) — red at "
@@ -251,6 +265,22 @@ def probe() -> tuple[int, list[tuple[str, str, str]]]:
         return 0, lines
     lines.append(("PROBE", "FAIL", f"vix_term cannot be computed — {reason}"))
     return 1, lines
+
+
+def retry_lines(readings: list[Reading],
+                window: int = RETRY_WINDOW) -> list[tuple[str, str, str]]:
+    """One INFO line counting the recent readings a retry rescued; `[]` when
+    none did. Never a WARN and never part of the streak — the reading was
+    whole. Readings logged before the `retries` key existed count as
+    first-attempt days, which they may not have been."""
+    recent = readings[-window:]
+    hit = [r for r in recent if r.rescued()]
+    if not hit:
+        return []
+    legs = ", ".join(sorted({leg for r in hit for leg in r.rescued()}))
+    return [("FEED", "INFO",
+             f"a retry rescued a leg on {len(hit)} of the last {len(recent)} "
+             f"readings ({legs}; most recent {hit[-1].day})")]
 
 
 def check_lines(result: tuple[int, list[tuple[str, str, str]]],

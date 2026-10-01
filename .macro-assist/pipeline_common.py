@@ -84,6 +84,7 @@ def yf_history_with_retry(
     attempts: int = _YF_ATTEMPTS,
     backoff: float = _YF_BACKOFF_SECONDS,
     sleep=None,
+    report: dict | None = None,
 ):
     """Call `fetch()` until it returns a non-empty frame, or the budget runs out.
 
@@ -95,12 +96,18 @@ def yf_history_with_retry(
     distinguishes them so the caller's own warning stays diagnosable. Never
     raises: every call site already degrades on a missing leg, and a helper that
     introduced a new exception type would change what a dead leg does.
+
+    Pass a dict as `report` to have `attempts` (calls made) and `failures` (the
+    reason for each failed call, in order) written into it. Without it a leg the
+    second attempt rescued is indistinguishable from a healthy one everywhere
+    but stdout — todo #31.
     """
     if sleep is None:
         import time
         sleep = time.sleep
     attempts = max(1, attempts)
     reason: str | None = None
+    failures: list[str] = []
     for attempt in range(attempts):
         try:
             hist = fetch()
@@ -109,11 +116,16 @@ def yf_history_with_retry(
             hist = None
         else:
             if hist is not None and not getattr(hist, "empty", False):
+                if report is not None:
+                    report.update(attempts=attempt + 1, failures=failures)
                 return hist, None
             reason = "empty frame"
+        failures.append(reason)
         if attempt + 1 < attempts:
             _log("YFINANCE", "WARN",
                  f"{label}: {reason} — retrying in {backoff:g}s "
                  f"(attempt {attempt + 2} of {attempts})")
             sleep(backoff)
+    if report is not None:
+        report.update(attempts=attempts, failures=failures)
     return None, f"{reason} after {attempts} attempts"

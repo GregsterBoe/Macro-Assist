@@ -18,6 +18,41 @@ questions.
 
 ## Pipeline / accuracy
 
+### RESOLVED 2026-10-01 — #31 a rescued leg is now recorded, and counted, never red
+**Resolution: shipped as the item proposed.** `yf_history_with_retry` takes an
+optional `report=` dict and writes `attempts` and the reason for each failed
+call into it. The live fragility fetch (`quant_context._fetch_fragility_histories`)
+keeps one entry per leg that needed more than one attempt, and
+`collect_quant_raw` logs it as **`fragility.retries`** —
+`{leg: {"attempts", "rescued", "failures"}}` — whenever any retry fired,
+**including on an otherwise healthy day**, which is the case `fragility.feed`
+omits by design. The Action log's FRAGILITY line gains `— retry rescued <legs>`
+and stays `OK`. `feed_audit.py` reads the key and prints one `INFO` line in the
+`feed_gate` job: *a retry rescued a leg on N of the last 30 readings*.
+
+**Two calls made in shipping it.**
+
+1. **A sibling key, not a widened `feed`.** `feed` records which *source*
+   served a vol leg, and `feed_audit`'s cause line reads it that way. A rescued
+   leg was still served by yfinance; putting it in `feed` would have printed
+   "vix3m from yfinance" as a cause on a day nothing was wrong. A first-attempt
+   day logs exactly as before — no key.
+2. **A rescue does not count toward the degraded streak** — the item's own
+   lean. The reading was whole; the streak measures readings that were not.
+   It is *countable*, which is what the item asked for, and the count is
+   printed rather than thresholded.
+
+**What it does not do.** The reopen triggers for moving the run (the 06:23
+resolution below) are unchanged — both still key on degraded readings or on the
+CBOE splice. Whether a retry rate should become a third trigger is a new
+question, not this one, and setting one after seeing the count would be the
+convention #7 hazard; it stays with the owner. Readings logged before
+2026-10-01 carry no `retries` key and count as first-attempt days, which they
+may not have been. And the record covers the fragility fetch only:
+`market_data._ticker_snapshot` (the payload's `vix_term_ratio`) retries through
+the same helper without a report, still part of #26's open remainder.
+`test_yfinance_retry.py`, `test_feed_audit.py`.
+
 ### RESOLVED 2026-09-22 — #28 "critical" now means *without a value*, not *without a freshly fetched one*
 **Resolution: carry a slow-moving critical series forward, marked, for seven
 days; abort only when nothing is available at all.** Implemented the same day in

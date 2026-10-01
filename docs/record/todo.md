@@ -256,7 +256,9 @@ later.
    *enough* is a live question, not a settled one: the failure was time-of-day
    bound and lasted three consecutive mornings, so two attempts seconds apart
    may well draw the same empty frame twice. It removes the cheapest failure,
-   it does not remove the cause — item 3 does.
+   it does not remove the cause — item 3 does. *Since 2026-10-01 a rescue is
+   recorded (`fragility.retries`) and counted by `feed_gate` → #31 in
+   [`resolved.md`](resolved.md); the payload path still retries unrecorded.*
 2. **Let the 10:47 UTC catch-up call re-check the feeds.** ~~It runs today and
    no-ops~~ — *corrected 2026-09-22: it does not run at all. No pipeline run
    since 2026-08-28 carries `source=cron-catchup` (→ #27).* The limitation
@@ -295,39 +297,6 @@ production. Smaller gap, not a closed one.
 **Also carried:** `market_data`'s `vix3m` has no fallback on any path —
 `vix_term_ratio` vanished from the LLM payload on all three days and no
 mechanism covers it.
-
----
-
-### Carried finding #31 — a silent retry looks exactly like a healthy feed
-**Where:** `pipeline_common.yf_history_with_retry` · `quant_context.py`:385
-(where `fragility.feed` is written) · `results/quant_context_log/*.jsonl`.
-**Source:** the monitoring gap named when #26 item 3 closed 2026-09-23 →
-[`resolved.md`](resolved.md).
-
-`yf_history_with_retry` writes a WARN line to stdout when a first attempt comes
-back empty, and **nothing to the JSONL**. The `fragility.feed` block is written
-only when a reading is degraded or a leg was served by something other than
-yfinance — so a day where the first `^VIX3M` attempt returned an empty frame and
-the second succeeded is recorded **identically to a day where the feed was
-healthy**: no `feed` key, `degraded: []`, and a normal `vix_term`.
-
-That matters because watching the 06:23 slot is now the *alternative* to moving
-the run. If the early slot is in fact flaky and the retry is quietly carrying it
-every morning, the monitoring plan cannot see it, and the reopen triggers
-recorded in `resolved.md` would never fire — the fallback would be doing its job
-so well that the problem stayed invisible. That is the [KB-029] failure shape
-again: correct-looking readings nobody can later tell apart.
-
-**The fix is small** — have the helper record the attempt count per leg and
-surface it in `raw["fragility"]["feed"]` (or a sibling key) whenever a retry
-actually fired, on an otherwise healthy day. The condition at
-`quant_context.py`:385 has to widen: today it omits the block precisely when
-nothing looks wrong, which is the case this needs.
-
-**Worth deciding at the same time:** whether a retry that fired is enough on its
-own to count toward `feed_audit.py`'s degraded streak. Probably not — a rescued
-leg is not a degraded reading — but it should be *countable*, which it is not
-now.
 
 ### The original question, kept for its admission rule — a second issuer feed
 **Source:** [KB-034]. The fallback chain is one deep: yfinance's `^VIX3M`, then

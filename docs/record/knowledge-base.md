@@ -2068,7 +2068,9 @@ on assets or periods with a higher up-rate, which would produce this ordering
 with no discrimination at all. **That confound is testable** — the per-asset
 breakdown is in `scores.json.gz` on CI artifact `10013945071`, **which expires
 2026-10-07**. Pull it before then if this is worth resolving; after that the
-run must be repeated.
+run must be repeated. *(Pulled 2026-09-13 to `output`
+`numeric_baseline/runs/2026-09-07-wp19e-spf/`; the confound was read on the
+explore record as H-001, 2026-09-14 — see the register.)*
 
 ### What this establishes, and what it does not
 
@@ -2131,7 +2133,8 @@ git show origin/output:numeric_baseline/numeric_baseline.json \
 
 Per-asset hit-rate/BSS and the raw calls live in `scores.json.gz` on CI artifact
 `10013945071` (stripped before publish) — **pull it before 2026-10-07** if the
-confidence-ordering confound above is worth resolving.
+confidence-ordering confound above is worth resolving. *(Done 2026-09-13:
+`output` `numeric_baseline/runs/2026-09-07-wp19e-spf/scores.json.gz`.)*
 
 ---
 
@@ -2345,6 +2348,8 @@ for a,ev in d['scoped_evaluations']['sealed'].items():
 
 Per-asset breakdown and the raw calls are in `scores.json.gz` on CI artifact
 `10031564717` — **expires 2026-10-07**, the same day as [KB-026]'s `10013945071`.
+*(Both kept: `output` `numeric_baseline/runs/2026-09-07-wp21e-vixterm/`, with
+the folder's README.)*
 
 ---
 

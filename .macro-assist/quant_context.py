@@ -120,6 +120,20 @@ def vol_feed_report() -> dict:
     return dict(_FEED_REPORT)
 
 
+# The legs whose yfinance fetch needed more than one attempt in the last live
+# fetch, rescued or not. Healthy legs are absent, so `{}` is the normal day.
+# Kept apart from `_FEED_REPORT` because that one records which *source* served
+# a vol leg, and a retried leg was still served by yfinance — todo #31.
+_RETRY_REPORT: dict = {}
+
+
+def yf_retry_report() -> dict:
+    """Per leg, the retries the last live fetch needed: `{leg: {"attempts": n,
+    "rescued": bool, "failures": [...]}}`. `{}` when every leg came back on its
+    first attempt, or before any fetch in this process. Diagnostic only."""
+    return {k: dict(v) for k, v in _RETRY_REPORT.items()}
+
+
 def _fragility_mode() -> str:
     """Resolve the active fragility mode from the environment (default 'log')."""
     mode = os.getenv(_FRAGILITY_MODE_ENV, "").strip().lower()
@@ -136,13 +150,23 @@ def _fetch_fragility_histories(period: str = "1y") -> dict:
     except Exception:
         return {}
     out: dict = {}
+    _RETRY_REPORT.clear()
     for name, tk in _FRAG_TICKERS.items():
         # An empty frame here is indistinguishable from a delisted ticker on one
         # attempt, and yfinance returns one for `^VIX3M` at ~06:04 UTC while
         # serving current data the same afternoon ([KB-034]). Ask twice before
         # calling the leg absent — todo #26 work item 1.
+        tries: dict = {}
         hist, _reason = yf_history_with_retry(
-            lambda tk=tk: yf.Ticker(tk).history(period=period), tk)
+            lambda tk=tk: yf.Ticker(tk).history(period=period), tk, report=tries)
+        # A rescue is recorded, not just logged to stdout: watching the early
+        # slot is the alternative to moving the run, and a retry that quietly
+        # carries a flaky feed every morning would otherwise leave the log
+        # identical to a healthy one (todo #31, the KB-029 shape).
+        if tries.get("failures"):
+            _RETRY_REPORT[name] = {"attempts": tries["attempts"],
+                                   "rescued": hist is not None,
+                                   "failures": list(tries["failures"])}
         if hist is None:
             continue
         try:
@@ -386,6 +410,11 @@ def collect_quant_raw(
             if feed and (frag.get("degraded") or any(
                     (v or {}).get("source") != "yfinance" for v in feed.values())):
                 raw["fragility"]["feed"] = feed
+            # A retry is recorded on an otherwise healthy day too — that is the
+            # case `feed` omits by design, and the one todo #31 needs countable.
+            retries = yf_retry_report()
+            if retries:
+                raw["fragility"]["retries"] = retries
     except Exception:
         pass
 
@@ -814,6 +843,10 @@ def fragility_log_lines(raw: Optional[dict]) -> list[tuple[str, str, str]]:
         if degraded:
             msg += f" — DEGRADED: {', '.join(degraded)} missing, label withheld"
             msg += _degraded_why(frag)
+        rescued = sorted(k for k, v in (frag.get("retries") or {}).items()
+                         if (v or {}).get("rescued"))
+        if rescued:
+            msg += f" — retry rescued {', '.join(rescued)}"
         drivers = _raw_driver_strs(frag, limit=3)
         if drivers:
             msg += f" — top drivers: {', '.join(drivers)}"
