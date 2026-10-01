@@ -421,6 +421,43 @@ prose is the point.
 
 ## Phase 23 — exploration tier
 
+### RESOLVED 2026-10-01 — #34 a fragility rule for a real decision is a target class, read on drawdown: accepted
+**Resolution: accept [ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md),** the same day it was
+drafted, on all four of its questions:
+
+1. **The target type and the bar: yes.** A mechanical risk rule is read on how
+   much of each ≥ 10% drop its portfolio takes. It is read against a rival
+   holding the same average amount of stock and against a volatility rule at
+   that exposure. Return is only ever a cost limit, never the claim.
+2. **The return budget: 0.5 percentage points a year** against
+   `static_matched`. This was the proposer's default, and the owner kept it.
+3. **The seal: 2018-01-01, reused** as #19 did, knowing that the slice holds
+   about five or six corrections and the read may come back `underpowered`.
+4. **Taxes: the account is taxable.** The owner asked whether the tax is not
+   paid eventually anyway. Mostly yes: buying back resets the cost basis, so
+   over a lifetime roughly the same tax is paid. What a sale costs is the
+   *deferral*. The tax falls due now, and that money stops compounding in the
+   portfolio. A loss is banked against later gains. So the cost is a timing
+   cost, not a second tax. It stays outside the bar. It was added to the
+   ADR's reported figures before any look: the gain realized per year, and
+   the tax on it at an effective 18.46%.
+
+**Why it was the owner's call.** The bar and its first member,
+[H-009](hypotheses.md#h-009), were drafted by the proposer the same day,
+which How we explore §5 warns against. The owner's acceptance is the check on
+the target type. The independent audit is the check on the member. Neither
+has seen data.
+
+**What changed on acceptance:**
+
+- [How we explore §7](../concepts/how-we-explore.md#7-the-target-space-never-a-signed-forecast)
+  has a fourth row.
+- H-009's status says its class is accepted and not yet built.
+
+The build is still to do: `RISK_RULE` and its reader in `class_bars.py`, and
+the explore harness `explore_rules.py`, whose first walk is H-009's first
+counted look.
+
 ### RESOLVED 2026-09-27 — #32 the technical audit moves to an independent agent loop: accepted
 **Resolution: accept [ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md).** The owner read the
 page and accepted it the same day it was drafted.

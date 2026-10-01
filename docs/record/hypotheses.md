@@ -48,6 +48,7 @@ have its sealed read.
 | [H-006](#h-006) | `seen` | The only conditioner that beats `unconditional` on the explore slice is the S&P's own drawdown bin — and its gain is a narrower interval in calm, not the reversion — *rival look 2026-09-14: the width claim holds; the product's `har_gaussian` does not carry it, the same σ on the empirical shape does* |
 | [H-007](#h-007) | `seen` | The product's `har_gaussian` comparator is handicapped by its shape and its zero mean, not its σ: too wide in calm (coverage 0.57 at nominal 0.50), skewed PIT, −0.044 on the S&P at 20d, while the same forecast on the empirical shape is +0.016 … +0.026 |
 | [H-008](#h-008) | `closed` | Within a stressed drawdown bin, the OR flag's state widens the forward distribution beyond what drawdown depth explains — *closed on explore 2026-09-29 at the owner's call: the width held within vol terciles (8 of 9), but neither `dd_x_frag` nor the vol forecast widened by the state forecasts better; no KB entry, no sealed read spent* |
+| [H-009](#h-009) | `draft` | Halving equity exposure while the cross-section flag fires takes less of each market drop than holding less stock does — *the first member of the risk-rule class ([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md), accepted 2026-10-01, `resolved.md` #34); no look taken* |
 
 ---
 
@@ -726,6 +727,108 @@ Report: `results/explore_conditioner/report.md` § *H-008 rival check*.
 - **What it changes.** The conditioner class bar reads skill against `har_scaled` first. On the explore record H-008 fails that in both forms, `dd_x_frag` and `har_x_frag`. The width claim is a structure claim, and §9 question 7 says such a claim needs its own class bar. None exists.
 
 Report: `results/explore_conditioner/report.md` § *H-008 in its strongest form*.
+
+---
+
+## H-009 — Halving equity exposure while the cross-section flag fires takes less of each market drop than holding less stock does {: #h-009 }
+
+**Status:** `draft` · drafted 2026-10-01 · no look taken. Its class bar,
+`risk_rule`, was accepted the same day
+([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md),
+`resolved.md` #34: 0.5 pp return budget, the 2018-01-01 seal reused). It is
+not yet built in `class_bars.py`, so this entry cannot have its
+`Pre-registration` read yet.
+
+**What was seen.** Nothing yet. This is proposed, not observed. It comes from
+the owner's goal 3 ([What is worth doing §2](../concepts/what-is-worth-doing.md#2-the-standing-goals)),
+for the decision the owner chose first on 2026-10-01: reducing risk, judged by
+a smaller worst drop. It rests on two recorded facts. The flag detects stress,
+with a little lead ([KB-002], [KB-016], [KB-020]). Stress tends to revert
+([KB-022]; [H-004](#h-004)'s Elevated cell sat right of unconditional).
+
+**Where.** [ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md) ·
+[KB-013], [KB-016], [KB-017], [KB-020] (the flag) · [KB-022], H-004 (the
+reversion).
+
+**The member, fixed before any look.**
+
+- **Flag, `panel_or`.** The absorption ratio (covariance window 120) OR
+  turbulence (window 252, shrinkage 0.2, 5-day smoothing). Each fires at or
+  above the 90th percentile of its own readings strictly before *t*, on a
+  5-day strided threshold history with at least 252 prior readings. These are
+  `fragility_or.py`'s constants, unchanged. The panel is the Fama-French
+  30-industry daily panel on both slices, so one panel serves the whole
+  history. Live, the SPDR sector panel stands in for it ([KB-020]).
+- **The composite is left out, on purpose.** Its weights and its label cut
+  were chosen on 2008–2026 ([KB-002], [KB-030]), which overlaps the sealed
+  side, and it has no history before 2008. So this is not the published OR
+  flag: it lacks the composite's catches. The full three-channel flag on
+  2008+ would be a second member and a counted look.
+- **Legs.** Equity is the Fama-French market's total return (Mkt−RF + RF).
+  Cash earns RF.
+- **Rule.** *e<sub>t</sub>* = 0.5 if `panel_or` fired on any day in
+  [*t* − 19, *t*], else 1.0. It is decided at the close of *t* and applied
+  from the close of *t* + 1.
+- **Why these numbers.** 0.5 because halving is the one round step short of
+  an exit, and an exit maximizes both the costs and the rebound [KB-022]
+  predicts it would miss. 20 trading days because it is the longest horizon
+  the project scores (T+20), and because one flag day re-arms the window, so
+  a flickering flag does not trade daily. No other value is tried. Any other
+  value is a counted look.
+
+**Mechanism it would imply.** The cross-section channels measure how tightly
+the industries move together and how unusual their joint move is. If that
+rises before a drop deepens, the rule halves exposure ahead of the deep part
+of the drop. A volatility rule reacts to realized volatility, which rises
+mostly once the drop is under way. So if the flag carries anything beyond
+volatility, it shows as **earlier** de-risking than `vol_matched`.
+
+**The prediction that is not the score.**
+
+1. **Clause.** The saving sits in the caught episodes. An episode is *caught*
+   if `panel_or` fired between its peak and the day buy-and-hold first lost
+   half of that episode's final depth. The mean saving against
+   `static_matched` in caught episodes exceeds the mean in missed ones.
+2. **Reported, not a clause.** The return cost sits after false alarms: the
+   shortfall against `static_matched` comes mostly from flag windows not
+   followed by a 5% drop within 20 days. That is [KB-022]'s reversion.
+
+**The confound.**
+
+- (a) **Volatility.** The panel channels may be realized volatility in another
+  form. `vol_matched` is the rival that rules it out. If it matches the rule's
+  saving, the flag is not doing the work.
+- (b) **Exposure.** Any rule holding less stock takes less of each drop.
+  `static_matched` removes that.
+- (c) **The sealed side is not unseen for the flag.** Which crises it catches
+  was measured on data running to 2026 ([KB-016], [KB-017], [KB-020]). The
+  absorption window was chosen on 1970–2026 ([KB-013]). A rule's drop and cost
+  have not been measured on any slice.
+- (d) **Eras.** The explore side runs from the early 1930s to 2017. Costs,
+  rates and market structure all changed over that span. A rule that wins in
+  1935–1975 may not win after 2018.
+- (e) **The asset.** This is the US market, not the owner's world-index
+  holding.
+
+**What would test it.** ADR-0023 is accepted (2026-10-01). Then:
+
+1. Build `explore_rules.py` and walk this member on the explore side. That is
+   one counted look, and this entry's ledger opens with it.
+2. Write the `Pre-registration` in the class's form.
+3. Pass the CI audit.
+4. The owner turns the key, and the sealed side is read once.
+
+The result goes to the KB either way.
+
+**Target-space check.** A risk rule read on path risk, ADR-0023's proposed
+fourth target type. It is admissible as a claim about the size of drops only.
+Return enters as a cost limit. A read that the rule "earns more" is not taken
+even if it appears ([ADR-0009](../decisions/ADR-0009-cut-the-directional-product.md)).
+
+**Read first.** [ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md) ·
+`fragility_or.py` (the constants) · `input_testing.fetch_ff_industries`,
+`fetch_ff_market` and `_pit_decile_or_flags` · [KB-013], [KB-016], [KB-017],
+[KB-020], [KB-022] · `portfolio/book.py` (`DEFAULT_COST_BPS`).
 
 ## Closed
 

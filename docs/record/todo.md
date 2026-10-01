@@ -371,7 +371,7 @@ and a test that nothing in it reads a realized rate change. The floor was set
 from a principle (ten years, more than one rate cycle) and not moved to fit
 any option. Nothing depends on this before H-003's data exists.
 
-*Earlier: nothing open. #32 (accept ADR-0022 — the technical audit moves to an
+*Earlier: nothing open. #34 (accept ADR-0023 — a fragility rule for a real decision, read on drawdown) closed 2026-10-01, accepted with a 0.5 pp return budget and the 2018-01-01 seal. #32 (accept ADR-0022 — the technical audit moves to an
 independent agent loop) closed 2026-09-27, accepted. #19 (the seal — 2018-01-01
 reused for the distribution class), #21 (H-005 changes nothing before Phase 22
 reads) and #22 (the scorer does not gain `har_scaled` before its first read) all
