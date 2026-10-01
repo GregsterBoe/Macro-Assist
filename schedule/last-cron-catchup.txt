@@ -1,5 +1,5 @@
 source:  cron-catchup
-asof:    2026-09-29
-landed:  2026-09-29T10:47:34Z
+asof:    2026-10-01
+landed:  2026-10-01T10:47:35Z
 trigger: workflow_dispatch
-run:     https://github.com/GregsterBoe/Macro-Assist/actions/runs/36557725182
+run:     https://github.com/GregsterBoe/Macro-Assist/actions/runs/36851302330
