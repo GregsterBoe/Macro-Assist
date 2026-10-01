@@ -1,0 +1,295 @@
+{
+ "overall": "fail",
+ "skew_span": [
+  "1990-01-02",
+  "2026-09-30"
+ ],
+ "rows": {
+  "live": {
+   "window": "live",
+   "what": "composite \u2228 AR \u2228 TURB (KB-021, sector ETFs), labelled on ^GSPC",
+   "floor": 0.4,
+   "n_readings": 667,
+   "first": "2013-07-10",
+   "last": "2026-10-01",
+   "or_firings": 161,
+   "blocked": 103,
+   "stale_open": 0,
+   "pit": {
+    "5": {
+     "n_episodes": 17,
+     "caught": 2,
+     "ref_caught": 10,
+     "n_alarms": 20,
+     "ref_n_alarms": 18,
+     "precision": 0.1,
+     "ref_precision": 0.333,
+     "median_lead": 5.0,
+     "ref_median_lead": 5.0
+    },
+    "10": {
+     "n_episodes": 21,
+     "caught": 6,
+     "ref_caught": 11,
+     "n_alarms": 20,
+     "ref_n_alarms": 18,
+     "precision": 0.3,
+     "ref_precision": 0.444,
+     "median_lead": 9.5,
+     "ref_median_lead": 10.0
+    }
+   },
+   "loco": {
+    "5": {
+     "n_crises": 17,
+     "caught": 2,
+     "ref_caught": 6,
+     "lost": [
+      [
+       "2018-02-01",
+       "2018-02-01"
+      ],
+      [
+       "2018-12-17",
+       "2018-12-17"
+      ],
+      [
+       "2022-06-08",
+       "2022-06-08"
+      ],
+      [
+       "2022-09-12",
+       "2022-09-19"
+      ]
+     ]
+    },
+    "10": {
+     "n_crises": 21,
+     "caught": 6,
+     "ref_caught": 10,
+     "lost": [
+      [
+       "2018-01-25",
+       "2018-02-01"
+      ],
+      [
+       "2018-11-08",
+       "2018-12-17"
+      ],
+      [
+       "2022-04-11",
+       "2022-06-08"
+      ],
+      [
+       "2022-08-12",
+       "2022-09-19"
+      ]
+     ]
+    }
+   },
+   "reproduces_live": true,
+   "luck": {
+    "n": 200,
+    "q": 0.375,
+    "median": 0.263
+   },
+   "channel_role": {
+    "n_readings": 667,
+    "first": "2013-07-10",
+    "5": {
+     "caught": 15,
+     "ref_caught": 10,
+     "n_episodes": 17,
+     "precision": 0.391,
+     "ref_precision": 0.333,
+     "loco_caught": 10,
+     "loco_ref_caught": 9,
+     "loco_n": 21
+    },
+    "10": {
+     "caught": 16,
+     "ref_caught": 11,
+     "n_episodes": 21,
+     "precision": 0.478,
+     "ref_precision": 0.444,
+     "loco_caught": 16,
+     "loco_ref_caught": 14,
+     "loco_n": 31
+    }
+   },
+   "verdict": {
+    "verdict": "recall_lost",
+    "reason": "at 5d the filter loses 8 crisis(es) under PIT (2 vs 10) and 4 under LOCO (2 vs 6); allowed 0"
+   }
+  },
+  "long": {
+   "window": "long",
+   "what": "AR \u2228 TURB (Fama-French 30 industries, H-009's flag), labelled on the FF market",
+   "floor": null,
+   "n_readings": 1787,
+   "first": "1991-01-08",
+   "last": "2026-06-26",
+   "or_firings": 393,
+   "blocked": 226,
+   "stale_open": 0,
+   "pit": {
+    "5": {
+     "n_episodes": 37,
+     "caught": 10,
+     "ref_caught": 18,
+     "n_alarms": 50,
+     "ref_n_alarms": 76,
+     "precision": 0.18,
+     "ref_precision": 0.171,
+     "median_lead": 4.5,
+     "ref_median_lead": 4.0
+    },
+    "10": {
+     "n_episodes": 57,
+     "caught": 12,
+     "ref_caught": 26,
+     "n_alarms": 50,
+     "ref_n_alarms": 76,
+     "precision": 0.22,
+     "ref_precision": 0.289,
+     "median_lead": 7.0,
+     "ref_median_lead": 8.0
+    }
+   },
+   "loco": {
+    "5": {
+     "n_crises": 37,
+     "caught": 8,
+     "ref_caught": 15,
+     "lost": [
+      [
+       "2000-04-11",
+       "2000-04-11"
+      ],
+      [
+       "2002-11-06",
+       "2002-11-06"
+      ],
+      [
+       "2007-08-08",
+       "2007-08-08"
+      ],
+      [
+       "2011-08-03",
+       "2011-10-27"
+      ],
+      [
+       "2018-02-01",
+       "2018-02-01"
+      ],
+      [
+       "2022-04-19",
+       "2022-05-03"
+      ],
+      [
+       "2022-06-08",
+       "2022-06-08"
+      ]
+     ]
+    },
+    "10": {
+     "n_crises": 57,
+     "caught": 11,
+     "ref_caught": 25,
+     "lost": [
+      [
+       "1996-06-28",
+       "1996-06-28"
+      ],
+      [
+       "1999-12-31",
+       "2000-01-14"
+      ],
+      [
+       "2000-04-04",
+       "2000-05-17"
+      ],
+      [
+       "2002-11-06",
+       "2002-11-06"
+      ],
+      [
+       "2007-07-18",
+       "2007-08-08"
+      ],
+      [
+       "2007-12-21",
+       "2008-01-08"
+      ],
+      [
+       "2011-07-20",
+       "2011-11-10"
+      ],
+      [
+       "2018-01-25",
+       "2018-02-01"
+      ],
+      [
+       "2019-07-24",
+       "2019-07-31"
+      ],
+      [
+       "2022-02-28",
+       "2022-02-28"
+      ],
+      [
+       "2022-04-11",
+       "2022-06-08"
+      ],
+      [
+       "2022-08-12",
+       "2022-09-19"
+      ],
+      [
+       "2024-07-26",
+       "2024-07-26"
+      ],
+      [
+       "2025-02-18",
+       "2025-04-01"
+      ]
+     ]
+    }
+   },
+   "luck": {
+    "n": 200,
+    "q": 0.207,
+    "median": 0.167
+   },
+   "channel_role": {
+    "n_readings": 1535,
+    "first": "1996-01-02",
+    "5": {
+     "caught": 24,
+     "ref_caught": 18,
+     "n_episodes": 37,
+     "precision": 0.213,
+     "ref_precision": 0.213,
+     "loco_caught": 22,
+     "loco_ref_caught": 19,
+     "loco_n": 42
+    },
+    "10": {
+     "caught": 34,
+     "ref_caught": 26,
+     "n_episodes": 55,
+     "precision": 0.347,
+     "ref_precision": 0.361,
+     "loco_caught": 33,
+     "loco_ref_caught": 30,
+     "loco_n": 72
+    }
+   },
+   "verdict": {
+    "verdict": "recall_lost",
+    "reason": "at 5d the filter loses 8 crisis(es) under PIT (10 vs 18) and 7 under LOCO (8 vs 15); allowed 0"
+   }
+  }
+ },
+ "run_at": "2026-10-01T22:43:34+02:00"
+}
