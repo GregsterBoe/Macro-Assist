@@ -48,7 +48,7 @@ have its sealed read.
 | [H-006](#h-006) | `seen` | The only conditioner that beats `unconditional` on the explore slice is the S&P's own drawdown bin — and its gain is a narrower interval in calm, not the reversion — *rival look 2026-09-14: the width claim holds; the product's `har_gaussian` does not carry it, the same σ on the empirical shape does* |
 | [H-007](#h-007) | `seen` | The product's `har_gaussian` comparator is handicapped by its shape and its zero mean, not its σ: too wide in calm (coverage 0.57 at nominal 0.50), skewed PIT, −0.044 on the S&P at 20d, while the same forecast on the empirical shape is +0.016 … +0.026 |
 | [H-008](#h-008) | `closed` | Within a stressed drawdown bin, the OR flag's state widens the forward distribution beyond what drawdown depth explains — *closed on explore 2026-09-29 at the owner's call: the width held within vol terciles (8 of 9), but neither `dd_x_frag` nor the vol forecast widened by the state forecasts better; no KB entry, no sealed read spent* |
-| [H-009](#h-009) | `draft` | Halving equity exposure while the cross-section flag fires takes less of each market drop than holding less stock does — *the first member of the risk-rule class ([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md), accepted and built 2026-10-01, `resolved.md` #34); no look taken; its clause settled before it, `resolved.md` #35* |
+| [H-009](#h-009) | `closed` | Halving equity exposure while the cross-section flag fires takes less of each market drop than holding less stock does — *the first member of the risk-rule class ([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md), accepted and built 2026-10-01, `resolved.md` #34); its clause settled before any look, `resolved.md` #35; closed on explore 2026-10-01 at the owner's call: too costly, no edge, and worse than the volatility rival; no KB entry, no sealed read spent* |
 
 ---
 
@@ -732,7 +732,7 @@ Report: `results/explore_conditioner/report.md` § *H-008 in its strongest form*
 
 ## H-009 — Halving equity exposure while the cross-section flag fires takes less of each market drop than holding less stock does {: #h-009 }
 
-**Status:** `draft` · drafted 2026-10-01 · no look taken. Its class bar,
+**Status:** `closed` · drafted 2026-10-01 · one explore look 2026-10-01 · closed 2026-10-01 at the owner's call, on the explore record. It never reached a `Pre-registration`, an audit or a bar, and has no KB entry: its one look was explore tier (`verdict(sealed=False)`). **On 1932–2017 it would have failed the class bar three ways at once.** *Too costly:* 1.12 pp a year of net return behind `static_matched` at 10 bps, 1.50 at 30 (budget 0.5). *No edge:* a saving of −0.003 [−0.043, +0.038] against holding the same average stock all the time. *Worse than the rival:* −0.069 against the volatility rule, better in 47% of drops, and worse in every caught drop deeper than 30%. The clause held, but mostly by construction (ledger). The cost sits in the false alarms: 111 of 154 hold windows. **No variant was tried, on purpose.** Another cut, hold or flag chosen after these numbers would be fishing. The 2018+ slice of the risk-rule class stays unspent, and the class has no member. The ledger and the original text stay as written. Its class bar,
 `risk_rule`, was accepted the same day
 ([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md),
 `resolved.md` #34: 0.5 pp return budget, the 2018-01-01 seal reused), and
@@ -740,7 +740,7 @@ built the same day: `class_bars.RISK_RULE` and the harness `explore_rules.py`.
 A dry run (no rule read) found the explore side runs 1932-01-08 → 2017-12-29
 and holds 32 buy-and-hold drops of 10% or more. The one gap the build found
 in the clause below was closed before any look (`resolved.md` #35), so the
-first counted look is next.
+first counted look ran the same day.
 
 **What was seen.** Nothing yet. This is proposed, not observed. It comes from
 the owner's goal 3 ([What is worth doing §2](../concepts/what-is-worth-doing.md#2-the-standing-goals)),
@@ -835,6 +835,67 @@ even if it appears ([ADR-0009](../decisions/ADR-0009-cut-the-directional-product
 `fragility_or.py` (the constants) · `input_testing.fetch_ff_industries`,
 `fetch_ff_market` and `_pit_decile_or_flags` · [KB-013], [KB-016], [KB-017],
 [KB-020], [KB-022] · `portfolio/book.py` (`DEFAULT_COST_BPS`).
+
+**Explore-tier looks (ledger).** *2026-10-01* — **the first counted look**
+(*What would test it* step 1). `explore_rules.py --cached`, at commit
+`a6a1e8c`, with a clean receipt. The member is exactly as fixed above: no
+variant was tried, and none is tried after this number.
+- **Sample.** 1932-01-08 → 2017-12-29, 22,500 days. The flag fired on 15.9%
+  of its 4,500 grid readings, and the member's mean exposure is 0.854. There
+  are 32 buy-and-hold drops of 10% or more, against the floor of 5.
+- **What the bar would read, in its order.** Underpowered: no. Inverted: no.
+  The member took a mean 0.857 of each drop.
+  - **Too costly. The bar would stop here.** Net of costs, the member returns
+    **1.12 pp a year less** than `static_matched` at 10 bps, and 1.50 pp at
+    30 bps. The budget is 0.5 pp. (The report prints these as −1.12 / −1.50
+    on a line labelled "behind": the number is member minus rival.)
+  - **No edge.** The saving against `static_matched` is **−0.003**, with a
+    90% interval of [−0.043, +0.038]. The bar needs ≥ 0.10 and an interval
+    clear of zero. Holding 85% stock all the time took as much of each drop
+    as the rule did.
+  - **Explained by the rival, and worse.** Against `vol_matched` the saving
+    is **−0.069**: the member did better in 46.9% of episodes, where the bar
+    needs ≥ 66.7%. The volatility rule took much less of the deep crashes:
+    both 1932 drops (0.37 / 0.43), 1937 (0.68), 1987 (0.67) and 2008 (0.47),
+    against the member's 1.00 / 1.00 / 0.79 / 0.89 / 0.78.
+  - **The clause held.** The 19 caught episodes saved +0.069 against
+    `static_matched`, and the 13 missed ones −0.107.
+- **Reported, never read.** Prediction 2 held: almost all of the return cost
+  sits in false alarms. Of 154 hold windows, 111 were not followed by a 5%
+  drop within 20 days, and they cost −1.77 pp a year. The 43 that were
+  followed earned +0.16 pp, and the fully invested days +0.56 pp. Worst drop:
+  member 46.6%, `static_matched` 48.2%, `vol_matched` 47.8%, buy-and-hold
+  54.6%. Return a year at 10 bps: 8.9% / 10.0% / 9.5% / 11.0%. Time at reduced
+  exposure: the member 29%. Tax brought forward: 1.5% of the portfolio a year
+  for the member, 0.9% for `static_matched` (daily rebalancing to a fixed 85%
+  sells winners too).
+- **Easy to forget.**
+  - The clause was close to guaranteed to hold. In a missed episode the
+    member holds 100% stock while `static_matched` holds 85%, so its saving
+    there is up to about −0.15 by construction. Seven of the 13 missed
+    episodes read 1.00 or above. "Caught beats missed" therefore says little
+    beyond "the rule is only out when the flag fired". A clause that would
+    have tested timing would compare caught episodes against `static_matched`
+    alone, or against `vol_matched`.
+  - Within the caught episodes the member beats `vol_matched` in 11 of 19,
+    but only in the shallow ones. In every caught drop deeper than 30%
+    (1932-09, 1937, 1973, 2000, 2008), the volatility rule took less. Even
+    where the flag saw the crash coming, it did not reduce the worst drops
+    as much as volatility did.
+  - Confound (a) is answered on this slice: the flag adds nothing that
+    volatility does not, and less. Confound (d), the eras, was not split.
+    Splitting it now would be a second look chosen after this number.
+  - It is the panel flag only, without the composite. The full three-channel
+    flag on 2008+ is still a separate member, not tested, and it has only
+    about four episodes before the seal.
+- **What it changes.** On the explore record H-009 fails the class bar three
+  ways at once: cost, edge and rival. Writing its `Pre-registration` and
+  spending the 2018+ slice on it would buy a read whose likely answer is
+  already visible. The owner closed the entry the same day.
+
+Report: `results/explore_rules/report.md` · receipt
+`results/explore_rules/runs.jsonl` (2026-10-01T21:17:46+02:00, `report_sha256`
+`b5fdb95e…`).
 
 ## Closed
 

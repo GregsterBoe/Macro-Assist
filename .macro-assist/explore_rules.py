@@ -238,16 +238,16 @@ def render(result: dict) -> str:
                   f"[{sav['ci']['lo']:+.4f}, {sav['ci']['hi']:+.4f}] ({bar.interval:.0%}); bar ≥ {bar.min_saving}",
                   f"- Saving vs `{bar.second_rival}`: **{sv['mean']:+.4f}**, better in "
                   f"{_pct(sv['share_better'])} of episodes; bar > 0 in ≥ {_pct(bar.vol_majority)}",
-                  "- Net annual return behind `static_matched`: "
+                  "- Net annual return, member minus `static_matched` (negative = behind): "
                   + ", ".join(f"{float(c) * 100:+.2f} pp at {float(k):g} bps" for k, c in s["shortfall"].items())
-                  + f"; budget {bar.max_shortfall * 100:.1f} pp"]
+                  + f"; budget: no more than {bar.max_shortfall * 100:.1f} pp behind"]
     else:
         lines += ["- No episode on this slice."]
     for c in result["clauses"]:
         lines.append(f"- Clause `{c['kind']}`: {'held' if c['passed'] else 'failed'} — {c['detail']}")
     a = result["alarm_split"]
     lines += ["", "## Reported, never read", "",
-              f"Return behind `static_matched` by day (pp a year, 10 bps): in the {a['n_windows_followed']} hold "
+              f"Return, member minus `static_matched`, by day (pp a year, 10 bps; negative = behind): in the {a['n_windows_followed']} hold "
               f"windows a 5% drop followed, {a['pp_per_year']['followed']:+.2f}; in the "
               f"{a['n_windows_false_alarm']} false alarms, {a['pp_per_year']['false_alarm']:+.2f}; fully "
               f"invested, {a['pp_per_year']['invested']:+.2f}.", ""]
