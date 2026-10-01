@@ -3428,3 +3428,116 @@ making it a bar.
   commercial-paper spread runs next as a filter (§9.C), after its ALFRED
   revision check, under its own bar written before its values are read. It is
   the second candidate against the same target, and its entry will say so.
+  → It failed too, not selective rather than anti-selective: [KB-036].
+
+---
+
+## KB-036 — The commercial-paper spread as a filter on the OR flag is not selective: it blocks real and false alarms alike and loses crises on both windows; built from first releases, its revisions changed 2 decisions (IMP-9 §9.C)
+
+**Date:** 2026-10-01 · **Branch:** `main` · **Harness:**
+`.macro-assist/filter_testing.py --candidate cp` (**zero LLM cost**; FRED /
+ALFRED's free API, about a dozen calls; the KB-021 channels and the FF 30
+industries cached from [KB-035]'s run). Reproduce: `python filter_testing.py
+--candidate cp --cached` (about 1 minute). The bar is in
+`improvement-track.md` IMP-9 §9.C. It was written after the revision check
+and before any spread value was read, and its tests passed before the run.
+**The bar and the harness were in the working tree, not committed, when the
+run happened**, as for KB-035. **This is the second of two candidates read
+against the same target on the same windows** (`resolved.md` #36).
+
+**What we tested.** IMP-9's second outside input as a **filter** on the OR
+flag: a firing stands only when funding stress agrees. The input is
+`DCPF3M − DTB3`, the 90-day AA financial commercial-paper rate over the
+3-month T-bill, from 1997.
+- **Revision check first.** ALFRED's first releases against today's values:
+  - The bill leg has never been revised since its archive began (2005-06).
+  - The commercial-paper leg was revised on **69 of 4,435 days (1.6%)**, by
+    up to 28 bp. 62 of those came in one batch, in August 2018.
+  - [ADR-0014] excludes a revised series as published today. So each leg
+    entered at its **first-published** value, readable only from the day after
+    its publication. That is ADR-0014's bounded-ALFRED route.
+- **The filter.** Pass when the spread's 5-observation mean is at or above
+  the median of its trailing 252 observations. These are [KB-035]'s form and
+  cut, not tuned.
+- **Windows.** As KB-035: live 2013-07-10 →, 667 readings; long, the
+  panel-only flag, 1998-01 → 2026-06, 1,431 readings.
+
+**Headline — fails on both windows at `recall_lost`.**
+
+| 5d | crises | caught: filtered (unfiltered) | alarms | precision | LOCO caught | shifted filters: median / 90% precision | blocked | verdict |
+|---|---|---|---|---|---|---|---|---|
+| **live** | 17 | **9 (10)** | 17 (18) | 0.353 (0.333) | 5 (6) | 0.233 / **0.353** | 28% | `recall_lost` |
+| **long** | 36 | **13 (17)** | 41 (55) | **0.22 (0.218)** | 11 (14) | 0.214 / 0.273 | 35% | `recall_lost` |
+
+The unfiltered live row reproduces `fragility_or._pit_backtest`, the
+regression guard.
+
+The crises the filter lost under LOCO at 5d:
+- live: 2022-09-12 → 09-19;
+- long: 2000-04-11, 2000-10-09 → 11-06, and 2020-06-08.
+
+**The nuance that is easy to forget — this one is not worse than random,
+just not selective, and the live miss is not a near pass.**
+- **Long window: proportional cuts.** The filter removed 25% of the alarms
+  and 24% of the caught crises. That is what a filter blind to which firings
+  are real does. Precision moved from 0.218 to 0.22.
+- **Live window: a small number on few cases.** 28% of the firing readings
+  were blocked, but most sat inside episodes that fired anyway, so only one
+  alarm and one crisis went.
+- **Holding recall would not have saved it.** Precision 0.353 is short of the
+  0.40 target. It also equals the 90th percentile of the shifted filters, and
+  the bar needs strictly above. So the live row fails three disqualifiers,
+  not one.
+- **Contrast with SKEW** ([KB-035]): SKEW was anti-selective, choosing the
+  false alarms. Funding stress is roughly indifferent.
+- **Why, offered as interpretation, not tested.** Most of the equity flag's
+  crises did not start in the funding market. The Fed's commercial-paper
+  facility also capped the spread in 2008–2010 and 2020–2021. The 2020-06
+  crisis it lost falls inside that second facility.
+
+**Reported, not read — the spread as a fourth OR channel at its own PIT p90,
+with [KB-035]'s two controls now built into the harness.**
+
+| 5d | trio + CP: caught / precision | trio | CP fires on | time on alarm (trio) | 200 shifted CP channels: share catching ≥ real · share at least as precise |
+|---|---|---|---|---|---|
+| live | 12/17 · 0.286 | 10/17 · 0.333 | 12% | 30% (24%) | 0.29 · 0.52 |
+| long (2003 →) | 13/24 · 0.195 | 11/24 · 0.171 | 8% | 22% (18%) | 0.49 · 0.23 |
+
+Live it buys two crises at a precision cost. On the long window it is a
+typical randomly timed channel. **Not admitted.**
+
+**Revision sensitivity — what ADR-0014 guards against, measured for this
+input.** On the readings from 2006-03-22, swapping today's values in for the
+first releases changes **2 filter decisions on each window (1 on a firing)**,
+and neither verdict. Here the revisions were immaterial. Building from first
+releases cost about a dozen calls and removed the question rather than
+arguing it.
+
+**Caveats attached to the headline.**
+- Before the archive, from 1997 to 2006-03, values are the archive's first
+  vintage, assumed published 3 weekdays after their date. They cannot be
+  checked for revisions made at the time. The long window's 2000 losses fall
+  in this stretch.
+- 9 commercial-paper days and 4 bill days have no first release in the
+  archive and were dropped. The filter failed open on 5 live and 11 long
+  firings where the spread was stale (no observation within 10 days).
+- Two candidates were read on the same windows. A pass would have been
+  discounted for that. Two failures need no discount.
+
+**What it changes.**
+- **The commercial-paper spread as a filter on the OR flag is closed**,
+  negative on both windows. It is not admitted as a channel either, on a
+  reported read.
+- **IMP-9 is complete as the owner scoped it** (`resolved.md` #36: SKEW, then
+  this; the VIX's own volatility not run). Two outside inputs failed the
+  filter role in two different ways. No candidate left in step 1's table is
+  both eligible and low-overlap.
+- **Goal 2 stays unmet** by every route tried so far:
+  - adding channels ([KB-018], [KB-019], [KB-032]);
+  - recombining the trio ([KB-031]);
+  - filtering with an outside input (KB-035, this entry).
+- **A reusable finding for daily Fed rate series.** ALFRED's
+  `output_type=4` gives every observation's first release in a few chunked
+  calls (`filter_testing.alfred_leg`). The 40,000-call cost that motivated
+  [ADR-0014] does not apply to them. A future input of this kind can be
+  checked and built point in time cheaply.

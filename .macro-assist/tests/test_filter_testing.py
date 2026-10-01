@@ -253,3 +253,133 @@ def test_a_run_writes_its_report(tmp_path):
     assert out["overall"] in ("pass", "fail")
     text = (tmp_path / "report.md").read_text()
     assert "IMP-9 §9.A" in text and "Verdict: **" in text
+
+
+# ---------------------------------------------------------------------------
+# 9.C — the commercial-paper spread from first releases (§9.C)
+# ---------------------------------------------------------------------------
+
+def test_the_cp_constants_are_the_written_bar():
+    assert ft.CP_LEGS == ("DCPF3M", "DTB3")
+    assert ft.PRE_ARCHIVE_LAG_BD == 3
+    assert ft._ALFRED_CHUNK < 2000                        # the API's vintage cap
+
+
+def test_an_observation_is_read_only_after_it_was_published():
+    s = _skew(np.r_[np.full(300, 1.0), 9.0])               # a spike on the last observation
+    last = s.index[-1]
+    pub = pd.Series(s.index + pd.Timedelta(days=1), index=s.index)
+    pub.iloc[-1] = last + pd.Timedelta(days=4)              # published late
+    f = ft.input_filter(s, pd.DatetimeIndex([last + pd.Timedelta(days=4),
+                                             last + pd.Timedelta(days=5)]), pub)
+    assert f["x"].iloc[0] == 0.0                           # on its publication day: not yet
+    assert f["x"].iloc[1] == pytest.approx(1.6)            # the day after: (4·1 + 9)/5 − 1
+
+
+def test_a_print_waits_for_every_earlier_one():
+    """The running maximum: an observation published before its predecessor
+    is not read until the predecessor is."""
+    s = _skew(np.r_[np.full(300, 1.0), 9.0, 9.0])
+    pub = pd.Series(s.index + pd.Timedelta(days=1), index=s.index)
+    pub.iloc[-2] = s.index[-1] + pd.Timedelta(days=10)     # the second-last is very late
+    t = s.index[-1] + pd.Timedelta(days=3)                 # the last is out, its predecessor not
+    f = ft.input_filter(s, pd.DatetimeIndex([t]), pub)
+    assert f["x"].iloc[0] == 0.0
+    with pytest.raises(ValueError):
+        ft.input_filter(s, pd.DatetimeIndex([t]), pub.iloc[:-1])
+
+
+def test_stale_is_measured_from_the_observation_not_its_publication():
+    s = _skew(np.full(300, 1.0))
+    pub = pd.Series(s.index + pd.Timedelta(days=2), index=s.index)
+    t = s.index[-1] + pd.Timedelta(days=ft.STALE_DAYS + 1)
+    f = ft.input_filter(s, pd.DatetimeIndex([t]), pub)
+    assert f["stale"].iloc[0] and f["passes"].iloc[0]
+
+
+def _leg(dates, first, current, published, archived):
+    return pd.DataFrame({"first": first, "current": current, "published": pd.to_datetime(published),
+                         "archived": archived}, index=pd.DatetimeIndex(pd.to_datetime(dates), name="date"))
+
+
+def test_the_spread_is_first_less_first_published_when_the_later_leg_is():
+    cp = _leg(["2010-01-04", "2010-01-05", "2010-01-06"], [0.5, 0.6, 0.7], [0.5, 0.9, 0.7],
+              ["2010-01-05", "2010-01-08", "2010-01-07"], True)
+    tb = _leg(["2010-01-04", "2010-01-05"], [0.1, 0.1], [0.1, 0.1],
+              ["2010-01-06", "2010-01-06"], True)
+    sp = ft.cp_spread({"DCPF3M": cp, "DTB3": tb})
+    assert list(sp.index.strftime("%m-%d")) == ["01-04", "01-05"]
+    assert sp["first"].tolist() == pytest.approx([0.4, 0.5])
+    assert sp["current"].tolist() == pytest.approx([0.4, 0.8])
+    assert list(sp["published"].dt.strftime("%m-%d")) == ["01-06", "01-08"]
+
+
+def test_revision_stats_count_in_basis_points():
+    leg = _leg(["2005-01-03", "2006-01-03", "2006-01-04", "2007-01-03", "2007-01-04"],
+               [1.00, 2.00, 2.00, 3.00, np.nan], [1.02, 2.00, 2.28, 3.00, 3.0],
+               ["2005-01-06", "2006-01-04", "2006-01-06", "2007-01-04", None],
+               [False, True, True, True, True])
+    s = ft.revision_stats(leg)
+    assert (s["n"], s["n_revised"], s["max_bp"], s["n_ge_5bp"]) == (3, 1, 28.0, 1)
+    assert s["revised_by_year"] == {2006: 1}
+    assert s["lag_share_le"][1] == pytest.approx(2 / 3, abs=1e-3)
+    assert (s["pre_n"], s["pre_differ"], s["pre_max_bp"]) == (1, 1, 2.0)
+    assert s["no_first_release"] == 1
+
+
+def test_alfred_leg_reads_first_releases_and_dates_the_pre_archive(monkeypatch):
+    """A fake API: two vintages, so one chunk; one pre-archive observation; one
+    observation today has that the archive never released."""
+    def fake(path, **p):
+        if path == "series/vintagedates":
+            return {"vintage_dates": ["2006-03-22", "2006-03-23"]}
+        if p.get("output_type") == 4:
+            return {"observations": [{"date": "2006-03-22", "value": "4.50", "realtime_start": "2006-03-23"}]}
+        if p.get("realtime_start") == "2006-03-22":
+            return {"observations": [{"date": "2006-03-17", "value": "4.40", "realtime_start": "2006-03-22"},
+                                     {"date": "2006-03-21", "value": ".", "realtime_start": "2006-03-22"}]}
+        return {"observations": [{"date": "2006-03-17", "value": "4.41", "realtime_start": "2026-01-01"},
+                                 {"date": "2006-03-22", "value": "4.55", "realtime_start": "2026-01-01"},
+                                 {"date": "2006-03-23", "value": "4.60", "realtime_start": "2026-01-01"}]}
+    monkeypatch.setattr(ft, "_fred_json", fake)
+    leg = ft.alfred_leg("DCPF3M")
+    pre = leg.loc["2006-03-17"]
+    assert not pre["archived"] and pre["first"] == 4.40 and pre["current"] == 4.41
+    assert pre["published"] == pd.Timestamp("2006-03-22")          # Friday + 3 weekdays
+    arch = leg.loc["2006-03-22"]
+    assert arch["archived"] and arch["first"] == 4.50 and arch["published"] == pd.Timestamp("2006-03-23")
+    assert np.isnan(leg.loc["2006-03-23", "first"])                  # never released in the archive
+    assert "2006-03-21" not in leg.index.strftime("%Y-%m-%d")
+
+
+def test_legs_survive_the_cache(tmp_path):
+    cp = _leg(["2010-01-04", "2010-01-05"], [0.5, np.nan], [0.5, 0.6], ["2010-01-05", None], [True, True])
+    ft.save_legs({"DCPF3M": cp, "DTB3": cp}, tmp_path / "legs.csv")
+    back = ft.load_legs(tmp_path / "legs.csv")
+    pd.testing.assert_frame_equal(back["DCPF3M"], cp, check_freq=False, check_dtype=False)
+
+
+def test_a_cp_run_reports_the_revision_check_and_the_sensitivity(tmp_path):
+    win, skew, _ = _planted()
+    pub = pd.Series(skew.index + pd.offsets.BDay(1), index=skew.index)
+    cp = pd.DataFrame({"first": skew, "current": skew, "published": pub,
+                       "archived": skew.index >= skew.index[1500]}, index=skew.index.rename("date"))
+    cp.iloc[2000, cp.columns.get_loc("current")] += 1.0     # one revised day
+    tb = cp.assign(first=0.0, current=0.0)
+    out = ft.run(tmp_path, windows=[win], candidate="cp", legs={"DCPF3M": cp, "DTB3": tb})
+    row = out["rows"]["t"]
+    assert row["verdict"]["verdict"] == "pass"              # the planted filter, read from first releases
+    assert row["sensitivity"]["from"] == str(skew.index[1500].date())
+    assert "filter" not in row
+    text = (tmp_path / "cp_spread" / "report.md").read_text()
+    assert "IMP-9 §9.C" in text and "The revision check" in text and "today's values" in text
+    assert (tmp_path / "cp_spread" / "summary.json").exists()
+
+
+def test_the_channel_role_reports_time_on_alarm_and_a_seeded_shift():
+    win, skew, _ = _planted()
+    filt = ft.skew_filter(skew, win["channels"]["A"].index)
+    a = ft.channel_role(win, filt, label="X")
+    b = ft.channel_role(win, filt, label="X")
+    assert a["shift"] == b["shift"] and a["shift"]["n"] == ft.N_SHIFT
+    assert 0 <= a["ref_time_on_alarm"] <= a["time_on_alarm"] <= 1

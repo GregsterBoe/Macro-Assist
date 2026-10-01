@@ -149,7 +149,7 @@ Macro-Assist/
 │   ├── numeric_baseline/            #   learnability harness output
 │   ├── explore_conditioner/         #   explore-tier report + cached inputs (Phase 23)
 │   ├── explore_rules/               #   risk-rule explore report, cached inputs, run log (ADR-0023)
-│   ├── filter_testing/              #   IMP-9 filter gate: report, summary, cached channels and SKEW
+│   ├── filter_testing/              #   IMP-9 filter gate: report, summary, cached channels and SKEW; cp_spread/ the 9.C run and its ALFRED legs
 │   ├── quant_context_log/           #   daily JSONL snapshots of quant outputs
 │   └── accuracy_report.md
 │

@@ -516,11 +516,19 @@ first note. No version bump: the note's structure and contract do not change
 
 ## IMP-9 — An outside input as a filter on the OR flag: which data could carry it
 
-**Status:** 🔨 **9.A (SKEW) ❌ closed negative 2026-10-01 → [KB-035]:
-`recall_lost` on both windows. As a filter it kept 2 of 10 live crises, at
-precision 0.10, below random timing. 9.C (the commercial-paper spread) is
-next, as the owner chose (`resolved.md` #36): first its ALFRED revision check,
-then its own bar written before its values are read.** Step 1 (feasibility)
+**Status:** ❌ **closed 2026-10-01: both candidates the owner chose
+(`resolved.md` #36) fail as filters, on both windows, at `recall_lost`.**
+- **9.A, CBOE SKEW → [KB-035].** Anti-selective: it kept 2 of 10 live crises,
+  at precision 0.10, below random timing.
+- **9.C, the commercial-paper spread → [KB-036].** Not selective: it cut real
+  and false alarms alike, losing 1 of 10 live and 4 of 17 long crises. Its
+  live precision of 0.353 sat on the shifted filters' 90th percentile.
+  - It was built from ALFRED first releases, because the CP leg is revised on
+    1.6% of days.
+  - Today's values would have changed 2 decisions per window and no verdict.
+
+#36 left the VIX's own volatility unrun, so nothing in step 1's table
+remains. Step 3 (a risk-rule member) is never reached. Step 1 (feasibility)
 2026-10-01. Step 1 read no
 candidate's values: coverage was checked by listing dates only (first, last,
 row count, gaps).
@@ -562,7 +570,7 @@ month in [What is worth doing](../concepts/what-is-worth-doing.md).
 |---|---|---|---|---|---|---|
 | **A. CBOE SKEW** | Price of far out-of-the-money S&P puts: the market's fear of a tail, separate from the vol level | CBOE CSV `SKEW_History.csv`: 1990-01-02 → 2026-09-30, 9,238 rows, one gap over 7 days (13 days) | Market-observed, never revised: eligible like `VIXCLS` | Free. Same CBOE endpoint the composite's fallback uses (`fragility_panel._CBOE_URL`). CBOE's website terms to be read before any live use | Low by construction: it is the shape of the option smile, not its level | **Yes, first** |
 | **B. Volatility of the VIX** | How unstable the fear gauge itself is | VVIX: 2006-03-06 →, 5,115 rows, six gaps over 7 days (longest 21). The long form is the 21-day realized vol of the VIX, from CBOE VIX 1990-01-02 → (9,284 rows, no gap over 7 days) | Both market-observed: eligible | Free | **High.** The composite already reads the VIX term structure and the S&P variance trend. VVIX starts too late to add crises beyond the 2008+ window | Only the realized long form, after A |
-| **C. Funding stress: commercial paper over T-bills** | What banks pay to borrow for 90 days, over the risk-free rate | FRED `DCPF3M` (90-day AA financial CP) − `DTB3`: daily, 1997-01-02 → 2026-09-29. `CPFF` (CP − fed funds) same start | Rates, but a Fed compilation, not a quote. **Revision behaviour not yet checked.** A bounded ALFRED check (a few vintages) comes before any use | Free (FRED key in hand) | **Moderate to high.** [KB-019] found credit redundant, and funding stress moves with credit in a crash | After A, behind the revision check |
+| **C. Funding stress: commercial paper over T-bills** | What banks pay to borrow for 90 days, over the risk-free rate | FRED `DCPF3M` (90-day AA financial CP) − `DTB3`: daily, 1997-01-02 → 2026-09-29. `CPFF` (CP − fed funds) same start | Rates, but a Fed compilation, not a quote. **Checked 2026-10-01: `DCPF3M` revised on 1.6% of days (one 2018 batch), `DTB3` never.** Usable from first releases (§9.C) | Free (FRED key in hand) | **Moderate to high.** [KB-019] found credit redundant, and funding stress moves with credit in a crash | After A, behind the revision check |
 | TED spread | The classic funding gauge | FRED `TEDRATE` 1986 → **2022-01-21, discontinued** (LIBOR) | — | — | — | **No:** cannot run live |
 | NFCI and its risk / leverage subindices; St. Louis `STLFSI4` | Composite financial-conditions indices | Weekly from 1971 / 1993 | **Re-estimated every week** (798 / 204 vintages, first vintage 2011 / 2022) | Free | Includes credit and vol | **No:** ADR-0014 excludes it |
 | VXO | S&P 100 vol, from 1986 | FRED `VXOCLS` **ends 2021-09-23**; the CBOE file refuses (403) | — | — | Vol level | **No:** discontinued |
@@ -657,3 +665,101 @@ to the KB.
 one window. A filter that blocks about half the firings has to lose no crisis
 among about 20 live and more long ones, and SKEW's record as a crash
 predictor is weak in the published literature.
+
+### 9.C — The commercial-paper spread as a filter: the bar, written 2026-10-01 before any spread value was read
+
+The second of the owner's two candidates (`resolved.md` #36), run after 9.A
+failed ([KB-035]). Same harness, `.macro-assist/filter_testing.py
+--candidate cp`. Constants are fixed here and not swept. **Everything not
+stated below is 9.A's bar, unchanged**: the windows, the scoring, the
+verdict's order and its constants. A second candidate read on the same two
+windows is a second look. The bar is kept identical so the two read alike,
+and 9.C's KB entry says it was the second.
+
+**The revision check, done first (2026-10-01).** It compared each
+observation's first-published value (ALFRED, `output_type=4`) with today's.
+Only counts, sizes and publication dates were printed, never a level.
+- `DTB3` (3-month Treasury bill): archive from 2005-06-28. **0 of 5,316
+  observations ever revised.** Before the archive, its first vintage differs
+  from today's on 35 of 3,873 days, by at most 3 bp.
+- `DCPF3M` (90-day AA financial commercial paper): archive from 2006-03-22.
+  **69 of 4,435 observations revised (1.6%), at most 28 bp, 20 by 5 bp or
+  more.** 62 of them came in one batch in August 2018, restating 2017–2018
+  values. The other 7 were corrections within 90 days (2013, 2016). Before
+  the archive, its first vintage differs from today's on 2 of 2,307 days, by
+  at most 2 bp.
+- **Publication lag.** Each observation's first appearance is 1 business day
+  after its date on 63–65% of days. It is within 2 business days on 95–97%,
+  and within 3 on 98–99.7%.
+
+So `DCPF3M` is **revised**, and [ADR-0014] excludes it as published today.
+That ADR also keeps ALFRED reconstruction "where the call volume is bounded".
+Here it is about a dozen calls for the whole archive. **The input is
+therefore built from first releases, not today's values.**
+
+**The input.**
+- *The spread*: `DCPF3M − DTB3` on each day both legs have an observation.
+- *Values*: each leg's **first-published** value. Before the archive (CP
+  before 2006-03-22, bills before 2005-06-28), the archive's first vintage is
+  used. Those nine years cannot be checked for revisions made at the time.
+  The evidence above (one batch in twenty years, old values unchanged since
+  2006) is why they are used rather than dropped, and the caveat goes with
+  the result.
+- *When it is readable*: an observation is readable on reading date *t* only
+  if it was published **strictly before** *t*. The note runs before the US
+  open, and the Fed's release lands during the US day. Publication is the
+  later of the two legs' first-release dates. Before the archive it is taken
+  as 3 business days after the observation, beyond the lag of 98–99.7% of
+  archived days. An observation counts as readable only once every earlier
+  one is.
+- *x_t*: the mean of the 5 latest readable spread observations, minus the
+  median of the 252 ending on the same observation. This is 9.A's form, for
+  9.A's reasons: smoothing one noisy print, and a level measured against its
+  own trailing year.
+- *Stale data fails open*: if the latest readable observation is more than
+  10 calendar days before *t*, the firing stands.
+- *Too little history drops the reading*: under 252 + 5 readable
+  observations.
+
+**The filtered flag.** OR(trio) ∧ (`x_t` ≥ 0): a warning stands only when
+funding stress is at or above its own past-year median. The same cut as 9.A,
+not tuned for this series.
+
+**Windows, verdict, scoring: as 9.A.**
+- Live: the KB-021 trio, labelled on ^GSPC, with the live floor of 0.40.
+- Long: AR ∨ TURB on the FF 30 industries, from where the spread is warmed
+  up (about 1998) to the FF data's end.
+- The verdict runs `underpowered` → `too_late` → `recall_lost` (any crisis
+  lost at 5d, PIT or LOCO) → `no_edge` (+0.05, and 0.40 live) → `luck` (90%
+  of 200 shifted filters) → `pass`.
+- **9.C passes only if both windows read `pass`.** A KB entry either way.
+
+**Reported, not read.**
+1. The spread as a fourth OR channel at its own PIT p90 (the [KB-019] role),
+   **now with [KB-035]'s two controls built into the harness**:
+   - time on alarm, with and without the channel;
+   - 200 circular shifts of the channel's firing series (seed and range as
+     the filter's null), with the share of shifts that catch at least as many
+     crises, and the share at least as precise.
+2. **Revision sensitivity.** On the readings after the archive starts, how
+   many of the filter's pass/block decisions change when today's values
+   replace the first releases, and the verdict each window would read with
+   today's values. This measures what ADR-0014 guards against, for this one
+   input.
+3. The revision check above, recomputed by the run.
+4. The share of firings blocked, and which crises were lost.
+
+**Known before any value was read (from history, not from the data).**
+- Both rates sat near zero in 2009–2015 and 2020–2021, so the spread was
+  compressed then.
+- The Fed's Commercial Paper Funding Facility (2008-10 → 2010-02 and
+  2020-03 → 2021-03) bought commercial paper during two of the crises, which
+  caps the spread exactly then.
+- Funding stress led the trouble in 2007–2008. It barely moved in sell-offs
+  that did not start in funding (2015-08, 2018-02, 2022).
+
+**Prior, the proposer's, written before the run.** `recall_lost` on at least
+one window. A filter that waits for funding stress should block warnings
+before sell-offs that never reach the funding market, and the live window
+holds several of those. [KB-019] already found the related credit channel
+redundant.
