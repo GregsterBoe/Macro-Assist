@@ -1,0 +1,301 @@
+{
+ "candidate": "cp",
+ "overall": "fail",
+ "span": [
+  "1997-01-02",
+  "2026-09-29"
+ ],
+ "rows": {
+  "live": {
+   "window": "live",
+   "what": "composite \u2228 AR \u2228 TURB (KB-021, sector ETFs), labelled on ^GSPC",
+   "floor": 0.4,
+   "n_readings": 667,
+   "first": "2013-07-10",
+   "last": "2026-10-01",
+   "or_firings": 161,
+   "blocked": 45,
+   "stale_open": 5,
+   "pit": {
+    "5": {
+     "n_episodes": 17,
+     "caught": 9,
+     "ref_caught": 10,
+     "n_alarms": 17,
+     "ref_n_alarms": 18,
+     "precision": 0.353,
+     "ref_precision": 0.333,
+     "median_lead": 5.0,
+     "ref_median_lead": 5.0
+    },
+    "10": {
+     "n_episodes": 21,
+     "caught": 10,
+     "ref_caught": 11,
+     "n_alarms": 17,
+     "ref_n_alarms": 18,
+     "precision": 0.412,
+     "ref_precision": 0.444,
+     "median_lead": 9.5,
+     "ref_median_lead": 10.0
+    }
+   },
+   "loco": {
+    "5": {
+     "n_crises": 17,
+     "caught": 5,
+     "ref_caught": 6,
+     "lost": [
+      [
+       "2022-09-12",
+       "2022-09-19"
+      ]
+     ]
+    },
+    "10": {
+     "n_crises": 21,
+     "caught": 9,
+     "ref_caught": 10,
+     "lost": [
+      [
+       "2026-03-17",
+       "2026-03-17"
+      ]
+     ]
+    }
+   },
+   "reproduces_live": true,
+   "luck": {
+    "n": 200,
+    "q": 0.353,
+    "median": 0.233
+   },
+   "channel_role": {
+    "n_readings": 663,
+    "first": "2013-08-07",
+    "5": {
+     "caught": 12,
+     "ref_caught": 10,
+     "n_episodes": 17,
+     "precision": 0.286,
+     "ref_precision": 0.333,
+     "loco_caught": 10,
+     "loco_ref_caught": 9,
+     "loco_n": 21
+    },
+    "10": {
+     "caught": 12,
+     "ref_caught": 11,
+     "n_episodes": 21,
+     "precision": 0.333,
+     "ref_precision": 0.444,
+     "loco_caught": 14,
+     "loco_ref_caught": 14,
+     "loco_n": 31
+    },
+    "fire_rate": 0.115,
+    "time_on_alarm": 0.296,
+    "ref_time_on_alarm": 0.243,
+    "shift": {
+     "n": 200,
+     "caught_median": 11.0,
+     "share_caught_ge": 0.29,
+     "precision_median": 0.286,
+     "share_precision_ge": 0.515
+    }
+   },
+   "verdict": {
+    "verdict": "recall_lost",
+    "reason": "at 5d the filter loses 1 crisis(es) under PIT (9 vs 10) and 1 under LOCO (5 vs 6); allowed 0"
+   },
+   "sensitivity": {
+    "from": "2006-03-22",
+    "n_readings": 667,
+    "flipped": 2,
+    "flipped_firings": 1,
+    "verdict": "recall_lost",
+    "reason": "at 5d the filter loses 1 crisis(es) under PIT (9 vs 10) and 1 under LOCO (5 vs 6); allowed 0"
+   }
+  },
+  "long": {
+   "window": "long",
+   "what": "AR \u2228 TURB (Fama-French 30 industries, H-009's flag), labelled on the FF market",
+   "floor": null,
+   "n_readings": 1431,
+   "first": "1998-01-22",
+   "last": "2026-06-26",
+   "or_firings": 289,
+   "blocked": 100,
+   "stale_open": 11,
+   "pit": {
+    "5": {
+     "n_episodes": 36,
+     "caught": 13,
+     "ref_caught": 17,
+     "n_alarms": 41,
+     "ref_n_alarms": 55,
+     "precision": 0.22,
+     "ref_precision": 0.218,
+     "median_lead": 4.0,
+     "ref_median_lead": 4.0
+    },
+    "10": {
+     "n_episodes": 53,
+     "caught": 19,
+     "ref_caught": 24,
+     "n_alarms": 41,
+     "ref_n_alarms": 55,
+     "precision": 0.39,
+     "ref_precision": 0.364,
+     "median_lead": 8.0,
+     "ref_median_lead": 8.0
+    }
+   },
+   "loco": {
+    "5": {
+     "n_crises": 36,
+     "caught": 11,
+     "ref_caught": 14,
+     "lost": [
+      [
+       "2000-04-11",
+       "2000-04-11"
+      ],
+      [
+       "2000-10-09",
+       "2000-11-06"
+      ],
+      [
+       "2020-06-08",
+       "2020-06-08"
+      ]
+     ]
+    },
+    "10": {
+     "n_crises": 53,
+     "caught": 17,
+     "ref_caught": 23,
+     "lost": [
+      [
+       "2000-09-01",
+       "2000-12-12"
+      ],
+      [
+       "2001-05-22",
+       "2001-06-06"
+      ],
+      [
+       "2019-07-24",
+       "2019-07-31"
+      ],
+      [
+       "2020-06-08",
+       "2020-06-08"
+      ],
+      [
+       "2022-02-28",
+       "2022-02-28"
+      ],
+      [
+       "2024-07-26",
+       "2024-07-26"
+      ]
+     ]
+    }
+   },
+   "luck": {
+    "n": 200,
+    "q": 0.273,
+    "median": 0.214
+   },
+   "channel_role": {
+    "n_readings": 1179,
+    "first": "2003-01-28",
+    "5": {
+     "caught": 13,
+     "ref_caught": 11,
+     "n_episodes": 24,
+     "precision": 0.195,
+     "ref_precision": 0.171,
+     "loco_caught": 22,
+     "loco_ref_caught": 19,
+     "loco_n": 42
+    },
+    "10": {
+     "caught": 19,
+     "ref_caught": 17,
+     "n_episodes": 40,
+     "precision": 0.317,
+     "ref_precision": 0.341,
+     "loco_caught": 31,
+     "loco_ref_caught": 30,
+     "loco_n": 72
+    },
+    "fire_rate": 0.082,
+    "time_on_alarm": 0.22,
+    "ref_time_on_alarm": 0.18,
+    "shift": {
+     "n": 200,
+     "caught_median": 12.0,
+     "share_caught_ge": 0.49,
+     "precision_median": 0.174,
+     "share_precision_ge": 0.23
+    }
+   },
+   "verdict": {
+    "verdict": "recall_lost",
+    "reason": "at 5d the filter loses 4 crisis(es) under PIT (13 vs 17) and 3 under LOCO (11 vs 14); allowed 0"
+   },
+   "sensitivity": {
+    "from": "2006-03-22",
+    "n_readings": 1020,
+    "flipped": 2,
+    "flipped_firings": 1,
+    "verdict": "recall_lost",
+    "reason": "at 5d the filter loses 4 crisis(es) under PIT (13 vs 17) and 3 under LOCO (11 vs 14); allowed 0"
+   }
+  }
+ },
+ "revisions": {
+  "DCPF3M": {
+   "archive_from": "2006-03-22",
+   "n": 4435,
+   "n_revised": 69,
+   "max_bp": 28.0,
+   "n_ge_5bp": 20,
+   "revised_by_year": {
+    "2013": 1,
+    "2016": 6,
+    "2017": 42,
+    "2018": 20
+   },
+   "lag_share_le": {
+    "1": 0.635,
+    "2": 0.969,
+    "3": 0.997
+   },
+   "pre_n": 2307,
+   "pre_differ": 2,
+   "pre_max_bp": 2.0,
+   "no_first_release": 9
+  },
+  "DTB3": {
+   "archive_from": "2005-06-28",
+   "n": 5316,
+   "n_revised": 0,
+   "max_bp": 0.0,
+   "n_ge_5bp": 0,
+   "revised_by_year": {},
+   "lag_share_le": {
+    "1": 0.647,
+    "2": 0.948,
+    "3": 0.979
+   },
+   "pre_n": 12858,
+   "pre_differ": 35,
+   "pre_max_bp": 3.0,
+   "no_first_release": 4
+  }
+ },
+ "run_at": "2026-10-01T23:10:30+02:00"
+}
