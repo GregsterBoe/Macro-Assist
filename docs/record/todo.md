@@ -14,7 +14,11 @@ Conventions:
   reasoning intact, and pull any "carry forward" caveat back up into this file
   as its own entry. A resolved item left here is noise; a lost caveat is worse.
 
-Last reviewed: 2026-10-01 — **#36** opened by IMP-9's step 1 (which outside
+Last reviewed: 2026-10-01 (later) — the note stops calling the model (v2.2,
+[ADR-0024](../decisions/ADR-0024-the-note-makes-no-llm-call.md)), and three items it
+made moot or finished closed → [`resolved.md`](resolved.md): **#7** (the Target Range
+is no longer published), **#1b** (the note now carries the computed table itself) and
+**#11** (`llm_analysis.py` is dormant). Earlier the same day, **#36** opened by IMP-9's step 1 (which outside
 input is tried first as a filter on the OR flag) and closed the same day →
 [`resolved.md`](resolved.md): CBOE SKEW first, then the commercial-paper
 spread. Earlier the same day, **#35** opened by the risk-rule build (does H-009's clause
@@ -57,21 +61,6 @@ follow-ups folded in below.
 ---
 
 ## Phase 22 — distribution scoring
-
-### Open decision #7 — Target Range: nominal coverage, and path vs endpoint
-**Where:** `prompts/system_prompt.md:166` (the band's spec) · not scored anywhere.
-The LLM's Target Range is the only remaining LLM-authored falsifiable claim in the
-note, and it is unscored. Two things have to be decided before it can be, and
-neither is a bug fix:
-1. **No nominal coverage is stated anywhere.** The prompt calls it "a dispersion
-   band for 5 business days", never "an 80% interval". Without a nominal, coverage
-   is a measurement, not a test — so either pre-register a nominal (and the model
-   should be told it), or accept that this can only ever be descriptive.
-2. **It is a *path* band, not an endpoint band.** "Where the asset can reasonably
-   trade" over 5 days is the intraday range, so containment must be scored against
-   the high/low over the window, not the T+5 close. Scoring the close measures a
-   different quantity and would report far higher coverage than the claim earns.
-Deliberately deferred out of Phase 22 (scope was the conditional distribution).
 
 ### Open decision #8 — does the distribution deserve a wider published interval?
 **Where:** `quant_context.conditional_cells` · `score_distributions.NOMINAL_COVERAGE`.
@@ -150,15 +139,6 @@ data, so this is the intended loosening — but it is a loosening. The
 "book beat benchmark" is partly the gate's **beta-timing**, not pure signal alpha.
 Keep that distinction when reading the DESIGN §9 quarter result.
 
-### Deferred #1b — emit a machine-readable band into the note
-*From resolved #1.* Reading the code-computed table instead of LLM prose (option b)
-is the correct eventual decoupling, but the committed note carries only the LLM's
-prose reproduction, so it means re-plumbing note generation
-(`llm_analysis._build_analysis_markdown` + threading the computed bands through).
-Deferred: a large, reactive change mid-forward-test for a now-cosmetic gain.
-**Revisit only if a note-format revision is already on the table** — the same
-condition as open decision #8.
-
 ### Deferred #6b — an excess-return / IR series from first exposure
 *From resolved #6.* The flat-book NAV label prevents the misread; a proper
 information-ratio series that **starts at first exposure** is the real DESIGN §5
@@ -170,7 +150,7 @@ deliverable. Belongs with the §9 quarter read, not a mid-flight reporting tweak
 
 *#13 (the ≤3-year mean labelled five) landed 2026-09-14 and the below-chance
 headline accuracy (#7, carried) was answered by the cut itself — both in
-[`resolved.md`](resolved.md). #7 and #8 above are the Phase 22 items.*
+[`resolved.md`](resolved.md). #8 above is the Phase 22 item; #7 resolved moot 2026-10-01 (ADR-0024).*
 
 ### Carried finding #30 — ADR-0012's revisit section has not been re-read since the failure that tested it
 **Where:** [ADR-0012](../decisions/ADR-0012-external-cron-with-backstop.md),
@@ -392,12 +372,6 @@ switched on 2026-09-29 — an entry is promoted only through `audit_entry.yml`
 
 *Folded in from `maintenance-log.md` 2026-09-11 so there is one inbox rather
 than three. The maintenance log now records passes; the open items live here.*
-
-### Carried finding #11 — optional further split of `llm_analysis.py`
-~1,200 lines. One cohesive concern (the multi-agent LLM pipeline) but the largest
-remaining module and the least test-covered. Could split into agents / synthesis /
-note-markdown if it keeps growing; kept as one module for now to minimise churn in
-untested code.
 
 ---
 

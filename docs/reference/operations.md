@@ -96,7 +96,11 @@ Does not require `ANTHROPIC_API_KEY` or `VAULT_PAT`.
 
 1. Checkout Macro-Assist (write token) + External-Brain vault
 2. Install Python dependencies
-3. Run `collect_and_analyze.py` (fetch → analyze → write note to vault)
+3. Run `collect_and_analyze.py` (fetch → compute and log the reading → write note to vault).
+   No LLM call since v2.2 ([ADR-0024](../decisions/ADR-0024-the-note-makes-no-llm-call.md)): the repo
+   variable `NOTE_ANALYSIS` is `off` unless set to `llm`, which restores the
+   model-written analysis and its cost. Every other env line on the step serves
+   that path only
 4. Copy note to `results/` in Macro-Assist and commit back
 
 The fragility feed gate is **not** a step here — see `feed_gate` below.
@@ -726,9 +730,11 @@ check is red on every one of those trees.
 
 Two pins, each held exactly (a pin whose condition has gone is itself red):
 `RESERVED_KB_NUMBERS` for KB-008, reserved for an A/B the cut made moot and
-named in the KB's prose without an entry; `KNOWN_ITEM_COLLISIONS` for `#7`,
-the one number the inbox and `resolved.md` both hold — Phase 22's open
-decision and the carried accuracy finding closed as "#7 (carried)".
+named in the KB's prose without an entry; and `KNOWN_ITEM_COLLISIONS`, empty
+since 2026-10-01. It held `#7` while the inbox and `resolved.md` both did:
+Phase 22's open decision and the carried accuracy finding closed as
+"#7 (carried)". The open one closed moot under ADR-0024, the pin went red as
+designed, and it was removed.
 
 ### A claim the repo makes twice, differently
 
@@ -1069,10 +1075,15 @@ the `plan` job's summary repeats the source and the resolved `asof`.
 | Secret | Description |
 |--------|-------------|
 | `FRED_API_KEY` | [FRED API key](https://fred.stlouisfed.org/docs/api/api_key.html) |
-| `ANTHROPIC_API_KEY` | Anthropic API key — the daily note, the auditor's canary suite (`auditor_canaries.yml`) and the promotion-tier audit (`audit_entry.yml`) |
+| `ANTHROPIC_API_KEY` | Anthropic API key — the daily note only with `NOTE_ANALYSIS=llm` (off since v2.2), the auditor's canary suite (`auditor_canaries.yml`) and the promotion-tier audit (`audit_entry.yml`) |
 | `VAULT_PAT` | GitHub Personal Access Token with `repo` scope (for pushing to External-Brain) |
 | `VAULT_REPO` | External-Brain repo name, e.g. `GregsterBoe/External-Brain` |
-| `SUPADATA_API_KEY` | [Supadata API key](https://supadata.ai) for YouTube transcripts (optional) |
+| `SUPADATA_API_KEY` | [Supadata API key](https://supadata.ai) for YouTube transcripts (optional; read only with `NOTE_ANALYSIS=llm`) |
+
+**Repo variable `NOTE_ANALYSIS`** (Settings → Secrets and variables → Actions →
+Variables): unset or `off` is the computed note with no LLM call (v2.2,
+[ADR-0024](../decisions/ADR-0024-the-note-makes-no-llm-call.md)); `llm` restores the
+model-written analysis, and with it `MACRO_PROFILE` / `MACRO_MODEL` and the cost.
 
 `GITHUB_TOKEN` is provided automatically by GitHub Actions. The workflows require `permissions: contents: write`, enabled in the workflow files and under repo Settings → Actions → General → Workflow permissions → Read and write.
 

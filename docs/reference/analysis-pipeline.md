@@ -2,6 +2,11 @@
 
 The four Claude agents, what each one sees, and the model refit that feeds them.
 
+> **Dormant since v2.2 ([ADR-0024](../decisions/ADR-0024-the-note-makes-no-llm-call.md)).** The daily
+> note makes no LLM call; it is computed from the logged quant reading. This
+> layer runs only when the repo variable `NOTE_ANALYSIS=llm` is set, and the
+> description below is what it does then.
+
 For why it is split this way rather than one wide call, see
 [The signal stack](../concepts/the-signal-stack.md#l2-the-llm-layer).
 

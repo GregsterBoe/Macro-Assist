@@ -17,24 +17,22 @@ Macro Pipeline · stage 2 (Mon–Fri, one run per external cron call)
   ├── fetch FRED macro indicators (16 series, 5yr history each)
   ├── fetch market prices + technicals (yfinance, 90d history)
   ├── fetch 5y close history for the HAR-RV assets (yfinance; KB-033)
-  ├── fetch sector ETF fundamentals (11 ETFs + holdings P/E)
-  ├── fetch COT positioning (CFTC direct download, no API key)
-  ├── fetch economic calendar (BLS + hardcoded FOMC dates)
-  ├── fetch YouTube transcripts (Supadata API, if new video in 36h)
-  ├── summarize transcripts (Claude Haiku)
-  ├── inject historical prediction accuracy (accuracy_summary.json)
-  ├── inject portfolio positions (tr_positions.csv, if present)
+  ├── fetch sector ETF prices (11 ETFs; the data snapshot)
   ├── build quantitative context block:
   │     ├── HAR-RV volatility forecasts (SP500, Gold, WTI Oil, Bitcoin)
+  │     ├── volatility-targeting dial: typical (5y) ÷ forecast vol (v2.2)
   │     ├── VIX variance risk premium (SP500)
-  │     ├── HMM regime classification (4-state model)
+  │     ├── Fragility Monitor + OR flag
   │     └── conditional return distributions (macro-regime bucketed)
+  ├── log the reading → results/quant_context_log/YYYY-MM-DD.jsonl
   │
-  ├── MA-1: Claude Sonnet → structured AnalysisOutput (tool_use, 5000 tokens)
-  ├── MA-2: Claude Sonnet → adversarial review of predictions table
-  ├── MA-3a: Claude Haiku → portfolio risk agent (structured, narrow context)
-  ├── MA-3b: Claude Haiku → synthesis agent (formats JSON → markdown)
-  ├── Python → render measured blocks (fragility, conditional distribution)
+  ├── Python → render the note from the logged reading: Fragility Monitor,
+  │     Volatility Targeting, 5-Day Outlook, data snapshot. No LLM call
+  │     since v2.2 (ADR-0024).
+  │
+  │   Dormant, only with NOTE_ANALYSIS=llm: sector fundamentals, COT,
+  │   calendar, YouTube transcripts (Supadata + Haiku), portfolio positions,
+  │   then MA-1 / MA-2 (the main model) and MA-3a / MA-3b (Haiku).
   │
   ├── push note → External-Brain/Economy/YYYY/MM-Month/
   └── push note → Macro-Assist/results/MM-Month/
@@ -68,7 +66,7 @@ Macro-Assist/
 ├── .macro-assist/                   # all pipeline code (dot-prefixed: it is
 │   │                                #   infrastructure, not vault content)
 │   ├── collect_and_analyze.py       # the daily entry point (--fetch-only for data checks)
-│   ├── llm_analysis.py              # the four-agent LLM pipeline + note assembly
+│   ├── llm_analysis.py              # the four-agent LLM pipeline — dormant since v2.2 (NOTE_ANALYSIS=llm)
 │   ├── schemas.py                   # Pydantic models for MA-1's structured output
 │   ├── pipeline_common.py           # shared CLI/run plumbing
 │   ├── pipeline_config.py           # run profiles and lever resolution

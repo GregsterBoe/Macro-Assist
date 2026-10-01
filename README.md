@@ -4,12 +4,12 @@
 actually measured about itself.**
 
 Every weekday morning a GitHub Actions workflow fetches live economic and market
-data from free sources, computes a layer of quantitative context in Python, runs
-a four-agent Claude pipeline over it, and delivers a formatted Markdown note to a
-personal Obsidian vault. Every Monday it grades what it published. Every Sunday
+data from free sources, computes a layer of quantitative context in Python, and
+delivers a formatted Markdown note to a personal Obsidian vault. Since v2.2 the note
+is computed end to end and makes no LLM call ([ADR-0024](docs/decisions/ADR-0024-the-note-makes-no-llm-call.md)). Every Monday it grades what it published. Every Sunday
 it refits its statistical models.
 
-It costs a few dollars a month in API calls and runs on no servers.
+It costs nothing in API calls day to day and runs on no servers.
 
 📖 **[Browse the full documentation →](https://gregsterboe.github.io/Macro-Assist/)**
 
@@ -58,9 +58,13 @@ One note per weekday, containing:
 
 | Block | Authored by | What it is |
 |---|---|---|
-| **Fragility Monitor** | Python, after the LLM call | 0–100 composite tail-risk gauge + a higher-recall OR-of-channels flag. Precision ≈ 0.32 stated inline — a high-recall warning, never a forecast |
-| Executive summary, macro dashboard, per-asset sections | Claude (schema-constrained) | Equities, rates, inflation/growth, commodities, sector research, key risks |
-| **5-Day Outlook** | Python renders the distribution; Claude writes the driver | Per asset: empirical conditional return distribution (median, P25/P75, `n`) for the current macro-state bucket, primary driver, target range |
+| **Fragility Monitor** | Python | 0–100 composite tail-risk gauge + a higher-recall OR-of-channels flag. Precision ≈ 0.32 stated inline — a high-recall warning, never a forecast |
+| **Volatility Targeting** | Python | Per asset with a HAR-RV forecast: the share of a normal position to hold, typical (5y) ÷ forecast volatility, capped at 100%. The textbook risk dial, labelled as such — not a forecast, not measured here as adding return |
+| **5-Day Outlook** | Python | Per asset: empirical conditional return distribution (median, P25/P75, `n`) for the current macro-state bucket |
+| Data snapshot | Python | Markets, sector ETFs, macro indicators |
+
+The model-written analysis (summary, per-asset prose, portfolio and sector reads)
+was switched off in v2.2; the repo variable `NOTE_ANALYSIS=llm` restores it.
 
 And **no directional call**, anywhere.
 
@@ -155,8 +159,7 @@ git worktree add results output
 export FRED_API_KEY=...
 python .macro-assist/collect_and_analyze.py --fetch-only
 
-# the full daily pipeline
-export ANTHROPIC_API_KEY=...
+# the full daily pipeline (no LLM call; NOTE_ANALYSIS=llm + ANTHROPIC_API_KEY restores it)
 python .macro-assist/collect_and_analyze.py
 
 # the test suite

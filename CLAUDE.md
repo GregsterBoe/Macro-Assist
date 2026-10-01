@@ -31,7 +31,7 @@ output to `docs/record/hypotheses.md`.
 | **Concepts** | `docs/concepts/` | What the system is for, and why |
 | **Foundations** | `docs/foundations/` | General concepts (stress measures, scoring rules, inference, models) in this project's terms — explains, never owns a number |
 | **Reference** | `docs/reference/` | **How the code behaves today** — kept current with the code |
-| **Decisions** | `docs/decisions/` | **Why** the system has its shape (23 ADRs) |
+| **Decisions** | `docs/decisions/` | **Why** the system has its shape (24 ADRs) |
 | **Record** | `docs/record/` | Plans, status, and **measured findings** |
 
 Inside `docs/record/`:
@@ -195,8 +195,8 @@ live path may not import a harness.
 
 | | |
 |---|---|
-| **Version** | **v2.1** (2026-09-13; first note 2026-09-14) — the measured line; 1.x predicted direction |
-| **Live product** | Conditional return distribution across 6 assets + Fragility Monitor |
+| **Version** | **v2.2** (2026-10-02) — the note makes no LLM call ([ADR-0024](docs/decisions/ADR-0024-the-note-makes-no-llm-call.md)); 2.x measures, 1.x predicted direction |
+| **Live product** | A computed note, no model: Fragility Monitor + volatility-targeting dial (4 assets) + conditional return distribution (6 assets). `NOTE_ANALYSIS=llm` restores the model-written analysis |
 | **Live experiment** | Phase 22 distribution scorer — bar sealed, first honest read ~2027-05 |
 | **Watch** | The Fragility Monitor's `vix_term` leg was missing 2026-09-16 → 09-18 — no calibrated label on those three readings ([KB-034]). **Cause found:** yfinance's `^VIX3M` returns nothing at ~06:04 UTC (when the note runs) and current data at 16:24 UTC the same day. Shipped: instrumentation, a daily gate (`feed_audit.py`, pipeline job `feed_gate`, red past two consecutive degraded readings without blocking the weekly stages) and `pipeline.yml mode=validate`. **Resolved 2026-09-23:** the legs retry (`pipeline_common.yf_history_with_retry` — an *empty frame* is a failure, not an answer), and `--probe-cboe` runs in CI as its own job `feed_probe`, **green on all three of the day's runs** ([KB-034] second addendum). The fallback works from the runner, the three failures were transient, and the WAF/datacenter-IP guess of the day before is **disproven** — don't carry it forward. A green probe proves the *fetch*, not the *splice*: `freshen_vol_indices` has still never completed in production. **Still open:** *moving the run* (`todo.md` #26 item 3). The slot did move to 06:23 as a side effect of #27's timezone fix and that day's `vix_term` computed — but the retry landed the same day too, so one healthy day attributes nothing. |
 | **Winding down** | The directional scorer, once the last T+20 window resolves ~2026-10-02 |
@@ -212,9 +212,9 @@ table.
 
 ## Gotchas
 
-- **`llm_analysis.py` is the largest and least-tested module** (~1,200 lines).
-  Kept as one module to minimise churn in untested code; see `maintenance-log.md`
-  open follow-ups before splitting it.
+- **`llm_analysis.py` is dormant since v2.2** ([ADR-0024](docs/decisions/ADR-0024-the-note-makes-no-llm-call.md)):
+  the daily run never reaches it unless `NOTE_ANALYSIS=llm`. It is the largest and
+  least-tested module (~1,200 lines); don't split or refactor dormant code.
 - **GitHub Pages is on** as of 2026-09-12 — the docs site publishes and the
   deploy preflight passes. It had been off, failing every `main` push that
   touched `docs/`; if it ever reverts, the preflight names the fix and only a

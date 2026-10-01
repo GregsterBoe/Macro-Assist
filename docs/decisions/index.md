@@ -42,6 +42,7 @@ source of truth for *why*.
 | [ADR-0005](ADR-0005-fragility-mode-ladder.md) | Fragility ships behind a mode ladder, never straight to live | Accepted |
 | [ADR-0006](ADR-0006-or-mode-not-weight.md) | Adopt the cross-section as an OR *mode*, not a blended weight | Accepted |
 | [ADR-0011](ADR-0011-canonical-asset-registry.md) | One canonical asset registry; stored numbers are display units | Accepted |
+| [ADR-0024](ADR-0024-the-note-makes-no-llm-call.md) | **The daily note makes no LLM call (v2.2)**: the Fragility Monitor, a volatility-targeting dial and the conditional distributions | Accepted 2026-10-01 |
 
 ### How things get measured
 
@@ -70,9 +71,6 @@ source of truth for *why*.
 These are consciously undecided and are tracked in
 [todo.md](../record/todo.md) rather than here, except where one blocks work:
 
-- **Open decision #7 — Target Range coverage.** Needs a pre-registered nominal
-  and a path-vs-endpoint call. It is the last LLM-authored falsifiable claim in
-  the note and it is unscored.
 - **Open decision #8 — should the note publish a wider interval?** P25/P75 means
   half of all outcomes land outside the band the reader sees. The table already
   holds p10/p90. A product decision with a cost: it would restart the sealed

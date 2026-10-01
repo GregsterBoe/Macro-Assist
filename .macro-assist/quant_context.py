@@ -33,7 +33,7 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from vol_forecast import har_forecast_or_none, variance_risk_premium
+from vol_forecast import HAR_MIN_RETURNS, har_forecast_or_none, variance_risk_premium
 from regime import predict_regime, load_regime_model, label_states, DEFAULT_MODEL_PATH, regime_enabled
 from regime_features import regime_features
 from conditional import (
@@ -324,6 +324,13 @@ def collect_quant_raw(
                     "forecast_daily_vol": round(fc["forecast_daily_vol"], 2),
                     "percentile_60d":     round(fc["percentile_60d"], 1),
                 }
+                # v2.2: the volatility-targeting dial (ADR-0024). Logged with
+                # the forecast it was read from, so the note can never publish
+                # a dial the record does not hold.
+                typical = typical_vol(returns)
+                if typical is not None:
+                    entry["typical_vol"] = round(typical, 2)
+                    entry["exposure"]    = vol_target_exposure(fc["forecast_daily_vol"], typical)
                 if key == "sp500" and vix_value is not None:
                     vrp = variance_risk_premium(vix_value, fc)
                     entry["vix"]              = round(vix_value, 2)
@@ -991,9 +998,94 @@ def build_fragility_snapshot(raw: Optional[dict]) -> str:
           "skill ([KB-017] leave-one-crisis-out CV, [KB-021] live parity), and its honest "
           "limit is precision ≈0.32: when it fires, roughly two alarms in three are false. "
           "High recall is the point; a missed crisis costs more than a false one. No live "
-          "forward record yet, so it is shown and not acted on. Computed after the "
-          f"analysis from the same reading that is logged; mode {modes}._\n"
+          "forward record yet, so it is shown and not acted on. Computed from the "
+          f"same reading that is logged; mode {modes}._\n"
     )
+
+
+# ---------------------------------------------------------------------------
+# Volatility targeting (v2.2, ADR-0024)
+# ---------------------------------------------------------------------------
+# The note's second risk read, replacing the model-written analysis. It is the
+# textbook rule, not a finding of this project: hold less of an asset when its
+# forecast volatility is above its own typical level, so the swings you carry
+# stay near their usual size. H-009 used the same family as the rival a
+# fragility-timed rule had to beat, and the rule lost to it — which is the case
+# for showing this one, not evidence that it adds return.
+
+def typical_vol(returns: pd.Series) -> Optional[float]:
+    """The asset's typical annualized volatility, %, over the whole fetched
+    history (5y), on the HAR forecast's own scale — sqrt(mean r² · 252), no
+    demeaning — so the ratio below compares like with like. None when the
+    history is shorter than the HAR gate accepts."""
+    r = np.asarray(returns, dtype=float)
+    r = r[np.isfinite(r)]
+    if len(r) < HAR_MIN_RETURNS:
+        return None
+    v = float(np.sqrt(np.mean(r ** 2) * 252) * 100)
+    return v if v > 0 else None
+
+
+def vol_target_exposure(forecast: float, typical: float) -> float:
+    """Share of a normal position to hold: typical / forecast, capped at 1 (the
+    dial never says hold more than normal — no leverage), rounded to 5 %."""
+    if not (forecast > 0 and typical > 0):
+        return 1.0
+    return round(min(1.0, typical / forecast) * 20) / 20
+
+
+def build_vol_target_block(raw: Optional[dict]) -> str:
+    """The '### Volatility Targeting' block, from the logged reading. '' when no
+    asset carries a dial. Never raises."""
+    try:
+        vols = (raw or {}).get("vol_forecasts") or {}
+        rows = []
+        for _key, display in _VOL_ASSETS:
+            v = vols.get(display)
+            if not v or "exposure" not in v:
+                continue
+            rows.append(f"| {display} | {v['forecast_daily_vol']:.1f}% | {v['typical_vol']:.1f}% "
+                        f"| **{v['exposure'] * 100:.0f}%** of normal |")
+        if not rows:
+            return ""
+        return (
+            "### Volatility Targeting — the position-size dial\n\n"
+            "| Asset | Forecast vol (5d, ann.) | Typical vol (5y) | Hold |\n"
+            "|-------|-------------------------|------------------|------|\n"
+            + "\n".join(rows)
+            + "\n\n_Hold = typical ÷ forecast, capped at 100% and rounded to 5%: the share of your "
+              "normal position that keeps the swings you carry near their usual size. 100% means "
+              "markets are no rougher than usual. **A risk dial, not a forecast** — it says nothing "
+              "about direction, and this project has not measured it as adding return; it is the "
+              "standard rule, and the one H-009's fragility-timed rule could not beat. Forecast is "
+              "HAR-RV ([KB-033])._\n"
+        )
+    except Exception:
+        return ""
+
+
+def build_outlook_block(raw: Optional[dict], review_date: str) -> str:
+    """The '### 5-Day Outlook' block without a model: the conditional
+    distribution per asset, from the logged reading. The heading is kept —
+    `portfolio.rebalance.note_is_post_cut` reads it. Never raises."""
+    try:
+        cells = conditional_cells(raw)
+        rows = [f"| {a.note_name} | {cells.get(a.note_name, 'no base rate in this bucket')} |"
+                for a in ASSETS]
+        bucket = conditional_bucket(raw)
+        where = f"the current `{bucket}` bucket" if bucket else "the current macro bucket"
+        return (
+            "### 5-Day Outlook\n\n"
+            "| Asset | 5d Conditional Distribution |\n"
+            "|-------|-----------------------------|\n"
+            + "\n".join(rows)
+            + f"\n\n_The empirical forward-return distribution in {where}, computed from history "
+              "(Phase 11). **This note makes no directional call and states no confidence** "
+              "([KB-024]). Whether these ranges beat an unconditioned one is Phase 22's open "
+              f"question, first read ~2027-05._\n\nReview date: {review_date}"
+        )
+    except Exception:
+        return ""
 
 
 def build_nonlive_signals_block(

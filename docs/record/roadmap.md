@@ -169,8 +169,8 @@ its place? The cheap screens ran; the paid decision gate never could.
 
 **What survives:** the two screens as the payload's documented redundancy, and
 `input_ledger.py` / `citation_screen.py` as instruments. Nothing was pruned on
-cost alone. Re-opens only through `todo.md` #7 — a scored Target Range would be
-an outcome metric for the model's prose, and 18.4 could be re-pointed at it.
+cost alone. It would have re-opened only through `todo.md` #7, a scored Target Range;
+#7 closed moot on 2026-10-01 when the note stopped calling the model ([ADR-0024](../decisions/ADR-0024-the-note-makes-no-llm-call.md)).
 
 ---
 

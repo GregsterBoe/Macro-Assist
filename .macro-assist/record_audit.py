@@ -551,9 +551,10 @@ RESERVED_KB_NUMBERS: frozenset[str] = frozenset({"008"})
 # resolved.md. #7 was numbered twice while the inbox numbered per section
 # (Phase 22's open decision and the carried accuracy finding); the carried one
 # closed 2026-09-14 under "#7 (carried)" and the maintenance log calls the
-# duplicate gone, so the pin records that reading. Held exactly: when the
-# open #7 closes, this pin is red until it is removed.
-KNOWN_ITEM_COLLISIONS: frozenset[str] = frozenset({"7"})
+# duplicate gone, so the pin recorded that reading. The open #7 closed
+# 2026-10-01 (moot under ADR-0024), the pin went red as designed, and it was
+# removed: no number is pinned now.
+KNOWN_ITEM_COLLISIONS: frozenset[str] = frozenset()
 
 _KB_RE = re.compile(r"\bKB-(\d{3})\b")
 _KB_HEADING_RE = re.compile(r"^##+ +KB-(\d{3})\b", re.M)

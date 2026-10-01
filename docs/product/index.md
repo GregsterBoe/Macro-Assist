@@ -17,18 +17,21 @@ one live claim with a pre-registered bar (the conditional distribution) is
 sealed until ~2027-05 and may fail. A user gets a product that says exactly
 what it knows, which is less than most.
 
-Concretely, as of **v2.1** (2026-09-13; first note 2026-09-14):
+Concretely, as of **v2.2** (2026-10-02; the note makes no LLM call, [ADR-0024](../decisions/ADR-0024-the-note-makes-no-llm-call.md)):
 
 | Published | What it promises | What it does not promise | Held to |
 |---|---|---|---|
 | **Fragility Monitor** — composite 0–100 with a label, plus the OR flag | A high-recall "this is not a normal tape" warning. The OR roughly doubles crisis recall over the composite; the label is the top decile of the composite's own history | Direction. Precision ≈ 0.3, so most firings are false alarms, and the note says so inline | KB-016 → KB-017 → KB-020 → KB-021; aggregation and channel set closed by KB-031, KB-032 |
 | **5-Day Outlook table** — per asset, the empirical conditional return distribution: median, P25/P75, `n` | The historical distribution of forward changes in the current macro bucket, rendered by Python from a fitted table | That conditioning beats not conditioning. That is the open question, and the scorer is measuring it | Phase 22, sealed bar — [ADR-0016](../decisions/ADR-0016-phase-22-scores-the-distribution-only.md), [ADR-0020](../decisions/ADR-0020-the-numeric-bar-has-a-skill-margin.md); first read ~2027-05 |
-| **Narrative** — executive summary, dashboard, per-asset sections | A schema-constrained model reading of the day's data, with sources | A forecast of any kind. Nothing in the narrative is scored; nothing scorable is left in it | [ADR-0002](../decisions/ADR-0002-structured-output-contract.md), [ADR-0003](../decisions/ADR-0003-four-narrow-agents.md) |
+| **Volatility-targeting dial** — per asset with a HAR-RV forecast (S&P 500, Gold, WTI, Bitcoin), the share of a normal position to hold: typical (5y) ÷ forecast volatility, capped at 100%, rounded to 5% | The textbook rule, computed and logged: hold less when an asset is rougher than usual, so the swings carried stay near their usual size | Direction, or that following it adds return. It is not measured here as a member; it was H-009's rival | [ADR-0024](../decisions/ADR-0024-the-note-makes-no-llm-call.md); the forecast is KB-033 |
 | **Weekly scorecard and accuracy report** | Every published claim scored on the same sample as its rivals, with block-bootstrap intervals | A verdict before `MIN_BLOCKS` is reached — the scorer returns `underpowered` until then | [Scoring](../reference/scoring.md) |
 | **Paper portfolio** | A mechanical, paper-only book driven by the published table | Any trading advice; it is an instrument for scoring the table's usefulness | [ADR-0019](../decisions/ADR-0019-paper-portfolio-mechanical-and-paper-only.md) |
 
 **Removed, and why:** the directional call (`Bias` / `Confidence`), v1.6 —
-[The cut](../concepts/the-cut.md). The HMM regime block — ADR-0004. Anything
+[The cut](../concepts/the-cut.md). The HMM regime block — ADR-0004. The
+model-written narrative (summary, dashboard, per-asset prose, portfolio and
+sector reads, Target Range), v2.2 — unscored and not worth its cost; [ADR-0024](../decisions/ADR-0024-the-note-makes-no-llm-call.md).
+`NOTE_ANALYSIS=llm` restores it. Anything
 proposing to put a signed forecast back is arguing against ADR-0009.
 
 **Cadence and delivery:** one note per weekday, `asof` resolved once by the
@@ -91,7 +94,8 @@ The stage leaves the pipeline; the code, tests, history and manual trigger stay.
 
 - The conditional table's bar is sealed, not passed. If it fails in 2027 the
   table is recorded as decoration and the product is the Fragility Monitor plus
-  narrative, which is a smaller honest product rather than a larger dishonest one.
+  the volatility dial, which is a smaller honest product rather than a larger
+  dishonest one.
 - The HAR-RV wiring publishes a variance risk premium off a fit KB-033 found
   degenerate at the live window; the fit floor is now `HAR_MIN_RETURNS = 1000`
   and the fetch periods are sized to deliver it.

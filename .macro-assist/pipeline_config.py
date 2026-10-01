@@ -71,6 +71,17 @@ def run_config() -> dict:
     }
 
 
+def note_analysis_on() -> bool:
+    """True when the daily note carries the model-written analysis.
+
+    v2.2 (ADR-0024) turned it off: the note is the Fragility Monitor, the
+    volatility-targeting dial and the conditional distributions, all computed,
+    and the run makes no LLM call. A soft-kill (ADR-0015): `NOTE_ANALYSIS=llm`
+    — the repo variable of the same name in CI — restores the old note with no
+    code edit. Unset or anything else is off."""
+    return os.getenv("NOTE_ANALYSIS", "off").strip().lower() in ("llm", "on")
+
+
 def main_model() -> str:
     """The model for the main analysis + adversarial review (sub-agents stay Haiku)."""
     return run_config()["model"]

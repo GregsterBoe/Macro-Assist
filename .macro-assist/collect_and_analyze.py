@@ -1,10 +1,14 @@
 """
 Macro-Assist: Daily macro intelligence pipeline.
 
-Fetches FRED + market data, runs Claude analysis, writes a dated
-companion note into the Obsidian vault (Journal/YYYY/MM-Month/).
+Fetches FRED + market data, computes the quant reading (Fragility Monitor,
+volatility-targeting dial, conditional distributions), logs it, and writes a
+dated note into the Obsidian vault (Economy/YYYY/MM-Month/).
 
-Expects env vars: FRED_API_KEY, ANTHROPIC_API_KEY
+Since v2.2 (ADR-0024) the note makes no LLM call. `NOTE_ANALYSIS=llm` restores
+the model-written analysis (and then needs ANTHROPIC_API_KEY).
+
+Expects env vars: FRED_API_KEY
 """
 
 import os
@@ -42,7 +46,7 @@ from market_data import (
 )
 from calendar_events import fetch_upcoming_events, _check_fomc_dates_expiry
 from pipeline_config import (
-    run_config, main_model, conviction_floor_on, _render_prompt,
+    run_config, main_model, conviction_floor_on, note_analysis_on, _render_prompt,
 )
 from llm_analysis import (
     fetch_youtube_context, adversarial_review, build_payload_preview, analyze_with_claude,
@@ -70,12 +74,12 @@ __all__ = [
     # calendar
     "fetch_upcoming_events", "_check_fomc_dates_expiry",
     # config
-    "run_config", "main_model", "conviction_floor_on", "_render_prompt",
+    "run_config", "main_model", "conviction_floor_on", "note_analysis_on", "_render_prompt",
     # llm analysis
     "fetch_youtube_context", "adversarial_review", "build_payload_preview", "analyze_with_claude",
     "_build_analysis_markdown",
     # local orchestrator
-    "get_output_path", "validate_data", "build_note", "main",
+    "get_output_path", "validate_data", "build_note", "computed_analysis", "main",
 ]
 
 
@@ -144,6 +148,14 @@ def _arrow(pct: float) -> str:
     return "▲" if pct >= 0 else "▼"
 
 
+def computed_analysis(quant_raw: dict | None, today: datetime) -> str:
+    """The note's body with no model (v2.2, ADR-0024): the volatility-targeting
+    dial, then the conditional distributions. Both read the logged dict."""
+    from quant_context import build_outlook_block, build_vol_target_block
+    parts = [build_vol_target_block(quant_raw), build_outlook_block(quant_raw, next_review_date(today))]
+    return "\n---\n\n".join(p.rstrip("\n") + "\n" for p in parts if p)
+
+
 def build_note(
     fred_data: dict,
     market_data: dict,
@@ -151,14 +163,17 @@ def build_note(
     today: datetime,
     sector_data: dict | None = None,
     quant_raw: dict | None = None,
+    llm: bool = True,
 ) -> str:
     """Assemble the daily note.
 
     `quant_raw` is the raw quant-context dict from collect_quant_raw(). It feeds
-    two things: the Fragility Monitor block, and (since v1.6) the 5-Day Outlook
-    table's conditional-distribution column. Both are rendered AFTER the LLM
-    call from the same dict that was logged, so neither can drift from the
-    record and neither is written by the model.
+    the Fragility Monitor block and the 5-Day Outlook's conditional
+    distributions, both rendered from the same dict that was logged, so neither
+    can drift from the record and neither is written by the model.
+
+    `llm=False` (v2.2) is a note with no model in it: the frontmatter says so
+    rather than recording a model and profile that did not run.
     """
     # Structured path (MA-1): convert AnalysisOutput → markdown string before assembly.
     # Meta-prompt leakage is impossible here — the model never wrote headings or constraints.
@@ -181,6 +196,10 @@ def build_note(
     _rc = run_config()
     _onoff = lambda b: "on" if b else "off"
     _config_summary = f"{_rc['profile']} · {_rc['model']} · directional product cut (v1.6) · prompt toggles inert"
+    if not llm:
+        _rc = {"profile": "none", "model": "none",
+               "conviction_floor": False, "base_rate_first": False, "prune_rules": False}
+        _config_summary = "computed note · no model (v2.2, ADR-0024)"
 
     # Markets table rows (vix3m and vix_term_ratio excluded via MARKET_LABELS filter)
     market_rows = "\n".join(
@@ -627,10 +646,18 @@ def main():
     except Exception as _fg_exc:
         _log("FRAGILITY", "WARN", f"reading unavailable: {type(_fg_exc).__name__}: {_fg_exc}")
 
-    analysis = analyze_with_claude(fred_data, market_data, today, sector_data, notable_moves,
-                                   histories, quant_context, quant_raw)
+    # v2.2 (ADR-0024): the model-written analysis is off by default and the run
+    # makes no LLM call. `NOTE_ANALYSIS=llm` restores it (a soft-kill, ADR-0015).
+    llm = note_analysis_on()
+    if llm:
+        analysis = analyze_with_claude(fred_data, market_data, today, sector_data, notable_moves,
+                                       histories, quant_context, quant_raw)
+    else:
+        analysis = computed_analysis(quant_raw, today)
+        _log("ANALYSIS", "INFO", "computed note — no LLM call (NOTE_ANALYSIS=off)")
 
-    note = build_note(fred_data, market_data, analysis, today, sector_data, quant_raw=quant_raw)
+    note = build_note(fred_data, market_data, analysis, today, sector_data, quant_raw=quant_raw,
+                      llm=llm)
     output_path.write_text(note, encoding="utf-8")
     _elapsed = int(time.monotonic() - _t0)
     _log("OUTPUT", "OK",

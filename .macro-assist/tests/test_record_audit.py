@@ -615,12 +615,13 @@ def test_an_open_and_a_resolved_item_sharing_a_number_is_red_unless_pinned(recor
 
 def test_the_pins_describe_this_checkout():
     """Held exactly, on the real tree: KB-008 is the number the KB names in
-    prose and never defines, and #7 heads one open item and one resolved."""
+    prose and never defines. No inbox number is pinned: #7's open half closed
+    2026-10-01 (ADR-0024), so no number heads an open item and a resolved one."""
     kb = (_REPO / ra.KNOWLEDGE_BASE).read_text()
     assert ra.RESERVED_KB_NUMBERS == {"008"}
     assert "KB-008" in kb and "008" not in ra._KB_HEADING_RE.findall(kb)
-    assert ra.KNOWN_ITEM_COLLISIONS == {"7"}
-    assert "7" in ra._ITEM_HEADING_RE.findall((_REPO / ra.TODO).read_text())
+    assert ra.KNOWN_ITEM_COLLISIONS == frozenset()
+    assert "7" not in ra._ITEM_HEADING_RE.findall((_REPO / ra.TODO).read_text())
     assert "7" in ra._RESOLVED_HEADING_RE.findall((_REPO / ra.RESOLVED).read_text())
 
 

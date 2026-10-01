@@ -11,12 +11,56 @@ questions.
 
 > **Carried-forward caveats stay in `todo.md`.** Several items below closed *with*
 > a trade-off attached. Those trade-offs are live entries in `todo.md` (#2b, #3b,
-> #1b, #6b, #14b; #5b is folded into #5) — resolving an item never silently
+> #6b, #14b; #5b is folded into #5; #1b closed 2026-10-01) — resolving an item never silently
 > absorbs its cost.
 
 ---
 
 ## Pipeline / accuracy
+
+### RESOLVED 2026-10-01 — #7 Target Range coverage: moot, the band is no longer published
+**Resolution: closed without a decision, because the claim is gone.** The owner
+turned the model-written analysis off ([ADR-0024](../decisions/ADR-0024-the-note-makes-no-llm-call.md), v2.2), and the Target Range went
+with it. Nothing LLM-authored and falsifiable is left in the note. If
+`NOTE_ANALYSIS=llm` is ever switched back on for good, this item reopens as it
+stood. The item as it was:
+
+**Where:** `prompts/system_prompt.md:166` (the band's spec) · not scored anywhere.
+The LLM's Target Range is the only remaining LLM-authored falsifiable claim in the
+note, and it is unscored. Two things have to be decided before it can be, and
+neither is a bug fix:
+1. **No nominal coverage is stated anywhere.** The prompt calls it "a dispersion
+   band for 5 business days", never "an 80% interval". Without a nominal, coverage
+   is a measurement, not a test — so either pre-register a nominal (and the model
+   should be told it), or accept that this can only ever be descriptive.
+2. **It is a *path* band, not an endpoint band.** "Where the asset can reasonably
+   trade" over 5 days is the intraday range, so containment must be scored against
+   the high/low over the window, not the T+5 close. Scoring the close measures a
+   different quantity and would report far higher coverage than the claim earns.
+Deliberately deferred out of Phase 22 (scope was the conditional distribution).
+
+### RESOLVED 2026-10-01 — #1b a machine-readable band in the note: done by v2.2
+**Resolution: done, as a side effect of [ADR-0024](../decisions/ADR-0024-the-note-makes-no-llm-call.md).** The note's 5-Day Outlook is now
+rendered straight from the logged reading by `quant_context.build_outlook_block`,
+with no model prose around it. The item as it was:
+
+*From resolved #1.* Reading the code-computed table instead of LLM prose (option b)
+is the correct eventual decoupling, but the committed note carries only the LLM's
+prose reproduction, so it means re-plumbing note generation
+(`llm_analysis._build_analysis_markdown` + threading the computed bands through).
+Deferred: a large, reactive change mid-forward-test for a now-cosmetic gain.
+**Revisit only if a note-format revision is already on the table** — the same
+condition as open decision #8.
+
+### RESOLVED 2026-10-01 — #11 splitting `llm_analysis.py`: no reason left while it is dormant
+**Resolution: closed.** Since v2.2 ([ADR-0024](../decisions/ADR-0024-the-note-makes-no-llm-call.md)) the daily run never imports its LLM
+path unless `NOTE_ANALYSIS=llm`. A split would be churn in dormant, untested code,
+which is the cost the item named. The item as it was:
+
+~1,200 lines. One cohesive concern (the multi-agent LLM pipeline) but the largest
+remaining module and the least test-covered. Could split into agents / synthesis /
+note-markdown if it keeps growing; kept as one module for now to minimise churn in
+untested code.
 
 ### RESOLVED 2026-10-01 — #31 a rescued leg is now recorded, and counted, never red
 **Resolution: shipped as the item proposed.** `yf_history_with_retry` takes an

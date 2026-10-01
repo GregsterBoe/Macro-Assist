@@ -65,6 +65,13 @@ jobs:
       - name: Generate macro note
         env:
           FRED_API_KEY:      ${{ secrets.FRED_API_KEY }}
+          # v2.2 (ADR-0024): the model-written analysis is OFF and the run makes
+          # no LLM call — the note is the Fragility Monitor, the volatility-
+          # targeting dial and the conditional distributions, all computed. A
+          # soft-kill (ADR-0015): set the repo variable NOTE_ANALYSIS=llm to
+          # restore the old note, no code edit. Every env line below it exists
+          # for that path only and is inert while it is off.
+          NOTE_ANALYSIS:     ${{ vars.NOTE_ANALYSIS || 'off' }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           VAULT_ROOT:        ${{ github.workspace }}/vault
           SUPADATA_API_KEY:  ${{ secrets.SUPADATA_API_KEY }}
@@ -100,7 +107,7 @@ jobs:
             cat "$PREVIEW"
             echo "::endgroup::"
           else
-            echo "No payload preview found at $PREVIEW (generation may have failed)."
+            echo "No payload preview found at $PREVIEW (none is written while NOTE_ANALYSIS is off, v2.2; otherwise generation may have failed)."
           fi
 
       - name: Commit and push note to vault

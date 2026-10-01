@@ -57,3 +57,8 @@ macro bucket at all** — plus `trailing_250` and `har_gaussian`.
 Target Range is the obvious next candidate, and it is blocked on a product
 decision rather than on engineering. See open decisions #7 and #8 in
 [todo.md](../record/todo.md).
+
+*Re-read 2026-10-01: it fired, and the answer is no.* #7 closed moot when
+the note stopped calling the model ([ADR-0024](ADR-0024-the-note-makes-no-llm-call.md)):
+the Target Range is no longer published, so there is nothing to add to the
+scorer. Phase 22's scope is unchanged. #8 is still open.

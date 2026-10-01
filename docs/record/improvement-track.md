@@ -453,8 +453,11 @@ observation only.**
 
 ## IMP-8 — The note's main model: Opus 4.8 → a current Sonnet
 
-**Status:** 🔨 **harness built 2026-09-28, bar written, not yet run.** Harness
-`.macro-assist/model_compare.py`, run by `model_compare.yml` (dispatch-only).
+**Status:** ❌ **closed unrun 2026-10-01 — moot.** The owner turned the model-written
+analysis off ([ADR-0024](../decisions/ADR-0024-the-note-makes-no-llm-call.md), v2.2), so no model writes the note and there is no model to
+choose. Nothing was run, so there is no KB entry. The harness and its bar stay
+(soft-kill), and apply as written if `NOTE_ANALYSIS=llm` is ever switched back on.
+Harness `.macro-assist/model_compare.py`, run by `model_compare.yml` (dispatch-only).
 
 **Why.** The main analysis call (MA-1, structured `tool_use` → `AnalysisOutput`)
 and its review (MA-2) run on `claude-opus-4-8`, selected by the repo variable

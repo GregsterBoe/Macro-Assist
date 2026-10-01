@@ -90,6 +90,11 @@ layer that has ever survived a hostile out-of-sample test — see
 
 ## L2 — the LLM layer
 
+> **Dormant since v2.2 ([ADR-0024](../decisions/ADR-0024-the-note-makes-no-llm-call.md)).** The daily
+> note makes no LLM call; it is computed from the logged quant reading. This
+> layer runs only when the repo variable `NOTE_ANALYSIS=llm` is set, and the
+> description below is what it does then.
+
 Four narrow calls rather than one wide one. The reasoning is that a single agent
 asked to analyse, self-critique, assess a portfolio and format markdown will do
 all four badly and will rubber-stamp its own predictions.

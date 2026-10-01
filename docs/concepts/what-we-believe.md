@@ -127,7 +127,7 @@ the seal in WP-22.C.
 |---|---|---|
 | Does the conditional distribution beat not conditioning at all? | `score_distributions.py`, sealed bar, `MIN_SKILL = 0.02`, `MIN_BLOCKS = 8` | ~2027-05 |
 | Does the fragility flag fire correctly on a live episode? | The shadow clock at `FRAGILITY_MODE=log` | Whenever the tape provides one |
-| Is the LLM's Target Range calibrated? | Nothing. It is the last LLM-authored falsifiable claim in the note and it is **unscored** | Blocked on two decisions — open decision #7 |
+| Is the LLM's Target Range calibrated? | Nothing, and nothing will: since v2.2 the note makes no LLM call and publishes no Target Range ([ADR-0024](../decisions/ADR-0024-the-note-makes-no-llm-call.md)) | Moot — `resolved.md` #7 |
 
 The exploratory median-only backfill shows skill vs unconditional of −0.009 at t5
 and −0.065 at t20. That is **not** a result — it was seen before the bar was
