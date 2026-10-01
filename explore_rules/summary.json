@@ -1,0 +1,506 @@
+{
+  "class": "risk_rule",
+  "summary": {
+    "class": "risk_rule",
+    "arm": "h009_panel_or_half",
+    "first_date": "1932-01-08",
+    "last_date": "2017-12-29",
+    "n_days": 22500,
+    "mean_exposure": 0.8544,
+    "n_episodes": 32,
+    "episodes": [
+      {
+        "peak": "1932-01-14",
+        "trough": "1932-02-10",
+        "depth": 0.1419,
+        "open": false,
+        "r_member": 1.0,
+        "r_static_matched": 0.8596,
+        "r_vol_matched": 0.3669,
+        "r_buy_and_hold": 1.0,
+        "caught": false
+      },
+      {
+        "peak": "1932-03-08",
+        "trough": "1932-07-08",
+        "depth": 0.4676,
+        "open": false,
+        "r_member": 0.9959,
+        "r_static_matched": 0.8858,
+        "r_vol_matched": 0.4321,
+        "r_buy_and_hold": 1.0,
+        "caught": false
+      },
+      {
+        "peak": "1932-09-07",
+        "trough": "1933-02-27",
+        "depth": 0.3637,
+        "open": false,
+        "r_member": 0.9591,
+        "r_static_matched": 0.8703,
+        "r_vol_matched": 0.3668,
+        "r_buy_and_hold": 1.0,
+        "caught": true
+      },
+      {
+        "peak": "1933-07-18",
+        "trough": "1933-10-21",
+        "depth": 0.2879,
+        "open": false,
+        "r_member": 1.0121,
+        "r_static_matched": 0.8644,
+        "r_vol_matched": 0.4716,
+        "r_buy_and_hold": 1.0,
+        "caught": false
+      },
+      {
+        "peak": "1936-04-06",
+        "trough": "1936-04-29",
+        "depth": 0.1226,
+        "open": false,
+        "r_member": 1.0,
+        "r_static_matched": 0.8608,
+        "r_vol_matched": 0.8088,
+        "r_buy_and_hold": 1.0,
+        "caught": false
+      },
+      {
+        "peak": "1937-03-10",
+        "trough": "1938-03-31",
+        "depth": 0.5104,
+        "open": false,
+        "r_member": 0.7852,
+        "r_static_matched": 0.8887,
+        "r_vol_matched": 0.6779,
+        "r_buy_and_hold": 1.0,
+        "caught": true
+      },
+      {
+        "peak": "1943-07-14",
+        "trough": "1943-11-29",
+        "depth": 0.1063,
+        "open": false,
+        "r_member": 0.8231,
+        "r_static_matched": 0.8587,
+        "r_vol_matched": 0.9711,
+        "r_buy_and_hold": 1.0,
+        "caught": true
+      },
+      {
+        "peak": "1946-05-29",
+        "trough": "1947-05-17",
+        "depth": 0.2827,
+        "open": false,
+        "r_member": 1.0708,
+        "r_static_matched": 0.8685,
+        "r_vol_matched": 0.9466,
+        "r_buy_and_hold": 1.0,
+        "caught": false
+      },
+      {
+        "peak": "1950-06-12",
+        "trough": "1950-07-13",
+        "depth": 0.1277,
+        "open": false,
+        "r_member": 0.7286,
+        "r_static_matched": 0.8603,
+        "r_vol_matched": 0.7651,
+        "r_buy_and_hold": 1.0,
+        "caught": true
+      },
+      {
+        "peak": "1953-03-19",
+        "trough": "1953-09-14",
+        "depth": 0.106,
+        "open": false,
+        "r_member": 0.6913,
+        "r_static_matched": 0.8438,
+        "r_vol_matched": 1.0014,
+        "r_buy_and_hold": 1.0,
+        "caught": true
+      },
+      {
+        "peak": "1956-08-02",
+        "trough": "1957-02-12",
+        "depth": 0.1155,
+        "open": false,
+        "r_member": 0.947,
+        "r_static_matched": 0.8447,
+        "r_vol_matched": 1.0286,
+        "r_buy_and_hold": 1.0,
+        "caught": true
+      },
+      {
+        "peak": "1957-07-15",
+        "trough": "1957-10-22",
+        "depth": 0.2065,
+        "open": false,
+        "r_member": 0.8759,
+        "r_static_matched": 0.863,
+        "r_vol_matched": 0.869,
+        "r_buy_and_hold": 1.0,
+        "caught": true
+      },
+      {
+        "peak": "1960-01-05",
+        "trough": "1960-03-08",
+        "depth": 0.1038,
+        "open": false,
+        "r_member": 0.676,
+        "r_static_matched": 0.8515,
+        "r_vol_matched": 0.9981,
+        "r_buy_and_hold": 1.0,
+        "caught": true
+      },
+      {
+        "peak": "1961-12-12",
+        "trough": "1962-06-26",
+        "depth": 0.277,
+        "open": false,
+        "r_member": 0.675,
+        "r_static_matched": 0.8656,
+        "r_vol_matched": 0.7442,
+        "r_buy_and_hold": 1.0,
+        "caught": true
+      },
+      {
+        "peak": "1966-02-09",
+        "trough": "1966-10-07",
+        "depth": 0.2026,
+        "open": false,
+        "r_member": 0.933,
+        "r_static_matched": 0.8461,
+        "r_vol_matched": 0.9652,
+        "r_buy_and_hold": 1.0,
+        "caught": true
+      },
+      {
+        "peak": "1968-11-29",
+        "trough": "1970-05-26",
+        "depth": 0.3682,
+        "open": false,
+        "r_member": 0.8831,
+        "r_static_matched": 0.8535,
+        "r_vol_matched": 0.9098,
+        "r_buy_and_hold": 1.0,
+        "caught": false
+      },
+      {
+        "peak": "1971-04-28",
+        "trough": "1971-11-23",
+        "depth": 0.1265,
+        "open": false,
+        "r_member": 0.9468,
+        "r_static_matched": 0.8325,
+        "r_vol_matched": 0.99,
+        "r_buy_and_hold": 1.0,
+        "caught": false
+      },
+      {
+        "peak": "1973-01-11",
+        "trough": "1974-10-03",
+        "depth": 0.4816,
+        "open": false,
+        "r_member": 0.9187,
+        "r_static_matched": 0.8665,
+        "r_vol_matched": 0.7288,
+        "r_buy_and_hold": 1.0,
+        "caught": true
+      },
+      {
+        "peak": "1978-09-12",
+        "trough": "1978-11-14",
+        "depth": 0.1516,
+        "open": false,
+        "r_member": 0.8338,
+        "r_static_matched": 0.8514,
+        "r_vol_matched": 0.9348,
+        "r_buy_and_hold": 1.0,
+        "caught": false
+      },
+      {
+        "peak": "1979-10-05",
+        "trough": "1979-10-25",
+        "depth": 0.1085,
+        "open": false,
+        "r_member": 0.7954,
+        "r_static_matched": 0.8534,
+        "r_vol_matched": 0.8584,
+        "r_buy_and_hold": 1.0,
+        "caught": false
+      },
+      {
+        "peak": "1980-02-13",
+        "trough": "1980-03-27",
+        "depth": 0.1866,
+        "open": false,
+        "r_member": 0.4845,
+        "r_static_matched": 0.8553,
+        "r_vol_matched": 0.7538,
+        "r_buy_and_hold": 1.0,
+        "caught": true
+      },
+      {
+        "peak": "1981-08-11",
+        "trough": "1982-08-12",
+        "depth": 0.2017,
+        "open": false,
+        "r_member": 1.0,
+        "r_static_matched": 0.7922,
+        "r_vol_matched": 0.9161,
+        "r_buy_and_hold": 1.0,
+        "caught": false
+      },
+      {
+        "peak": "1983-10-10",
+        "trough": "1984-07-24",
+        "depth": 0.1327,
+        "open": false,
+        "r_member": 1.0,
+        "r_static_matched": 0.7889,
+        "r_vol_matched": 0.9908,
+        "r_buy_and_hold": 1.0,
+        "caught": false
+      },
+      {
+        "peak": "1987-08-25",
+        "trough": "1987-12-04",
+        "depth": 0.3311,
+        "open": false,
+        "r_member": 0.888,
+        "r_static_matched": 0.8639,
+        "r_vol_matched": 0.6655,
+        "r_buy_and_hold": 1.0,
+        "caught": false
+      },
+      {
+        "peak": "1989-10-09",
+        "trough": "1990-01-30",
+        "depth": 0.1095,
+        "open": false,
+        "r_member": 1.0081,
+        "r_static_matched": 0.8298,
+        "r_vol_matched": 0.8593,
+        "r_buy_and_hold": 1.0,
+        "caught": true
+      },
+      {
+        "peak": "1990-07-16",
+        "trough": "1990-10-11",
+        "depth": 0.208,
+        "open": false,
+        "r_member": 0.5654,
+        "r_static_matched": 0.8555,
+        "r_vol_matched": 0.7558,
+        "r_buy_and_hold": 1.0,
+        "caught": true
+      },
+      {
+        "peak": "1998-07-17",
+        "trough": "1998-10-08",
+        "depth": 0.2192,
+        "open": false,
+        "r_member": 0.7084,
+        "r_static_matched": 0.8587,
+        "r_vol_matched": 0.6579,
+        "r_buy_and_hold": 1.0,
+        "caught": true
+      },
+      {
+        "peak": "1999-07-16",
+        "trough": "1999-10-15",
+        "depth": 0.1133,
+        "open": false,
+        "r_member": 0.7373,
+        "r_static_matched": 0.8432,
+        "r_vol_matched": 0.7709,
+        "r_buy_and_hold": 1.0,
+        "caught": true
+      },
+      {
+        "peak": "2000-03-24",
+        "trough": "2002-10-09",
+        "depth": 0.4923,
+        "open": false,
+        "r_member": 0.8373,
+        "r_static_matched": 0.8668,
+        "r_vol_matched": 0.7462,
+        "r_buy_and_hold": 1.0,
+        "caught": true
+      },
+      {
+        "peak": "2007-10-09",
+        "trough": "2009-03-09",
+        "depth": 0.5457,
+        "open": false,
+        "r_member": 0.7779,
+        "r_static_matched": 0.8842,
+        "r_vol_matched": 0.4749,
+        "r_buy_and_hold": 1.0,
+        "caught": true
+      },
+      {
+        "peak": "2012-04-02",
+        "trough": "2012-06-04",
+        "depth": 0.1011,
+        "open": false,
+        "r_member": 1.0,
+        "r_static_matched": 0.8591,
+        "r_vol_matched": 0.9129,
+        "r_buy_and_hold": 1.0,
+        "caught": false
+      },
+      {
+        "peak": "2015-06-23",
+        "trough": "2016-02-11",
+        "depth": 0.1553,
+        "open": false,
+        "r_member": 0.8778,
+        "r_static_matched": 0.8578,
+        "r_vol_matched": 0.8914,
+        "r_buy_and_hold": 1.0,
+        "caught": true
+      }
+    ],
+    "legs": {
+      "10.0": {
+        "member": {
+          "worst_drop": 0.4657,
+          "annual_return": 0.08906,
+          "annual_vol": 0.1405,
+          "time_reduced": 0.2911,
+          "trades_per_year": 3.57,
+          "turnover_per_year": 1.927,
+          "realized_gain_per_year": 0.07864,
+          "tax_brought_forward_per_year": 0.01452
+        },
+        "static_matched": {
+          "worst_drop": 0.4824,
+          "annual_return": 0.1003,
+          "annual_vol": 0.1421,
+          "time_reduced": 1.0,
+          "trades_per_year": 0.0,
+          "turnover_per_year": 0.217,
+          "realized_gain_per_year": 0.04754,
+          "tax_brought_forward_per_year": 0.00878
+        },
+        "vol_matched": {
+          "worst_drop": 0.4783,
+          "annual_return": 0.09535,
+          "annual_vol": 0.1111,
+          "time_reduced": 0.4468,
+          "trades_per_year": 16.6,
+          "turnover_per_year": 2.936,
+          "realized_gain_per_year": 0.07961,
+          "tax_brought_forward_per_year": 0.0147
+        },
+        "buy_and_hold": {
+          "worst_drop": 0.5457,
+          "annual_return": 0.11032,
+          "annual_vol": 0.1663,
+          "time_reduced": 0.0,
+          "trades_per_year": 0.0,
+          "turnover_per_year": 0.0,
+          "realized_gain_per_year": 0.0,
+          "tax_brought_forward_per_year": 0.0
+        }
+      },
+      "30.0": {
+        "member": {
+          "worst_drop": 0.4657,
+          "annual_return": 0.08486,
+          "annual_vol": 0.1406,
+          "time_reduced": 0.2911,
+          "trades_per_year": 3.57,
+          "turnover_per_year": 1.928,
+          "realized_gain_per_year": 0.07859,
+          "tax_brought_forward_per_year": 0.01451
+        },
+        "static_matched": {
+          "worst_drop": 0.4832,
+          "annual_return": 0.09982,
+          "annual_vol": 0.1421,
+          "time_reduced": 1.0,
+          "trades_per_year": 0.0,
+          "turnover_per_year": 0.217,
+          "realized_gain_per_year": 0.04765,
+          "tax_brought_forward_per_year": 0.0088
+        },
+        "vol_matched": {
+          "worst_drop": 0.5049,
+          "annual_return": 0.08894,
+          "annual_vol": 0.1111,
+          "time_reduced": 0.4468,
+          "trades_per_year": 16.6,
+          "turnover_per_year": 2.936,
+          "realized_gain_per_year": 0.07946,
+          "tax_brought_forward_per_year": 0.01467
+        },
+        "buy_and_hold": {
+          "worst_drop": 0.5457,
+          "annual_return": 0.11032,
+          "annual_vol": 0.1663,
+          "time_reduced": 0.0,
+          "trades_per_year": 0.0,
+          "turnover_per_year": 0.0,
+          "realized_gain_per_year": 0.0,
+          "tax_brought_forward_per_year": 0.0
+        }
+      }
+    },
+    "shortfall": {
+      "10.0": -0.01124,
+      "30.0": -0.01496
+    },
+    "mean_r": 0.8573,
+    "saving": {
+      "mean": -0.0028,
+      "ci": {
+        "lo": -0.0432,
+        "hi": 0.0384,
+        "level": 0.9,
+        "n_boot": 2000
+      }
+    },
+    "saving_vs_vol": {
+      "mean": -0.0689,
+      "share_better": 0.4688
+    }
+  },
+  "clauses": [
+    {
+      "kind": "caught_split",
+      "passed": true,
+      "detail": "mean saving in 19 caught episode(s) +0.0685, in 13 missed -0.1071; needs both present and caught > missed",
+      "cells": [
+        {
+          "name": "caught",
+          "n_episodes": 19
+        },
+        {
+          "name": "missed",
+          "n_episodes": 13
+        }
+      ]
+    }
+  ],
+  "floor": {
+    "episodes": 5
+  },
+  "verdict": "exploratory",
+  "reason": "the sample is not the sealed side; reported, cannot pass",
+  "alarm_split": {
+    "n_windows_followed": 43,
+    "n_windows_false_alarm": 111,
+    "pp_per_year": {
+      "followed": 0.157,
+      "false_alarm": -1.768,
+      "invested": 0.562
+    }
+  },
+  "flag": {
+    "first_reading": "1932-01-08",
+    "n_readings": 4500,
+    "share_fired": 0.1591
+  }
+}
