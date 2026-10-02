@@ -128,6 +128,8 @@ PRICES: dict[str, tuple[float, float, float]] = {
     "claude-fable-5-1": (10.0, 50.0, 0.25),
     "claude-opus-4-8": (5.0, 25.0, 0.50),       # the note's main model today (model_compare)
     "claude-haiku-4-5": (1.0, 5.0, 0.10),
+    # Moonshot's list price for K3 (released 2026-07): thinking bills as output.
+    "kimi-k3": (3.00, 15.00, 0.30),
     # Moonshot's list prices for K2.5, carried to K2.6 until checked against
     # platform.moonshot.ai — the spend guard needs a number, and an unknown
     # price would let a suite run unguarded.

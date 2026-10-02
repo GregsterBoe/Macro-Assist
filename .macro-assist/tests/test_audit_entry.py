@@ -235,6 +235,10 @@ def test_an_incomplete_call_is_not_a_pass(h008, stop, text):
 def test_a_model_id_picks_its_provider():
     assert ae.provider_for("claude-opus-5-5") is ae.ANTHROPIC
     assert ae.provider_for("kimi-k2.6").name == "moonshot"
+    assert ae.provider_for("kimi-k3").name == "moonshot"
+    assert ae.estimate_usd("kimi-k3", {"input_tokens": 10**6, "output_tokens": 10**6,
+                                       "cache_creation_input_tokens": 0,
+                                       "cache_read_input_tokens": 0}) == 18.0
     assert not ae.provider_for("kimi-k2.6").native
     assert ae.provider_for("some-unknown-model") is ae.ANTHROPIC
 
