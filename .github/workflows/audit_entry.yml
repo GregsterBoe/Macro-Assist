@@ -86,6 +86,8 @@ jobs:
         id: audit
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # read only when the model is `kimi-…` (provider_for in audit_entry.py)
+          MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
           HID: ${{ inputs.hid }}
           MODEL: ${{ inputs.model }}
           EFFORT: ${{ inputs.effort }}
