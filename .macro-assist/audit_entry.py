@@ -892,7 +892,16 @@ class Canary:
 
 # Copied from the real tree into every canary repository: the rules the auditor
 # is held to, and the two code files the bundle's facts are read from.
-CANARY_TREE = (dp.HOW_WE_EXPLORE, SEAL_SOURCE, dp.HARNESS)
+CANARY_TREE = (dp.HOW_WE_EXPLORE,)
+# The two code files the bundle reads its facts from (the seal date, the arm
+# vocabulary) are frozen too, under base/code/, as of the 2026-09-28 pass. Read
+# live, they drifted: H-008 added a third optional arm on 2026-09-29, the facts
+# line began to say 14 arms against the fixture's "13 arms … all counted", and
+# the clean base carried a real miscount — the 2026-10-02 kimi-k3 run rejected
+# it for exactly that. Frozen here, they are inside `canary_set_sha`, so the
+# certified fingerprint covers everything a canary bundle says.
+CODE_DIR = "code"
+CANARY_CODE = {SEAL_SOURCE: "numeric_baseline.py", dp.HARNESS: "explore_conditioner.py"}
 # The KB entries and work packages the canary entry cites are NOT the live
 # pages but frozen excerpts under base/record/. The live ones keep gaining
 # dates, and cited text dated after the entry citing it reads as a backdated
@@ -960,8 +969,8 @@ def _content(c: Canary, path: str, name: str) -> str:
 
 
 def materialize(root: Path, c: Canary, dest: Path) -> Path:
-    """Replay a canary into a fresh git repository at `dest`: the real rules,
-    KB, roadmap and code facts as a first commit on `main`, then the canary's
+    """Replay a canary into a fresh git repository at `dest`: the real rules
+    and the frozen KB, roadmap and code as a first commit on `main`, then the canary's
     commits in date order — each with its own date, on `main` or on an orphan
     `output` — built with plumbing so no checkout juggling can mix branches."""
     dest.mkdir(parents=True, exist_ok=False)
@@ -981,6 +990,9 @@ def materialize(root: Path, c: Canary, dest: Path) -> Path:
     frozen = root / CANARY_DIR / BASE / FROZEN_DIR
     tree_files += [(rel.as_posix(), (frozen / name).read_text(encoding="utf-8"))
                    for rel, name in CANARY_FROZEN.items()]
+    code = root / CANARY_DIR / BASE / CODE_DIR
+    tree_files += [(rel.as_posix(), (code / name).read_text(encoding="utf-8"))
+                   for rel, name in CANARY_CODE.items()]
     steps = [("main", first.isoformat(), "record: the rules, the KB, the roadmap", tree_files)]
     steps += [(k["branch"], k["date"], k["message"],
                [(p, _content(c, p, n)) for p, n in k["files"].items()]) for k in commits]
