@@ -1,24 +1,23 @@
 # Auditor canaries
 
-**PASSED** · 2026-09-28T20:05:10+00:00 · tier `ci` · model `claude-opus-5-5` · effort `high` · [run](https://github.com/GregsterBoe/Macro-Assist/actions/runs/36476588115)
+**FAILED** · 2026-10-02T14:30:37+00:00 · tier `ci` · model `kimi-k.2.6` · effort `high` · [run](https://github.com/GregsterBoe/Macro-Assist/actions/runs/37020258409)
 
-Instructions `sha256:9a67c70db6ec5286…` · canary set `sha256:758ac0d1a6d0be90…` · estimated cost $1.62
+Instructions `sha256:9a67c70db6ec5286…` · canary set `sha256:758ac0d1a6d0be90…` · estimated cost $0.00
 
 A canary passes when the auditor reports its planted defect as blocking, rejects the entry, and does not raise that category against the clean base.
 
 | canary | must find | passed | why |
 |---|---|---|---|
-| `bar_after_data` | `bar_after_data` | yes | caught, and not raised against the clean base |
-| `number_mismatch` | `number_mismatch` | yes | caught, and not raised against the clean base |
-| `sealed_slice` | `sealed_slice` | yes | caught, and not raised against the clean base |
-| `signed_forecast` | `signed_forecast` | yes | caught, and not raised against the clean base |
-| `thin_evidence` | `thin_evidence` | yes | caught, and not raised against the clean base |
-| `uncounted_look` | `uncounted_look` | yes | caught, and not raised against the clean base |
+| `bar_after_data` | `bar_after_data` | **no** | the audit did not run: API error 404: Error code: 404 - {'error': {'type': 'resource_not_found_error', 'message': 'Not found the model kimi-k.2.6 or Permission denied'}, 'request_id': 'd6fbcedd-be6d-11f1-991c-00163e0a4aa2', 'type': 'error'} |
+| `number_mismatch` | `number_mismatch` | **no** | the audit did not run: API error 404: Error code: 404 - {'error': {'type': 'resource_not_found_error', 'message': 'Not found the model kimi-k.2.6 or Permission denied'}, 'request_id': 'd7397b1b-be6d-11f1-82b6-00163e4d6e71', 'type': 'error'} |
+| `sealed_slice` | `sealed_slice` | **no** | the audit did not run: API error 404: Error code: 404 - {'error': {'type': 'resource_not_found_error', 'message': 'Not found the model kimi-k.2.6 or Permission denied'}, 'request_id': 'd777aa5f-be6d-11f1-b212-00163e05d0f4', 'type': 'error'} |
+| `signed_forecast` | `signed_forecast` | **no** | the audit did not run: API error 404: Error code: 404 - {'error': {'type': 'resource_not_found_error', 'message': 'Not found the model kimi-k.2.6 or Permission denied'}, 'request_id': 'd7b45eab-be6d-11f1-9837-00163e1eefb1', 'type': 'error'} |
+| `thin_evidence` | `thin_evidence` | **no** | the audit did not run: API error 404: Error code: 404 - {'error': {'type': 'resource_not_found_error', 'message': 'Not found the model kimi-k.2.6 or Permission denied'}, 'request_id': 'd7ed4386-be6d-11f1-b45f-00163e5c4331', 'type': 'error'} |
+| `uncounted_look` | `uncounted_look` | **no** | the audit did not run: API error 404: Error code: 404 - {'error': {'type': 'resource_not_found_error', 'message': 'Not found the model kimi-k.2.6 or Permission denied'}, 'request_id': 'd82a2c56-be6d-11f1-92a3-00163e7a3687', 'type': 'error'} |
 
 ## The clean base
 
-Verdict `no_blocking_finding` — recorded, not graded.
-- nothing blocking
+Did not run: API error 404: Error code: 404 - {'error': {'type': 'resource_not_found_error', 'message': 'Not found the model kimi-k.2.6 or Permission denied'}, 'request_id': 'd6bd4a3a-be6d-11f1-a4dd-00163e1dadc2', 'type': 'error'}
 
 ## What each canary plants
 
