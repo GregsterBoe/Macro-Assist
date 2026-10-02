@@ -14,7 +14,7 @@ Conventions:
   reasoning intact, and pull any "carry forward" caveat back up into this file
   as its own entry. A resolved item left here is noise; a lost caveat is worse.
 
-Last reviewed: 2026-10-01 (later) — the note stops calling the model (v2.2,
+Last reviewed: 2026-10-02 — **#37** opened (accept ADR-0025's terms: signed claims back in the research tier) and **#38** (may a risk rule be read on many legs pooled, for H-010). Before that, 2026-10-01 (later) — the note stops calling the model (v2.2,
 [ADR-0024](../decisions/ADR-0024-the-note-makes-no-llm-call.md)), and three items it
 made moot or finished closed → [`resolved.md`](resolved.md): **#7** (the Target Range
 is no longer published), **#1b** (the note now carries the computed table itself) and
@@ -327,6 +327,52 @@ metric) closed the same day: Phase 18 is closed at 18.3, negative-by-constructio
 ---
 
 ## Phase 23 — exploration tier
+
+### Open decision #37 — accept ADR-0025's terms: signed claims back in the research tier?
+
+**Opened 2026-10-02, by the owner.** The owner wants ADR-0009 loosened: the
+evidence behind the cut measured absolute direction at 5–20 days from one
+payload, and the rule it grew into closes every signed question.
+[ADR-0025](../decisions/ADR-0025-a-signed-claim-may-be-tested-again-in-the-research-tier.md)
+is the assistant's draft of the terms. The call in principle is the owner's;
+these are the choices left:
+
+1. **Accept as drafted.** The note stays unsigned. A signed claim is
+   admissible in research under its own class bar, written first, with the
+   trivial and the published rival, a power floor, costs and the tax, and at
+   most two signed members open at once. ADR-0023's bar is unchanged.
+2. **Accept with a different cap** (one, or three open signed members), or
+   without the power floor.
+3. **Leave ADR-0009's rule as it is.**
+
+*Lean, the proposer's:* (1). The cap and the power floor are what keep the
+pull back to the directional call measured. *On acceptance:* §7 and §9
+question 2 of how-we-explore change, the auditor's `signed_forecast` category
+and canary are rewritten, and `auditor_canaries.yml` is re-run (about $2–3)
+before the next audit, because editing the instructions voids the
+certification.
+
+### Open decision #38 — may a risk rule be read on many legs pooled (H-010)?
+
+**Opened 2026-10-02, by H-010's draft, before any look.**
+[ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md)
+defines a member on one equity leg. [H-010](hypotheses.md#h-010) acts on 49
+industries, each with its own drops. Two questions, both to settle before its
+first look:
+
+1. **Pooling.** Read the 49 legs as one pool of episodes, each industry's
+   rivals built from its own exposure path, bootstrap over episodes. *Or*
+   read one portfolio leg (the 49 industries at market weights, the rule
+   trimming the triggered ones) on market drops. The second fits the bar as
+   written but dilutes the rule: it acts in a few industries a few times a
+   decade.
+2. **The floor.** Pooled, the five-episode floor is met by uncaught drops
+   alone. Should `underpowered` count **caught** episodes for a member that
+   is at full exposure most of the time?
+
+*Lean, the proposer's:* pool, and count caught episodes for the floor (five,
+unchanged). That reads the claim the member makes. It is a change to how the
+bar counts, so it is the owner's, and it is decided before any number.
 
 ### Open decision #33 — which seal governs the gap → width class (H-003)?
 

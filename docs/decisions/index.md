@@ -37,7 +37,7 @@ source of truth for *why*.
 
 | | Decision | Status |
 |---|---|---|
-| [ADR-0009](ADR-0009-cut-the-directional-product.md) | **Cut the directional product (v1.6)** | Accepted |
+| [ADR-0009](ADR-0009-cut-the-directional-product.md) | **Cut the directional product (v1.6)** | Accepted — its reach into the research tier is under review, [ADR-0025](ADR-0025-a-signed-claim-may-be-tested-again-in-the-research-tier.md) (proposed) |
 | [ADR-0004](ADR-0004-retire-hmm-from-the-note.md) | Retire the HMM regime layer from the note, keep the code | Accepted |
 | [ADR-0005](ADR-0005-fragility-mode-ladder.md) | Fragility ships behind a mode ladder, never straight to live | Accepted |
 | [ADR-0006](ADR-0006-or-mode-not-weight.md) | Adopt the cross-section as an OR *mode*, not a blended weight | Accepted |
@@ -65,6 +65,7 @@ source of truth for *why*.
 | [ADR-0019](ADR-0019-paper-portfolio-mechanical-and-paper-only.md) | The paper portfolio is mechanical and paper-only in v1 | Accepted |
 | [ADR-0015](ADR-0015-soft-kill-convention.md) | Soft-kill: deactivate, never delete | Accepted |
 | [ADR-0023](ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md) | A fragility rule for a real decision is a target class, read on drawdown against an exposure-matched rival | Accepted 2026-10-01 ([resolved.md](../record/resolved.md) #34) — built the same day |
+| [ADR-0025](ADR-0025-a-signed-claim-may-be-tested-again-in-the-research-tier.md) | A signed claim may be tested again in the research tier, under its own class bar; the note still publishes none | **Proposed** 2026-10-02 ([todo.md](../record/todo.md) #37) |
 
 ## Decisions that are still open
 

@@ -5,7 +5,7 @@
 | **Status** | Accepted · shipped as v1.6, 2026-09-05 |
 | **Decided** | 2026-09-04 (WP-21.D) |
 | **Evidence** | [KB-007], [KB-022], [KB-023], **[KB-024]** |
-| **Related** | [ADR-0010](ADR-0010-freeze-the-directional-scorer.md) · [ADR-0016](ADR-0016-phase-22-scores-the-distribution-only.md) · [The cut](../concepts/the-cut.md) |
+| **Related** | [ADR-0025](ADR-0025-a-signed-claim-may-be-tested-again-in-the-research-tier.md) (proposed 2026-10-02: keeps this decision for the note, re-admits a signed claim in the research tier) · [ADR-0010](ADR-0010-freeze-the-directional-scorer.md) · [ADR-0016](ADR-0016-phase-22-scores-the-distribution-only.md) · [The cut](../concepts/the-cut.md) |
 
 ## Context
 
@@ -63,3 +63,9 @@ Only through WP-21.E's capped, pre-registered search — three feature families,
 which family 1 has run and closed negative ([KB-027]). Families 2 and 3 face
 the bar in [ADR-0020](ADR-0020-the-numeric-bar-has-a-skill-margin.md), written
 down before either was chosen. The honest prior is low and the roadmap says so.
+
+The owner challenged the rule this decision grew into on 2026-10-02: the
+evidence measured absolute direction at 5–20 days from one payload, not every
+signed question. [ADR-0025](ADR-0025-a-signed-claim-may-be-tested-again-in-the-research-tier.md)
+(proposed) keeps the cut for the note and re-admits signed claims in the
+research tier under their own class bars.

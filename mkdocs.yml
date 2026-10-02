@@ -137,6 +137,7 @@ nav:
       - "ADR-0022 — The technical audit moves to an independent agent loop": decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md
       - "ADR-0023 — A fragility rule for a real decision is read on drawdown against an exposure-matched rival": decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md
       - "ADR-0024 — The daily note makes no LLM call": decisions/ADR-0024-the-note-makes-no-llm-call.md
+      - "ADR-0025 — A signed claim may be tested again in the research tier; the note still publishes none": decisions/ADR-0025-a-signed-claim-may-be-tested-again-in-the-research-tier.md
   - Record:
       - Knowledge Base: record/knowledge-base.md
       - Active experiments: record/active-experiments.md

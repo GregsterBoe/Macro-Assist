@@ -49,6 +49,7 @@ have its sealed read.
 | [H-007](#h-007) | `seen` | The product's `har_gaussian` comparator is handicapped by its shape and its zero mean, not its σ: too wide in calm (coverage 0.57 at nominal 0.50), skewed PIT, −0.044 on the S&P at 20d, while the same forecast on the empirical shape is +0.016 … +0.026 |
 | [H-008](#h-008) | `closed` | Within a stressed drawdown bin, the OR flag's state widens the forward distribution beyond what drawdown depth explains — *closed on explore 2026-09-29 at the owner's call: the width held within vol terciles (8 of 9), but neither `dd_x_frag` nor the vol forecast widened by the state forecasts better; no KB entry, no sealed read spent* |
 | [H-009](#h-009) | `closed` | Halving equity exposure while the cross-section flag fires takes less of each market drop than holding less stock does — *the first member of the risk-rule class ([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md), accepted and built 2026-10-01, `resolved.md` #34); its clause settled before any look, `resolved.md` #35; closed on explore 2026-10-01 at the owner's call: too costly, no edge, and worse than the volatility rival; no KB entry, no sealed read spent* |
+| [H-010](#h-010) | `draft` | Halving an industry for two years after it doubles (raw and net of the market) takes less of its next drops than holding less of it does — *the risk-rule class's second member, from* Bubbles for Fama *(2019); no look run; [`todo.md`](todo.md) #38 before any look* |
 
 ---
 
@@ -896,6 +897,112 @@ variant was tried, and none is tried after this number.
 Report: `results/explore_rules/report.md` · receipt
 `results/explore_rules/runs.jsonl` (2026-10-01T21:17:46+02:00, `report_sha256`
 `b5fdb95e…`).
+
+---
+
+## H-010 — Halving an industry after a two-year doubling takes less of its next drops than holding less of it does {: #h-010 }
+
+**Status:** `draft` · drafted 2026-10-02 at the owner's request · no look run, no data read · needs an independent audit before it is a hypothesis (§6, [ADR-0022](../decisions/ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md)) · one reading of the class bar to settle before any look ([`todo.md`](todo.md) #38)
+
+**What was seen.** Nothing in this repo. This is proposed, not observed. It
+comes from the owner's question on 2026-10-02: sectors like semiconductors
+and tech have outrun the market by a lot, so can a rule manage the risk of
+holding one after it has? The mechanism is published: Greenwood, Shleifer &
+You, *Bubbles for Fama* (JFE 2019). On US industries from 1928 to 2014 they
+found 40 episodes where an industry rose more than 100% over two years, both
+raw and net of the market. Such a run-up did **not** predict low average
+returns afterwards. It **did** predict a crash: going from a 50% to a 100%
+net run-up raised the chance of a 40% drawdown within two years from about
+20% to 53%. Volatility, turnover, issuance and the shape of the run-up helped
+tell which ones crashed. These numbers are the paper's, quoted from its
+abstract and summaries, and must be checked against the paper before the
+member is fixed by an audit.
+
+**Where.** *Bubbles for Fama* (the paper, not this repo) ·
+[ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md)
+(the class) · [H-009](#h-009) (the class's first member, closed) ·
+`input_testing.fetch_ff_industries(n=49)`.
+
+**The member, proposed, to be fixed by the audit before any look.**
+
+- **Legs.** Each of the Fama-French 49 value-weighted daily industry
+  portfolios is an equity leg, with cash at RF. The 49-industry split is the
+  paper's. The market is `fetch_ff_market` (Mkt−RF + RF).
+- **Trigger.** At the close of *t*, an industry's trailing 504-trading-day
+  total return is at least +100%, **and** that return minus the market's
+  trailing 504-day return is at least +100 percentage points. This is the
+  paper's two-year, 100%, raw-and-net definition, on daily data.
+- **Rule.** *e<sub>t</sub>* = 0.5 for that industry for 504 trading days after
+  its latest trigger day, else 1.0. Decided at the close of *t*, applied from
+  the close of *t* + 1. 0.5 is H-009's step, kept so the class's two members
+  differ in their signal only. 504 days is the paper's crash window.
+- **Not tried.** The paper's crash markers (volatility, turnover, issuance,
+  acceleration) are left out: turnover and issuance are not in the Fama-French
+  files, and adding volatility would put the rival inside the member. A
+  markers variant is a second member and a counted look.
+
+**Mechanism it would imply.** A doubled industry is priced on a story. The
+story does not lower its average return, but it makes a large fall more
+likely and steeper when it comes. Halving the holding for two years should
+then take visibly less of the drops that follow a run-up than holding less of
+the industry all the time does, at little cost in return, because the paper
+found no lower average return to give up.
+
+**The prediction that is not the score.**
+
+1. **Clause, testing timing rather than exposure.** H-009's clause held by
+   construction (its ledger, *Easy to forget*). This one compares only the
+   **caught** episodes, those starting while the rule is at 0.5, and compares
+   them with `vol_matched`, not with missed episodes: in caught episodes the
+   member's mean *r* is below `vol_matched`'s.
+2. **Reported, not a clause.** The share of triggers followed by a 40%
+   drawdown within 504 days, against the paper's 53%. This is a replication
+   check on daily Fama-French 49 data, not a test: the explore side overlaps
+   the paper's sample.
+
+**The confound.**
+
+- (a) **Volatility.** Run-ups are volatile, and the paper lists volatility as
+  a crash marker. `vol_matched` may do the whole job. This is the most likely
+  way the member fails, as H-009 did.
+- (b) **Exposure.** Any rule holding less of an industry takes less of its
+  drops. `static_matched` removes that.
+- (c) **The explore side is the paper's sample.** 1928–2014 is where the
+  mechanism was found. A pass on the explore side only replicates it. The
+  2018+ side is after publication and is the real test.
+- (d) **Power.** The paper found about 40 run-ups in 86 years. The sealed side
+  (2018 →) may hold only a few: perhaps chips, software, energy after 2020,
+  gold. Pooled across 49 industries the class's five-episode floor is met by
+  the many uncaught drops alone. The read could pass the floor while holding
+  two or three caught episodes. This is #38's question.
+- (e) **Pooling across legs.** ADR-0023 reads one equity leg. This member has
+  49, read as one pool of episodes with the bootstrap over episodes. Whether
+  that is the class bar or a change to it is for the owner, before any look
+  (#38).
+- (f) **The asset.** Fama-French 49 industries are narrower than the SPDR
+  sector ETFs the owner would hold. A semiconductor run-up shows in `Chips`
+  long before it doubles XLK. A live version would need an industry ETF
+  (SOXX, SMH) or a weaker trigger.
+- (g) **Eras and costs,** as for H-009.
+
+**What would test it.**
+
+1. The owner settles #38.
+2. The independent audit checks the member against the paper and fixes it.
+3. `explore_rules.py` gains a per-industry walk (a second arm; the H-009 arm
+   stays as is) and walks this member on 1926–2017. One counted look; the
+   ledger opens with it.
+4. If it would pass, write the `Pre-registration`, pass the CI audit, and the
+   owner turns the key for the 2018+ read.
+
+**Target-space check.** A risk rule read on path risk (ADR-0023). Admissible
+now, without [ADR-0025](../decisions/ADR-0025-a-signed-claim-may-be-tested-again-in-the-research-tier.md).
+Return enters as a cost limit only. "Trimming run-ups earns more" is not the
+claim and is not read.
+
+**Read first.** *Bubbles for Fama* · [ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md) ·
+[H-009](#h-009)'s ledger · `explore_rules.py`, `class_bars.RISK_RULE` ·
+`input_testing.fetch_ff_industries`, `fetch_ff_market`.
 
 ## Closed
 
