@@ -273,13 +273,24 @@ blocking on the clean base.** The last condition is the one an auditor that
 rejects everything fails. The clean base's own verdict is recorded, not graded.
 
 The KB entries and work package the clean entry cites are **frozen excerpts** in
-`base/record/`, not the live pages: the rules page and the two code files are
-copied live, but cited text that later gains a date past the entry's own
+`base/record/`, not the live pages: the rules page is copied live, but cited text that later gains a date past the entry's own
 commits makes the clean entry read as backdated. That is how the first run
 (2026-09-28) failed — the auditor flagged `bar_after_data` on the clean base
 because an entry dated August cited September text, which was correct.
 `test_nothing_the_clean_base_cites_postdates_it` holds it now; refresh the
 excerpts only together with the fixture's dates.
+
+The two code files the bundle reads facts from (`numeric_baseline.py` for the
+seal date, `explore_conditioner.py` for the arm vocabulary) are **frozen
+excerpts** too, in `base/code/`, as of the 2026-09-28 pass. Read live, they
+drifted: H-008 added a third optional arm on 2026-09-29, the facts line began
+to say 14 arms against the clean entry's "13 arms … all counted", and the
+2026-10-02 `kimi-k3` run rejected the clean base for that real miscount.
+Frozen, they sit inside the canary set's fingerprint, so a certification
+covers everything a canary bundle says;
+`test_the_clean_base_agrees_with_the_code_it_is_bundled_with` holds the count.
+Only the rules page is still read live — the auditor is held to the current
+rules.
 
 | Canary | What it plants |
 |---|---|
