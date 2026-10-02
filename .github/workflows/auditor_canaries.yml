@@ -22,7 +22,7 @@ name: Auditor canaries (WP-25.A)
 # model and effort (claude-opus-5-5 / high; each record has its estimate).
 # `max_usd` stops the suite before a runaway.
 #
-# An external model runs the same suite: `model: kimi-k2.6` goes to Moonshot's
+# An external model runs the same suite: `model: kimi-k3` (or `kimi-k2.6`) goes to Moonshot's
 # Anthropic-compatible endpoint with the MOONSHOT_API_KEY secret (the one the
 # Kimi arm uses). Its pass certifies that model id only, exactly as a Claude
 # pass does; `effort` becomes a thinking budget there (`low` = no thinking). Trigger: Actions tab -> this
@@ -32,7 +32,7 @@ on:
   workflow_dispatch:
     inputs:
       model:
-        description: "Auditor model (claude-… on Anthropic; kimi-… e.g. kimi-k2.6 on Moonshot)"
+        description: "Auditor model (claude-… on Anthropic; kimi-… e.g. kimi-k3 on Moonshot)"
         type: string
         default: "claude-opus-5-5"
       effort:
