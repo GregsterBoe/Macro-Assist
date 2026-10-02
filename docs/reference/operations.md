@@ -290,7 +290,22 @@ excerpts only together with the fixture's dates.
 | `uncounted_look` | A second, earlier run with other settings was committed to the report; the ledger records one |
 | `number_mismatch` | The ledger quotes a 20-day width and ratio the report does not contain |
 
-A local run (`audit_entry.py H-008`) needs `ANTHROPIC_API_KEY`, writes its
+**External models.** The suite (and, once certified, the promotion-tier audit)
+can run on a model outside Anthropic: `--model kimi-k2.6` — the workflow's
+`model` input — goes to Moonshot's Anthropic-compatible endpoint
+(`KIMI_BASE_URL`, default `https://api.moonshot.ai/anthropic`) with
+`MOONSHOT_API_KEY`. The model id alone picks the provider (`PROVIDERS` in
+`audit_entry.py`; a new one is one line), so a Kimi pass certifies Kimi and
+nothing else. That endpoint does not enforce the answer's schema, `effort` or
+adaptive thinking, so for it: the schema is written into the system prompt and
+`parse_answer` checks every field the record uses; `effort` becomes a thinking
+budget (`low` turns thinking off); and an answer wrapped whole in one code
+fence is unwrapped — JSON fished out of prose is still not a pass. Every
+record carries `provider`. The Kimi price in `PRICES` is K2.5's list price
+carried forward; check it against Moonshot's before trusting the estimate.
+
+A local run (`audit_entry.py H-008`) needs `ANTHROPIC_API_KEY` (or
+`MOONSHOT_API_KEY` for a `kimi-…` model), writes its
 record under `results/audit/entries/`, and is labelled `tier: local`: it can
 inform an explore look, and it does not satisfy §9 question 12, which wants
 an audit that CI ran and recorded ([`audit_entry.yml`](#audit_entryyml-the-promotion-tier-audit-wp-25c), WP-25.C). The `tier` field is a label; what
@@ -1076,6 +1091,7 @@ the `plan` job's summary repeats the source and the resolved `asof`.
 |--------|-------------|
 | `FRED_API_KEY` | [FRED API key](https://fred.stlouisfed.org/docs/api/api_key.html) |
 | `ANTHROPIC_API_KEY` | Anthropic API key — the daily note only with `NOTE_ANALYSIS=llm` (off since v2.2), the auditor's canary suite (`auditor_canaries.yml`) and the promotion-tier audit (`audit_entry.yml`) |
+| `MOONSHOT_API_KEY` | Moonshot (Kimi) API key — the Kimi arm (soft-killed) and the auditor when its `model` is `kimi-…` (`auditor_canaries.yml`, `audit_entry.yml`) |
 | `VAULT_PAT` | GitHub Personal Access Token with `repo` scope (for pushing to External-Brain) |
 | `VAULT_REPO` | External-Brain repo name, e.g. `GregsterBoe/External-Brain` |
 | `SUPADATA_API_KEY` | [Supadata API key](https://supadata.ai) for YouTube transcripts (optional; read only with `NOTE_ANALYSIS=llm`) |

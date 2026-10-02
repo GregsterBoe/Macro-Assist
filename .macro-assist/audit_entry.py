@@ -55,8 +55,8 @@ runs all of that and builds the bundle, for free. After CI publishes the record,
 `record_audit.py` holds the field to them — so whoever commits it, nobody
 authors it.
 
-Spends API money (ANTHROPIC_API_KEY), except under --bundle-only and
---check-canaries. The canary suite is seven calls, and `--max-usd` stops it
+Spends API money (ANTHROPIC_API_KEY, or the external provider's key — see
+PROVIDERS), except under --bundle-only and --check-canaries. The canary suite is seven calls, and `--max-usd` stops it
 before a runaway.
 
 Run:
@@ -65,6 +65,7 @@ Run:
     python .macro-assist/audit_entry.py --check-canaries          # replay every canary, no API call
     python .macro-assist/audit_entry.py H-008                     # a local audit (costs money)
     python .macro-assist/audit_entry.py --canaries                # the suite; exit 1 unless every canary passes
+    python .macro-assist/audit_entry.py --canaries --model kimi-k2.6   # the same suite on an external model
     python .macro-assist/audit_entry.py H-008 --ci [--dry-run]    # the promotion tier; audit_entry.yml runs it
     python .macro-assist/audit_entry.py --sync-field              # Audit record fields from CI's records; free
 """
@@ -127,7 +128,55 @@ PRICES: dict[str, tuple[float, float, float]] = {
     "claude-fable-5-1": (10.0, 50.0, 0.25),
     "claude-opus-4-8": (5.0, 25.0, 0.50),       # the note's main model today (model_compare)
     "claude-haiku-4-5": (1.0, 5.0, 0.10),
+    # Moonshot's list prices for K2.5, carried to K2.6 until checked against
+    # platform.moonshot.ai — the spend guard needs a number, and an unknown
+    # price would let a suite run unguarded.
+    "kimi-k2.6": (0.60, 3.00, 0.10),
+    "kimi-k2.5": (0.60, 3.00, 0.10),
 }
+
+
+
+# Where a model id is sent. The auditor's call is the Anthropic Messages API;
+# an external provider is reached through its Anthropic-compatible endpoint, so
+# the request, the stream and the record are one code path. The model id alone
+# picks the provider, so the certified configuration (model, effort,
+# instructions, canary set) needs no fifth field, and a canary pass on Kimi
+# certifies Kimi and nothing else.
+#
+# A non-native endpoint does not promise the three things the native call leans
+# on — schema-constrained output, `effort`, adaptive thinking — so for one:
+# the schema goes into the system prompt and `parse_answer` holds the answer to
+# it (it always did); `effort` becomes a thinking budget (`low` turns thinking
+# off); and a fenced JSON answer is unwrapped, nothing more lenient.
+@dataclass(frozen=True)
+class Provider:
+    name: str
+    prefixes: tuple[str, ...]       # a model id starting with one of these goes here
+    key_env: tuple[str, ...]        # the first one set is the key
+    base_url_env: str | None = None
+    base_url: str | None = None     # None = the SDK's default (Anthropic)
+    native: bool = True             # the Anthropic API itself
+
+
+ANTHROPIC = Provider("anthropic", ("claude-",), ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"))
+PROVIDERS: tuple[Provider, ...] = (
+    ANTHROPIC,
+    # Kimi (Moonshot AI). The same endpoint and key kimi_arm.py uses.
+    Provider("moonshot", ("kimi-", "moonshot-"), ("MOONSHOT_API_KEY", "KIMI_API_KEY"),
+             base_url_env="KIMI_BASE_URL", base_url="https://api.moonshot.ai/anthropic",
+             native=False),
+)
+
+# `effort` on a non-native endpoint: a thinking budget in tokens, under MAX_TOKENS.
+THINKING_BUDGET = {"low": 0, "medium": 8_000, "high": 16_000, "xhigh": 32_000, "max": 48_000}
+
+
+def provider_for(model: str) -> Provider:
+    """The provider a model id goes to. An id no provider claims is the
+    Anthropic API's, which answers for itself whether it knows the model."""
+    return next((p for p in PROVIDERS if model.startswith(p.prefixes)), ANTHROPIC)
+
 
 _STRING = {"type": "string"}
 RESPONSE_SCHEMA: dict = {
@@ -490,20 +539,28 @@ def call_auditor(bundle: Bundle, instructions: str, *, client, model: str,
     the same for every entry — and nothing volatile sits before it."""
     import anthropic
 
+    provider = provider_for(model)
     system = [
-        {"type": "text", "text": instructions},
+        {"type": "text", "text": instructions if provider.native
+         else instructions + "\n\n" + external_format_note()},
         {"type": "text", "text": "# The rules: How we explore\n\n" + bundle.rules,
          "cache_control": {"type": "ephemeral"}},
     ]
+    if provider.native:
+        options = {"thinking": {"type": "adaptive"},
+                   "output_config": {"effort": effort,
+                                     "format": {"type": "json_schema", "schema": RESPONSE_SCHEMA}}}
+    else:
+        budget = THINKING_BUDGET[effort]
+        options = {"thinking": ({"type": "enabled", "budget_tokens": budget} if budget
+                                else {"type": "disabled"})}
     try:
         with client.messages.stream(
             model=model,
             max_tokens=MAX_TOKENS,
             system=system,
-            thinking={"type": "adaptive"},
-            output_config={"effort": effort,
-                           "format": {"type": "json_schema", "schema": RESPONSE_SCHEMA}},
             messages=[{"role": "user", "content": bundle.material}],
+            **options,
         ) as stream:
             msg = stream.get_final_message()
     except anthropic.APIConnectionError as e:
@@ -518,6 +575,8 @@ def call_auditor(bundle: Bundle, instructions: str, *, client, model: str,
             why += f" ({getattr(details, 'category', None)})"
         raise AuditNotRun(f"the answer did not complete: stop_reason {why}")
     text = "".join(b.text for b in msg.content if b.type == "text")
+    if not provider.native:
+        text = _unfence(text)
     try:
         answer = json.loads(text)
     except json.JSONDecodeError as e:
@@ -529,8 +588,26 @@ def call_auditor(bundle: Bundle, instructions: str, *, client, model: str,
         "cache_creation_input_tokens": getattr(u, "cache_creation_input_tokens", 0) or 0,
         "cache_read_input_tokens": getattr(u, "cache_read_input_tokens", 0) or 0,
     }
-    return answer, {"model": msg.model, "request_id": getattr(msg, "_request_id", None),
-                    "usage": usage}
+    return answer, {"model": msg.model or model, "provider": provider.name,
+                    "request_id": getattr(msg, "_request_id", None), "usage": usage}
+
+
+def external_format_note() -> str:
+    """What the API's schema enforcement says for itself on the native call,
+    said in words to an endpoint that does not enforce it."""
+    return ("# The answer's format\n\nAnswer with exactly one JSON object and nothing else — "
+            "no prose before or after it, no code fence. It must validate against this JSON "
+            "Schema:\n\n" + json.dumps(RESPONSE_SCHEMA, indent=1))
+
+
+_FENCE_RE = re.compile(r"\A\s*```(?:json)?\s*\n(.*)\n\s*```\s*\Z", re.S)
+
+
+def _unfence(text: str) -> str:
+    """A whole answer wrapped in one code fence is the answer. Anything looser —
+    JSON fished out of prose — is not: a malformed answer is not a pass."""
+    m = _FENCE_RE.match(text)
+    return m.group(1) if m else text
 
 
 def estimate_usd(model: str, usage: dict) -> float | None:
@@ -558,8 +635,9 @@ class AuditResult:
 
 
 def parse_answer(answer: dict) -> AuditResult:
-    """Hold the answer to its contract. The API enforces the schema; this
-    re-checks what a schema cannot say — every question 1–11 exactly once —
+    """Hold the answer to its contract. The Anthropic API enforces the schema
+    (an external endpoint does not, so this checks every field the record
+    uses); it also checks what a schema cannot say — every question 1–11 exactly once —
     and anything a test's fake could get wrong."""
     if not isinstance(answer, dict):
         raise InvalidAudit("the answer is not an object")
@@ -571,6 +649,10 @@ def parse_answer(answer: dict) -> AuditResult:
             raise InvalidAudit(f"a finding outside the vocabulary: {f!r}")
         if not isinstance(f.get("blocking"), bool):
             raise InvalidAudit(f"a finding with no blocking flag: {f!r}")
+        if not (isinstance(f.get("claim"), str) and isinstance(f.get("evidence"), str)
+                and isinstance(f.get("questions"), list)
+                and all(isinstance(n, int) for n in f["questions"])):
+            raise InvalidAudit(f"a finding missing its claim, evidence or questions: {f!r}")
     qs: dict[int, dict] = {}
     for q in answer.get("questions") or []:
         n = q.get("number") if isinstance(q, dict) else None
@@ -580,6 +662,8 @@ def parse_answer(answer: dict) -> AuditResult:
             raise InvalidAudit(f"question {n!r} is not one of 1–11, or is answered twice")
         if q.get("status") not in STATUSES:
             raise InvalidAudit(f"question {n}: status {q.get('status')!r}")
+        if not isinstance(q.get("note"), str):
+            raise InvalidAudit(f"question {n}: no note")
         qs[n] = q
     missing = [n for n in ANSWERED if n not in qs]
     if missing:
@@ -636,6 +720,7 @@ def make_record(bundle: Bundle, result: AuditResult, meta: dict, *, requested_mo
         "run": _run_url(),
         "sources": bundle.sources,
         "requested_model": requested_model,
+        "provider": meta.get("provider", ANTHROPIC.name),
         "model": meta["model"],
         "effort": effort,
         "request_id": meta.get("request_id"),
@@ -991,6 +1076,7 @@ def run_canaries(root: Path, *, client, model: str, effort: str,
         "tier": _tier(),
         "run": _run_url(),
         "requested_model": model,
+        "provider": provider_for(model).name,
         "effort": effort,
         "instructions_sha256": _sha(instructions),
         "canary_set_sha256": canary_set_sha(root),
@@ -1066,12 +1152,18 @@ def render_dry_run(pf: Preflight, bundle: Bundle, *, model: str, effort: str) ->
 # CLI
 # ---------------------------------------------------------------------------
 
-def _client():
+def _client(model: str = DEFAULT_MODEL):
     import anthropic
-    if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
-        raise SystemExit("ANTHROPIC_API_KEY is not set. --bundle-only and --check-canaries need "
-                         "none; the canary suite runs in CI (auditor_canaries.yml).")
-    return anthropic.Anthropic()
+    p = provider_for(model)
+    key = next((os.environ[k] for k in p.key_env if os.environ.get(k)), None)
+    if not key:
+        raise SystemExit(f"{p.key_env[0]} is not set (the key for `{model}`, provider "
+                         f"{p.name}). --bundle-only and --check-canaries need none; the canary "
+                         f"suite runs in CI (auditor_canaries.yml).")
+    if p.native:
+        return anthropic.Anthropic()
+    base_url = (os.environ.get(p.base_url_env) if p.base_url_env else None) or p.base_url
+    return anthropic.Anthropic(base_url=base_url, api_key=key)
 
 
 def _stamp(now: datetime) -> str:
@@ -1098,7 +1190,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--sync-field", action="store_true",
                     help="rewrite the entry's Audit record field (every entry's, with no id) "
                          "from CI's records on the output branch; no API call")
-    ap.add_argument("--model", default=os.environ.get("AUDITOR_MODEL") or DEFAULT_MODEL)
+    ap.add_argument("--model", default=os.environ.get("AUDITOR_MODEL") or DEFAULT_MODEL,
+                    help="auditor model; `kimi-…` goes to Moonshot (MOONSHOT_API_KEY), "
+                         "`claude-…` to Anthropic")
     ap.add_argument("--effort", default=DEFAULT_EFFORT,
                     choices=("low", "medium", "high", "xhigh", "max"))
     ap.add_argument("--max-usd", type=float, default=DEFAULT_MAX_USD,
@@ -1128,7 +1222,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.canaries:
-        suite = run_canaries(root, client=_client(), model=args.model, effort=args.effort,
+        suite = run_canaries(root, client=_client(args.model), model=args.model, effort=args.effort,
                              max_usd=args.max_usd, now=now)
         dest = out_dir / "canaries"
         dest.mkdir(parents=True, exist_ok=True)
@@ -1172,7 +1266,7 @@ def main(argv: list[str] | None = None) -> int:
     provenance = ({"canary_set_sha": pf.canary_set_sha, "certified_by": pf.certified_by}
                   if pf is not None else {"canary_set_sha": canary_set_sha(root)})
     try:
-        rec = audit(bundle, read_instructions(root), client=_client(), model=args.model,
+        rec = audit(bundle, read_instructions(root), client=_client(args.model), model=args.model,
                     effort=args.effort, now=now, **provenance)
     except (AuditNotRun, InvalidAudit) as e:
         print(f"The audit did not complete, and that is not a pass: {e}", file=sys.stderr)

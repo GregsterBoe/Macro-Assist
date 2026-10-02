@@ -232,6 +232,71 @@ def test_an_incomplete_call_is_not_a_pass(h008, stop, text):
         ae.audit(h008, "I", client=client, model="claude-opus-5", effort="high")
 
 
+def test_a_model_id_picks_its_provider():
+    assert ae.provider_for("claude-opus-5-5") is ae.ANTHROPIC
+    assert ae.provider_for("kimi-k2.6").name == "moonshot"
+    assert not ae.provider_for("kimi-k2.6").native
+    assert ae.provider_for("some-unknown-model") is ae.ANTHROPIC
+
+
+@pytest.mark.parametrize("effort,thinking", [
+    ("high", {"type": "enabled", "budget_tokens": ae.THINKING_BUDGET["high"]}),
+    ("low", {"type": "disabled"})])
+def test_kimi_gets_the_schema_in_words_and_a_thinking_budget(h008, effort, thinking):
+    client = FakeClient(lambda kw: _message(_answer(blocking=("thin_evidence",))))
+    rec = ae.audit(h008, "INSTRUCTIONS", client=client, model="kimi-k2.6", effort=effort)
+    (kw,) = client.calls
+    assert "output_config" not in kw                      # an external endpoint does not enforce it
+    assert kw["thinking"] == thinking
+    assert kw["system"][0]["text"].startswith("INSTRUCTIONS\n\n# The answer's format")
+    assert '"thin_evidence"' in kw["system"][0]["text"]    # the vocabulary travels with the schema
+    assert kw["system"][1]["text"].endswith(h008.rules)
+    assert kw["messages"] == [{"role": "user", "content": h008.material}]
+    assert rec["provider"] == "moonshot" and rec["requested_model"] == "kimi-k2.6"
+    assert rec["verdict"] == "reject" and rec["est_cost_usd"] is not None
+    assert all(b < ae.MAX_TOKENS for b in ae.THINKING_BUDGET.values())
+
+
+def test_a_fenced_kimi_answer_is_unwrapped_and_prose_is_not(h008):
+    fenced = "```json\n" + json.dumps(_answer()) + "\n```"
+    rec = ae.audit(h008, "I", client=FakeClient(lambda kw: _message(_answer(), text=fenced)),
+                   model="kimi-k2.6", effort="high")
+    assert rec["verdict"] == "no_blocking_finding"
+    chatty = "Here is my audit:\n" + json.dumps(_answer())
+    with pytest.raises(ae.AuditNotRun):
+        ae.audit(h008, "I", client=FakeClient(lambda kw: _message(_answer(), text=chatty)),
+                 model="kimi-k2.6", effort="high")
+
+
+def test_an_answer_missing_a_field_the_record_uses_is_invalid(h008):
+    bad = _answer(blocking=("thin_evidence",))
+    del bad["findings"][0]["evidence"]
+    with pytest.raises(ae.InvalidAudit):
+        ae.parse_answer(bad)
+    bad = _answer()
+    del bad["questions"][3]["note"]
+    with pytest.raises(ae.InvalidAudit):
+        ae.parse_answer(bad)
+
+
+def test_the_kimi_client_reads_the_moonshot_key(monkeypatch):
+    monkeypatch.delenv("MOONSHOT_API_KEY", raising=False)
+    monkeypatch.delenv("KIMI_API_KEY", raising=False)
+    with pytest.raises(SystemExit, match="MOONSHOT_API_KEY"):
+        ae._client("kimi-k2.6")
+    monkeypatch.setenv("KIMI_API_KEY", "sk-test")
+    monkeypatch.delenv("KIMI_BASE_URL", raising=False)
+    c = ae._client("kimi-k2.6")
+    assert c.api_key == "sk-test" and str(c.base_url).startswith("https://api.moonshot.ai/anthropic")
+
+
+def test_a_kimi_suite_records_its_provider():
+    base, variants = ae.load_canaries(ROOT)
+    suite = ae.run_canaries(ROOT, client=FakeClient(lambda kw: _message(_answer())),
+                            model="kimi-k2.6", effort="high", now=NOW)
+    assert suite["provider"] == "moonshot" and suite["requested_model"] == "kimi-k2.6"
+
+
 def test_a_local_record_says_it_is_local(h008, monkeypatch):
     monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
     rec = ae.audit(h008, "I", client=FakeClient(lambda kw: _message(_answer())),
@@ -592,7 +657,7 @@ def test_a_ci_audit_records_its_provenance_and_the_field_follows_the_records(ci_
     """End to end, offline: audit → record on output → Audit record field on
     main, which record_audit holds to the records and the stamp ignores."""
     fake = FakeClient(lambda kw: _message(_answer(blocking=("thin_evidence",))))
-    monkeypatch.setattr(ae, "_client", lambda: fake)
+    monkeypatch.setattr(ae, "_client", lambda *a: fake)
     before = (ci_repo / dp.HYPOTHESES).read_text()
     assert ae.main(["H-101", "--ci", "--root", str(ci_repo)]) == 0 and len(fake.calls) == 1
     (rec_path,) = (ci_repo / "results" / "audit" / "entries" / "H-101").glob("*.json")
