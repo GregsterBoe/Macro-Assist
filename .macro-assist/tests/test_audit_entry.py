@@ -16,6 +16,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -388,6 +389,37 @@ def test_nothing_the_clean_base_cites_postdates_it(canaries, bundles):
     for name in ae.CANARY_FROZEN.values():
         dates = re.findall(r"\b20\d\d-\d\d-\d\d\b", (frozen / name).read_text(encoding="utf-8"))
         assert dates and max(dates) < drafted, (name, max(dates), drafted)
+
+
+def test_the_clean_base_agrees_with_the_code_it_is_bundled_with(canaries, bundles):
+    """The 2026-10-02 kimi-k3 run rejected the clean base for a real miscount:
+    the harness was read live, gained an arm on 2026-09-29, and the facts line
+    said 14 arms against the fixture's 13. The code is frozen under base/code/
+    now; the report's multiplicity count must equal what the facts line says,
+    and the frozen code must be what the bundle reads, not the live harness."""
+    code = ROOT / ae.CANARY_DIR / ae.BASE / ae.CODE_DIR
+    for rel, name in ae.CANARY_CODE.items():
+        assert (code / name).is_file(), name
+    with tempfile.TemporaryDirectory() as tmp:
+        arms = dp.harness_arms(ae.materialize(ROOT, canaries[0], Path(tmp) / "base"))
+    assert arms and "unconditional" in arms
+    report = (ROOT / ae.CANARY_DIR / ae.BASE / "report-v1.md").read_text(encoding="utf-8")
+    counted = int(re.search(r"\*\*Multiplicity:\*\* (\d+) arms", report).group(1))
+    assert counted == len(arms) - 1
+    b = bundles[ae.BASE].material
+    assert f"multiplicity line counts {counted} arms." in b
+    assert "the harness's {} arms against `unconditional`".format(counted) in b
+
+
+def test_the_frozen_code_is_inside_the_canary_fingerprint(tmp_path):
+    """A certification names `canary_set_sha`; anything a canary bundle says
+    must move it, the frozen code included."""
+    import shutil
+    shutil.copytree(ROOT / ae.CANARY_DIR, tmp_path / ae.CANARY_DIR)
+    before = ae.canary_set_sha(tmp_path)
+    harness = tmp_path / ae.CANARY_DIR / ae.BASE / ae.CODE_DIR / ae.CANARY_CODE[dp.HARNESS]
+    harness.write_text(harness.read_text(encoding="utf-8") + "\n# drift\n", encoding="utf-8")
+    assert ae.canary_set_sha(tmp_path) != before
 
 
 def test_the_cost_estimate_prices_each_model_as_itself():
