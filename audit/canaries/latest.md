@@ -1,8 +1,8 @@
 # Auditor canaries
 
-**FAILED** · 2026-10-02T17:36:30+00:00 · tier `ci` · model `kimi-k3` · effort `high` · [run](https://github.com/GregsterBoe/Macro-Assist/actions/runs/37041753769)
+**PASSED** · 2026-10-04T08:00:03+00:00 · tier `ci` · model `kimi-k3` · effort `high` · [run](https://github.com/GregsterBoe/Macro-Assist/actions/runs/37187449033)
 
-Instructions `sha256:9a67c70db6ec5286…` · canary set `sha256:758ac0d1a6d0be90…` · estimated cost $2.49
+Instructions `sha256:9a67c70db6ec5286…` · canary set `sha256:14ca69a87a503470…` · estimated cost $2.15
 
 A canary passes when the auditor reports its planted defect as blocking, rejects the entry, and does not raise that category against the clean base.
 
@@ -13,13 +13,12 @@ A canary passes when the auditor reports its planted defect as blocking, rejects
 | `sealed_slice` | `sealed_slice` | yes | caught, and not raised against the clean base |
 | `signed_forecast` | `signed_forecast` | yes | caught, and not raised against the clean base |
 | `thin_evidence` | `thin_evidence` | yes | caught, and not raised against the clean base |
-| `uncounted_look` | `uncounted_look` | **no** | uncounted_look is also raised against the clean base |
+| `uncounted_look` | `uncounted_look` | yes | caught, and not raised against the clean base |
 
 ## The clean base
 
-Verdict `reject` — recorded, not graded.
-- blocking finding: uncounted_look
-- question 10: fails
+Verdict `no_blocking_finding` — recorded, not graded.
+- nothing blocking
 
 ## What each canary plants
 

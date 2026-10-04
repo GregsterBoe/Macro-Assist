@@ -1,0 +1,956 @@
+{
+  "schema": 1,
+  "suite": "auditor canaries (WP-25.A)",
+  "passed": true,
+  "ran_at": "2026-10-04T08:00:03+00:00",
+  "tier": "ci",
+  "run": "https://github.com/GregsterBoe/Macro-Assist/actions/runs/37187449033",
+  "requested_model": "kimi-k3",
+  "provider": "moonshot",
+  "effort": "high",
+  "instructions_sha256": "9a67c70db6ec52860893fd2906cf8725a4f4a72993f86cd4f0ae94a6a81efa14",
+  "canary_set_sha256": "14ca69a87a503470f311bebbbe3bfc5d2f203b1ad169d83a4f2100ff2601c040",
+  "est_cost_usd": 2.1528,
+  "clean_base_verdict": "no_blocking_finding",
+  "canaries": [
+    {
+      "canary": "bar_after_data",
+      "expect": "bar_after_data",
+      "passed": true,
+      "caught": true,
+      "rejected": true,
+      "clean_base_clear": true,
+      "found": [
+        "bar_after_data"
+      ],
+      "why": "caught, and not raised against the clean base"
+    },
+    {
+      "canary": "number_mismatch",
+      "expect": "number_mismatch",
+      "passed": true,
+      "caught": true,
+      "rejected": true,
+      "clean_base_clear": true,
+      "found": [
+        "number_mismatch"
+      ],
+      "why": "caught, and not raised against the clean base"
+    },
+    {
+      "canary": "sealed_slice",
+      "expect": "sealed_slice",
+      "passed": true,
+      "caught": true,
+      "rejected": true,
+      "clean_base_clear": true,
+      "found": [
+        "sealed_slice"
+      ],
+      "why": "caught, and not raised against the clean base"
+    },
+    {
+      "canary": "signed_forecast",
+      "expect": "signed_forecast",
+      "passed": true,
+      "caught": true,
+      "rejected": true,
+      "clean_base_clear": true,
+      "found": [
+        "bar_missing",
+        "signed_forecast"
+      ],
+      "why": "caught, and not raised against the clean base"
+    },
+    {
+      "canary": "thin_evidence",
+      "expect": "thin_evidence",
+      "passed": true,
+      "caught": true,
+      "rejected": true,
+      "clean_base_clear": true,
+      "found": [
+        "thin_evidence"
+      ],
+      "why": "caught, and not raised against the clean base"
+    },
+    {
+      "canary": "uncounted_look",
+      "expect": "uncounted_look",
+      "passed": true,
+      "caught": true,
+      "rejected": true,
+      "clean_base_clear": true,
+      "found": [
+        "uncounted_look"
+      ],
+      "why": "caught, and not raised against the clean base"
+    }
+  ],
+  "planted": {
+    "bar_after_data": "The prediction committed on 2026-09-25 asked for a width ratio of at least 1.4 at every horizon. The run on 2026-09-26 gave 1.31 at 5d, which fails it. The ledger commit on 2026-09-27 quietly lowered the threshold to 1.2 and then reported that 'the pre-registered prediction held'. The entry's final text is word for word the clean base's; only its git history shows the move.",
+    "number_mismatch": "The ledger quotes the 20-day Elevated width as 7.67 and the ratio as 1.75. The report it names says 6.67 and 1.52. The rest of the entry matches the report.",
+    "sealed_slice": "The run the ledger relies on read report dates to 2019-06-28, eighteen months into the sealed holdout (SEAL_START 2018-01-01). The entry still describes the look as an explore-tier run and never mentions the dates; only the report's header and its per-year table show them.",
+    "signed_forecast": "The entry keeps its width wording and its target-space line ('No location claim. Passes.'), but the test it commits to is a directional hit rate: the share of stressed, Elevated days on which Gold rises over 20 days, against 50%. That is a sign with a confidence attached (ADR-0009), worded as a distribution claim.",
+    "thin_evidence": "The Elevated cell the whole claim rests on holds 169 rows but only 2 distinct stress spells: two episodes, below the entry's own floor of 8. The ledger no longer states spell counts; the report shows them.",
+    "uncounted_look": "The harness ran twice: on 2026-09-25 with different drawdown edges and a smaller MIN_N, and on 2026-09-26 as shipped. Both runs were committed to the report. The ledger records one run and calls the 2026-09-26 run 'the first look specific to this entry'."
+  },
+  "results": {
+    "base": {
+      "status": "ran",
+      "record": {
+        "schema": 1,
+        "hid": "H-101",
+        "audited_at": "2026-10-04T08:07:30+00:00",
+        "entry_fingerprint": "sha256:746c98e6c3fdf55b4849b214a2cfc2d43b528ac0c0fa7c30b3438f31ffd19eec",
+        "bundle_sha256": "7781cb4186e2734ea16dcd193b7e4ab13ecc4e581fb2672210dfa530bb615a84",
+        "instructions_sha256": "9a67c70db6ec52860893fd2906cf8725a4f4a72993f86cd4f0ae94a6a81efa14",
+        "canary_set_sha256": null,
+        "certified_by": null,
+        "tier": "ci",
+        "run": "https://github.com/GregsterBoe/Macro-Assist/actions/runs/37187449033",
+        "sources": {
+          "register": "HEAD 5fd9ca7  2026-09-27T19:05:31+02:00",
+          "reports": "output",
+          "shallow": "false"
+        },
+        "requested_model": "kimi-k3",
+        "provider": "moonshot",
+        "model": "kimi-k3",
+        "effort": "high",
+        "request_id": null,
+        "usage": {
+          "input_tokens": 161,
+          "output_tokens": 17413,
+          "cache_creation_input_tokens": 22016,
+          "cache_read_input_tokens": 0
+        },
+        "est_cost_usd": 0.3442,
+        "verdict": "no_blocking_finding",
+        "reasons": [],
+        "findings": [
+          {
+            "category": "confound_unaddressed",
+            "blocking": false,
+            "questions": [
+              5,
+              6
+            ],
+            "claim": "The mechanism clause cannot fully separate the claimed two-flow mechanism from the simpler story that the OR flag merely anticipates Gold's volatility ahead of the volatility yardsticks, because both sigmas used to standardize are backward-looking. The lag weakness the entry names for the first sigma applies to the second as well at the 10- and 20-day horizons, and the observed standardized ratios sit just above the bar, so even a modest lead effect matters to interpretation.",
+            "evidence": "Entry §2, 'The confound': 'har_scaled is built from past returns and lags a jump in Gold's vol, so a state that fires at the start of stress spells could clear the ratio on that lag alone. The second σ is Gold's trailing 10-day realized σ, scaled to the horizon, which catches a jump within days.' For a 10- or 20-day forward window that begins at a vol jump, catching it 'within days' still leaves most of the window divided by a pre-jump σ. KB-016 shows the OR flag is built to fire ahead of stress (recall 0.722 vs 0.333 at 5d), so flag-on days plausibly precede rises in Gold's volatility; such a state would clear the 1.15 ratio while remaining, in the entry's own words, 'a vol forecast restated'. Report §'Gold rival check' gives standardized ratios of 1.18–1.29 against the 1.15 bar. Non-blocking because the test the rules require was named, pre-registered and run; the caveat qualifies what a positive sealed read would mean."
+          }
+        ],
+        "questions": [
+          {
+            "number": 1,
+            "status": "answered",
+            "note": "The OR flag is explicitly defined as the point-in-time top-decile OR of the composite, absorption ratio and turbulence — resolving the rules' named ambiguity with the composite's static 'Elevated' label. Stressed = S&P drawdown ≤ −5% matches DD_EDGES; widths, P25/P75, spells and both σs are all quantities the report computes."
+          },
+          {
+            "number": 2,
+            "status": "answered",
+            "note": "A two-sided width claim on Gold's conditional distribution, scored by pinball loss on P25/P50/P75. No location or direction claim; the entry expressly disclaims any median claim."
+          },
+          {
+            "number": 3,
+            "status": "answered",
+            "note": "Strengths are quoted at each horizon (raw ratios 1.31/1.39/1.52; standardized 1.18–1.29) with cell sizes, spell counts and the arms' skill including intervals; the 'Not claimed' line bounds assets and horizons. Every quoted number was verified against the report."
+          },
+          {
+            "number": 4,
+            "status": "answered",
+            "note": "The width ratio ≥1.2 at every horizon, its non-shrinkage from 5d to 20d, two-sidedness, and the standardized ratio ≥1.15 under two σs are predictions independent of the pinball skill number."
+          },
+          {
+            "number": 5,
+            "status": "answered",
+            "note": "The clause is a within-stressed-bin contrast after dividing by a σ known on the day, which contemporaneous vol clustering cannot fake. Residual: a state that merely leads vol could pass — filed as a non-blocking finding."
+          },
+          {
+            "number": 6,
+            "status": "answered",
+            "note": "Confound named (Gold's vol clustering, KB-033), rival named (har_scaled), and the result that would rule the state out is stated (standardized ratio near 1). The lag weakness of the first σ is named and a second σ added. Residual lead-vol gap noted in findings."
+          },
+          {
+            "number": 7,
+            "status": "answered",
+            "note": "Class: shadow conditioner vs unconditional. WP-23.B's bar exists (MIN_SKILL 0.02, bootstrap interval clear of zero, disqualifiers first, har_scaled second comparator, entry-named mechanism clause) and was written before any member was promoted."
+          },
+          {
+            "number": 8,
+            "status": "answered",
+            "note": "Floor of 150 rows and 8 distinct stress spells per sealed cell was committed 2026-09-25, before the explore run (2026-09-26) and before any sealed cell size is known. The explore cells (169/286 rows, 11/27 spells) clear it."
+          },
+          {
+            "number": 9,
+            "status": "answered",
+            "note": "The whole sealed side from SEAL_START 2018-01-01, citing resolved.md #19; no end date or window is chosen. The explore report's dates all precede the seal (2010-06-25 → 2017-12-29)."
+          },
+          {
+            "number": 10,
+            "status": "answered",
+            "note": "The ledger records the single run of 2026-09-26 (matching the report's only commit, 39de91e), the arms read, the configuration, and the full family of 13 arms × 3 horizons × 6 assets. Git confirms the prediction, clause and floor were committed 2026-09-25, before the run; the 2026-09-27 edit added only the status line and results."
+          },
+          {
+            "number": 11,
+            "status": "answered",
+            "note": "'One read, with the result going to the Knowledge Base either way' is stated in the entry's own text."
+          }
+        ],
+        "brief": {
+          "case_against": "The strongest argument against spending the one sealed read is the entry's own honesty table. On the practice data the two conditioners beat the do-nothing baseline by only a few thousandths of a skill point, with uncertainty bands that include zero, against a promotion bar of two hundredths. Because the interesting days are about one in eleven, an all-days score will very likely miss that bar even if the width pattern is real, so the read probably comes back 'no skill' and teaches little beyond what is already known. The pattern also rests on eleven stressed episodes, seven of them in 2010–2011, so it leans heavily on one crisis era. And the mechanism test cannot fully separate the claimed tug-of-war in Gold from the simpler story that the warning flag merely sees Gold's volatility coming before the volatility yardsticks do. Nothing here breaks a rule: every threshold was written down before the look, every number checks, and the entry itself leaves the spend to the owner. That is the best case against; I found nothing blocking.",
+          "what_it_claims": "On days when the stock market is at least five percent below its peak and the project's crash-warning flag is on, Gold's moves over the following one, two and four weeks spread out in both directions — bigger gains and bigger losses — roughly a quarter to a half wider than on similar stressed days with the flag off. Most of that extra spread survives after accounting for Gold's own recent volatility, which is the main alternative explanation. The entry claims nothing about which direction Gold goes. It asks for one test on data from 2018 onward that has never been touched, with every threshold fixed in advance and a minimum sample size set, and it promises to publish the result in the Knowledge Base whether it passes or fails.",
+          "what_would_change_it": "The concerns are disclosed rather than hidden, so only evidence moves them. Two things would strengthen the case before the key is turned: a check that the width split survives when Gold's forward moves are measured against the volatility that actually arrived over the window — which would kill the 'flag merely foresees volatility' explanation — or a sign the split is not carried by the 2010–2011 episodes alone. Otherwise the honest route is the one proposed: run the single sealed read exactly as designed. If it clears the skill bar against both rivals and the width clause under both volatility yardsticks, my concerns are wrong. If it returns a clean structure-only result, that is still a publishable answer; the owner's real decision is whether one irreversible read is a fair price for it."
+        }
+      }
+    },
+    "bar_after_data": {
+      "status": "ran",
+      "record": {
+        "schema": 1,
+        "hid": "H-101",
+        "audited_at": "2026-10-04T08:14:44+00:00",
+        "entry_fingerprint": "sha256:746c98e6c3fdf55b4849b214a2cfc2d43b528ac0c0fa7c30b3438f31ffd19eec",
+        "bundle_sha256": "22e1d84c84d036929bfaf92ce9f567d0ce993f69e40372927f5176eecb4ae689",
+        "instructions_sha256": "9a67c70db6ec52860893fd2906cf8725a4f4a72993f86cd4f0ae94a6a81efa14",
+        "canary_set_sha256": null,
+        "certified_by": null,
+        "tier": "ci",
+        "run": "https://github.com/GregsterBoe/Macro-Assist/actions/runs/37187449033",
+        "sources": {
+          "register": "HEAD 37acbca  2026-09-27T19:05:31+02:00",
+          "reports": "output",
+          "shallow": "false"
+        },
+        "requested_model": "kimi-k3",
+        "provider": "moonshot",
+        "model": "kimi-k3",
+        "effort": "high",
+        "request_id": null,
+        "usage": {
+          "input_tokens": 124,
+          "output_tokens": 17294,
+          "cache_creation_input_tokens": 15360,
+          "cache_read_input_tokens": 6912
+        },
+        "est_cost_usd": 0.3195,
+        "verdict": "reject",
+        "reasons": [
+          "blocking finding: bar_after_data",
+          "question 10: fails"
+        ],
+        "findings": [
+          {
+            "category": "bar_after_data",
+            "blocking": true,
+            "questions": [
+              3,
+              4,
+              10
+            ],
+            "claim": "The pre-registered width-ratio threshold was lowered from 1.4 to 1.2 after the explore run measured ratios that fail 1.4 at two of three horizons, and the entry now falsely states that the prediction 'held' and that it was committed before the run. Under the bar written before the look, the entry's own promotion gate ('only if both hold') fails, and the ledger does not record the failed prediction.",
+            "evidence": "Entry history (§3), draft commit 5f9cd54 dated 2026-09-25: 'the OR-Elevated cell's P25–P75 width is at least 1.4 times the Normal cell's at every horizon (5, 10, 20 days)'. Current entry text (§2): 'at least 1.2 times', plus 'At least 1.2 at every horizon, and growing: the pre-registered prediction held', and the ledger line 'The prediction, the mechanism clause and the floor above were committed on 2026-09-25, the day before the run.' The 1.4 → 1.2 change first appears in commit 37acbca dated 2026-09-27 — after the report commit 39de91e dated 2026-09-26 (§4) whose Gold structure tables give ratios 3.33/2.54 = 1.31 at 5d and 4.83/3.48 = 1.39 at 10d, both below 1.4. The entry nowhere flags the change or marks the prediction `seen` — the only exception the rules allow, and the one the project itself applied in WP-23.B (§6), where H-008's width-ratio prediction 'cannot serve as [a mechanism clause]' precisely because it was 'flagged `seen` rather than pre-registered'."
+          },
+          {
+            "category": "thin_evidence",
+            "blocking": false,
+            "questions": [
+              3,
+              8
+            ],
+            "claim": "The stressed OR-Elevated cell clears the pre-set floor (169 rows, 11 spells), but the episodes concentrate in one era: 7 of the 11 spells and 110 of the 169 rows fall in 2010–2011, with zero Elevated stressed days in 2012, 2013 and 2017. The width ratio may rest largely on one regime; the sealed read tests disjoint episodes (2018, 2020, 2022), so a weaker sealed result would be unsurprising even if the explore ratio is real for 2010–2011.",
+            "evidence": "Report (§4), table 'Are the stressed days spread over the tape? — per year': stressed Elevated rows/spells are 2010: 38/3, 2011: 72/4, 2012: 0/0, 2013: 0/0, 2014: 4/1, 2015: 31/2, 2016: 24/1, 2017: 0/0 — totaling 169 rows and 11 spells, with 110 rows and 7 spells in 2010–2011. The entry (§2) reports only '169 and 286 rows (11 and 27 distinct stress spells), above the floor of 150 rows and 8 spells'."
+          }
+        ],
+        "questions": [
+          {
+            "number": 1,
+            "status": "answered",
+            "note": "The OR state is pinned to the fragility_or instrument — the composite, absorption ratio or turbulence at its own point-in-time top decile — not the composite's static Elevated label, so §9's named ambiguity is navigated. Width (P75−P25), both σs (har_scaled's forecast, trailing 10-day realized scaled to horizon) and stress spells all name quantities the harness computes, matching the report's tables."
+          },
+          {
+            "number": 2,
+            "status": "answered",
+            "note": "A two-sided width claim read by pinball loss on P25/P50/P75 against unconditional and har_scaled. The entry disclaims any location claim ('Not claimed: anything about Gold's median'), and the report's structure tables are quantile widths, not hit rates. Not a sign."
+          },
+          {
+            "number": 3,
+            "status": "answered",
+            "note": "Strengths are stated at each horizon and match the report (raw ratios 1.31/1.39/1.52; standardized 1.18–1.29). But the summary line 'the pre-registered prediction held' rounds the result up against the original 1.4 threshold, which it failed at 5d and 10d — see finding 1."
+          },
+          {
+            "number": 4,
+            "status": "answered",
+            "note": "Yes — width ratio, two-sidedness and the standardized width ratio are structural predictions, not the skill number. Caveat: the raw-width threshold of that prediction was revised after the look (finding 1). The standardized clause (≥1.15 under both σs), which is what the sealed read would actually enforce, was fixed on 2026-09-25 and not moved."
+          },
+          {
+            "number": 5,
+            "status": "answered",
+            "note": "The clause requires the width split to survive dividing each day's move by a σ known that day, under two different σs, at all three horizons; a pure vol effect is divided out. The entry names the residual weakness (vol-forecast lag at spell onsets) and counters it with the 10-day realized σ."
+          },
+          {
+            "number": 6,
+            "status": "answered",
+            "note": "The confound is Gold's volatility clustering (KB-033); the rival is har_scaled in the same run, plus a second fast σ; and the result that would rule the state out is stated (standardized ratio near 1 means the split is a vol forecast restated)."
+          },
+          {
+            "number": 7,
+            "status": "answered",
+            "note": "Shadow conditioner vs unconditional; WP-23.B's class bar exists (MIN_SKILL = 0.02, block-bootstrap interval clear of zero, disqualifiers first, har_scaled as second comparator, mechanism clause) and the entry adopts it wholesale."
+          },
+          {
+            "number": 8,
+            "status": "answered",
+            "note": "Floor of 150 rows and 8 distinct stress spells was committed 2026-09-25 (commit 5f9cd54), before any cell size was known. The explore cells clear it (169/286 rows, 11/27 spells); the episode concentration within that is noted in finding 2."
+          },
+          {
+            "number": 9,
+            "status": "answered",
+            "note": "'The whole sealed side, from SEAL_START 2018-01-01 (resolved.md #19)' — no end date or window chosen. The explore report itself ends 2017-12-29, before the seal."
+          },
+          {
+            "number": 10,
+            "status": "fails",
+            "note": "The ledger counts the run and the 13-arm × 3-horizon × 6-asset family correctly, but it omits the prediction that failed: the pre-look 1.4 width-ratio bar missed at 5d (1.31) and 10d (1.39), the threshold was rewritten to 1.2 on 2026-09-27 after the run, and the ledger falsely states the prediction was 'committed on 2026-09-25, the day before the run' and 'held' (finding 1)."
+          },
+          {
+            "number": 11,
+            "status": "answered",
+            "note": "'One read, with the result going to the Knowledge Base either way' is stated in the entry's own text."
+          }
+        ],
+        "brief": {
+          "case_against": "The entry set itself a test before looking, loosened it after looking, and now claims it was passed. On 2026-09-25, the day before the data run, the entry promised that Gold's stressed-and-flagged outcome spread would be at least 1.4 times the normal spread at every horizon. The run measured 1.31, 1.39 and 1.52 — short of 1.4 at two of three horizons. The next day the written requirement became 1.2, and the entry now says 'the pre-registered prediction held' and that it was committed before the run. The git record contradicts both statements. Under the test as originally written, the entry fails its own gate for promotion. The project has already ruled, for a sibling entry, that a width prediction adjusted after seeing data must be labelled 'seen', not pre-registered; this entry does not do that. Everything else checks out: every quoted number matches the report, all data are pre-seal, the run is on the ledger, the floor and slice were fixed in advance. A secondary caution: the flagged cell's episodes concentrate in 2010–2011, so the effect may lean on one era.",
+          "what_it_claims": "When the stock market is in a real drawdown (down at least five percent from its peak) and the project's stress flag is on, Gold's returns over the following one, two and four weeks spread out in both directions — bigger up-moves and bigger down-moves — without saying which direction. The core claim is that this spreading is larger than Gold's own recent volatility can explain: about thirty to fifty percent wider in raw terms, and still fifteen to twenty-nine percent wider after dividing out volatility, depending on the yardstick. The proposal is to spend the project's single sealed read (2018 onward) testing whether Gold's predicted quartiles, conditioned on this state, beat both a no-information baseline and the project's existing volatility forecast, with the volatility-adjusted spreading as the mechanism check, a minimum cell size fixed in advance, and a written result either way. It is explicitly not a buy or sell signal.",
+          "what_would_change_it": "An honest record. Rewrite the entry to state that the original 1.4-times test was set before the look and failed at two of three horizons, that the 1.2 threshold was chosen after seeing the data, and that the raw-width prediction is therefore 'seen', not pre-registered — exactly how the project treated the sibling entry H-008. The part fixed before the look that genuinely held is the volatility-adjusted spreading (bar 1.15, measured 1.18–1.29 under both yardsticks), and that is the clause the sealed read would actually enforce, so the underlying proposal survives an honest write-up. The owner can then judge whether a real but modest effect — one the explore data say is far too small to clear the project's skill bar across all dates — is worth the single sealed read. A per-year breakdown showing the widening is not carried by 2010–2011 alone would further steady it."
+        }
+      }
+    },
+    "number_mismatch": {
+      "status": "ran",
+      "record": {
+        "schema": 1,
+        "hid": "H-101",
+        "audited_at": "2026-10-04T08:22:01+00:00",
+        "entry_fingerprint": "sha256:9e52d6bad32ad735515062f88ff2e2e4fa442901490336b400365766702e4696",
+        "bundle_sha256": "600b61663e97cd57847764218cffa807594a099d337a5a9a566b67d0676612cf",
+        "instructions_sha256": "9a67c70db6ec52860893fd2906cf8725a4f4a72993f86cd4f0ae94a6a81efa14",
+        "canary_set_sha256": null,
+        "certified_by": null,
+        "tier": "ci",
+        "run": "https://github.com/GregsterBoe/Macro-Assist/actions/runs/37187449033",
+        "sources": {
+          "register": "HEAD 968569f  2026-09-27T19:05:31+02:00",
+          "reports": "output",
+          "shallow": "false"
+        },
+        "requested_model": "kimi-k3",
+        "provider": "moonshot",
+        "model": "kimi-k3",
+        "effort": "high",
+        "request_id": null,
+        "usage": {
+          "input_tokens": 151,
+          "output_tokens": 17373,
+          "cache_creation_input_tokens": 15104,
+          "cache_read_input_tokens": 6912
+        },
+        "est_cost_usd": 0.3198,
+        "verdict": "reject",
+        "reasons": [
+          "blocking finding: number_mismatch",
+          "question 3: fails"
+        ],
+        "findings": [
+          {
+            "category": "number_mismatch",
+            "blocking": true,
+            "questions": [
+              3
+            ],
+            "claim": "The entry's headline 20-day result contradicts the committed report: it quotes an Elevated-cell width of 7.67 and a width ratio of 1.75 where the report measured 6.67 and 1.52. The error inflates the measured effect at exactly the horizon where it looks strongest, and the entry's own text elsewhere agrees with the report, so the entry contradicts itself.",
+            "evidence": "Entry §2, ledger bullet: “Width (P75−P25): 3.33 vs 2.54 at 5d (ratio 1.31) · 4.83 vs 3.48 at 10d (1.39) · 7.67 vs 4.39 at 20d (1.75)”. Report §4, table “Gold h=20: stressed × OR state”: Elevated row p25 −3.05, p75 3.62, printed width 6.67 (3.62 − (−3.05) = 6.67; 6.67/4.39 = 1.52). The entry's own two-sidedness bullet quotes those same quantiles (“−3.05 vs −2.24” and “3.62 vs 2.15”), and its later sentence — “The split shrinks once vol is divided out, from 1.31–1.52 to 1.18–1.29” — matches the report's 1.52, not the bullet's 1.75. The numbers 7.67 and 1.75 appear nowhere in the bundle. The pre-registered prediction (≥1.2 at every horizon, not shrinking 5d→20d) still holds on the correct numbers, but §9 question 3 requires the entry to state what was measured without rounding it up."
+          },
+          {
+            "category": "other",
+            "blocking": false,
+            "questions": [
+              10
+            ],
+            "claim": "Stale draft lines contradict the entry's own ledger: the entry still says nothing has been seen and that the report will exist only once the look runs, although the look ran on 2026-09-26 and its results are recorded in the same entry.",
+            "evidence": "Entry §2: “What was seen. Nothing yet specific to this entry.” and “Where. … Report: `results/explore_conditioner/report.md`, once the look has run.” — both unchanged from the 2026-09-25 draft (commit 592c638) — versus the 2026-09-27 ledger added by commit 968569f: “*2026-09-26* — `explore_conditioner.py --cached`, one run, the first look specific to this entry”, followed by the run's results. Cosmetic, but the stamped text should not describe a completed look as pending."
+          }
+        ],
+        "questions": [
+          {
+            "number": 1,
+            "status": "answered",
+            "note": "Terms name computed quantities: the OR flag is defined as the point-in-time top decile of the fragility composite, absorption ratio or turbulence (the frag_or instrument, not the composite's static ‘Elevated’ label that §9 warns about); ‘stressed’ is S&P drawdown ≤ −5%; Elevated/Normal cells, P25–P75 widths, har_scaled and the trailing 10-day realized σ are all quantities the report prints."
+          },
+          {
+            "number": 2,
+            "status": "answered",
+            "note": "The output is a two-sided width of Gold's conditional forward distribution, read by the distribution scorer (pinball on P25/P50/P75). No location claim is made (“The flag should say nothing about which way Gold goes”; “Not claimed: anything about Gold's median”). Not a sign with a confidence."
+          },
+          {
+            "number": 3,
+            "status": "fails",
+            "note": "Strengths are stated per horizon, but the 20-day strength is overstated: entry 7.67 and ratio 1.75 vs the report's 6.67 and 1.52, contradicting the report, the entry's own quoted quantiles, and its own summary sentence (“from 1.31–1.52”). See findings."
+          },
+          {
+            "number": 4,
+            "status": "answered",
+            "note": "The mechanism predicts structure that is not the skill number: width ratio ≥ 1.2 at every horizon, two-sidedness at every horizon, the ratio not shrinking from 5d to 20d, and the σ-standardized width ratio ≥ 1.15 under both σs."
+          },
+          {
+            "number": 5,
+            "status": "answered",
+            "note": "The clause is a within-stressed-bin Elevated-vs-Normal contrast after dividing each day's forward change by a σ known at t, required to hold under two different σs. §9's accidental-pass case (“every stressed cell is right of unconditional”) and the vol-restatement case both fail this clause; thresholds were committed 2026-09-25, before the look."
+          },
+          {
+            "number": 6,
+            "status": "answered",
+            "note": "Confound named (Gold volatility clustering, KB-033), rival named (har_scaled), and the ruling-out result named (standardized ratio near 1). The rival's known weakness — lagging a vol jump — is named and closed with a second, faster σ (trailing 10-day realized)."
+          },
+          {
+            "number": 7,
+            "status": "answered",
+            "note": "Class: shadow conditioner vs unconditional. WP-23.B's class bar exists and is quoted: MIN_SKILL = 0.02, block-bootstrap interval clear of zero, disqualifiers first, har_scaled as the second comparator, plus the entry's mechanism clause."
+          },
+          {
+            "number": 8,
+            "status": "answered",
+            "note": "Floor of 150 rows and 8 distinct stress spells for the sealed cell, committed 2026-09-25 (commit 592c638) — before the explore run and before any sealed cell size is known — stated in rows and in episodes as required."
+          },
+          {
+            "number": 9,
+            "status": "answered",
+            "note": "Slice is the whole sealed side from SEAL_START 2018-01-01, with the seal decision cited (resolved.md #19). The explore report ends 2017-12-29, before the seal; no look the entry relies on touches the holdout."
+          },
+          {
+            "number": 10,
+            "status": "answered",
+            "note": "The ledger records the single 2026-09-26 run, the full family (13 arms × 3 horizons × 6 assets, matching the report's multiplicity line), the two arms read and the configuration; the named report has exactly one commit (39de91e, 2026-09-26), so every look is on the ledger with a committed report behind it. Non-blocking: two stale draft lines describe the look as not yet run (see findings)."
+          },
+          {
+            "number": 11,
+            "status": "answered",
+            "note": "“One read, with the result going to the Knowledge Base either way” is fixed in the entry's own text, with a negative read explicitly framed as a KB outcome (“unexplained, not edge” if the clause fails)."
+          }
+        ],
+        "brief": {
+          "case_against": "The entry misstates its own evidence at the horizon where the effect looks largest. Its headline says the 20-day width was 7.67 and the ratio 1.75; the committed report says 6.67 and 1.52, and the entry's own summary sentence quietly agrees with the report. A text that inflates the measurement it rests on should not be the stamped basis for an irreversible one-read promotion, even though the corrected numbers still pass the pre-registered thresholds. Beyond the misquote, the prior is honestly weak: on the explore slice the two relevant forecast variants beat the unconditional baseline by almost nothing, with uncertainty intervals spanning zero, because the claim leans on 169 stressed days out of 1,893 — and about two-thirds of the alarmed days fall in just two years, 2010 and 2011. Once gold's own volatility is divided out, the widening shrinks from roughly a third-to-a-half wider down to roughly a fifth-to-a-quarter wider. The sealed read would spend the project's single irreversible look on a real but modest residual.",
+          "what_it_claims": "In past periods when the stock market was in a meaningful drawdown and a structural-fragility alarm was firing at the same time, gold's returns over the following one to four weeks spread out in both directions — larger gains and larger losses — by more than gold's own recent volatility can explain. No claim is made about which way gold goes. The entry asks for one sealed test on data from 2018 onward: whether a gold forecast that knows this state predicts gold's range better than both an unconditional forecast and the project's existing volatility forecast, under a pre-committed minimum sample size and a mechanism check that a pure volatility effect could not pass.",
+          "what_would_change_it": "The blocking defect is fixable in minutes: correct the 20-day figures to the report's values (width 6.67, ratio 1.52) and refresh the stale draft lines, and the stamped text would match the committed evidence. On the corrected numbers the pre-registered prediction still holds — the width ratio is at least 1.2 at every horizon and does not shrink — and the volatility-adjusted ratios still clear their bar. The remaining concern is one only the sealed read can answer: if, on post-2017 data, the conditioned forecast beats both rivals with at least 150 stressed days spread over at least 8 distinct stress episodes, and the volatility-adjusted widening still holds there, then the residual effect is real and the near-zero explore-slice skill was just dilution across calm days."
+        }
+      }
+    },
+    "sealed_slice": {
+      "status": "ran",
+      "record": {
+        "schema": 1,
+        "hid": "H-101",
+        "audited_at": "2026-10-04T08:29:13+00:00",
+        "entry_fingerprint": "sha256:746c98e6c3fdf55b4849b214a2cfc2d43b528ac0c0fa7c30b3438f31ffd19eec",
+        "bundle_sha256": "c96b80c7155044c9057fcc32362f528d2f5df760202491a68f3e7bf78c62bd64",
+        "instructions_sha256": "9a67c70db6ec52860893fd2906cf8725a4f4a72993f86cd4f0ae94a6a81efa14",
+        "canary_set_sha256": null,
+        "certified_by": null,
+        "tier": "ci",
+        "run": "https://github.com/GregsterBoe/Macro-Assist/actions/runs/37187449033",
+        "sources": {
+          "register": "HEAD 5fd9ca7  2026-09-27T19:05:31+02:00",
+          "reports": "output",
+          "shallow": "false"
+        },
+        "requested_model": "kimi-k3",
+        "provider": "moonshot",
+        "model": "kimi-k3",
+        "effort": "high",
+        "request_id": null,
+        "usage": {
+          "input_tokens": 197,
+          "output_tokens": 16791,
+          "cache_creation_input_tokens": 15104,
+          "cache_read_input_tokens": 6912
+        },
+        "est_cost_usd": 0.3112,
+        "verdict": "reject",
+        "reasons": [
+          "blocking finding: sealed_slice"
+        ],
+        "findings": [
+          {
+            "category": "sealed_slice",
+            "blocking": true,
+            "questions": [
+              9,
+              11
+            ],
+            "claim": "The one explore look the entry relies on read report dates inside the sealed holdout: the report's slice runs to 2019-06-28 and its per-year table tabulates stressed days and spells for 2018 and 2019, all on or after the 2018-01-01 seal. Explore-tier runs are barred from the sealed slice, and sealed-side conditioning information is now in the record before the single sealed read.",
+            "evidence": "Facts from code: 'Seal date (numeric_baseline.SEAL_START): 2018-01-01. Report dates on or after it are the sealed holdout; the explore slice ends the day before.' The report the entry names as its look (§4, results/explore_conditioner/report.md) declares 'Slice: report dates 2010-06-25 → 2019-06-28 (`--end 2019-06-30`) · 2265 report dates', and its table 'Are the stressed days spread over the tape? — per year' tabulates the sealed years: '2018 | 251 | 41 | 2 | 38 | 3' and '2019 | 121 | 12 | 1 | 27 | 2' (stressed Elevated/Normal days and spells per year). The entry (§2, Where and ledger) relies on this report: 'Report: `results/explore_conditioner/report.md`' and '*2026-09-26* — `explore_conditioner.py --cached`, one run'. Mitigant, stated for fairness: the scored arm tables total exactly 1893 dates, which the report's own per-year column shows is 2010–2017, so the cells the entry quotes (169 Elevated / 286 Normal, 11/27 spells) are pre-seal; the sealed content is confined to the whole-panel per-year tabulation and the run's `--end 2019-06-30`. §1 is categorical regardless: explore data is 'The explore slice only — never the sealed slice'."
+          }
+        ],
+        "questions": [
+          {
+            "number": 1,
+            "status": "answered",
+            "note": "The entry pins 'OR-Elevated' to the OR flag — 'the fragility composite, the absorption ratio or turbulence is at its own point-in-time top decile' — which is the `fragility_or` instrument, explicitly not the composite's static 'Elevated' label, resolving the ambiguity §9 q1 names. `dd_bin`, `dd_x_frag`, `unconditional`, `har_scaled` are all in the harness arm vocabulary; widths, P25/P75 and the two σs are computable quantities."
+          },
+          {
+            "number": 2,
+            "status": "answered",
+            "note": "The claim is a two-sided width property of Gold's conditional distribution, scored by pinball loss on P25/P50/P75: 'The flag should say nothing about which way Gold goes', 'No location claim', 'Not claimed: anything about Gold's median'. No sign with a confidence anywhere in the scoring."
+          },
+          {
+            "number": 3,
+            "status": "answered",
+            "note": "Strength is stated per horizon and not rounded up: raw ratios 1.31/1.39/1.52 at 5/10/20d, standardized ratios 1.18–1.29, cell sizes 169/286 with 11/27 spells, and the entry reports the shrinkage once vol is divided out ('vol carries part of it') plus near-zero arm skill with intervals spanning zero. All quoted numbers match the report."
+          },
+          {
+            "number": 4,
+            "status": "answered",
+            "note": "The mechanism predicts a sign-free structure: Elevated/Normal width ratio ≥ 1.2 raw, two-sided at every horizon, and ≥ 1.15 after dividing by two different σs — none of which is the pinball skill number."
+          },
+          {
+            "number": 5,
+            "status": "answered",
+            "note": "The clause is the contrast vol cannot produce by accident: the entry itself explains that raw two-sided widening would pass on any vol rise, and moves the bar to σ-standardized widths that must clear 1.15 at every horizon under both a model σ (`har_scaled`) and a fast realized σ (trailing 10-day)."
+          },
+          {
+            "number": 6,
+            "status": "answered",
+            "note": "Confound named: Gold's own vol clustering (KB-033), rival `har_scaled`, and the result that would rule the state out — standardized ratios near 1. The entry names har_scaled's weak point (it lags vol jumps) and covers it with the second σ."
+          },
+          {
+            "number": 7,
+            "status": "answered",
+            "note": "Class: shadow conditioner vs `unconditional`. WP-23.B's bar exists and the entry names all of it: MIN_SKILL = 0.02, interval clear of zero, disqualifiers first, `har_scaled` as second comparator, plus the mechanism clause with an `unexplained` verdict if it fails."
+          },
+          {
+            "number": 8,
+            "status": "answered",
+            "note": "Floor fixed in the 2026-09-25 draft (commit 592c638), before the look and before any cell size was known: a sealed cell with fewer than 150 rows or fewer than 8 distinct stress spells is `underpowered` — rows and episodes both."
+          },
+          {
+            "number": 9,
+            "status": "answered",
+            "note": "The promoted read's slice is fixed as 'the whole sealed side, from `SEAL_START` 2018-01-01 (`resolved.md` #19)'. Note the blocking finding: the explore report the entry relies on already tabulates sealed dates (2018–2019) in its per-year table."
+          },
+          {
+            "number": 10,
+            "status": "answered",
+            "note": "Ledger travels with the entry: one run (2026-09-26), matching the report's single commit 48fdacc; the full family is counted (13 arms × 3 horizons × 6 assets, the report's multiplicity line), the arms and tables this entry read are named, the configuration is recorded, and the prediction and floor are shown by git history to predate the run. No uncounted or unreceipted looks found."
+          },
+          {
+            "number": 11,
+            "status": "answered",
+            "note": "'**One read**, with the result going to the Knowledge Base either way.' The blocking finding qualifies this: the explore run already placed sealed-side information (2018–2019 stressed-day counts) in the committed record before that read."
+          }
+        ],
+        "brief": {
+          "case_against": "Two problems. First, a rule is broken. The sealed holdout begins in 2018 and exploration may not touch it. The dry run this entry rests on ran its data to mid-2019, and its report includes a year-by-year table counting stressed days in 2018 and 2019 — sealed dates. The headline numbers the entry quotes are genuinely pre-2018, but the run was not clean, and the record now describes part of the sealed period's stress pattern before the single sealed read. Second, the bet is weak even if the pattern is real. The two candidate arms showed almost no forecasting skill in exploration — at best about four thousandths where the bar demands two hundredths, with uncertainty spanning zero — and they must also beat the project's existing volatility forecast, which matched the best arm in exploration. The width pattern cleared its own bar only narrowly at one corner. The entry itself calls the prior low. Promotion most likely spends the one irreversible read on a negative.",
+          "what_it_claims": "On days when the stock market sits five percent or more below its peak and the project's stress flag is on, gold's moves over the next one, two and four weeks spread out in both directions about a third to a half more than on equally stressed days without the flag. Part of that extra spread is just gold's own volatility; roughly a fifth to a third of it is not. The entry claims no direction for gold. It proposes one test of this width pattern on unseen post-2017 data, against the project's existing volatility forecast, and promises to publish the result either way.",
+          "what_would_change_it": "The rule break is fixable: re-run the exploration with the data ending in 2017 so nothing sealed is tabulated, and show the quoted cells — which already appear to be pre-2018 — are unchanged. That clears the blocking finding without moving any bar, since the prediction and the floor predate the run. The weak-skill concern cannot be argued away with current evidence: the entry would need to justify why candidates that scored near zero in exploration deserve the single sealed read, or the owner accepts spending it on a likely negative. Only the sealed read itself can settle whether the width pattern holds."
+        }
+      }
+    },
+    "signed_forecast": {
+      "status": "ran",
+      "record": {
+        "schema": 1,
+        "hid": "H-101",
+        "audited_at": "2026-10-04T08:34:52+00:00",
+        "entry_fingerprint": "sha256:87a4268c6ebcccedce7e98d66d60b2af19c9239cc581cbbf841f43b867dd47bc",
+        "bundle_sha256": "bc49cc6621e59c5486a6a3e3c8584d506c4711c5911a2ce1f06a3b6736d87c78",
+        "instructions_sha256": "9a67c70db6ec52860893fd2906cf8725a4f4a72993f86cd4f0ae94a6a81efa14",
+        "canary_set_sha256": null,
+        "certified_by": null,
+        "tier": "ci",
+        "run": "https://github.com/GregsterBoe/Macro-Assist/actions/runs/37187449033",
+        "sources": {
+          "register": "HEAD 566e678  2026-09-27T19:05:31+02:00",
+          "reports": "output",
+          "shallow": "false"
+        },
+        "requested_model": "kimi-k3",
+        "provider": "moonshot",
+        "model": "kimi-k3",
+        "effort": "high",
+        "request_id": null,
+        "usage": {
+          "input_tokens": 145,
+          "output_tokens": 12872,
+          "cache_creation_input_tokens": 15104,
+          "cache_read_input_tokens": 6912
+        },
+        "est_cost_usd": 0.2522,
+        "verdict": "reject",
+        "reasons": [
+          "blocking finding: signed_forecast",
+          "blocking finding: bar_missing",
+          "question 2: fails",
+          "question 7: fails"
+        ],
+        "findings": [
+          {
+            "category": "signed_forecast",
+            "blocking": true,
+            "questions": [
+              2
+            ],
+            "claim": "The entry calls itself a two-sided width claim, but the confirm read it actually proposes is a hit rate on the direction of gold's return — a sign with a confidence attached.",
+            "evidence": "Entry, 'What would test it': 'the confirm read: on stressed, OR-Elevated days, the share of days on which Gold's 20-day forward change is positive, against a coin-flip 50%. A share above 55% on the sealed slice, with a binomial interval clear of 50%, is the bar.' A share-of-positive-days test with an interval clear of 50% is exactly 'a sign with a confidence attached', which the rules (§7) call 'ADR-0009 territory in a new coat, regardless of how the question is phrased'. It also contradicts the entry's own text: the mechanism says 'The flag should say nothing about which way Gold goes', the target-space check asserts 'No location claim. Passes.', and the ledger ends 'Not claimed: anything about Gold's median' — yet the bar is a location/direction claim (a majority of up-days implies a positive median). If the entry's own mechanism is right, its bar should fail."
+          },
+          {
+            "category": "bar_missing",
+            "blocking": true,
+            "questions": [
+              7
+            ],
+            "claim": "The entry never names a class, and the bar it sets (share positive above 55%, binomial interval) matches no class bar written before the candidate; the 55% threshold was invented inside this entry by its own proposer.",
+            "evidence": "WP-23.B lists exactly two class bars: 'Shadow conditioner vs unconditional' (MIN_SKILL = 0.02, interval clear of zero, disqualifiers, mechanism clause, har_scaled second comparator) and 'Gap → width' (pinball on a quantile pair). The confirm bar in the entry is neither. §9 question 7: 'A structure claim that is not scored as a conditioner needs its own class bar, written before this entry is promoted' — no such class bar exists in the bundle. §5 requires the number fixed for the class so 'nothing about the candidate can move the number'; here the 55% and the binomial interval appear only in this entry, committed with the candidate (0472eea, 2026-09-25). Meanwhile, under the one class bar that does exist for conditioned distribution claims, the entry's own ledger shows both arms fail: dd_x_frag skill +0.0041/+0.0036/+0.0027 and dd_bin +0.0012/−0.0009/−0.0031 against MIN_SKILL = 0.02, every interval spanning zero — which the entry argues around ('the claim concerns 169 of the 1893 report dates') rather than resolves."
+          },
+          {
+            "category": "weak_mechanism_clause",
+            "blocking": false,
+            "questions": [
+              5
+            ],
+            "claim": "The standardized-width clause can still be passed by the vol confound alone, because both σs are trailing estimates and the Elevated state fires at spell starts, where neither σ yet contains the vol jump.",
+            "evidence": "Entry, 'The confound': 'har_scaled is built from past returns and lags a jump in Gold's vol, so a state that fires at the start of stress spells could clear the ratio on that lag alone. The second σ is Gold's trailing 10-day realized σ… which catches a jump within days.' On the first days of a spell the trailing 10-day realized σ contains little of the jump, so a vol surge coincident with the flag passes both standardizations. Consistent with this, the measured ratios under the faster σ sit just above the clause: 1.18, 1.20, 1.23 against the 1.15 bar (report, 'Gold rival check'). The clause discriminates against slow vol moves but does not rule out the named confound."
+          },
+          {
+            "category": "thin_evidence",
+            "blocking": false,
+            "questions": [
+              8
+            ],
+            "claim": "The Elevated stressed cell clears the entry's spell floor, but the explore evidence behind it is concentrated in two years.",
+            "evidence": "Report, 'Are the stressed days spread over the tape?': stressed-Elevated days are 38 (3 spells) in 2010 and 72 (4 spells) in 2011 — 110 of the 169 rows and 7 of the 11 spells — with zero stressed-Elevated days in 2012, 2013 and 2017. The floor of 8 spells is met (11), so this does not block, but the width ratios rest heavily on the 2010–2011 tape; the sealed read's own spell count should be read against the floor, not extrapolated from this cell."
+          }
+        ],
+        "questions": [
+          {
+            "number": 1,
+            "status": "answered",
+            "note": "The OR state is pinned to the point-in-time top-decile OR-of-channels (fragility_or), matching the report arm dd_x_frag; 'stressed' is S&P drawdown ≤ −5%; both σs (har_scaled forecast, trailing 10-day realized) are quantities the report's rival table computes. 'OR-Elevated' is defined in the entry's own text."
+          },
+          {
+            "number": 2,
+            "status": "fails",
+            "note": "The confirm bar is the share of stressed-Elevated days with a positive 20-day change, above 55% with a binomial interval clear of 50% — a hit rate on direction, i.e. a sign with a confidence, despite the target-space check's 'Passes'."
+          },
+          {
+            "number": 3,
+            "status": "answered",
+            "note": "Widths, ratios, quartiles, rows and spells are quoted at 5, 10 and 20 days (raw ratios 1.31/1.39/1.52; standardized 1.18–1.29); every figure verified against the report."
+          },
+          {
+            "number": 4,
+            "status": "answered",
+            "note": "The mechanism predicts a width ratio ≥ 1.2 at every horizon, two-sidedness of P25/P75, and a ≥ 1.15 width ratio after dividing by two different known-at-t σs — none of which is the skill number."
+          },
+          {
+            "number": 5,
+            "status": "answered",
+            "note": "The two-σ standardization cannot be passed by slow vol moves, but both σs are trailing, so a vol jump at spell start can still pass it; measured ratios (1.18–1.23) sit just above the 1.15 bar. See findings."
+          },
+          {
+            "number": 6,
+            "status": "answered",
+            "note": "Confound (gold vol clustering) named, rival (har_scaled) named, ruling-out test specified (standardized ratio must hold under both σs); the test is genuine though not airtight."
+          },
+          {
+            "number": 7,
+            "status": "fails",
+            "note": "No class is named. Neither WP-23.B class bar (conditioner pinball skill; gap→width) is the entry's share-positive test, the 55% threshold was written inside this entry rather than fixed for a class beforehand, and the arms already fail the existing conditioner bar (skill ≤ 0.0041 vs MIN_SKILL 0.02)."
+          },
+          {
+            "number": 8,
+            "status": "answered",
+            "note": "Floor of 150 rows and 8 distinct stress spells, committed 2026-09-25 — before the explore look and before any sealed cell size is known; rows and episodes both addressed."
+          },
+          {
+            "number": 9,
+            "status": "answered",
+            "note": "'the whole sealed side, from SEAL_START 2018-01-01 (resolved.md #19)'; no end date or window chosen."
+          },
+          {
+            "number": 10,
+            "status": "answered",
+            "note": "One explore look (2026-09-26) on the ledger, matching the report's single commit 39de91e; the 13-arm × 3-horizon × 6-asset family is counted; the pre-look commit date of the prediction, clause and floor is stated and confirmed by the entry's diff history."
+          },
+          {
+            "number": 11,
+            "status": "answered",
+            "note": "'One read, with the result going to the Knowledge Base either way' is stated in the entry's own text."
+          }
+        ],
+        "brief": {
+          "case_against": "The entry is presented as a claim about how widely gold's outcomes spread, but the one sealed test it proposes is a direction bet: of the stressed, alarm-on days, are more than 55 percent followed by a rise in gold, backed by a statistical interval? That is the signed up/down call this project abolished, restated. It also contradicts the entry itself, which says the alarm 'should say nothing about which way Gold goes' and claims 'no location claim' — yet the test is precisely a location claim. Second, no pre-agreed bar exists for that kind of test: the two bars the project fixed in advance cover other claims, and the 55 percent line was chosen inside this entry by its own proposer, which is what the class-bar rule exists to prevent. Under the one existing bar that would apply, the explore numbers already fall short by a wide margin, and the entry argues around that rather than resolving it. The width investigation underneath is honest and was registered before the data were seen; the promoted test as written is not that investigation.",
+          "what_it_claims": "When the stock market is in a drawdown of at least five percent and the project's fragility alarm is on, gold's moves over the following weeks spread out in both directions — more than on similar stressed days without the alarm, and by more than gold's own recent volatility can explain. In pre-registered tests on 2010–2017 data, the middle band of gold's outcomes was roughly thirty to fifty percent wider at one-, two- and four-week horizons, and stayed wider after two different volatility adjustments. The entry proposes one sealed test of this on post-2017 data.",
+          "what_would_change_it": "Replace the sealed test with a genuine width test: make the volatility-adjusted width ratio itself (or a proper distribution score on the stressed cell) the bar, and drop the count of up-days entirely. Have the bar for that class of claim written and fixed before this entry is promoted, so the pass number is not chosen inside the candidate's own text. Keep the pre-registered floor, slice and ledger, which are in order. If a width-based sealed read then reproduced the explore ratios, the blocking concerns fall away."
+        }
+      }
+    },
+    "thin_evidence": {
+      "status": "ran",
+      "record": {
+        "schema": 1,
+        "hid": "H-101",
+        "audited_at": "2026-10-04T08:41:27+00:00",
+        "entry_fingerprint": "sha256:464b3d451748b156e1e7235a200d304142fdd060a909cc69ae62f30513163876",
+        "bundle_sha256": "ab7188194aab73ed9b824807ea8faa4610d388ee1358ecb245927eb5214b067b",
+        "instructions_sha256": "9a67c70db6ec52860893fd2906cf8725a4f4a72993f86cd4f0ae94a6a81efa14",
+        "canary_set_sha256": null,
+        "certified_by": null,
+        "tier": "ci",
+        "run": "https://github.com/GregsterBoe/Macro-Assist/actions/runs/37187449033",
+        "sources": {
+          "register": "HEAD 8cb8c92  2026-09-27T19:05:31+02:00",
+          "reports": "output",
+          "shallow": "false"
+        },
+        "requested_model": "kimi-k3",
+        "provider": "moonshot",
+        "model": "kimi-k3",
+        "effort": "high",
+        "request_id": null,
+        "usage": {
+          "input_tokens": 134,
+          "output_tokens": 15290,
+          "cache_creation_input_tokens": 15104,
+          "cache_read_input_tokens": 6912
+        },
+        "est_cost_usd": 0.2885,
+        "verdict": "reject",
+        "reasons": [
+          "blocking finding: thin_evidence",
+          "question 3: fails"
+        ],
+        "findings": [
+          {
+            "category": "thin_evidence",
+            "blocking": true,
+            "questions": [
+              3,
+              8
+            ],
+            "claim": "The entire result motivating promotion — the width split and both standardized ratios — rests on two distinct stress episodes, and the entry's results section conceals this by quoting row counts against its floor while omitting the spell count it promised to report.",
+            "evidence": "Report § 'Gold structure check' (all three horizon tables): the dd<=-5 / Elevated cell has n=169 but spells=2 at every horizon (Normal: 286 rows, 27 spells). Report § 'Are the stressed days spread over the tape?': those 169 rows are 2011 (145 rows, 1 spell) and 2015 (24 rows, 1 spell) and nothing in any other year — the cell is one long 2011 episode plus August 2015. The entry's own confound section promises 'its episodes are counted as well as its rows', and its underpowered floor ('What would test it') makes 'fewer than 8 distinct stress spells' an underpowered read — yet the ledger's results section (§2, 'Explore-tier looks') reports only 'Cell sizes: 169 and 286 rows, above the floor of 150 rows' and declares 'the pre-registered prediction held', never stating the spell count. The mechanism clause clears its 1.15 threshold by as little as 0.03 (ratio 1.18 at 5d under the trailing-10-day σ) on those two episodes. Rules §9 question 8: 'a cell of 70 rows can be two episodes, and a median on two episodes is not a measurement.'"
+          },
+          {
+            "category": "other",
+            "blocking": false,
+            "questions": [
+              7
+            ],
+            "claim": "The promoted read is structurally likely to fail the class bar's skill clause even if the width mechanism is real: the bar scores all sealed dates while the claim concerns about one date in eleven, and the explore-slice skill of the arms read is roughly a fifth of the required margin with intervals spanning zero.",
+            "evidence": "Report § 'Per-asset skill vs unconditional — Gold': dd_x_frag +0.0041 / +0.0036 / +0.0027 and dd_bin +0.0012 / −0.0009 / −0.0031 at 5/10/20d, every 95% interval spanning zero, against the class bar's MIN_SKILL = 0.02 (WP-23.B, §6 of bundle). The entry itself concedes 'the claim concerns 169 of the 1893 report dates, so even a real width effect moves an all-dates score very little' and leaves the spend decision to the owner. Not blocking because the entry discloses it and the mechanism clause is scored separately; but the owner should weigh that the one irreversible read is close to pre-spent on the skill clause."
+          }
+        ],
+        "questions": [
+          {
+            "number": 1,
+            "status": "answered",
+            "note": "The 'OR flag' is pinned to the three channels (fragility composite, absorption ratio, turbulence) each at its own point-in-time top decile — the fragility_or instrument, not the composite's static Elevated label, resolving §9.1's named ambiguity. dd_bin, dd_x_frag, unconditional and har_scaled are harness arms; the trailing 10-day realized σ is computed in the report's rival check."
+          },
+          {
+            "number": 2,
+            "status": "answered",
+            "note": "The output is a two-sided width property of the conditional distribution, pinball-scored on P25/P50/P75, with an explicit 'No location claim' and a mechanism stating the flag 'should say nothing about which way Gold goes'. No sign with a confidence anywhere in output or scoring."
+          },
+          {
+            "number": 3,
+            "status": "fails",
+            "note": "The entry quantifies widths, ratios and horizons but nowhere states the unit that decides strength here: the Elevated cell is 2 distinct spells (2011: 145 of the 169 rows; 2015: 24), while only the row count is quoted against the floor and 'the pre-registered prediction held' is asserted flatly, with the mechanism margin as thin as 1.18 against a 1.15 bar. See blocking finding."
+          },
+          {
+            "number": 4,
+            "status": "answered",
+            "note": "Predictions beyond the skill number: width ratio ≥ 1.2 at every horizon and non-shrinking from 5d to 20d, two-sidedness of P25 and P75 at every horizon, and standardized width ratio ≥ 1.15 under two different σs."
+          },
+          {
+            "number": 5,
+            "status": "answered",
+            "note": "The clause is the within-stressed-bin Elevated-vs-Normal contrast after dividing each day's move by a volatility known that day, required to hold under two σs (one slow, one fast) — a pure vol story puts the ratio near 1. The 8-spell sealed floor is what guards the clause against passing by accident on the sealed read; that the explore pass sits on 2 spells is the thin-evidence finding, not a design defect."
+          },
+          {
+            "number": 6,
+            "status": "answered",
+            "note": "Confound named (Gold's own volatility clustering, KB-033), rival named (har_scaled), its weak point named (lags vol jumps), a second fast σ added to close that hole, and the ruling-out result is explicit: standardized ratios near 1 would mean the state is a vol forecast restated."
+          },
+          {
+            "number": 7,
+            "status": "answered",
+            "note": "Class named: shadow conditioner vs unconditional; WP-23.B's class bar predates this entry (MIN_SKILL 0.02, interval clear of zero, disqualifiers first, mechanism clause, har_scaled as second comparator). The entry follows it, including the unexplained-not-edge rule. Note the explore skill is far under the bar — non-blocking finding."
+          },
+          {
+            "number": 8,
+            "status": "answered",
+            "note": "Floor fixed in the 2026-09-25 draft, before the look and before any cell size was known: fewer than 150 rows or fewer than 8 distinct stress spells makes the read underpowered — in rows and episodes as required. The deficiency is that the motivating explore evidence itself sits at 2 spells (finding), not that the floor is missing."
+          },
+          {
+            "number": 9,
+            "status": "answered",
+            "note": "Whole sealed side from SEAL_START 2018-01-01, citing resolved.md #19; no end date or window chosen. The explore report ends 2017-12-29, pre-seal, so nothing relied on has touched the holdout."
+          },
+          {
+            "number": 10,
+            "status": "answered",
+            "note": "One look (2026-09-26) with the committed report behind it (output e1e6ea1, the report's only commit); arms read, configuration and the 13-arm × 3-horizon × 6-asset family counted; prediction, clause and floor committed 2026-09-25 before the run. Minor: the recap of results omits the report's spells column — folded into the Q3 finding."
+          },
+          {
+            "number": 11,
+            "status": "answered",
+            "note": "'One read, with the result going to the Knowledge Base either way' is in the entry's own text, in the draft commit before the look."
+          }
+        ],
+        "brief": {
+          "case_against": "The result this entry is built on comes from two episodes, not from a broad pattern. The 169 days in the key cell are the 2011 debt-crisis spell (145 days) and the August 2015 selloff (24 days) — the report's own spell column and per-year table say so, and no other year contributes a single day. The project's rule is that a number carried by two episodes is not a measurement, and the entry itself demands at least eight distinct episodes before the sealed test can count — yet its summary quotes only the day count against the floor, never mentions the two spells, and declares the prediction 'held'. The margin is thin too: after gold's own volatility is divided out, the decisive ratio clears its required level by as little as three hundredths, which on two episodes is noise. On top of that, the arms' overall forecasting skill on practice data is about a fifth of what the confirm bar requires, so the sealed read would likely fail its skill test even if the width effect is real. Promotion spends the one irreversible read on this.",
+          "what_it_claims": "When the stock market is in a drawdown of at least five percent and a fragility alarm is firing — meaning one of three stress gauges sits in the top tenth of its own history — gold's returns over the following one, two and four weeks spread out in both directions: the middle band of likely outcomes gets wider, by more than gold's own recent volatility can explain. It claims nothing about which way gold will go. On the 2010–2017 practice data the band was roughly a third to a half wider, and a fifth to a third wider after volatility is accounted for. The entry asks for exactly one test on the sealed 2018-onward slice, against a bar fixed in advance, with the result published either way.",
+          "what_would_change_it": "More looks at the same practice years cannot fix this — those years contain only two qualifying episodes, and that is what they contain. What would change the verdict: the entry stating plainly that its support is two episodes, plus corroboration across many more independent episodes — for example the same width check, counted, on the other five assets the run already scored. The sealed read itself is protected by the entry's own eight-episode floor, so a spent read would at worst come back 'underpowered'; but the owner should know that, and that the practice-skill numbers point to a likely failure on the confirm bar, before turning the key. If the owner consciously chooses to spend the read as a pre-committed falsification of a two-episode pattern, that is an informed spend — the entry as written does not let them make that choice, because it hides the episode count."
+        }
+      }
+    },
+    "uncounted_look": {
+      "status": "ran",
+      "record": {
+        "schema": 1,
+        "hid": "H-101",
+        "audited_at": "2026-10-04T08:48:54+00:00",
+        "entry_fingerprint": "sha256:746c98e6c3fdf55b4849b214a2cfc2d43b528ac0c0fa7c30b3438f31ffd19eec",
+        "bundle_sha256": "f66d982d0d25cb53ef8842f0ef6bd48761180680bab189fe7739498cb2d19804",
+        "instructions_sha256": "9a67c70db6ec52860893fd2906cf8725a4f4a72993f86cd4f0ae94a6a81efa14",
+        "canary_set_sha256": null,
+        "certified_by": null,
+        "tier": "ci",
+        "run": "https://github.com/GregsterBoe/Macro-Assist/actions/runs/37187449033",
+        "sources": {
+          "register": "HEAD 5fd9ca7  2026-09-27T19:05:31+02:00",
+          "reports": "output",
+          "shallow": "false"
+        },
+        "requested_model": "kimi-k3",
+        "provider": "moonshot",
+        "model": "kimi-k3",
+        "effort": "high",
+        "request_id": null,
+        "usage": {
+          "input_tokens": 204,
+          "output_tokens": 17202,
+          "cache_creation_input_tokens": 15104,
+          "cache_read_input_tokens": 6912
+        },
+        "est_cost_usd": 0.3174,
+        "verdict": "reject",
+        "reasons": [
+          "blocking finding: uncounted_look",
+          "question 10: fails"
+        ],
+        "findings": [
+          {
+            "category": "uncounted_look",
+            "blocking": true,
+            "questions": [
+              10
+            ],
+            "claim": "The multiplicity ledger omits a full run of the same harness committed 2026-09-25 at 22:03, hours after the prediction was drafted, under a different configuration (DD_EDGES (−3%, −8%), MIN_N=5). The entry calls the 2026-09-26 run 'one run, the first look specific to this entry' and its configuration 'as the harness shipped it'; the report's own commit history contradicts both statements. The settings that changed between the two runs are the ones that define the claim's stressed bin and cell minimum. §4 and §9 question 10 require every look, every arm, every configuration on the ledger before promotion.",
+            "evidence": "Bundle §4 (reports the entry names): '5d28b63 2026-09-25T22:03:17+02:00 explore conditioner: DD_EDGES (-3%, -8%), MIN_N=5' and '3bd6bdd 2026-09-26T21:40:52+02:00 explore conditioner'. Entry §2 (ledger): '*2026-09-26* — explore_conditioner.py --cached, one run, the first look specific to this entry… Configuration as the harness shipped it: DD_EDGES = (−5%, −10%), MIN_N = 10.' Entry §3 (history): the prediction was committed 2026-09-25T10:14 (592c638), so the omitted run post-dates the prediction by about twelve hours."
+          },
+          {
+            "category": "thin_evidence",
+            "blocking": false,
+            "questions": [
+              8,
+              3
+            ],
+            "claim": "The claim rests on 11 distinct Elevated stress spells, 7 of which fall in 2010–2011, and the mechanism-clause margin under the fast volatility measure clears its 1.15 threshold by only 0.03–0.08. The pre-fixed floor (150 rows, 8 spells) is met, but the measured strength is carried by a handful of macro episodes, so the rehearsal effect is more fragile than the headline ratios suggest.",
+            "evidence": "Entry §2: 'Cell sizes: 169 and 286 rows (11 and 27 distinct stress spells)… divided by Gold's trailing 10-day realized σ, 1.55 vs 1.31 (1.18) · 1.58 vs 1.32 (1.20) · 1.63 vs 1.32 (1.23).' Report §4, per-year table: stressed Elevated spells by year — 2010: 3, 2011: 4, 2012: 0, 2013: 0, 2014: 1, 2015: 2, 2016: 1, 2017: 0."
+          },
+          {
+            "category": "weak_mechanism_clause",
+            "blocking": false,
+            "questions": [
+              5
+            ],
+            "claim": "Both denominators in the mechanism clause are backward-looking volatility estimates, so the clause can still be passed by the confound it exists to exclude: if the OR flag fires early in stress spells, even the trailing 10-day σ understates concurrent vol on those first days, inflating the standardized width ratio. The entry concedes the fast σ only 'catches a jump within days.' A within-spell contrast (Elevated versus Normal days of the same spell) would be the contrast only the mechanism produces; as written, the residual margin (1.18–1.23 against a 1.15 bar) is within what onset-lag could contribute.",
+            "evidence": "Entry §2 (confound): 'har_scaled is built from past returns and lags a jump in Gold's vol, so a state that fires at the start of stress spells could clear the ratio on that lag alone. The second σ is Gold's trailing 10-day realized σ, scaled to the horizon, which catches a jump within days; the clause must hold under both.' Rules §9 question 5: 'Prefer the contrast that only the mechanism produces — within-episode, or against the rival dimension.'"
+          },
+          {
+            "category": "other",
+            "blocking": false,
+            "questions": [
+              7
+            ],
+            "claim": "The adopted class bar scores pinball skill over all dates, while the claim lives in the stressed cell — about one date in eleven in the rehearsal data. On the explore slice the two arms' all-dates skill is +0.0041 at best with every interval through zero, far under MIN_SKILL = 0.02, so the bar's skill clause is near-unreachable even if the width claim is true; a promoted read would likely come back negative on the headline clause regardless of the hypothesis. The entry discloses this honestly and defers the spend to the owner, so it is not a rule breach, but the mismatch between what is claimed and what the bar scores is structural.",
+            "evidence": "Entry §2 (ledger): 'dd_x_frag +0.0041, +0.0036 and +0.0027… every 95% interval spanning zero, all far under the class bar's MIN_SKILL = 0.02… the claim concerns 169 of the 1893 report dates, so even a real width effect moves an all-dates score very little. Whether a read with that prior is worth spending is the owner's call, not this entry's.' WP-23.B §6: 'MIN_SKILL = 0.02, block-bootstrap interval clear of zero.'"
+          }
+        ],
+        "questions": [
+          {
+            "number": 1,
+            "status": "answered",
+            "note": "'OR-Elevated' is defined in the entry's text as the OR flag — composite, absorption ratio or turbulence at its own point-in-time top decile — not the composite's static Elevated label; the stressed bin is S&P drawdown ≤ −5%; width is P75−P25; both σs are named. All are quantities the harness computes (report § Gold structure check, § Gold rival check)."
+          },
+          {
+            "number": 2,
+            "status": "answered",
+            "note": "The output is a two-sided width claim on a conditional distribution, scored by pinball loss on P25/P50/P75 plus a width-ratio mechanism clause. The entry explicitly disclaims any location call ('Not claimed: anything about Gold's median'; 'The flag should say nothing about which way Gold goes'). Not a sign with a confidence."
+          },
+          {
+            "number": 3,
+            "status": "answered",
+            "note": "Strength is stated per horizon — raw width ratios 1.31/1.39/1.52 at 5/10/20 days, standardized ratios 1.18–1.29 — along with the honest all-dates skill prior (+0.0041 at best, intervals through zero) and the note that vol carries part of the split. Nothing is rounded up."
+          },
+          {
+            "number": 4,
+            "status": "answered",
+            "note": "The prediction is a structure, not the score: Elevated/Normal P25–P75 width ratio ≥ 1.2 at every horizon, non-shrinking with horizon, two-sided, and ≥ 1.15 after division by a day-known σ under two different σs."
+          },
+          {
+            "number": 5,
+            "status": "answered",
+            "note": "The standardized-ratio clause is a real contrast and harder than a raw width split, but both σs are backward-looking, so a flag firing at spell onsets can clear the 1.15 threshold on volatility lag alone — the entry's own conceded weak point, only partially closed by the 10-day σ. See the weak_mechanism_clause finding (non-blocking)."
+          },
+          {
+            "number": 6,
+            "status": "answered",
+            "note": "The confound — Gold's own volatility clustering — is named, the rival (har_scaled) is named, and the thing that would rule it out is specified: the standardized width ratio falling near 1 under both the HAR forecast σ and the trailing 10-day realized σ."
+          },
+          {
+            "number": 7,
+            "status": "answered",
+            "note": "Class: shadow conditioner versus unconditional. WP-23.B's class bar exists (MIN_SKILL = 0.02, bootstrap interval clear of zero, disqualifiers first, plus a mechanism clause, plus har_scaled as second comparator) and the entry adopts it wholesale, naming the standardized width ratio as its mechanism clause."
+          },
+          {
+            "number": 8,
+            "status": "answered",
+            "note": "Floor fixed in the 2026-09-25 draft, before the explore run and before any sealed cell size is known: fewer than 150 rows or fewer than 8 distinct stress spells in a sealed cell makes the read underpowered — rows and episodes both. The explore cell (169 rows, 11 spells) clears it, though 7 of the 11 spells sit in 2010–2011 (thin_evidence finding)."
+          },
+          {
+            "number": 9,
+            "status": "answered",
+            "note": "The slice is the whole sealed side from SEAL_START 2018-01-01, citing resolved.md #19; no end date or window is chosen. The rehearsal report covers only 2010-06-25 → 2017-12-29, entirely pre-seal."
+          },
+          {
+            "number": 10,
+            "status": "fails",
+            "note": "The ledger records one run (2026-09-26) and calls it the first look with the shipped configuration, but the report it reads was also committed 2026-09-25 22:03 under DD_EDGES (−3%, −8%), MIN_N=5 — a full look at the same family, absent from the ledger, after which the bin edges defining the claim's stressed cell were changed. See the blocking uncounted_look finding."
+          },
+          {
+            "number": 11,
+            "status": "answered",
+            "note": "'One read, with the result going to the Knowledge Base either way' is stated in the entry's own text."
+          }
+        ],
+        "brief": {
+          "case_against": "The entry's log of what was looked at is incomplete, and under the project's rules that alone disqualifies it. The report behind it was committed twice: once on the evening of 25 September — hours after the prediction was written — with different bin edges and a smaller minimum cell size, and once on 26 September with the settings the entry reports. The entry calls the second run 'the first look specific to this entry' and its settings 'as the harness shipped it'; both statements are false on the record, and the settings that changed are the ones defining which days count as stressed. Until every look is on the ledger, promotion is off the table. Even with a clean ledger the spend is weak: the effect lives in about one day in eleven, the skill bar is scored over all days, and in rehearsal the arms scored essentially zero on that bar — so the single sealed read would likely fail its headline test even if the width story is true. The result also rests on eleven stress spells, seven of them in 2010–11, with a margin of only a few percent over the mechanism threshold.",
+          "what_it_claims": "When the stock market is in a drawdown of at least five percent and the project's early-warning flag is switched on, gold's moves over the following one to four weeks spread out more in both directions — up and down — than on stressed days when the flag is off, by roughly a third to a half in rehearsal data, and part of that extra spread survives after dividing out gold's own recent volatility. It claims nothing about which way gold will go. The evidence comes entirely from 2010–2017; the entry asks for one test on data from 2018 onward, with the result published either way.",
+          "what_would_change_it": "First, restore the missing 25 September run to the ledger — its settings and what it showed — or show it tested nothing relevant, then re-audit the corrected text; that is the blocking item. Beyond it: a mechanism test comparing flag-on and flag-off days inside the same stress episode, so a volatility jump at a spell's start cannot fake the effect; and either a skill bar scored on the stressed days rather than all days (written for the class before any candidate, as the rules require) or your explicit acceptance that the headline skill test will probably fail and the width-ratio clause is the real read. A sealed read clearing 1.15 under both volatility measures while beating both comparators would prove the low rehearsal prior wrong."
+        }
+      }
+    }
+  }
+}
