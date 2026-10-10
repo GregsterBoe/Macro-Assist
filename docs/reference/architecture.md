@@ -42,7 +42,6 @@ Macro Pipeline · stage 1 (Mon–Fri, before the daily note)
 
 Macro Pipeline · stage 3 (Mondays)
   │
-  ├── score past predictions (T+5/T+10/T+20) — legacy, winding down ~2026-10-02
   ├── score published distributions (pinball, coverage, PIT)
   ├── aggregate accuracy stats → accuracy_summary.json
   ├── push accuracy_summary.json → Macro-Assist/.macro-assist/data/
@@ -92,7 +91,7 @@ Macro-Assist/
 │   ├── fragility_or.py              # OR-of-channels flag (IMP-4)
 │   ├── refit_models.py              # weekly refit (HMM + distributions)
 │   │
-│   ├── score_predictions.py         # directional scorer — FROZEN, winding down
+│   ├── score_predictions.py         # directional scorer — FROZEN, retired from the pipeline
 │   ├── score_distributions.py       # distribution scorer — the current one
 │   ├── summarize_accuracy.py        # accuracy aggregation + per-version tracking
 │   ├── bias_separation.py           # discrimination test on the bias buckets

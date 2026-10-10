@@ -99,7 +99,7 @@ The stage leaves the pipeline; the code, tests, history and manual trigger stay.
 - The HAR-RV wiring publishes a variance risk premium off a fit KB-033 found
   degenerate at the live window; the fit floor is now `HAR_MIN_RETURNS = 1000`
   and the fetch periods are sized to deliver it.
-- The directional scorer winds down when its last T+20 window resolves,
-  ~2026-10-02. Until then the accuracy report carries both lines.
+- The directional scorer is retired from the weekly run (2026-10-10, after its
+  closure banner); the accuracy report still reads its finished history.
 
 The [board](../record/active-experiments.md) is authoritative for all three.

@@ -142,14 +142,16 @@ Ordered after the daily note and both arm stages by `needs:`, so the week's
 predictions are always committed before they are scored.
 
 1. Checkout Macro-Assist + vault
-2. Run `score_predictions.py` — **legacy**, winding down; deletable as a step once
-   the last T+20 window resolves (~2026-10-02) and the run prints
-   `DIRECTIONAL RECORD CLOSED`. Removing the *step* only — stage 3 itself is
-   permanent, because `score_distributions.py` runs there.
-3. Run `score_distributions.py` — the current scorer (Phase 22)
-4. Run `summarize_accuracy.py`
-5. Commit `accuracy_summary.json` to Macro-Assist
-6. Copy `accuracy_report.md` to vault (`Economy/Analysis/prediction-accuracy.md`)
+2. Run `score_distributions.py` — the current scorer (Phase 22)
+3. Run `summarize_accuracy.py`
+4. Commit `accuracy_summary.json` to Macro-Assist
+5. Copy `accuracy_report.md` to vault (`Economy/Analysis/prediction-accuracy.md`)
+
+`score_predictions.py` was the step before `score_distributions.py` until
+2026-10-10. It was removed after the 2026-10-05 run printed
+`DIRECTIONAL RECORD CLOSED` (WP-22.D); the module, its tests and its scored
+history stay ([ADR-0015](../decisions/ADR-0015-soft-kill-convention.md)), and
+re-adding the step restores it. Stage 3 itself is permanent.
 
 ### macro_weekly_refit.yml — stage 5 (Mondays)
 
@@ -724,8 +726,8 @@ cannot be computed. It costs network, so it is opt-in and never part of the gate
 
 A track that stops is red here until its registry entry is removed — on
 purpose, the same shape as a soft-kill pin. `accuracy_summary.json` is the
-first one due: it keeps landing after the directional scorer's closure banner
-(~2026-10-02) because `summarize_accuracy.py` rewrites it weekly; if that step
+first one due: it keeps landing after the directional scorer's retirement
+(2026-10-10) because `summarize_accuracy.py` rewrites it weekly; if that step
 is ever retired, retire the entry with it.
 
 `python .macro-assist/record_audit.py --now 2026-09-08` reads ages — the

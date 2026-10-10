@@ -663,13 +663,11 @@ all three quantiles, where `har_gaussian` actually has to get the interval width
 right and the drift question falls away — cannot run until the sealed interval
 record accumulates.
 
-### WP-22.D — Wind-down of the directional scorer *(pending ~2026-10-02)*
+### WP-22.D — Wind-down of the directional scorer ✅ 2026-10-10
 
-Unchanged from WP-21.G: `score_predictions.py` keeps running until the last v1.5
-note's T+20 window resolves, prints `DIRECTIONAL RECORD CLOSED`, and then stage 3
-comes out of `pipeline.yml`. What changes is that stage 3 is no longer left empty
-— `score_distributions.py` takes its place, so the pipeline never has a published
-product with no scorer again.
+The 2026-10-05 run printed `DIRECTIONAL RECORD CLOSED`; the `score_predictions.py`
+step is out of `macro_weekly_scoring.yml` and stage 3 stays, running
+`score_distributions.py`. No KB entry — an operational close, not a measurement.
 
 
 ## Exploration Tier (Phase 23) — *the generation side of the method* 🔍 OPEN — drafted 2026-09-13, harness run 2026-09-14, seal decided 2026-09-14
