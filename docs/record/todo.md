@@ -14,7 +14,9 @@ Conventions:
   reasoning intact, and pull any "carry forward" caveat back up into this file
   as its own entry. A resolved item left here is noise; a lost caveat is worse.
 
-Last reviewed: 2026-10-01 (later) — the note stops calling the model (v2.2,
+Last reviewed: 2026-10-10 — **#26** closed at the owner's call → [`resolved.md`](resolved.md):
+the vol term structure's feed stays as it is (retry + CBOE fallback + `feed_gate`), no
+catch-up re-check, no second issuer. Before that, 2026-10-01 (later) — the note stops calling the model (v2.2,
 [ADR-0024](../decisions/ADR-0024-the-note-makes-no-llm-call.md)), and three items it
 made moot or finished closed → [`resolved.md`](resolved.md): **#7** (the Target Range
 is no longer published), **#1b** (the note now carries the computed table itself) and
@@ -219,105 +221,6 @@ calibrated composite at all** — `vix_term` missing, label `Unavailable`, the O
 by coincidence"; they are absent readings, and the cause was not recorded by
 those runs. They are kept as written and are not part of any live Elevated
 record.
-
-### Open decision #26 — the vol term structure's feed: retry, reschedule, or a second source?
-**Reframed 2026-09-18** once the cause was found (→ [KB-034] addendum). The
-original question below — "does it need a second issuer feed?" — is kept for its
-parity rule, but it is probably the **wrong question**: `^VIX3M` returns nothing
-from yfinance at ~06:04 UTC and current data at 16:24 UTC the same day, three
-mornings running. A second issuer does not address a feed that works ten hours
-later.
-
-**What is actually open, cheapest first:**
-1. ~~**Retry the yfinance leg.**~~ **Done 2026-09-22.** `pipeline_common.
-   yf_history_with_retry` gives every yfinance path the CBOE client's budget —
-   two attempts, one pause — and counts an **empty frame** as a failure rather
-   than an answer, which was the actual defect. Wired into all three
-   single-attempt loops: `quant_context._fetch_fragility_histories` (the live
-   path that produced the three `Unavailable` readings), `market_data.
-   _ticker_snapshot` (the payload's `vix_term_ratio`, which had no fallback of
-   any kind) and `fragility_panel.fetch_histories` (the panel/backtest path,
-   which the item had not named). `test_yfinance_retry.py`. Whether it is
-   *enough* is a live question, not a settled one: the failure was time-of-day
-   bound and lasted three consecutive mornings, so two attempts seconds apart
-   may well draw the same empty frame twice. It removes the cheapest failure,
-   it does not remove the cause — item 3 does. *Since 2026-10-01 a rescue is
-   recorded (`fragility.retries`) and counted by `feed_gate` → #31 in
-   [`resolved.md`](resolved.md); the payload path's retries land in
-   `market_feed` (below).*
-2. **Let the 10:47 UTC catch-up call re-check the feeds.** ~~It runs today and
-   no-ops~~ — *corrected 2026-09-22: it does not run at all. No pipeline run
-   since 2026-08-28 carries `source=cron-catchup` (→ #27).* The limitation
-   below still applies once it exists: stages skip when the day's note already
-   exists, so the one mechanism built for "the early run failed" cannot help a
-   run that *succeeded* with a hole in it.
-3. ~~**Move the run.**~~ **Closed 2026-09-23 → [`resolved.md`](resolved.md)** —
-   monitor 06:23 instead. The premise it was written under (the vol legs have no
-   working fallback) is gone, and the move it proposed has a product cost nobody
-   had costed. Reopen only on the trigger recorded there.
-
-4. A second issuer feed — only if 1–3 fail, and under the parity rule below.
-
-**Blocking all four: does the fallback we already have work at all?**
-**Half-answered 2026-09-22** (→ [KB-034] addendum). The probe is **green from a
-developer machine** — both legs, current to 2026-09-21, exit 0 — so the code
-path is sound and the failure is environmental. Every one of the three observed
-failures was on an Actions runner; the probe was not. `fetch_cboe_index` fetches
-`cdn.cboe.com` with bare `urllib` (`Python-urllib/3.x`, no other headers) from a
-datacenter IP, which is the combination a CDN WAF rejects, and 403 is already
-named in `fragility_panel.py`'s own comment — but the recorded reason from those
-three runs was never captured, so that is a mechanism, not a finding.
-
-**Settled 2026-09-23 — green in CI, and the hypothesis was wrong** (→ [KB-034]
-second addendum). `2c · issuer fallback probe` was green on all three of the
-day's runs (06:23, 10:47, 18:34 UTC). The fallback's source is reachable from
-the runner; the three 09-16 → 09-18 failures were **transient, not structural**,
-and the WAF / datacenter-IP mechanism proposed the day before is **disproven** —
-do not carry it forward. **Item 4 (a second issuer feed) stays closed**, now for
-a measured reason. The "no fallback" caveat lifts.
-
-**What is still not proven:** a green probe exercises `fetch_cboe_index`, not
-`freshen_vol_indices` — the splice itself has still never completed in
-production. Smaller gap, not a closed one.
-
-~~**Also carried:** `market_data`'s `vix3m` has no fallback on any path —
-`vix_term_ratio` vanished from the LLM payload on all three days and no
-mechanism covers it.~~ **Done 2026-10-01.** `market_data._vol_fallback` runs
-the same `freshen_vol_indices` splice over the payload's VIX and VIX3M, a no-op
-without a network call when both are fresh. One rule stricter than the
-fragility path: a CBOE value is used only when dated the S&P's last session, so
-the ratio is never one day's VIX over an older VIX3M — a missing ratio is the
-honest alternative ([KB-029]'s shape). It covers VIX too, which is
-`_CRITICAL_MARKET`: a dead `^VIX` used to abort the note. Retries and the
-fallback's outcome are logged as `market_feed` in the quant log. Like the
-fragility splice, it has **not yet run in production** — a green test is not a
-completed splice.
-
-**What is left of #26:** item 2 (the catch-up call cannot help a run that
-*succeeded* with a hole in it) and the unproven production splice. Item 4 stays
-closed.
-
-### The original question, kept for its admission rule — a second issuer feed
-**Source:** [KB-034]. The fallback chain is one deep: yfinance's `^VIX3M`, then
-CBOE's own `VIX3M_History.csv`. It has now failed twice in two months
-(2026-07-17, a genuine two-month upstream stop; 2026-09-16, an intermittent
-empty response at one hour of the day, with CBOE failing to cover it), each
-time costing the composite its calibrated label for days at a stretch. A third
-tier would remove the single point of failure; it also adds a feed to keep
-honest, and a source whose vendor convention differs from CBOE's would put a
-subtly different series under the same component name — the [KB-029] failure
-in a new costume.
-
-**What is decided before anything is built:** whether a candidate feed is
-admitted is a *parity* question, not an availability one — its VIX3M must
-reproduce CBOE's own file on the overlap to the published precision, on a
-window that includes a backwardation episode, before it may ever serve the
-live component. No parity, no admission, however fresh it is.
-
-**What to wait for first:** ~~the instrumentation shipped with [KB-034] means the
-next failure names itself~~ — *superseded 2026-09-18: the cause was found from
-the payload previews the same day, and it is not a case a new feed would fix.
-Work items 1–4 above first.*
 
 *#15 (the turbulence-only hindsight read) and #16 (the CORR shadow flag) closed
 2026-09-14 → [`resolved.md`](resolved.md); the track is forward observation only
