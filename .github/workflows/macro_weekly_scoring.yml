@@ -5,11 +5,12 @@ on:
   # Was stage 5 and gated on the kimi arm; re-parented onto `daily` in WP-21.F so
   # standing the arms down could not silently stop the scorer.
   #
-  # The record this scores is FINITE: v1.6 cut the directional product, so the
-  # last note carrying a call is 2026-09-04 and its T+20 window resolves
-  # ~2026-10-02. Each run prints how many reports still have an open window, and a
-  # DIRECTIONAL RECORD CLOSED banner once none do — that banner is the signal to
-  # delete this stage.
+  # The directional scorer (score_predictions.py) is retired from this stage
+  # (WP-22.D): its record is finite — the last note carrying a call is
+  # 2026-09-04 — and the 2026-10-05 run printed DIRECTIONAL RECORD CLOSED. Its
+  # scored history stays on `output` under scores/ and summarize_accuracy.py
+  # still reads it. Soft-kill (ADR-0015): the module and its tests stay;
+  # restoring it is re-adding its step above `Score conditional distributions`.
   workflow_call:
   workflow_dispatch:   # manual trigger for testing
 
@@ -45,16 +46,8 @@ jobs:
           cd macro-assist
           bash .macro-assist/ci_mount_output.sh
 
-      - name: Score predictions
-        run: |
-          set -e
-          python macro-assist/.macro-assist/score_predictions.py
-
-      # The v1.6 successor. score_predictions.py above scores the directional
-      # call that v1.6 cut and has had nothing new to score since 2026-09-05;
-      # this scores what the note actually publishes now (Phase 22). It is a
-      # separate step so retiring the directional scorer ~2026-10-02 is a
-      # deletion, not an edit to a step that does two things.
+      # The v1.6 successor to score_predictions.py: this scores what the note
+      # actually publishes now (Phase 22).
       - name: Score conditional distributions
         run: |
           set -e

@@ -21,7 +21,7 @@ that is [Concepts](../concepts/index.md) for the reasoning and
 
 **Half of what is described here is retired but still present.** The HMM regime
 layer is computed and not published; `MACRO_PROFILE` and its levers resolve but
-gate nothing; `score_predictions.py` runs weekly and scores nothing new; the Kimi
+gate nothing; `score_predictions.py` is kept but no longer runs (its record closed 2026-10-05); the Kimi
 and exogenous arms are deactivated but intact. Each is marked where it appears,
 and each is deliberate — see
 [ADR-0015](../decisions/ADR-0015-soft-kill-convention.md).

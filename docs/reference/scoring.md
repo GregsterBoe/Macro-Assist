@@ -9,7 +9,11 @@ behind that split is [The cut](../concepts/the-cut.md).
 
 ## score_predictions.py
 
-Runs weekly (Monday). Parses 5-Day Predictions tables from all `*-macro.md` reports and scores each at three horizons:
+**Retired from the weekly stage 2026-10-10** (WP-22.D) — the 2026-10-05 run printed
+`DIRECTIONAL RECORD CLOSED`. The module is kept and still runs by hand
+(`python .macro-assist/score_predictions.py`); what follows describes it as it ran.
+
+Ran weekly (Monday). Parses 5-Day Predictions tables from all `*-macro.md` reports and scores each at three horizons:
 
 **As of v1.6 there are no new calls to score, anywhere in the repo.** The main note
 stopped making them, and the two arms that still did — Kimi and exogenous — were stood
@@ -18,7 +22,7 @@ down on 2026-09-04 (WP-21.F). Post-cut notes are skipped by *version*
 cannot silently re-open the record.
 
 The record is therefore **finite**. The last directional note is 2026-09-04 and its T+20
-window resolves ~2026-10-02, so the weekly stage must keep running until then. Each run
+window resolved by 2026-10-05, the first Monday run to print the banner. Each run
 reports how many reports still have an open window and prints a **DIRECTIONAL RECORD
 CLOSED** banner once none do — that banner is the signal to retire the stage. Without it
 the cron would print "0 score file(s) written" forever, which reads exactly like a silent

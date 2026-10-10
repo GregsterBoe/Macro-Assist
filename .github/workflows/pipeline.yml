@@ -413,12 +413,10 @@ jobs:
     # Was gated on the kimi stage; now on `daily`, so removing the arms cannot
     # silently stop the scorer.
     #
-    # This stage is NO LONGER slated for retirement (Phase 22). It now runs two
-    # scorers: `score_predictions.py`, which winds down when the last v1.5 note's
-    # T+20 window resolves ~2026-10-02 and prints a closure banner, and
-    # `score_distributions.py`, which scores what v1.6 actually publishes and is
-    # permanent. When the banner appears, delete the directional STEP inside
-    # macro_weekly_scoring.yml — not this stage.
+    # This stage is permanent (Phase 22): it runs `score_distributions.py`, which
+    # scores what the note publishes, and `summarize_accuracy.py`. The
+    # directional scorer's step was removed from macro_weekly_scoring.yml after
+    # its closure banner on 2026-10-05 (WP-22.D).
     if: >-
       ${{ !cancelled()
           && inputs.mode != 'validate'
