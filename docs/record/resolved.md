@@ -10,8 +10,8 @@ This is not a changelog (that is `maintenance-log.md` for housekeeping passes an
 questions.
 
 > **Carried-forward caveats stay in `todo.md`.** Several items below closed *with*
-> a trade-off attached. Those trade-offs are live entries in `todo.md` (#2b, #3b,
-> #6b, #14b; #5b is folded into #5; #1b closed 2026-10-01) — resolving an item never silently
+> a trade-off attached. Those trade-offs are live entries in `todo.md` (#14b; #1b
+> closed 2026-10-01; #2b, #3b, #5 with #5b, and #6b closed 2026-10-10) — resolving an item never silently
 > absorbs its cost.
 
 ---
@@ -1034,6 +1034,92 @@ the duplicate is generated rather than hand-written. Bump with
 ---
 
 ## Phase 20 — paper portfolio
+
+### RESOLVED 2026-10-10 — #5 MAX_WEIGHT binds structurally on a low-vol universe (with #5b)
+**Resolution: closed as a constraint for any v2 sizer, not a fix to the dormant v1.** Closed in the 2026-10-10 cleanup pass at the owner's call. Phase 20 has been dormant since v1.6 withdrew the sizer's input (two rebalances ever, the DESIGN §9 clock stopped 2026-09-04), and no v2 sizer has been proposed.
+The finding stays true of the code (`SizingConfig.max_weight = 0.35`,
+`vol_target_annual = 0.10`): the cap bound on both rebalances that ran. **Whoever
+pre-registers a v2 sizer reads this first:** decide the target/cap pair (the lean
+was to cap risk contribution `|w|·σ` rather than raw weight), ship it as one
+isolated sizing change (#5b), and read `vol_shortfall` every week from day one so
+a cap-throttled book cannot pass for a low-conviction one. The housekeeping
+bullet that carried that last point is kept below.
+
+<details><summary>The item as it stood when closed</summary>
+
+**Where:** `SizingConfig.max_weight = 0.35`, `vol_target_annual = 0.10`.
+**Problem:** with |w| ≤ 0.35 the max reachable book vol on the S&P/IEF pair is
+`0.35·0.122 + 0.35·0.055 ≈ 6.2%` — the 10% target is unreachable by
+construction whenever the book is concentrated in low-vol names. The capped
+allocation reallocates freed budget and reports the shortfall, but it cannot
+manufacture risk the cap forbids.
+**The evidence is in, and it is all there will be (2026-09-14).** The item asked
+for a few rebalances' worth of `vol_shortfall`; the track produced two before
+its input was withdrawn, and the cap bound on both — 2026-08-31 kimi: ex-ante
+book vol **1.5%** against a 10% target, "8.5pp under target — MAX_WEIGHT binds
+on 10Y (IEF)", the one non-neutral position sized at the cap. Confirmed as a
+structural property of the rule, not a tape.
+**What it decides:** is 10%/0.35 the right pair? Options: raise `max_weight`,
+lower `vol_target_annual`, or cap **risk contribution** (`|w|·σ`) instead of raw
+weight — the last preserves the inverse-vol ratios the cap currently overrides.
+*Lean: cap risk contribution; it is the version of the constraint that matches
+what the rule is trying to express.* Needs a DESIGN §3 step 7 amendment, and it
+belongs in the v2 sizer's pre-registration, not as a patch to a dormant v1.
+**#5b, folded in:** the risk-contribution cap changes the **measured quantity**
+(ex-ante book vol), so it must ship as a *single* isolated sizing change with
+the before/after noted in the ledger — never alongside another sizing change,
+or the forward-test P&L is unattributable. **One deliberate sizing change at a
+time.**
+
+*From the inbox's Housekeeping section:*
+
+- The DESIGN §9 go/no-go clock is **forward-only** and it **stopped** on
+  2026-09-04 with two rebalances of sample (v1.6 withdrew the sizer's input).
+  It does not restart until a v2 sizer is pre-registered; when it does, #5's
+  lesson applies from day one — a structurally cap-throttled book must not
+  masquerade as a low-conviction one, so `vol_shortfall` is read each week.
+</details>
+
+### RESOLVED 2026-10-10 — #2b abstention is now weaker, deliberately
+**Resolution: moot — the caveat has no object.** Closed in the 2026-10-10 cleanup pass at the owner's call. Phase 20 has been dormant since v1.6 withdrew the sizer's input (two rebalances ever, the DESIGN §9 clock stopped 2026-09-04), and no v2 sizer has been proposed. The caveat was about a
+band-less *directional* call taking HAR-sized risk; directional calls ended with
+v1.6 ([ADR-0009](../decisions/ADR-0009-cut-the-directional-product.md)), and a v2
+sizer would size off the conditional distribution. The `require_distribution` knob
+stays in the code.
+
+<details><summary>The item as it stood when closed</summary>
+
+*From resolved #2.* A band-less directional call now always takes HAR-sized risk.
+The guard it replaced was meant to catch missing *risk data*, and HAR σ **is** that
+data, so this is the intended loosening — but it is a loosening. The
+`require_distribution` knob survives for a deliberate per-arm revival.
+</details>
+
+### RESOLVED 2026-10-10 — #3b the fragility gate makes attribution impure
+**Resolution: closed as a constraint for any v2 sizer.** Closed in the 2026-10-10 cleanup pass at the owner's call. Phase 20 has been dormant since v1.6 withdrew the sizer's input (two rebalances ever, the DESIGN §9 clock stopped 2026-09-04), and no v2 sizer has been proposed. It applies to any
+book that keeps the fragility gate: a "book beat benchmark" result is partly the
+gate's beta-timing. A v2 pre-registration that keeps the gate should state how
+that is separated.
+
+<details><summary>The item as it stood when closed</summary>
+
+*From resolved #3.* Because fragility can cut gross before drawdowns, a future
+"book beat benchmark" is partly the gate's **beta-timing**, not pure signal alpha.
+Keep that distinction when reading the DESIGN §9 quarter result.
+</details>
+
+### RESOLVED 2026-10-10 — #6b an excess-return / IR series from first exposure
+**Resolution: closed as a constraint for any v2 sizer.** Closed in the 2026-10-10 cleanup pass at the owner's call. Phase 20 has been dormant since v1.6 withdrew the sizer's input (two rebalances ever, the DESIGN §9 clock stopped 2026-09-04), and no v2 sizer has been proposed. The deliverable
+belonged to the §9 quarter read, which will not happen for the v1 book; a v2
+pre-registration should include an information-ratio series that starts at first
+exposure.
+
+<details><summary>The item as it stood when closed</summary>
+
+*From resolved #6.* The flat-book NAV label prevents the misread; a proper
+information-ratio series that **starts at first exposure** is the real DESIGN §5
+deliverable. Belongs with the §9 quarter read, not a mid-flight reporting tweak.
+</details>
 
 ### RESOLVED 2026-09-14 — #4 kimi confidence clusters high — assessed, no change; the track is dormant
 **Resolution: leave as-is, as assessed 2026-08-24; moved here on the closing
