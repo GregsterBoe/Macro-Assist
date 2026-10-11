@@ -14,7 +14,7 @@ Conventions:
   reasoning intact, and pull any "carry forward" caveat back up into this file
   as its own entry. A resolved item left here is noise; a lost caveat is worse.
 
-Last reviewed: 2026-10-10 — cleanup pass. Phase 20's four carried items (#5,
+Last reviewed: 2026-10-11 — #37 opened (ADR-0025, the contribution-rule class for new money). Before that, 2026-10-10 — cleanup pass. Phase 20's four carried items (#5,
 #2b, #3b, #6b) closed → [`resolved.md`](resolved.md): the book is dormant, they
 constrain only a v2 sizer that has not been proposed, and #2b's object (a
 directional call) no longer exists. **#26** closed the same day (the vol feed stays
@@ -125,6 +125,39 @@ record.
 ---
 
 ## Phase 23 — exploration tier
+
+### Open decision #37 — accept ADR-0025, the contribution-rule class for new money (H-010)?
+
+**Opened 2026-10-11, at the owner's request.** The owner chose goal 3's second
+decision, new money: a standing plan of 500 € a month, nothing ever sold, and
+a rule that decides when to invest more or less of it.
+[ADR-0025](../decisions/ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md)
+proposes a class bar for such a rule, and [H-010](hypotheses.md#h-010) a first
+member. Nothing is built and no data has been read since H-009's look. Four
+calls, in order of weight:
+
+1. **The ADR-0009 door (§2).** A contribution rule's claim is about return,
+   which ADR-0023 §2 closed for risk rules. ADR-0025 proposes admitting it
+   only for rules that change *when budgeted new money is invested*, never
+   sell, never borrow and publish nothing. Accept the door, narrow it further,
+   or decline. Declining closes H-010 before it opens.
+2. **The margin.** Advantage over plain monthly buying of at least **0.25 pp a
+   year** of money-weighted return, at 10 and 30 bps, interval clear of zero.
+   Roughly 2.5% more money after twenty years of a monthly plan. Proposer's
+   default.
+3. **The rival.** `dip_matched`: the member's own multiples, switched on the
+   market's drawdown from its peak instead of the flag, matched on the share
+   of high months. Its clause is only "advantage above zero", weaker than the
+   plain one, as in ADR-0023.
+4. **The seal.** 2018-01-01 reused (#19, #34), with the drop floor of 5. About
+   five US drops of 10% or more since then, so `underpowered` is possible.
+
+*Lean, the proposer's:* accept as written. The door is the real decision; the
+other three follow ADR-0023's precedents. **The honest prior is low** (cash
+drag; most buy-the-dip schemes trail plain monthly buying), and the explore
+side is not blind for this flag (ADR-0025, Consequences). On acceptance:
+build `class_bars.FLOW_RULE` and the flow walk in `explore_rules.py`, then
+H-010's first counted look.
 
 ### Open decision #33 — which seal governs the gap → width class (H-003)?
 
