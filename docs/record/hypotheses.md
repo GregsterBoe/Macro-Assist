@@ -50,6 +50,7 @@ have its sealed read.
 | [H-008](#h-008) | `closed` | Within a stressed drawdown bin, the OR flag's state widens the forward distribution beyond what drawdown depth explains — *closed on explore 2026-09-29 at the owner's call: the width held within vol terciles (8 of 9), but neither `dd_x_frag` nor the vol forecast widened by the state forecasts better; no KB entry, no sealed read spent* |
 | [H-009](#h-009) | `closed` | Halving equity exposure while the cross-section flag fires takes less of each market drop than holding less stock does — *the first member of the risk-rule class ([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md), accepted and built 2026-10-01, `resolved.md` #34); its clause settled before any look, `resolved.md` #35; closed on explore 2026-10-01 at the owner's call: too costly, no edge, and worse than the volatility rival; no KB entry, no sealed read spent* |
 | [H-010](#h-010) | `closed` | Investing more of the monthly contribution while the cross-section flag fires ends with more wealth than plain monthly buying, and than buying after a fall — *the first member of the contribution-rule class ([ADR-0025](../decisions/ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md), accepted and built 2026-10-11, `resolved.md` #37); closed on explore 2026-10-11 at the owner's call: `inverted` — 3.2% less money than plain buying, behind the drawdown rival, though the clause held; no KB entry, no sealed read spent* |
+| [H-011](#h-011) | `draft` | Sending each month's contribution to the holding furthest below its target keeps a stock–bond–gold mix at least twice as close to target as plain buying, at no material cost — *the first member of a proposed allocation-rule class ([ADR-0026](../decisions/ADR-0026-a-buy-only-rebalancing-rule-is-read-on-drift-at-a-matched-exposure.md), open, `todo.md` #38); no look run* |
 
 ---
 
@@ -1063,6 +1064,144 @@ against the 20% at which the reserve balances.
 Report: `results/explore_rules/report_h010.md` · receipt
 `results/explore_rules/runs.jsonl` (2026-10-11T10:30:42+00:00, `report_sha256`
 `62c6be58…`).
+
+## H-011 — Sending each month's contribution to the holding furthest below its target keeps a stock–bond–gold mix at least twice as close to target as plain buying, at no material cost {: #h-011 }
+
+**Status:** `draft` — needs an independent audit before it is a hypothesis (§6, ADR-0022). Drafted 2026-10-11 at the owner's request, with its class bar [ADR-0026](../decisions/ADR-0026-a-buy-only-rebalancing-rule-is-read-on-drift-at-a-matched-exposure.md), which is not accepted yet (`todo.md` #38). No look has run and no data for these assets has been read in this repo.
+
+**What was seen.** Nothing for this rule. It is proposed for the owner's goal 3
+([What is worth doing §2](../concepts/what-is-worth-doing.md#2-the-standing-goals)),
+for the decision the owner chose third on 2026-10-11: rebalancing. The owner
+invests 500 € a month, sells nothing for tax reasons, and left the choice of
+holdings to the proposer. Two things on record shaped it:
+
+- H-010 lost to cash drag ([H-010 ledger](#h-010)). This rule holds no cash.
+- Neither rule tested so far found that acting on the fragility flag pays for
+  itself (H-009, H-010). This member uses no signal. It is the baseline a
+  fragility-steered allocation would have to beat (ADR-0026 §2).
+
+**Where.** [ADR-0026](../decisions/ADR-0026-a-buy-only-rebalancing-rule-is-read-on-drift-at-a-matched-exposure.md) ·
+[ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md)
+(`risk_episodes`, the cost levels) ·
+[ADR-0025](../decisions/ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md)
+(the money-weighted return, the bootstrap) · [H-010](#h-010).
+
+**The mix, the owner's to accept or change before any look.**
+
+| Holding | Target | What the owner would buy | Why it is in | Proxy on the explore side |
+|---|---|---|---|---|
+| World equities | **70%** | An accumulating FTSE All-World or MSCI ACWI (IMI) UCITS ETF | The growth engine; one fund holds developed and emerging markets, small caps and property | US market total return (Fama-French Mkt−RF + RF), converted to euros |
+| Euro government bonds | **20%** | An accumulating euro-area government bond ETF, all maturities or about 7 years | The ballast: in the owner's currency, so no currency risk and no hedging cost; usually rises when equities fall hard | A constant-maturity 10-year German government bond, total return rebuilt from its yield |
+| Gold | **10%** | A physically backed gold ETC with a delivery claim | The crisis and inflation diversifier, weakly related to both other holdings; in Germany such an ETC has been treated as tax-free after one year of holding (to be confirmed with a tax adviser) | London gold price in US dollars, converted to euros |
+
+**Left out, and why.**
+
+- **Broad commodities.** Futures-based funds pay for rolling their contracts,
+  and their long-run return has been weak. Gold already does the crisis job.
+- **Crypto.** No history long enough to read, and still parked as a question
+  of what decision it would serve.
+- **Factor or regional tilts** (small caps, value, extra emerging markets).
+  They are bets on one segment beating another, and the world fund already
+  holds them at market weight.
+- **Inflation-linked bonds.** A reasonable addition, but no long euro series
+  exists for them, and a fourth holding makes every month's choice finer
+  without changing the question.
+
+**Why 70/20/10.** A long-horizon saver who can hold through a large drop
+usually holds mostly equities; 20% bonds and 10% gold is a common, round
+cushion. It is a risk preference, not a fitted number: no data was read to
+choose it, and another mix is a new member and a counted look (ADR-0026 §2).
+
+**The member, fixed before any look.**
+
+- **Rule.** At each month-end *t*, value each holding at the close. The whole
+  contribution of 1 goes to the **one holding with the largest euro gap below
+  its target** (target value = *w\*<sub>i</sub>* × (account + 1) minus its
+  current value). Ties go in table order. If no holding is below target, the
+  contribution is split at *w\**. Bought at the next trading day's close.
+  Nothing is sold.
+- **Why one holding a month.** One order a month is what the owner can follow
+  by hand, and it keeps the purchase cost to one order. Splitting the money
+  to fill several gaps at once would be closer to target and is a different
+  member.
+- **No other value is tried;** any other rule or mix is a counted look.
+
+**Mechanism it would imply.** Prices move apart, and an account that only
+buys at fixed shares drifts toward whatever rose most. Sending all new money
+to what fell behind pulls the account back without a sale. Early in a plan a
+month's money is a large share of the account and the pull is strong; late in
+a plan it is small. The mechanism holds only if the gaps the assets open stay
+small enough, and close often enough, for the contributions to keep up.
+
+**The prediction that is not the score.**
+
+1. **Clause, `late_control`.** Control does not fade: across plans, the median
+   control ratio over each plan's **second half** (months 61–120) is at most
+   **0.75**. The bar asks for 0.5 over the whole plan; this asks that what
+   is left in the second half is still worth having.
+2. **Reported, not a clause.** At the peak before each drop of 10% or more,
+   the member's equity weight is closer to 70% than `plain`'s. Its
+   money-weighted return against `plain` is lower (it held less equity in
+   rising markets), and the report says by how much.
+
+**The confound.**
+
+- (a) **Holding less equity.** A rule that keeps equities nearer 70% than
+  plain buying does holds less stock in a long rise, and the read of its
+  return would mostly measure that. `exposure_matched` is the rival that
+  rules it out.
+- (b) **The plan length.** Ten-year plans are the bar's choice, not the
+  owner's horizon. A longer plan would show more fading.
+- (c) **Proxies.** The US market is not the world index; a 10-year Bund is
+  longer than the owner's bond fund; the gold price is not an ETC's net
+  return after fees. The read is about how a three-asset mix drifts, and
+  the report names each proxy.
+- (d) **Eras.** 1973–2017 holds the 1970s inflation, falling rates from 1981
+  and the 2000s gold rise. Bonds behaved very differently in each. The
+  report splits the plan starts in halves, read in neither.
+- (e) **The explore side is not blind in the usual sense.** The broad history
+  of stocks, bonds and gold since the 1970s is common knowledge, the
+  proposer's included (ADR-0026, Consequences).
+- (f) **Currency.** Two of three holdings are priced in dollars. Before 1999
+  the euro value runs through the Deutsche Mark at its fixed conversion rate.
+
+**What would test it.**
+
+1. The owner accepts ADR-0026 and the mix, with or without changes
+   (`todo.md` #38).
+2. **The data errand,** built and checked before any leg is walked:
+   - equity: Fama-French daily market and RF, already in `explore_rules.py`,
+     compounded to month-ends;
+   - Bund yield: OECD long-term German rate, monthly (FRED
+     `IRLTLT01DEM156N`);
+   - gold: London PM fix, US dollars (FRED's LBMA series stop around 2021;
+     the sealed side needs another source reaching today, chosen in the build
+     and checked against the first one where they overlap before 2018);
+   - currency: Deutsche Mark per dollar to 1998, then dollars per euro (FRED
+     `EXGEUS`, `EXUSEU`).
+   The series IDs are to be confirmed in the build. FRED needs the API key
+   CI holds; this session's network cannot reach it.
+3. Build `class_bars.MIX_RULE` and the allocation walk, each verdict driven
+   alone by a test on planted markets.
+4. Walk this member on the explore side, 1973-01 to 2017-12 (gold floats from
+   the early 1970s), plans starting each January from 1973 to 2008. That is
+   one counted look, and this entry's ledger opens with it.
+5. Write the `Pre-registration` in the class's form, pass the CI audit, and
+   the owner turns the key for the sealed side, read once.
+
+The result goes to the KB either way.
+
+**Target-space check.** An allocation rule for new money, ADR-0026's proposed
+sixth target type, read on drift from the owner's mix, with return as a cost
+limit against an exposure-matched rival. It makes no claim that one asset
+will beat another, uses no signal, never sells, never holds back money, and
+is never published as a call. If ADR-0026 is not accepted, this entry is
+closed before it opens.
+
+**Read first.** [ADR-0026](../decisions/ADR-0026-a-buy-only-rebalancing-rule-is-read-on-drift-at-a-matched-exposure.md) ·
+[ADR-0025](../decisions/ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md) ·
+[H-010](#h-010) and its ledger · `class_bars.money_weighted_return`,
+`class_bars.risk_episodes` · `explore_rules.fetch_inputs`.
 
 ## Closed
 

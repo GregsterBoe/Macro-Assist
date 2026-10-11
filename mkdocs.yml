@@ -138,6 +138,7 @@ nav:
       - "ADR-0023 — A fragility rule for a real decision is read on drawdown against an exposure-matched rival": decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md
       - "ADR-0024 — The daily note makes no LLM call": decisions/ADR-0024-the-note-makes-no-llm-call.md
       - "ADR-0025 — A rule for new money is read on wealth at an equal budget": decisions/ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md
+      - "ADR-0026 — A rule for where new money goes is read on drift (open)": decisions/ADR-0026-a-buy-only-rebalancing-rule-is-read-on-drift-at-a-matched-exposure.md
   - Record:
       - Knowledge Base: record/knowledge-base.md
       - Active experiments: record/active-experiments.md

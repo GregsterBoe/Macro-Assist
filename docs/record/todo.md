@@ -14,7 +14,7 @@ Conventions:
   reasoning intact, and pull any "carry forward" caveat back up into this file
   as its own entry. A resolved item left here is noise; a lost caveat is worse.
 
-Last reviewed: 2026-10-11 — #37 opened and closed the same day → [`resolved.md`](resolved.md) (ADR-0025, the contribution-rule class for new money, accepted as written). Before that, 2026-10-10 — cleanup pass. Phase 20's four carried items (#5,
+Last reviewed: 2026-10-11 — #38 opened (ADR-0026, the allocation-rule class for rebalancing with new money, and H-011's mix). Earlier the same day, #37 opened and closed the same day → [`resolved.md`](resolved.md) (ADR-0025, the contribution-rule class for new money, accepted as written). Before that, 2026-10-10 — cleanup pass. Phase 20's four carried items (#5,
 #2b, #3b, #6b) closed → [`resolved.md`](resolved.md): the book is dormant, they
 constrain only a v2 sizer that has not been proposed, and #2b's object (a
 directional call) no longer exists. **#26** closed the same day (the vol feed stays
@@ -125,6 +125,50 @@ record.
 ---
 
 ## Phase 23 — exploration tier
+
+### Open decision #38 — accept ADR-0026, the allocation-rule class for rebalancing with new money, and H-011's mix?
+
+**Opened 2026-10-11, at the owner's request.** The owner chose goal 3's third
+decision, rebalancing, with nothing ever sold, and left the holdings to the
+proposer. [ADR-0026](../decisions/ADR-0026-a-buy-only-rebalancing-rule-is-read-on-drift-at-a-matched-exposure.md)
+proposes a class bar for rules that choose *where* each month's contribution
+goes, and [H-011](hypotheses.md#h-011) a first member and a mix. Nothing is
+built and no data for these assets has been read. Five calls, in order of
+weight:
+
+1. **The mix.** 70% world equities, 20% euro government bonds, 10% gold
+   (physically backed ETC). It is a risk preference and the owner's to set;
+   it is fixed before any look and never tuned. **Goal 4** (beat the S&P 500
+   over two years) pulls against any mix with bonds and gold: in a year of
+   strong equities this mix will usually trail. Accept the mix, change it, or
+   say which goal wins.
+2. **Does a signal-free rule count toward goal 3?** Goal 3 asks for
+   *fragility-based* rules. H-011 uses no signal: it is the practical answer
+   for the decision and the baseline a fragility-steered allocation would
+   have to beat. Accept it as a goal-3 member, or as a baseline only.
+3. **The claim and the margins.** The bar reads control, not return: the
+   member's mean drift from the mix at most **half** of plain buying's, its
+   interval clear of 1; its money-weighted return no more than **0.25 pp a
+   year** behind a rival holding the same average equity share. No door
+   through ADR-0009 is needed (§2). Proposer's defaults.
+4. **The plans.** Ten-year plans from an empty account, one starting every
+   January on the explore side (1973–2008 starts); the sealed side is one
+   plan from 2018-01, read only if it has at least 96 months. Drop floor 5,
+   as in ADR-0023 and ADR-0025.
+5. **The data errand.** Euro-valued monthly series for the three holdings
+   from proxies (US market, 10-year Bund rebuilt from its yield, London gold;
+   H-011 *What would test it*). FRED needs CI's key; this session cannot
+   reach it, so the build fetches there or the network policy changes.
+
+*Lean, the proposer's:* accept as written, with the mix as the one call only
+the owner can make. **The honest prior is better than H-009's and H-010's**
+for the control claim, which is mostly arithmetic, and **uncertain for the
+cost**, which depends on whether the assets revert against each other. The
+main risk is `no_control` from fading in the plan's second half. On
+acceptance: the data errand, then `class_bars.MIX_RULE` and the allocation
+walk, then H-011's first counted look.
+
+---
 
 ### Open decision #33 — which seal governs the gap → width class (H-003)?
 
