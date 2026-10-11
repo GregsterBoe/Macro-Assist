@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Status** | **Open** — drafted 2026-10-11 by the assistant at the owner's request. Not accepted: the owner decides it in [`todo.md`](../record/todo.md) #37. Nothing is built, and no data has been read for it |
-| **Decided** | — |
+| **Status** | **Accepted** — drafted 2026-10-11 by the assistant at the owner's request, and accepted by the owner the same day as written ([`resolved.md`](../record/resolved.md) #37). Built the same day — `class_bars.FLOW_RULE` and `explore_rules.py --member h010` ([Scoring](../reference/scoring.md#the-contribution-rule-class-flow_rule-adr-0025)) — and no member has been read |
+| **Decided** | 2026-10-11 |
 | **Related** | [What is worth doing §2](../concepts/what-is-worth-doing.md#2-the-standing-goals) (goal 3) · [How we explore §5, §7](../concepts/how-we-explore.md#7-the-target-space-never-a-signed-forecast) · [ADR-0009](ADR-0009-cut-the-directional-product.md) · [ADR-0022](ADR-0022-the-technical-audit-moves-to-an-independent-agent-loop.md) · [ADR-0023](ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md) · the first member, [H-010](../record/hypotheses.md#h-010) |
 
 ## Context
@@ -137,8 +137,8 @@ when it is built.
 
 *Why 0.25 pp a year.* On a plan of 500 € a month over twenty years it is
 roughly 2.5% more money at the end. Less than that is not worth a rule
-the owner has to follow every month. It is the proposer's default; the owner
-sets it (#37).
+the owner has to follow every month. It was the proposer's default, and the owner
+kept it (#37).
 
 *Why the rival's clause is weaker than the plain one.* As in ADR-0023: with
 five or six drops an interval clear of zero against a strong rival is out of

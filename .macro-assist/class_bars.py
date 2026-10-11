@@ -9,8 +9,8 @@ adds only what its own entry states — its arm, its horizon, a stricter floor,
 and its mechanism clause — in a `Pre-registration` field the independent audit
 stamps with the rest of the entry (ADR-0022).
 
-Three classes
--------------
+Four classes
+------------
     conditioner   a shadow conditioner vs `unconditional` (H-004, H-008).
                   Phase 22's bar as is — MIN_SKILL, a block-bootstrap interval
                   clear of zero, disqualifiers first — plus `har_scaled` as a
@@ -32,6 +32,15 @@ Three classes
                   underpowered → inverted → too_costly → no_edge →
                   explained_by_rival → unexplained, return only a cost limit.
                   Sealed side 2018-01-01 → the last day with data, once.
+    flow_rule     a rule for new money: how much of a fixed monthly
+                  contribution to invest, the rest waiting in a cash reserve,
+                  nothing ever sold (ADR-0025, H-010). Read on money-weighted
+                  return against investing the whole contribution every month
+                  (`plain`) and against the member's own multiples switched on
+                  the market's drawdown (`dip_matched`). Its own reader and
+                  verdict: underpowered → inverted → no_edge →
+                  explained_by_rival → unexplained. Sealed side 2018-01-01 →
+                  the last complete month, once.
 
 The verdict (the quantile classes) — disqualifiers first, each returning its own verdict
 ---------------------------------------------------------------------
@@ -539,8 +548,6 @@ RISK_RULE = RiskBar(
     sealed_from=SEALED_FROM, sealed_until=None,
 )
 
-BARS: dict[str, ClassBar | RiskBar] = {b.name: b for b in (CONDITIONER, GAP_WIDTH, RISK_RULE)}
-
 RISK_VERDICTS = ("exploratory", "underpowered", "inverted", "too_costly", "no_edge",
                  "explained_by_rival", "unexplained", "edge")
 RISK_LEGS = ("member", "static_matched", "vol_matched", "buy_and_hold")
@@ -871,6 +878,381 @@ def risk_read(path: dict, prereg: dict, *, sealed: bool) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# the contribution-rule class (ADR-0025): read on wealth at an equal budget
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class FlowBar:
+    name: str
+    rival: str                   # the pass clause's comparator: the whole contribution, every month
+    second_rival: str            # the member's own multiples, switched on the market's drawdown
+    episode_depth: float         # a buy-and-hold drop, peak to trough, at least this deep
+    min_episodes: int
+    min_advantage: float         # money-weighted return a year over `rival`, as a fraction
+    cost_bps: tuple              # every purchase pays each in turn; no_edge fires on either
+    interval: float              # the two-sided moving-block bootstrap interval of the advantage
+    block_months: int
+    sealed_from: date | None
+    sealed_until: date | None    # None: to the last complete month with data at read time
+
+
+FLOW_RULE = FlowBar(
+    name="flow_rule", rival="plain", second_rival="dip_matched",
+    # ADR-0023's drop and floor, for its reason (a sign test on five). 0.25 pp
+    # a year is roughly 2.5% more money after twenty years of a monthly plan.
+    # Blocks of 24 months keep a drop and its recovery together. All as
+    # ADR-0025 proposed them and the owner accepted them (resolved.md #37).
+    min_episodes=5, episode_depth=0.10, min_advantage=0.0025, cost_bps=(10.0, 30.0),
+    interval=0.90, block_months=24,
+    sealed_from=SEALED_FROM, sealed_until=None,
+)
+
+BARS: dict[str, ClassBar | RiskBar | FlowBar] = {
+    b.name: b for b in (CONDITIONER, GAP_WIDTH, RISK_RULE, FLOW_RULE)}
+
+FLOW_VERDICTS = ("exploratory", "underpowered", "inverted", "no_edge", "explained_by_rival",
+                 "unexplained", "edge")
+FLOW_LEGS = ("member", "plain", "dip_matched")
+
+
+def flow_months(dates: list[str], last_month_complete: bool) -> np.ndarray:
+    """Positions of the month-ends: the last day of each calendar month on the
+    path. The final month counts only when the caller knows it is complete;
+    otherwise the read stops at the month-end before it."""
+    ym = [d[:7] for d in dates]
+    ends = [i for i in range(len(ym) - 1) if ym[i + 1] != ym[i]]
+    if last_month_complete and dates:
+        ends.append(len(dates) - 1)
+    return np.array(ends, dtype=int)
+
+
+def _drawdown(level: np.ndarray) -> np.ndarray:
+    return 1.0 - level / np.maximum.accumulate(level)
+
+
+def dip_matched(multiples: np.ndarray, dd: np.ndarray) -> np.ndarray:
+    """The member's own multiples, re-assigned by the market's drawdown: the
+    deepest month-end gets the member's largest multiple, the next deepest the
+    next, and so on (ties in drawdown go to the earlier month). For a two-value
+    member that is "high when the drawdown is at least D", D set so the share
+    of high months is the member's. The ranks use the whole slice — information
+    the member does not have, which only strengthens the rival."""
+    m = np.asarray(multiples, float)
+    order = np.argsort(-np.asarray(dd, float), kind="stable")
+    out = np.empty_like(m)
+    out[order] = np.sort(m)[::-1]
+    return out
+
+
+def _segments(eq: np.ndarray, cash: np.ndarray, ends: np.ndarray) -> dict:
+    """The months between consecutive month-ends, as growth factors: the first
+    day (when last month's decision is bought) and the rest. Segment k runs
+    from the day after ends[k] to ends[k + 1]."""
+    ge, gc = np.cumprod(1.0 + eq), np.cumprod(1.0 + cash)
+    a, b = ends[:-1] + 1, ends[1:]
+    first_e, first_c = 1.0 + eq[a], 1.0 + cash[a]
+    return {"first_e": first_e, "first_c": first_c,
+            "rest_e": ge[b] / ge[a], "rest_c": gc[b] / gc[a]}
+
+
+def _wealth(seg: dict, idx: np.ndarray, multiples: np.ndarray, cost_bps: float,
+            track: bool = False) -> dict:
+    """Run legs over months. `idx` (boots × months) picks the segments, and
+    `multiples` (boots × months) is the multiple decided at the month-end
+    before each picked segment. A contribution of 1 enters the reserve at
+    every month-end, the first one before the first segment; the decided
+    multiple is bought at the segment's first close, capped by the reserve;
+    the reserve earns cash. Wealth at the last month-end, after its
+    contribution, which is not yet invested."""
+    nb, nm = idx.shape
+    V, R = np.zeros(nb), np.ones(nb)
+    keep = 1.0 - cost_bps / 1e4
+    bought, starved, reserve = np.zeros((nb, nm)), np.zeros((nb, nm), bool), np.zeros((nb, nm))
+    for k in range(nm):
+        s = idx[:, k]
+        V, R = V * seg["first_e"][s], R * seg["first_c"][s]
+        want = multiples[:, k]
+        a = np.minimum(want, R)
+        starved[:, k] = want > R + 1e-12
+        R = R - a
+        V = V + a * keep
+        if track:
+            bought[:, k] = a
+            reserve[:, k] = R
+        V, R = V * seg["rest_e"][s], R * seg["rest_c"][s] + 1.0
+    out = {"wealth": V + R, "reserve_end": R}
+    if track:
+        out.update(bought=bought, starved=starved, reserve=reserve)
+    return out
+
+
+def money_weighted_return(wealth: np.ndarray, n_contrib: int) -> np.ndarray:
+    """The annual rate at which `n_contrib` monthly contributions of 1, the
+    last at the end, grow to `wealth`: Σ (1 + x)^(n − k) = W, k = 1 … n,
+    annualized as (1 + x)^12 − 1."""
+    W = np.atleast_1d(np.asarray(wealth, float))
+    p = np.arange(n_contrib - 1, -1, -1, dtype=float)
+    lo, hi = np.full(W.shape, -0.5), np.full(W.shape, 0.5)
+    for _ in range(100):
+        mid = 0.5 * (lo + hi)
+        f = ((1.0 + mid[:, None]) ** p).sum(axis=1) - W
+        lo, hi = np.where(f < 0, mid, lo), np.where(f < 0, hi, mid)
+    return (1.0 + 0.5 * (lo + hi)) ** 12 - 1.0
+
+
+def _check_flow_path(bar: FlowBar, path: dict, sealed: bool) -> tuple[list[str], np.ndarray]:
+    dates = list(path["dates"])
+    n = len(dates)
+    for k in ("equity", "cash", "multiple"):
+        if len(path[k]) != n:
+            raise PreregError(f"the path's `{k}` has {len(path[k])} days, its dates {n}")
+    if dates != sorted(dates):
+        raise PreregError("the path's dates must be in order")
+    seal = bar.sealed_from.isoformat()
+    if sealed and dates[0] < seal:
+        raise PreregError(f"a sealed read starts on the sealed side ({seal}), not {dates[0]}")
+    if not sealed and dates[-1] >= seal:
+        raise PreregError(f"an explore read stops before the seal ({seal}); this path runs to {dates[-1]}")
+    ends = flow_months(dates, bool(path.get("last_month_complete")))
+    if len(ends) < 2:
+        raise PreregError("a contribution rule needs at least two month-ends")
+    m = np.asarray(path["multiple"], float)[ends]
+    if not np.all(np.isfinite(m)) or m.min() < 0:
+        raise PreregError("the member's multiple must be finite and at least zero at every month-end")
+    return dates, ends
+
+
+def _boot_idx(n: int, block: int, n_boot: int, seed: int) -> np.ndarray:
+    """A moving-block bootstrap of n months: blocks of `block` consecutive
+    months, starts drawn uniformly, concatenated and cut to n."""
+    rng = np.random.default_rng(seed)
+    b = min(block, n)
+    k = -(-n // b)
+    starts = rng.integers(0, n - b + 1, size=(n_boot, k))
+    return (starts[:, :, None] + np.arange(b)).reshape(n_boot, -1)[:, :n]
+
+
+def flow_summary(bar: FlowBar, path: dict, arm: str, *, sealed: bool = False,
+                 n_boot: int = N_BOOT, seed: int = SEED) -> dict:
+    """Everything the flow verdict reads, and everything it only reports."""
+    dates, ends = _check_flow_path(bar, path, sealed)
+    T = int(ends[-1])
+    eq = np.asarray(path["equity"], float)[:T + 1]
+    cash = np.asarray(path["cash"], float)[:T + 1]
+    level = np.r_[1.0, np.cumprod(1.0 + eq)]
+    dd = _drawdown(level)[ends + 1]                      # at each month-end close
+    m_member = np.asarray(path["multiple"], float)[ends]
+    m_dip = dip_matched(m_member, dd)
+    seg = _segments(eq, cash, ends)
+    nm, n_contrib = len(ends) - 1, len(ends)
+    idx = np.arange(nm)[None, :]
+    mult = {"member": m_member[:-1], "plain": np.ones(nm), "dip_matched": m_dip[:-1]}
+    legs = {c: {k: _wealth(seg, idx, mult[k][None, :], c, track=(c == bar.cost_bps[0]))
+                for k in FLOW_LEGS} for c in bar.cost_bps}
+    mwr = {c: {k: float(money_weighted_return(legs[c][k]["wealth"], n_contrib)[0]) for k in FLOW_LEGS}
+           for c in bar.cost_bps}
+    base = bar.cost_bps[0]
+    adv = {str(c): round(mwr[c]["member"] - mwr[c][bar.rival], 6) for c in bar.cost_bps}
+    adv_dip = round(mwr[base]["member"] - mwr[base][bar.second_rival], 6)
+
+    # the interval: months resampled in blocks, each carrying its returns and
+    # the decision and drawdown at the month-end before it; every leg re-run
+    bi = _boot_idx(nm, bar.block_months, n_boot, seed)
+    m_prev = m_member[:-1]
+    w_mem = _wealth(seg, bi, m_prev[bi], base)["wealth"]
+    w_pl = _wealth(seg, bi, np.ones(bi.shape), base)["wealth"]
+    boot = money_weighted_return(w_mem, n_contrib) - money_weighted_return(w_pl, n_contrib)
+    tail = 50.0 * (1.0 - bar.interval)
+    lo, hi = np.percentile(boot, [tail, 100.0 - tail])
+
+    eps = risk_episodes(level[:T + 2], bar.episode_depth)
+    # where the advantage sits: each purchase's final value, member minus plain
+    tr = {k: legs[base][k] for k in ("member", "plain")}
+    grow = np.cumprod(1.0 + eq)
+    buy_day = ends[:-1] + 1
+    keep = 1.0 - base / 1e4
+    final = {k: tr[k]["bought"][0] * keep * grow[T] / grow[buy_day] for k in tr}
+    in_drop = np.zeros(nm, bool)
+    for p, t in eps:                                     # level positions → path days
+        in_drop |= (buy_day >= p - 1) & (buy_day <= t - 1)
+    gap = final["member"] - final["plain"]
+    w_plain = float(tr["plain"]["wealth"][0])
+    high = m_member[:-1] > m_member.min()
+    out = {
+        "class": bar.name, "arm": arm, "first_date": dates[0], "last_date": dates[T],
+        "n_days": T + 1, "n_contributions": n_contrib, "n_episodes": len(eps),
+        "episodes": [{"peak": dates[max(p - 1, 0)], "trough": dates[t - 1],
+                      "depth": round(1.0 - level[t] / level[p], 4)} for p, t in eps],
+        "advantage": adv, "advantage_ci": {"lo": round(float(lo), 6), "hi": round(float(hi), 6),
+                                           "level": bar.interval, "n_boot": n_boot,
+                                           "block_months": bar.block_months},
+        "advantage_vs_dip": adv_dip,
+        "dip_threshold": round(float(dd[m_dip >= m_dip.max()].min()), 4) if m_dip.max() > m_dip.min() else None,
+        "share_high": round(float(np.mean(m_member > m_member.min())), 4),
+        "legs": {str(c): {k: {"money_weighted_return": round(mwr[c][k], 6),
+                              "wealth_per_contribution": round(float(legs[c][k]["wealth"][0]) / n_contrib, 5)}
+                          for k in FLOW_LEGS} for c in bar.cost_bps},
+        "reserve": {"mean": round(float(tr["member"]["reserve"].mean()), 3),
+                    "max": round(float(tr["member"]["reserve"].max()), 3),
+                    "end": round(float(tr["member"]["reserve_end"][0]), 3)},
+        "starved_share_of_high_months": (round(float(tr["member"]["starved"][0][high].mean()), 4)
+                                         if high.any() else None),
+        "advantage_split": {"in_drops": round(float(gap[in_drop].sum()) / w_plain, 5),
+                            "outside_drops": round(float(gap[~in_drop].sum()) / w_plain, 5),
+                            "reserve_left": round(float(tr["member"]["reserve_end"][0]
+                                                        - tr["plain"]["reserve_end"][0]) / w_plain, 5)},
+        "_months": {"ends": ends, "dd": dd, "multiple": m_member, "dip": m_dip},
+    }
+    out["halves"] = _halves(bar, path, ends) if nm >= 2 * bar.block_months else None
+    return out
+
+
+def _halves(bar: FlowBar, path: dict, ends: np.ndarray) -> list[dict]:
+    """The advantage over `plain` on each half of the months, each started
+    fresh with an empty reserve. Reported, never read."""
+    out = []
+    mid = len(ends) // 2
+    for a, b in ((0, mid), (mid, len(ends) - 1)):
+        lo, hi = int(ends[a]) + 1 if a else 0, int(ends[b])
+        sub = {k: path[k][lo:hi + 1] for k in ("dates", "equity", "cash", "multiple")}
+        e = flow_months(list(sub["dates"]), True)
+        eq, cash = np.asarray(sub["equity"], float), np.asarray(sub["cash"], float)
+        seg, nm = _segments(eq, cash, e), len(e) - 1
+        m = np.asarray(sub["multiple"], float)[e][:-1]
+        w = [_wealth(seg, np.arange(nm)[None, :], x[None, :], bar.cost_bps[0])["wealth"]
+             for x in (m, np.ones(nm))]
+        r = [float(money_weighted_return(x, len(e))[0]) for x in w]
+        out.append({"first_date": sub["dates"][0], "last_date": sub["dates"][-1],
+                    "advantage": round(r[0] - r[1], 6)})
+    return out
+
+
+def flow_verdict(bar: FlowBar, summary: dict, clauses: list[dict] | None, *,
+                 sealed: bool, floor: dict | None = None) -> dict:
+    """ADR-0025's order: each disqualifier returns at once, every number is
+    carried whichever fires."""
+    floor = floor or {"episodes": bar.min_episodes}
+    clauses = clauses or []
+    out = {"class": bar.name, "summary": summary, "clauses": clauses, "floor": floor}
+
+    def done(v: str, reason: str) -> dict:
+        return {**out, "verdict": v, "reason": reason}
+
+    if not sealed:
+        return done("exploratory", "the sample is not the sealed side; reported, cannot pass")
+    if summary["n_episodes"] < floor["episodes"]:
+        return done("underpowered", f"{summary['n_episodes']} drops of {bar.episode_depth:.0%} "
+                                    f"< {floor['episodes']} required")
+    base = summary["advantage"][str(bar.cost_bps[0])]
+    if base < 0:
+        return done("inverted", f"advantage over `{bar.rival}` {base * 100:+.3f} pp a year: "
+                                "the member ends with less than plain monthly buying")
+    worst = min(summary["advantage"].items(), key=lambda kv: kv[1])
+    ci = summary["advantage_ci"]
+    if worst[1] < bar.min_advantage or ci["lo"] <= 0:
+        return done("no_edge", f"advantage over `{bar.rival}` {worst[1] * 100:+.3f} pp a year at "
+                               f"{worst[0]} bps, interval [{ci['lo'] * 100:+.3f}, {ci['hi'] * 100:+.3f}]; "
+                               f"needs ≥ {bar.min_advantage * 100:.2f} pp at every cost and an interval "
+                               "clear of zero")
+    if summary["advantage_vs_dip"] <= 0:
+        return done("explained_by_rival", f"advantage over `{bar.second_rival}` "
+                                          f"{summary['advantage_vs_dip'] * 100:+.3f} pp a year; needs > 0")
+    if not clauses:
+        return done("unexplained", "the entry names no mechanism clause")
+    failed = [c for c in clauses if not c["passed"]]
+    if failed:
+        return done("unexplained", "; ".join(f"{c['kind']} failed: {c['detail']}" for c in failed))
+    return done("edge", f"advantage {base * 100:+.3f} pp a year over `{bar.rival}`, "
+                        f"{summary['advantage_vs_dip'] * 100:+.3f} over `{bar.second_rival}`, "
+                        f"{len(clauses)} clause(s) held")
+
+
+FLOW_KINDS = {
+    "forward_contrast": {"required": {"kind", "signal", "window", "months"}, "optional": set()},
+}
+FLOW_CELL_MIN = 12      # month-ends in each cell of a forward contrast, decided at build, before any look
+
+
+def evaluate_flow_clause(bar: FlowBar, clause: dict, path: dict, summary: dict) -> dict:
+    """`forward_contrast`: a month-end is *flagged* if the named signal fired
+    on any of the `window` trading days up to and including it. The median
+    `months`-month forward total return of the market from flagged month-ends
+    must exceed the median from month-ends that are unflagged but at least as
+    deep in drawdown as `dip_matched`'s threshold — the contrast only the
+    signal produces. With fewer than FLOW_CELL_MIN month-ends in either cell
+    (each with its full forward window) the contrast cannot be seen, and the
+    clause fails."""
+    sig = (path.get("signals") or {}).get(clause["signal"])
+    if sig is None:
+        raise PreregError(f"the path carries no signal {clause['signal']!r}")
+    sig = np.asarray(sig, bool)
+    mo = summary["_months"]
+    ends, dd, dip = mo["ends"], mo["dd"], mo["dip"]
+    w, h = int(clause["window"]), int(clause["months"])
+    flagged = np.array([bool(sig[max(0, e - w + 1):e + 1].any()) for e in ends])
+    level = np.cumprod(1.0 + np.asarray(path["equity"], float))
+    fwd = np.full(len(ends), np.nan)
+    fwd[:-h] = level[ends[h:]] / level[ends[:-h]] - 1.0
+    D = summary["dip_threshold"]
+    deep = (dd >= D) if D is not None else np.zeros(len(ends), bool)
+    a = fwd[flagged & np.isfinite(fwd)]
+    b = fwd[~flagged & deep & np.isfinite(fwd)]
+    seen = len(a) >= FLOW_CELL_MIN and len(b) >= FLOW_CELL_MIN
+    ma = float(np.median(a)) if len(a) else float("nan")
+    mb = float(np.median(b)) if len(b) else float("nan")
+    ok = bool(seen and ma > mb)
+    detail = (f"median {h}-month forward return from {len(a)} flagged month-end(s) {ma:+.4f}, from "
+              f"{len(b)} unflagged ones at least {D if D is not None else float('nan'):.1%} down {mb:+.4f}; "
+              f"needs ≥ {FLOW_CELL_MIN} in each and flagged > unflagged")
+    return {"kind": clause["kind"], "passed": ok, "detail": detail,
+            "cells": [{"name": "flagged", "n_month_ends": int(len(a))},
+                      {"name": "unflagged_deep", "n_month_ends": int(len(b))}]}
+
+
+def _validate_flow(bar: FlowBar, spec: dict) -> dict:
+    extra = set(spec) - {"class", "arm", "floor", "clauses"}
+    if extra:
+        raise PreregError(f"unknown key(s) {sorted(extra)} for the {bar.name} class")
+    arm = spec.get("arm")
+    if not isinstance(arm, str) or not arm or arm in FLOW_LEGS[1:]:
+        raise PreregError(f"arm must name the candidate, not a rival: {arm!r}")
+    floor = {"episodes": bar.min_episodes}
+    for k, v in (spec.get("floor") or {}).items():
+        if k != "episodes" or not isinstance(v, int):
+            raise PreregError(f"floor takes integer episodes, not {k!r}: {v!r}")
+        if v < floor[k]:
+            raise PreregError(f"floor episodes = {v} is looser than the class floor {floor[k]}")
+        floor[k] = v
+    clauses = spec.get("clauses")
+    if not isinstance(clauses, list) or not clauses:
+        raise PreregError("clauses must be a non-empty list — an entry with no mechanism clause "
+                          "cannot pass the bar (How we explore §9, question 4)")
+    for i, c in enumerate(clauses):
+        kind = c.get("kind") if isinstance(c, dict) else None
+        if kind not in FLOW_KINDS:
+            raise PreregError(f"clause {i}: kind must be one of {sorted(FLOW_KINDS)}, not {kind!r}")
+        missing = FLOW_KINDS[kind]["required"] - set(c)
+        unknown = set(c) - FLOW_KINDS[kind]["required"] - FLOW_KINDS[kind]["optional"]
+        if missing or unknown:
+            raise PreregError(f"clause {i} ({kind}): missing {sorted(missing)}, unknown {sorted(unknown)}")
+        if not isinstance(c["signal"], str) or not c["signal"]:
+            raise PreregError(f"clause {i}: signal must name a series the harness writes")
+        for k, top in (("window", 63), ("months", 36)):
+            v = c[k]
+            if not isinstance(v, int) or isinstance(v, bool) or not 1 <= v <= top:
+                raise PreregError(f"clause {i}: {k} must be a whole number, 1 to {top}, not {v!r}")
+    return {"class": bar.name, "arm": arm, "floor": floor, "clauses": clauses}
+
+
+def flow_read(path: dict, prereg: dict, *, sealed: bool) -> dict:
+    bar = BARS[prereg["class"]]
+    summary = flow_summary(bar, path, prereg["arm"], sealed=sealed)
+    clauses = [evaluate_flow_clause(bar, c, path, summary) for c in prereg["clauses"]]
+    summary.pop("_months", None)
+    return flow_verdict(bar, summary, clauses, sealed=sealed, floor=prereg["floor"])
+
+
+# ---------------------------------------------------------------------------
 # the member's pre-registration, as its entry states it
 # ---------------------------------------------------------------------------
 
@@ -898,6 +1280,8 @@ def validate(spec) -> dict:
         raise PreregError(f"class must be one of {sorted(BARS)}, not {spec.get('class')!r}")
     if isinstance(bar, RiskBar):
         return _validate_risk(bar, spec)
+    if isinstance(bar, FlowBar):
+        return _validate_flow(bar, spec)
     arm = spec.get("arm")
     if not isinstance(arm, str) or not arm or arm in (bar.benchmark, bar.rival):
         raise PreregError(f"arm must name the candidate, not the benchmark or the rival: {arm!r}")
@@ -959,6 +1343,8 @@ def read(obs: list[dict], prereg: dict, *, sealed: bool) -> dict:
     bar = BARS[prereg["class"]]
     if isinstance(bar, RiskBar):
         return risk_read(obs, prereg, sealed=sealed)
+    if isinstance(bar, FlowBar):
+        return flow_read(obs, prereg, sealed=sealed)
     if sealed and bar.sealed_from is None:
         raise PreregError(f"the {bar.name} class has no decided seal; a sealed read is refused")
     summary = summarize(bar, obs, prereg["arm"], prereg["horizon"])
@@ -968,7 +1354,24 @@ def read(obs: list[dict], prereg: dict, *, sealed: bool) -> dict:
 
 # ---------------------------------------------------------------------------
 
-def describe(bar: ClassBar | RiskBar) -> str:
+def describe(bar: ClassBar | RiskBar | FlowBar) -> str:
+    if isinstance(bar, FlowBar):
+        until = ("the last complete month with data at read time" if bar.sealed_until is None
+                 else f"before {bar.sealed_until}")
+        return "\n".join([
+            f"{bar.name}: vs `{bar.rival}` (the whole contribution every month), rival `{bar.second_rival}` "
+            "(the member's multiples, switched on the market's drawdown)",
+            f"  every leg: 1 a month into a reserve at the T-bill rate, never a sale; read on "
+            "money-weighted return",
+            f"  episodes: buy-and-hold drops of ≥ {bar.episode_depth:.0%} peak to trough; ≥ {bar.min_episodes} "
+            "on the sealed side",
+            f"  pass: advantage over `{bar.rival}` ≥ {bar.min_advantage * 100:.2f} pp a year at "
+            + " and ".join(f"{c:g}" for c in bar.cost_bps) + f" bps, {bar.interval:.0%} moving-block "
+            f"({bar.block_months}-month) interval clear of zero; over `{bar.second_rival}` > 0",
+            "  reported, never read: wealth per contribution, the reserve, starved months, the advantage "
+            "in and outside drops, each half",
+            f"  seal: {bar.sealed_from} → {until}, read once",
+        ])
     if isinstance(bar, RiskBar):
         until = "the last day with data at read time" if bar.sealed_until is None else f"before {bar.sealed_until}"
         return "\n".join([

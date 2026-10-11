@@ -1722,10 +1722,10 @@ def _defined(node) -> set[str]:
 
 def _bar_named(node) -> str | None:
     """The `name=` of a module-level `X = ClassBar(name=..., ...)` (or
-    `RiskBar`, ADR-0023), else None."""
+    `RiskBar`, ADR-0023, or `FlowBar`, ADR-0025), else None."""
     call = getattr(node, "value", None)
     if isinstance(node, (ast.Assign, ast.AnnAssign)) and isinstance(call, ast.Call) \
-            and getattr(call.func, "id", None) in ("ClassBar", "RiskBar"):
+            and getattr(call.func, "id", None) in ("ClassBar", "RiskBar", "FlowBar"):
         for kw in call.keywords:
             if kw.arg == "name" and isinstance(kw.value, ast.Constant):
                 return kw.value.value

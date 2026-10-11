@@ -596,6 +596,67 @@ prose is the point.
 
 ## Phase 23 — exploration tier
 
+### RESOLVED 2026-10-11 — #37 a rule for new money is a target class, read on wealth at an equal budget: accepted
+**Resolution: accept [ADR-0025](../decisions/ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md)
+as written,** the same day it was drafted, on all four questions: the narrow
+door through ADR-0009 (§2) for rules that change only when budgeted new money
+is invested, never sell, never borrow and publish nothing; the margin of
+0.25 pp a year of money-weighted return over plain monthly buying, at 10 and
+30 bps, interval clear of zero; `dip_matched` as the rival with the weaker
+"above zero" clause; and the 2018-01-01 seal with the floor of five drops.
+
+**Why it was the owner's call.** The door is a precedent against ADR-0009,
+which only the owner can open. The bar and its first member,
+[H-010](hypotheses.md#h-010), were drafted the same day, which How we explore
+§5 warns against; the owner's acceptance is the check on the target type, the
+independent audit the check on the member. Neither has seen data since
+H-009's look, whose false-alarm split is the number H-010 was written after.
+
+**Built the same day, before any look:** `class_bars.FLOW_RULE` with its
+reader (`flow_read`, money-weighted return, a 24-month moving-block bootstrap,
+`forward_contrast` with a cell floor of 12 month-ends decided at build), each
+verdict driven alone by a test and planted markets showing what passes; and
+`explore_rules.py --member h010`. **Building it found one property of the
+member, not of the bar:** with 0.75 and 2.0 the reserve balances only if the
+member names 2.0 at about a fifth of month-ends ((1 − 0.75) / (2 − 0.75)).
+More often and it is starved; less often and the reserve piles up as cash. A
+planted perfect-foresight member with a small cap lost to plain buying for
+exactly that reason. H-010's numbers stay as fixed; the dry run reports the
+share before the look, and the entry says so.
+
+**The question as it stood:**
+
+**Opened 2026-10-11, at the owner's request.** The owner chose goal 3's second
+decision, new money: a standing plan of 500 € a month, nothing ever sold, and
+a rule that decides when to invest more or less of it.
+[ADR-0025](../decisions/ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md)
+proposes a class bar for such a rule, and [H-010](hypotheses.md#h-010) a first
+member. Nothing is built and no data has been read since H-009's look. Four
+calls, in order of weight:
+
+1. **The ADR-0009 door (§2).** A contribution rule's claim is about return,
+   which ADR-0023 §2 closed for risk rules. ADR-0025 proposes admitting it
+   only for rules that change *when budgeted new money is invested*, never
+   sell, never borrow and publish nothing. Accept the door, narrow it further,
+   or decline. Declining closes H-010 before it opens.
+2. **The margin.** Advantage over plain monthly buying of at least **0.25 pp a
+   year** of money-weighted return, at 10 and 30 bps, interval clear of zero.
+   Roughly 2.5% more money after twenty years of a monthly plan. Proposer's
+   default.
+3. **The rival.** `dip_matched`: the member's own multiples, switched on the
+   market's drawdown from its peak instead of the flag, matched on the share
+   of high months. Its clause is only "advantage above zero", weaker than the
+   plain one, as in ADR-0023.
+4. **The seal.** 2018-01-01 reused (#19, #34), with the drop floor of 5. About
+   five US drops of 10% or more since then, so `underpowered` is possible.
+
+*Lean, the proposer's:* accept as written. The door is the real decision; the
+other three follow ADR-0023's precedents. **The honest prior is low** (cash
+drag; most buy-the-dip schemes trail plain monthly buying), and the explore
+side is not blind for this flag (ADR-0025, Consequences). On acceptance:
+build `class_bars.FLOW_RULE` and the flow walk in `explore_rules.py`, then
+H-010's first counted look.
+
 ### RESOLVED 2026-10-01 — #35 H-009's clause counts a firing up to 19 trading days before the peak
 **Resolution: option 1, `before_peak` = 19.** The owner chose it the same
 day, before any rule was read.

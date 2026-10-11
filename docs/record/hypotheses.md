@@ -49,7 +49,7 @@ have its sealed read.
 | [H-007](#h-007) | `seen` | The product's `har_gaussian` comparator is handicapped by its shape and its zero mean, not its σ: too wide in calm (coverage 0.57 at nominal 0.50), skewed PIT, −0.044 on the S&P at 20d, while the same forecast on the empirical shape is +0.016 … +0.026 |
 | [H-008](#h-008) | `closed` | Within a stressed drawdown bin, the OR flag's state widens the forward distribution beyond what drawdown depth explains — *closed on explore 2026-09-29 at the owner's call: the width held within vol terciles (8 of 9), but neither `dd_x_frag` nor the vol forecast widened by the state forecasts better; no KB entry, no sealed read spent* |
 | [H-009](#h-009) | `closed` | Halving equity exposure while the cross-section flag fires takes less of each market drop than holding less stock does — *the first member of the risk-rule class ([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md), accepted and built 2026-10-01, `resolved.md` #34); its clause settled before any look, `resolved.md` #35; closed on explore 2026-10-01 at the owner's call: too costly, no edge, and worse than the volatility rival; no KB entry, no sealed read spent* |
-| [H-010](#h-010) | `draft` | Investing more of the monthly contribution while the cross-section flag fires ends with more wealth than plain monthly buying, and than buying after a fall — *the first member of a proposed contribution-rule class ([ADR-0025](../decisions/ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md), open, `todo.md` #37); no look run* |
+| [H-010](#h-010) | `draft` | Investing more of the monthly contribution while the cross-section flag fires ends with more wealth than plain monthly buying, and than buying after a fall — *the first member of the contribution-rule class ([ADR-0025](../decisions/ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md), accepted and built 2026-10-11, `resolved.md` #37); no look run* |
 
 ---
 
@@ -900,7 +900,7 @@ Report: `results/explore_rules/report.md` · receipt
 
 ## H-010 — Investing more of the monthly contribution while the cross-section flag fires ends with more wealth than plain monthly buying, and than buying after a fall {: #h-010 }
 
-**Status:** `draft` — needs an independent audit before it is a hypothesis (§6, ADR-0022). Drafted 2026-10-11 at the owner's request, with its class bar [ADR-0025](../decisions/ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md), which is not accepted yet (`todo.md` #37). No look has run.
+**Status:** `draft` — needs an independent audit before it is a hypothesis (§6, ADR-0022). Drafted 2026-10-11 at the owner's request, with its class bar [ADR-0025](../decisions/ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md), accepted as written the same day (`resolved.md` #37) and built the same day: `class_bars.FLOW_RULE` and `explore_rules.py --member h010`. No look has run.
 
 **What was seen.** Nothing for this rule. It is proposed for the owner's goal 3
 ([What is worth doing §2](../concepts/what-is-worth-doing.md#2-the-standing-goals)),
@@ -963,7 +963,13 @@ into flagged ones without changing the total.
 - (b) **Cash drag.** In normal months the member holds a quarter of the
   contribution back. If flags are rare or come late, the reserve sits in cash
   through rising markets. The bar reads this as part of the advantage; the
-  report shows the mean reserve.
+  report shows the mean reserve. **The two multiples balance the reserve only
+  if 2.0 is named at about a fifth of month-ends** ((1 − 0.75) / (2 − 0.75),
+  found while building the bar, before any look). Named more often, the
+  member is starved and buys less than 2.0; less often, the reserve piles up
+  as cash. The dry run prints the share before the look. The numbers stay as
+  fixed whatever it shows: changing them after seeing it would be choosing a
+  member on the flag's explore frequency.
 - (c) **The explore side is not blind.** H-009's look measured what follows
   the flag's windows on 1932–2017. An explore look here checks the reserve
   arithmetic more than the reversion. The sealed side's crises the flag
@@ -978,9 +984,10 @@ into flagged ones without changing the total.
 
 **What would test it.**
 
-1. The owner accepts ADR-0025, with or without changes (`todo.md` #37).
-2. Build `class_bars.FLOW_RULE` and the flow walk in `explore_rules.py`,
-   each verdict driven alone by a test on planted markets.
+1. ~~The owner accepts ADR-0025~~ — accepted as written 2026-10-11
+   (`resolved.md` #37).
+2. ~~Build `class_bars.FLOW_RULE` and the flow walk in `explore_rules.py`~~ —
+   built 2026-10-11, each verdict driven alone by a test on planted markets.
 3. Walk this member on the explore side. That is one counted look, and this
    entry's ledger opens with it.
 4. Write the `Pre-registration` in the class's form, pass the CI audit, and
@@ -990,16 +997,19 @@ The result goes to the KB either way.
 
 **Target-space check.** A contribution rule, ADR-0025's proposed fifth target
 type, read on money-weighted return at an equal budget. Its claim is about
-return, which is admissible only through ADR-0025 §2's narrow door: it changes
-only when budgeted money is invested, never sells, never borrows and is never
-published as a call. If ADR-0025 is not accepted, this entry is closed before
-it opens ([ADR-0009](../decisions/ADR-0009-cut-the-directional-product.md),
+return, which is admissible only through ADR-0025 §2's narrow door (accepted
+2026-10-11): it changes only when budgeted money is invested, never sells,
+never borrows and is never published as a call. A variant that sells or
+publishes a direction leaves through that door and is closed
+([ADR-0009](../decisions/ADR-0009-cut-the-directional-product.md),
 ADR-0023 §2).
 
 **Read first.** [ADR-0025](../decisions/ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md) ·
 [ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md) ·
 [H-009](#h-009) and its ledger · `explore_rules.py` (`fetch_inputs`,
-`pit_or`) · `class_bars.risk_episodes` · [KB-022], [KB-024].
+`pit_or`, `contribution_multiple`) · `class_bars.FLOW_RULE` ·
+[Scoring → the contribution-rule class](../reference/scoring.md#the-contribution-rule-class-flow_rule-adr-0025) ·
+[KB-022], [KB-024].
 
 ## Closed
 
