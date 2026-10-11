@@ -409,9 +409,16 @@ def test_the_risk_bar_moves_its_own_fingerprint_and_not_the_conditioners(bar_rep
     assert ra.bar_fingerprint(bar_repo, "conditioner") == cond
 
 
+def test_the_flow_bar_moves_its_own_fingerprint_and_not_the_risk_bars(bar_repo):
+    flow, risk = ra.bar_fingerprint(bar_repo, "flow_rule"), ra.bar_fingerprint(bar_repo, "risk_rule")
+    _edit(bar_repo, "class_bars", "min_advantage=0.0025", "min_advantage=0.0020")
+    assert ra.bar_fingerprint(bar_repo, "flow_rule") != flow
+    assert ra.bar_fingerprint(bar_repo, "risk_rule") == risk
+
+
 def test_a_class_that_does_not_exist_has_no_fingerprint():
     assert ra.bar_fingerprint(ROOT, "conditioner") and ra.bar_fingerprint(ROOT, "gap_width")
-    assert ra.bar_fingerprint(ROOT, "risk_rule")
+    assert ra.bar_fingerprint(ROOT, "risk_rule") and ra.bar_fingerprint(ROOT, "flow_rule")
     assert ra.bar_fingerprint(ROOT, "nope") is None
 
 

@@ -49,6 +49,7 @@ have its sealed read.
 | [H-007](#h-007) | `seen` | The product's `har_gaussian` comparator is handicapped by its shape and its zero mean, not its σ: too wide in calm (coverage 0.57 at nominal 0.50), skewed PIT, −0.044 on the S&P at 20d, while the same forecast on the empirical shape is +0.016 … +0.026 |
 | [H-008](#h-008) | `closed` | Within a stressed drawdown bin, the OR flag's state widens the forward distribution beyond what drawdown depth explains — *closed on explore 2026-09-29 at the owner's call: the width held within vol terciles (8 of 9), but neither `dd_x_frag` nor the vol forecast widened by the state forecasts better; no KB entry, no sealed read spent* |
 | [H-009](#h-009) | `closed` | Halving equity exposure while the cross-section flag fires takes less of each market drop than holding less stock does — *the first member of the risk-rule class ([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md), accepted and built 2026-10-01, `resolved.md` #34); its clause settled before any look, `resolved.md` #35; closed on explore 2026-10-01 at the owner's call: too costly, no edge, and worse than the volatility rival; no KB entry, no sealed read spent* |
+| [H-010](#h-010) | `closed` | Investing more of the monthly contribution while the cross-section flag fires ends with more wealth than plain monthly buying, and than buying after a fall — *the first member of the contribution-rule class ([ADR-0025](../decisions/ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md), accepted and built 2026-10-11, `resolved.md` #37); closed on explore 2026-10-11 at the owner's call: `inverted` — 3.2% less money than plain buying, behind the drawdown rival, though the clause held; no KB entry, no sealed read spent* |
 
 ---
 
@@ -896,6 +897,172 @@ variant was tried, and none is tried after this number.
 Report: `results/explore_rules/report.md` · receipt
 `results/explore_rules/runs.jsonl` (2026-10-01T21:17:46+02:00, `report_sha256`
 `b5fdb95e…`).
+
+## H-010 — Investing more of the monthly contribution while the cross-section flag fires ends with more wealth than plain monthly buying, and than buying after a fall {: #h-010 }
+
+**Status:** `closed` · drafted 2026-10-11 · one explore look 2026-10-11 · closed 2026-10-11 at the owner's call, on the explore record. It never reached a `Pre-registration`, an audit or a bar, and has no KB entry: its one look was explore tier (`verdict(sealed=False)`). Its class bar, [ADR-0025](../decisions/ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md), was accepted as written the same day (`resolved.md` #37) and built the same day: `class_bars.FLOW_RULE` and `explore_rules.py --member h010`. **On 1932–2017 it would have read `inverted`:** 3.2% less money at the end than plain monthly buying (−0.047 pp a year of money-weighted return, interval [−0.048, +0.001]; the bar needs +0.25), and −0.019 pp behind the same multiples switched on the market's drawdown. The clause held — flagged month-ends were followed by better 12-month returns than equally deep unflagged ones — but the reserve could not harvest it: starved in 41% of its high months, and most of the shortfall is cash drag outside the drops. **No variant was tried, on purpose:** other multiples chosen after these numbers would be fishing. The 2018+ slice of the contribution-rule class stays unspent, and the class has no member. The ledger and the original text stay as written.
+
+**What was seen.** Nothing for this rule. It is proposed for the owner's goal 3
+([What is worth doing §2](../concepts/what-is-worth-doing.md#2-the-standing-goals)),
+for the decision the owner chose second on 2026-10-11: new money. The owner
+invests a base amount each month (500 €) and sells nothing, for tax reasons.
+The rule changes only how much of each month's money goes in. It rests on two
+recorded facts and one number already seen on its explore slice:
+
+- the cross-section flag detects stress ([KB-016], [KB-020]);
+- stress tends to be followed by recovery ([KB-022], [KB-024]; H-004's
+  Elevated cell sat right of unconditional);
+- **seen:** on 1932–2017, H-009's flag windows not followed by a 5% drop cost
+  a halving rule 1.77 pp a year ([H-009 ledger](#h-009)). Those windows were
+  followed by gains. This entry was written after that number.
+
+**Where.** [ADR-0025](../decisions/ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md) ·
+[H-009](#h-009) (the flag, the slice, the false-alarm split) · [KB-016],
+[KB-020], [KB-022], [KB-024].
+
+**The member, fixed before any look.**
+
+- **Flag, `panel_or`**, exactly as H-009: the absorption ratio (covariance
+  window 120) OR turbulence (window 252, shrinkage 0.2, 5-day smoothing),
+  each at or above the 90th percentile of its own readings strictly before
+  *t*, on the Fama-French 30-industry daily panel (`explore_rules.pit_or`).
+- **Legs.** Equity is the Fama-French market's total return (Mkt−RF + RF).
+  The reserve earns RF.
+- **Rule.** At each month-end *t*, a contribution of 1 enters the reserve.
+  *m<sub>t</sub>* = **2.0** if `panel_or` fired on any trading day in the 20
+  up to and including *t*, else **0.75**. The amount min(*m<sub>t</sub>*,
+  reserve) is invested at the next trading day's close.
+- **Why these numbers.** 0.75 builds one spare month of contributions every
+  four normal months. 2.0 doubles the month's buying, one round step. The 20
+  trading days are H-009's hold, so the flag reads as it did there, and a
+  month-end is checked against about a month of flag days. No other value is
+  tried; any other value is a counted look.
+
+**Mechanism it would imply.** If the flag marks moments when prices are
+depressed by stress that then reverts, money put in during flagged months
+buys more units than money put in at other times, and more than money put in
+merely because the market is down. The reserve moves money from calm months
+into flagged ones without changing the total.
+
+**The prediction that is not the score.**
+
+1. **Clause.** Over the slice, the median 12-month forward total return of the
+   market from flagged month-ends exceeds the median from month-ends that are
+   **as deep in drawdown but unflagged** (drawdown from the running peak at
+   least `dip_matched`'s *D*, flag off). This is the contrast only the flag
+   produces: a month-end that is merely down is the rival's signal.
+2. **Reported, not a clause.** Most of the advantage over `plain` is earned
+   inside drops of 10% or more, and the member is starved (wants 2.0, holds
+   less) in under half of its flagged months.
+
+**The confound.**
+
+- (a) **Depth of the fall.** A flagged month is usually a month after the
+  market fell. Buying after a fall needs no flag. `dip_matched`, at the same
+  share of high months, is the rival that rules it out.
+- (b) **Cash drag.** In normal months the member holds a quarter of the
+  contribution back. If flags are rare or come late, the reserve sits in cash
+  through rising markets. The bar reads this as part of the advantage; the
+  report shows the mean reserve. **The two multiples balance the reserve only
+  if 2.0 is named at about a fifth of month-ends** ((1 − 0.75) / (2 − 0.75),
+  found while building the bar, before any look). Named more often, the
+  member is starved and buys less than 2.0; less often, the reserve piles up
+  as cash. The dry run prints the share before the look. The numbers stay as
+  fixed whatever it shows: changing them after seeing it would be choosing a
+  member on the flag's explore frequency.
+- (c) **The explore side is not blind.** H-009's look measured what follows
+  the flag's windows on 1932–2017. An explore look here checks the reserve
+  arithmetic more than the reversion. The sealed side's crises the flag
+  catches are also known ([KB-016], [KB-017], [KB-020]). Only the rule's
+  wealth on 2018+ has not been measured.
+- (d) **Eras.** 1932–2017 spans different rates, costs and markets. The
+  report splits the slice in halves, read in neither.
+- (e) **The asset.** The US market, not the owner's world-index holding.
+- (f) **Deep, long drops.** In 1929–32-style or 2008-style falls the flag can
+  fire for months. A reserve of a few months' contributions runs dry early,
+  and the rule then buys the bottom at the plain rate.
+
+**What would test it.**
+
+1. ~~The owner accepts ADR-0025~~ — accepted as written 2026-10-11
+   (`resolved.md` #37).
+2. ~~Build `class_bars.FLOW_RULE` and the flow walk in `explore_rules.py`~~ —
+   built 2026-10-11, each verdict driven alone by a test on planted markets.
+3. Walk this member on the explore side. That is one counted look, and this
+   entry's ledger opens with it.
+4. Write the `Pre-registration` in the class's form, pass the CI audit, and
+   the owner turns the key for the sealed side, read once.
+
+The result goes to the KB either way.
+
+**Target-space check.** A contribution rule, ADR-0025's proposed fifth target
+type, read on money-weighted return at an equal budget. Its claim is about
+return, which is admissible only through ADR-0025 §2's narrow door (accepted
+2026-10-11): it changes only when budgeted money is invested, never sells,
+never borrows and is never published as a call. A variant that sells or
+publishes a direction leaves through that door and is closed
+([ADR-0009](../decisions/ADR-0009-cut-the-directional-product.md),
+ADR-0023 §2).
+
+**Read first.** [ADR-0025](../decisions/ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md) ·
+[ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md) ·
+[H-009](#h-009) and its ledger · `explore_rules.py` (`fetch_inputs`,
+`pit_or`, `contribution_multiple`) · `class_bars.FLOW_RULE` ·
+[Scoring → the contribution-rule class](../reference/scoring.md#the-contribution-rule-class-flow_rule-adr-0025) ·
+[KB-022], [KB-024].
+
+**Explore-tier looks (ledger).** *2026-10-11* — **the first counted look**
+(*What would test it* step 3). `explore_rules.py --member h010 --cached`, at
+commit `7626940`, with a clean receipt. The member is exactly as fixed above:
+no variant was tried, and none is tried after this number. The dry run the
+same day (no rule read) had printed the share of high months first: 28.7%,
+against the 20% at which the reserve balances.
+- **Sample.** 1932-01-08 → 2017-12-29, 1,032 monthly contributions, 32 drops
+  of 10% or more against the floor of 5. The member named 2.0 at 28.7% of
+  month-ends.
+- **What the bar would read, in its order.** Underpowered: no.
+  - **Inverted. The bar would stop here.** The member's money-weighted
+    return is **0.047 pp a year below** `plain`'s at 10 bps and at 30 bps
+    (both about 11.0% a year). The 90% interval is [−0.048, +0.001] pp. Over
+    86 years that is **3.2% less money at the end**: 868 against 897 per unit
+    contributed.
+  - **It would fail `no_edge` too:** the bar needs +0.25 pp.
+  - **Behind the rival.** Against `dip_matched` (2.0 when the market is at
+    least 13.4% below its peak, at the same share of months) the advantage
+    is **−0.019 pp**. The drawdown rule itself ended 1.9% behind `plain`.
+  - **The clause held.** The median 12-month forward return from the 292
+    flagged month-ends was +16.5%, from the 217 unflagged ones at least 13.4%
+    down +14.1%.
+- **Reported, never read.** The reserve averaged 2.8 months of contributions
+  and peaked at 10.9. The member was starved in 41% of its high months. The
+  shortfall against `plain`, as a share of `plain`'s final wealth, is −0.8%
+  from purchases inside drops and −2.4% from purchases outside them. Each
+  half, started fresh: 1932–1975 −0.11 pp, 1975–2017 −0.05 pp.
+- **Easy to forget.**
+  - The reversion is there, and the rule could not use it. The flag picks
+    better buying months than depth alone (the clause), but the money it
+    moves into them is small and late. Starved in 41% of high months, it
+    bought less than 2.0 when it mattered. In calm months it held a quarter
+    back in cash through rising markets, and that cost more than the flagged
+    months returned.
+  - Most of the shortfall sits **outside** the drops. That is cash drag, the
+    cost the outside prior names, not bad timing inside the falls.
+  - The money-weighted gap is small per year because the comparison runs
+    86 years; the 3.2% of final wealth is the number an investor would feel.
+  - Not blind (confound c): H-009's look had already shown what follows this
+    flag on this slice. A loss here is not weakened by that; a gain would
+    have been.
+- **What it changes.** On the explore record H-010 fails the class bar at
+  its first disqualifier, and loses to the dumb rival as well. Writing its
+  `Pre-registration` and spending the 2018+ slice on it would buy a read
+  whose likely answer is already visible. Whether to close it is the owner's
+  call. A second member with other multiples would be a new entry and a new
+  counted look, chosen after this number, and the ledger would say so. The
+  owner closed the entry the same day.
+
+Report: `results/explore_rules/report_h010.md` · receipt
+`results/explore_rules/runs.jsonl` (2026-10-11T10:30:42+00:00, `report_sha256`
+`62c6be58…`).
 
 ## Closed
 

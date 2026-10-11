@@ -1,5 +1,5 @@
 """
-explore_rules.py — EXPLORE-TIER mechanical risk rules on the pre-seal slice (ADR-0023).
+explore_rules.py — EXPLORE-TIER mechanical rules on the pre-seal slice (ADR-0023, ADR-0025).
 
 Research harness (product_surface: RESEARCH). Never touches the published table,
 the quant log, or `pipeline.yml`. It walks a risk-rule member — an equity
@@ -49,11 +49,30 @@ behind `static_matched`, split by day — inside a hold window that a 5% drop
 followed within 20 days, inside one that none followed (a false alarm), and
 fully invested.
 
+The member: H-010, `h010_panel_or_double` (`--member h010`, ADR-0025)
+--------------------------------------------------------------------
+A contribution rule, read by the `flow_rule` class bar on the same inputs:
+
+    flag      `panel_or`, exactly as H-009's.
+    rule      at each month-end, 1 contribution enters a cash reserve (RF);
+              the multiple is 2.0 if the flag fired on any of the 20 trading
+              days to the month-end, else 0.75; the class bar buys
+              min(multiple, reserve) at the next close and never sells.
+    clause    `forward_contrast` on the flag over the same 20 days: the median
+              12-month forward return from flagged month-ends above the median
+              from unflagged month-ends as deep in drawdown as `dip_matched`'s
+              threshold.
+
+The class bar builds `plain` and `dip_matched` from the same path. Its report
+and summary go to `report_h010.md` / `summary_h010.json`, beside H-009's.
+
 Run
 ---
     python explore_rules.py --dry-run     # fetch, build the flag, print the slice; reads no rule
     python explore_rules.py               # the look: fetch, walk, read, report — COUNTED
     python explore_rules.py --cached      # the same on the cached inputs
+    python explore_rules.py --member h010 --dry-run   # H-010: the slice, the month-ends; reads no rule
+    python explore_rules.py --member h010 --cached    # H-010's look — COUNTED
 
 Writes `results/explore_rules/{report.md, summary.json}`, caches the fetched
 inputs there (`inputs.pkl`), and appends one receipt to `runs.jsonl` per look
@@ -97,6 +116,17 @@ ALARM_DROP, ALARM_HORIZON = 0.05, 20   # a hold window a 5% drop followed within
 SPEC = cb.validate({"class": "risk_rule", "arm": ARM,
                     "clauses": [{"kind": "caught_split", "signal": SIGNAL,
                                  "before_peak": HOLD - 1}]})      # resolved.md #35
+
+
+# H-010 (ADR-0025): the multiple of the month's contribution, fixed before any look
+ARM_H010 = "h010_panel_or_double"
+LOW, HIGH, WINDOW = 0.75, 2.0, 20
+FORWARD_MONTHS = 12
+SPEC_H010 = cb.validate({"class": "flow_rule", "arm": ARM_H010,
+                         "clauses": [{"kind": "forward_contrast", "signal": SIGNAL,
+                                      "window": WINDOW, "months": FORWARD_MONTHS}]})
+MEMBERS = ("h009", "h010")
+_OUT = {"h009": ("report.md", "summary.json"), "h010": ("report_h010.md", "summary_h010.json")}
 
 
 # ---------------------------------------------------------------------------
@@ -179,6 +209,26 @@ def build_path(inputs: dict, flag: pd.Series) -> dict:
             "signals": {SIGNAL: fired}}
 
 
+def contribution_multiple(fired_daily: np.ndarray, low: float = LOW, high: float = HIGH,
+                          window: int = WINDOW) -> np.ndarray:
+    """m_t = `high` if the flag fired on any of the last `window` days to t,
+    else `low`. The class bar reads it at month-ends only."""
+    f = np.asarray(fired_daily, bool).astype(float)
+    recent = np.convolve(f, np.ones(window), "full")[:len(f)] > 0
+    return np.where(recent, high, low)
+
+
+def build_flow_path(inputs: dict, flag: pd.Series) -> dict:
+    """H-010 on the daily calendar, from the flag's first readable day to the
+    last day before the seal. The seal falls on a month boundary, so the last
+    month on this side is complete."""
+    path = build_path(inputs, flag)
+    fired = path["signals"][SIGNAL]
+    return {"dates": path["dates"], "equity": path["equity"], "cash": path["cash"],
+            "multiple": contribution_multiple(fired), "signals": {SIGNAL: fired},
+            "last_month_complete": SEAL_START.day == 1}
+
+
 # ---------------------------------------------------------------------------
 # the read, and what it only reports
 # ---------------------------------------------------------------------------
@@ -212,6 +262,15 @@ def look(inputs: dict) -> tuple[dict, dict]:
     path = build_path(inputs, flag)
     result = cb.read(path, SPEC, sealed=False)
     result["alarm_split"] = alarm_split(path)
+    result["flag"] = {"first_reading": flag.index[0].date().isoformat(), "n_readings": int(len(flag)),
+                      "share_fired": round(float(flag.mean()), 4)}
+    return result, path
+
+
+def look_h010(inputs: dict) -> tuple[dict, dict]:
+    flag = pit_or(panel_channels(inputs["industries"]))
+    path = build_flow_path(inputs, flag)
+    result = cb.read(path, SPEC_H010, sealed=False)
     result["flag"] = {"first_reading": flag.index[0].date().isoformat(), "n_readings": int(len(flag)),
                       "share_fired": round(float(flag.mean()), 4)}
     return result, path
@@ -271,6 +330,54 @@ def render(result: dict) -> str:
     return "\n".join(lines)
 
 
+def _pp(x) -> str:
+    return "—" if x is None else f"{100 * x:+.2f} pp"
+
+
+def render_h010(result: dict) -> str:
+    s, bar = result["summary"], cb.FLOW_RULE
+    adv, ci = s["advantage"], s["advantage_ci"]
+    lines = [f"# Explore look — {ARM_H010} (H-010)", "",
+             f"Verdict: **{result['verdict']}** — {result['reason']}. Explore slice "
+             f"{s['first_date']} → {s['last_date']} (< `SEAL_START` {SEAL_START}), {s['n_contributions']} "
+             f"monthly contributions; the flag's first reading {result['flag']['first_reading']}, fired on "
+             f"{_pct(result['flag']['share_fired'])} of {result['flag']['n_readings']} grid readings. "
+             f"The member names {HIGH} in {_pct(s['share_high'])} of month-ends, {LOW} in the rest.", "",
+             "## What the bar would read", "",
+             f"- Drops of {bar.episode_depth:.0%} or more: **{s['n_episodes']}** (floor {bar.min_episodes})",
+             "- Advantage over `plain`, money-weighted return a year: "
+             + ", ".join(f"**{_pp(v)}** at {float(k):g} bps" for k, v in adv.items())
+             + f"; {ci['level']:.0%} interval ({ci['block_months']}-month blocks) "
+               f"[{_pp(ci['lo'])}, {_pp(ci['hi'])}]; bar ≥ {bar.min_advantage * 100:.2f} pp, interval clear of zero",
+             f"- Advantage over `dip_matched` (high when the market is at least "
+             f"{_pct(s['dip_threshold'])} below its peak): **{_pp(s['advantage_vs_dip'])}**; bar > 0"]
+    for c in result["clauses"]:
+        lines.append(f"- Clause `{c['kind']}`: {'held' if c['passed'] else 'failed'} — {c['detail']}")
+    sp, rs = s["advantage_split"], s["reserve"]
+    lines += ["", "## Reported, never read", "",
+              f"- Reserve, in months of contributions: mean {rs['mean']}, largest {rs['max']}, at the end {rs['end']}.",
+              f"- Starved: in {_pct(s['starved_share_of_high_months'])} of its high months the member wanted more "
+              "than its reserve held.",
+              f"- Where the advantage over `plain` sits, as a share of `plain`'s final wealth: purchases inside "
+              f"drops {sp['in_drops']:+.4f}, outside {sp['outside_drops']:+.4f}, the reserve left at the end "
+              f"{sp['reserve_left']:+.4f}."]
+    if s.get("halves"):
+        lines.append("- Each half, started fresh: " + "; ".join(
+            f"{h['first_date']} → {h['last_date']} {_pp(h['advantage'])}" for h in s["halves"]) + ".")
+    lines += ["", "| leg | " + " | ".join(f"return / yr at {float(c):g} bps | wealth per contribution"
+                                         for c in s["legs"]) + " |",
+              "|---|" + "---|---|" * len(s["legs"])]
+    for k in cb.FLOW_LEGS:
+        lines.append(f"| {k} | " + " | ".join(
+            f"{_pct(s['legs'][c][k]['money_weighted_return'])} | {s['legs'][c][k]['wealth_per_contribution']}"
+            for c in s["legs"]) + " |")
+    lines += ["", "## Drops", "", "| peak | trough | depth |", "|---|---|---|"]
+    lines += [f"| {e['peak']} | {e['trough']} | {_pct(e['depth'])} |" for e in s["episodes"]]
+    lines += ["", "No leg sells, so no tax is brought forward; taxes are outside the bar (ADR-0025 §4). "
+                  "An explore look is not a result: it goes to the register, never the KB.", ""]
+    return "\n".join(lines)
+
+
 # ---------------------------------------------------------------------------
 # the receipt
 # ---------------------------------------------------------------------------
@@ -287,10 +394,10 @@ def _code_version() -> dict:
     return {"commit": git("rev-parse", "HEAD"), "dirty": None if status is None else bool(status)}
 
 
-def log_run(out_dir: Path, report: str, summary: dict, *, cached: bool) -> dict:
+def log_run(out_dir: Path, report: str, summary: dict, *, cached: bool, arm: str = ARM) -> dict:
     """Append this look's receipt to `runs.jsonl` (ADR-0022, WP-25.B)."""
     rec = {"run_at": datetime.now().astimezone().isoformat(timespec="seconds"), **_code_version(),
-           "cached": cached, "seal": SEAL_START.isoformat(), "arms": [ARM],
+           "cached": cached, "seal": SEAL_START.isoformat(), "arms": [arm],
            "first_date": summary["first_date"], "last_date": summary["last_date"],
            "n_days": summary["n_days"],
            "report_sha256": hashlib.sha256(report.encode("utf-8")).hexdigest()}
@@ -311,8 +418,11 @@ def _inputs(out_dir: Path, cached: bool) -> dict:
     return inputs
 
 
-def dry_run(out_dir: Path = RESULTS_DIR, *, cached: bool = False) -> dict:
-    """The slice and the flag, no rule read: what a look would walk."""
+def dry_run(out_dir: Path = RESULTS_DIR, *, cached: bool = False, member: str = "h009") -> dict:
+    """The slice and the flag, no rule read: what a look would walk. For H-010
+    also the month-ends and the share the member names its high multiple at —
+    the flag's frequency, which decides whether its reserve can balance; it
+    reads no return."""
     out_dir.mkdir(parents=True, exist_ok=True)
     inputs = _inputs(out_dir, cached)
     flag = pit_or(panel_channels(inputs["industries"]))
@@ -322,17 +432,29 @@ def dry_run(out_dir: Path = RESULTS_DIR, *, cached: bool = False) -> dict:
     info = {"first_date": path["dates"][0], "last_date": path["dates"][-1], "n_days": len(path["dates"]),
             "flag_share_fired": round(float(flag.mean()), 4),
             "n_buy_and_hold_episodes": len(eps)}
+    if member == "h010":
+        fp = build_flow_path(inputs, flag)
+        ends = cb.flow_months(fp["dates"], fp["last_month_complete"])
+        m = fp["multiple"][ends]
+        info.update({"n_month_ends": int(len(ends)), "share_high_months": round(float(np.mean(m == HIGH)), 4),
+                     "balance_share": round((1.0 - LOW) / (HIGH - LOW), 4)})
     print(json.dumps(info, indent=2))
     return info
 
 
-def run(out_dir: Path = RESULTS_DIR, *, cached: bool = False) -> dict:
+def run(out_dir: Path = RESULTS_DIR, *, cached: bool = False, member: str = "h009") -> dict:
     out_dir.mkdir(parents=True, exist_ok=True)
-    result, _ = look(_inputs(out_dir, cached))
-    report = render(result)
-    (out_dir / "summary.json").write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
-    (out_dir / "report.md").write_text(report, encoding="utf-8")
-    log_run(out_dir, report, result["summary"], cached=cached)
+    inputs = _inputs(out_dir, cached)
+    if member == "h010":
+        (result, _), arm = look_h010(inputs), ARM_H010
+        report = render_h010(result)
+    else:
+        (result, _), arm = look(inputs), ARM
+        report = render(result)
+    report_name, summary_name = _OUT[member]
+    (out_dir / summary_name).write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
+    (out_dir / report_name).write_text(report, encoding="utf-8")
+    log_run(out_dir, report, result["summary"], cached=cached, arm=arm)
     print(report)
     return result
 
@@ -341,8 +463,10 @@ def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--cached", action="store_true", help="reuse results/explore_rules/inputs.pkl")
     ap.add_argument("--dry-run", action="store_true", help="build the slice and the flag; read no rule")
+    ap.add_argument("--member", choices=MEMBERS, default="h009",
+                    help="which register entry to walk (default h009; h010 is ADR-0025's first member)")
     a = ap.parse_args(argv)
-    (dry_run if a.dry_run else run)(cached=a.cached)
+    (dry_run if a.dry_run else run)(cached=a.cached, member=a.member)
 
 
 if __name__ == "__main__":

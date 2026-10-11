@@ -326,6 +326,61 @@ python .macro-assist/class_bars.py          # print every bar
 python .macro-assist/class_bars.py H-008    # parse this entry's pre-registration
 ```
 
+### The contribution-rule class (`FLOW_RULE`, ADR-0025)
+
+A member decides how much of a fixed monthly contribution to invest. At each
+month-end a contribution of 1 enters a cash **reserve** that earns the cash
+rate; the member names a multiple *m<sub>t</sub>* ≥ 0, and the class bar buys
+min(*m<sub>t</sub>*, reserve) at the next close, paying 10 bps (then 30) on
+what it buys. Nothing is ever sold and the reserve never goes below zero.
+`flow_read(path, spec, sealed=…)` takes a daily path — `dates`, `equity` and
+`cash` daily returns, the member's `multiple` (read at month-ends only), the
+`signals` a clause may name, and `last_month_complete` — and builds every
+comparator from it:
+
+| Leg | Invests each month | Role |
+|---|---|---|
+| `member` | its own multiple, capped by the reserve | the candidate |
+| `plain` | the whole contribution | the pass clause's comparator: "doing nothing" |
+| `dip_matched` | the member's own multiples, re-assigned by rank of the market's drawdown from its running peak at each month-end (the deepest month gets the largest) | the rival: "just buy after a fall", at the same share of high months |
+
+A month-end is the last path day of a calendar month; the final month counts
+only when `last_month_complete` is set (`flow_months`). Wealth is read at the
+last month-end, after its contribution, and each leg's **money-weighted
+return** is the annual rate at which the contributions grow to it
+(`money_weighted_return`). The **advantage** is the member's minus a rival's,
+in return a year. Its interval is a moving-block bootstrap of months (blocks
+of 24, `N_BOOT` draws): each month carries its returns and the decision and
+drawdown at the month-end before it, and both legs are re-run on each draw.
+Drops are `risk_episodes` on the market's total return.
+
+`flow_verdict` returns at the first that fires: `exploratory` →
+`underpowered` (< 5 drops of 10%, or the entry's stricter floor) → `inverted`
+(advantage over `plain` below zero at 10 bps) → `no_edge` (below 0.25 pp a
+year at 10 *or* 30 bps, or the 90% interval touches zero) →
+`explained_by_rival` (advantage over `dip_matched` not above zero) →
+`unexplained` → `edge`.
+
+Its one clause kind, `forward_contrast`, calls a month-end *flagged* when the
+named signal fired on any of the `window` trading days to it, and needs the
+median `months`-month forward market return from flagged month-ends to exceed
+the median from unflagged month-ends at least as deep in drawdown as
+`dip_matched`'s threshold. With fewer than 12 month-ends with a full forward
+window in either cell (`FLOW_CELL_MIN`) it fails.
+
+Reported and never read: each leg's money-weighted return and wealth per
+contribution at both costs, the reserve (mean, largest, at the end, in months
+of contributions), the share of high months the member was **starved** (it
+wanted more than the reserve held), where the advantage over `plain` sits
+(purchases inside drops, outside, the reserve left at the end), and each half
+of the slice started fresh. No leg sells, so no tax line. The same seal rules
+as the risk-rule class apply, and the sealed runner has no walk for it yet.
+
+```json
+{"class": "flow_rule", "arm": "h010_panel_or_double", "floor": {"episodes": 5},
+ "clauses": [{"kind": "forward_contrast", "signal": "panel_or", "window": 20, "months": 12}]}
+```
+
 ## sealed_runner.py — the sealed read (WP-23.B)
 
 The research-tier module that feeds a class bar the sealed side, once per

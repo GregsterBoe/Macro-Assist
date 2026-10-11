@@ -131,3 +131,51 @@ def test_the_alarm_split_adds_up_to_the_whole_gap():
     r = {k: np.diff(np.r_[1.0, legs[k]["value"]]) / np.r_[1.0, legs[k]["value"][:-1]] for k in legs}
     whole = 100 * (r["member"] - r["static_matched"]).sum() / cb._years(path["dates"])
     assert sum(split["pp_per_year"].values()) == pytest.approx(whole, abs=0.01)
+
+
+# ---------------------------------------------------------------------------
+# H-010 (ADR-0025): the contribution rule on the same inputs
+# ---------------------------------------------------------------------------
+
+def test_h010_is_the_entrys():
+    assert (er.LOW, er.HIGH, er.WINDOW, er.FORWARD_MONTHS) == (0.75, 2.0, 20, 12)
+    assert er.SPEC_H010["class"] == "flow_rule" and er.SPEC_H010["arm"] == er.ARM_H010
+    assert er.SPEC_H010["clauses"] == [{"kind": "forward_contrast", "signal": er.SIGNAL,
+                                        "window": 20, "months": 12}]
+
+
+def test_a_firing_doubles_the_contribution_for_twenty_days():
+    f = np.zeros(60, bool)
+    f[10] = True
+    m = er.contribution_multiple(f)
+    assert (m[:10] == 0.75).all() and (m[10:30] == 2.0).all() and (m[30:] == 0.75).all()
+
+
+def test_the_flow_path_is_h009s_calendar_with_the_multiple_and_a_complete_last_month():
+    inputs = {k: (er.before_seal(v) if k != "fetched" else v) for k, v in _inputs().items()}
+    flag = er.pit_or(_fake_channels(inputs["industries"]))
+    risk, flow = er.build_path(inputs, flag), er.build_flow_path(inputs, flag)
+    assert flow["dates"] == risk["dates"] and np.allclose(flow["equity"], risk["equity"])
+    assert flow["last_month_complete"] and flow["dates"][-1] < "2018-01-01"
+    assert set(np.unique(flow["multiple"])) <= {0.75, 2.0}
+
+
+def test_an_h010_look_is_exploratory_and_leaves_h009s_report_alone(monkeypatch, tmp_path):
+    monkeypatch.setattr(er, "fetch_inputs", _inputs)
+    monkeypatch.setattr(er, "panel_channels", _fake_channels)
+    result = er.run(tmp_path, member="h010")
+    assert result["verdict"] == "exploratory" and result["class"] == "flow_rule"
+    assert not (tmp_path / "report.md").exists()
+    report = (tmp_path / "report_h010.md").read_text()
+    assert "Verdict: **exploratory**" in report and "dip_matched" in report
+    rec = json.loads((tmp_path / er.RUN_LOG).read_text().splitlines()[-1])
+    assert rec["arms"] == [er.ARM_H010]
+
+
+def test_an_h010_dry_run_reads_no_rule(monkeypatch, tmp_path):
+    monkeypatch.setattr(er, "fetch_inputs", _inputs)
+    monkeypatch.setattr(er, "panel_channels", _fake_channels)
+    monkeypatch.setattr(cb, "read", lambda *a, **k: pytest.fail("a dry run read the rule"))
+    info = er.dry_run(tmp_path, member="h010")
+    assert info["balance_share"] == pytest.approx(0.2) and 0 <= info["share_high_months"] <= 1
+    assert not (tmp_path / er.RUN_LOG).exists()

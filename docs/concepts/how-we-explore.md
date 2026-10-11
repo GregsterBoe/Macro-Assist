@@ -234,6 +234,7 @@ The safe target space, each with a scorer that exists or could:
 | A **state** — fragile / not, regime | Recall and precision on labelled episodes, PIT thresholds | `fragility_backtest.py`, `input_testing.py` |
 | A **gap** — between two consensus sources, or between a source and its later realization | Predicts a realized *width* or *surprise magnitude* | Does not exist; would need writing |
 | A **risk rule** — a mechanical equity exposure for one real decision, never published as a call | Takes less of each ≥ 10% drop than a rival holding the same average amount of stock, and than a volatility rule at that exposure; return is a cost limit only ([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md)) | `risk_rule` class bar — accepted and built 2026-10-01; harness `explore_rules.py` |
+| A **contribution rule** — how much of a fixed monthly contribution to invest, never a sale, never published as a call | Ends with a higher money-weighted return than investing the whole contribution every month, by 0.25 pp a year, and than the same multiples switched on the market's drawdown ([ADR-0025](../decisions/ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md) — the one admitted claim about return, §2) | `flow_rule` class bar — accepted and built 2026-10-11; harness `explore_rules.py --member h010` |
 
 Every register entry carries a one-line check against this table. If the
 honest answer is "the output is a sign", the entry is closed before it opens.

@@ -14,7 +14,7 @@ Conventions:
   reasoning intact, and pull any "carry forward" caveat back up into this file
   as its own entry. A resolved item left here is noise; a lost caveat is worse.
 
-Last reviewed: 2026-10-10 — cleanup pass. Phase 20's four carried items (#5,
+Last reviewed: 2026-10-11 — #37 opened and closed the same day → [`resolved.md`](resolved.md) (ADR-0025, the contribution-rule class for new money, accepted as written). Before that, 2026-10-10 — cleanup pass. Phase 20's four carried items (#5,
 #2b, #3b, #6b) closed → [`resolved.md`](resolved.md): the book is dormant, they
 constrain only a v2 sizer that has not been proposed, and #2b's object (a
 directional call) no longer exists. **#26** closed the same day (the vol feed stays
