@@ -1292,6 +1292,9 @@ Report: `results/explore_rules/report_h011.md` · receipt
 `results/explore_rules/runs.jsonl` (2026-10-11T15:09:33+00:00, `report_sha256`
 `96e38e94…`).
 
+**Audit record.** Written by CI from its audit records on `output`, never by hand; `record_audit.py` holds this field to them (WP-25.C). 1 audit, 0 rejections.
+- 2026-10-11 16:33 UTC · `no_blocking_finding` · `kimi-k3` / `high` · text `sha256:05aa6f912404` · [run](https://github.com/GregsterBoe/Macro-Assist/actions/runs/38155901762) · brief `output:audit/entries/H-011/2026-10-11T1633Z-ci.md`
+
 ## Closed
 
 A closed entry keeps its full text in place above — this is the index.
