@@ -1,0 +1,244 @@
+{
+  "class": "mix_rule",
+  "summary": {
+    "class": "mix_rule",
+    "arm": "h011_fill_gaps",
+    "first_month": "1973-01",
+    "last_month": "2017-12",
+    "n_months": 540,
+    "plan_months": 120,
+    "n_plans": 36,
+    "assets": [
+      "equity",
+      "bonds",
+      "gold"
+    ],
+    "targets": [
+      0.7,
+      0.2,
+      0.1
+    ],
+    "equity": "equity",
+    "n_episodes": 13,
+    "episodes": [
+      {
+        "peak": "start",
+        "trough": "1974-09",
+        "depth": 0.5538,
+        "plans": 0,
+        "equity_weight_member": null,
+        "equity_weight_plain": null
+      },
+      {
+        "peak": "1981-07",
+        "trough": "1982-05",
+        "depth": 0.1577,
+        "plans": 9,
+        "equity_weight_member": 0.7212,
+        "equity_weight_plain": 0.7579
+      },
+      {
+        "peak": "1984-01",
+        "trough": "1984-03",
+        "depth": 0.1008,
+        "plans": 10,
+        "equity_weight_member": 0.708,
+        "equity_weight_plain": 0.7703
+      },
+      {
+        "peak": "1985-02",
+        "trough": "1986-09",
+        "depth": 0.1711,
+        "plans": 10,
+        "equity_weight_member": 0.7276,
+        "equity_weight_plain": 0.7928
+      },
+      {
+        "peak": "1987-08",
+        "trough": "1987-11",
+        "depth": 0.3639,
+        "plans": 10,
+        "equity_weight_member": 0.7101,
+        "equity_weight_plain": 0.7505
+      },
+      {
+        "peak": "1989-09",
+        "trough": "1990-10",
+        "depth": 0.3321,
+        "plans": 10,
+        "equity_weight_member": 0.7115,
+        "equity_weight_plain": 0.7643
+      },
+      {
+        "peak": "1991-08",
+        "trough": "1991-11",
+        "depth": 0.1009,
+        "plans": 10,
+        "equity_weight_member": 0.7052,
+        "equity_weight_plain": 0.7521
+      },
+      {
+        "peak": "1992-04",
+        "trough": "1992-08",
+        "depth": 0.1216,
+        "plans": 10,
+        "equity_weight_member": 0.7021,
+        "equity_weight_plain": 0.7383
+      },
+      {
+        "peak": "1994-01",
+        "trough": "1994-11",
+        "depth": 0.1576,
+        "plans": 10,
+        "equity_weight_member": 0.7063,
+        "equity_weight_plain": 0.7272
+      },
+      {
+        "peak": "1998-04",
+        "trough": "1998-08",
+        "depth": 0.1782,
+        "plans": 10,
+        "equity_weight_member": 0.7126,
+        "equity_weight_plain": 0.7967
+      },
+      {
+        "peak": "2000-08",
+        "trough": "2009-02",
+        "depth": 0.5794,
+        "plans": 10,
+        "equity_weight_member": 0.7241,
+        "equity_weight_plain": 0.8115
+      },
+      {
+        "peak": "2015-04",
+        "trough": "2015-09",
+        "depth": 0.1099,
+        "plans": 3,
+        "equity_weight_member": 0.7092,
+        "equity_weight_plain": 0.791
+      },
+      {
+        "peak": "2015-11",
+        "trough": "2016-02",
+        "depth": 0.108,
+        "plans": 3,
+        "equity_weight_member": 0.7106,
+        "equity_weight_plain": 0.798
+      }
+    ],
+    "control_ratio": 0.3223,
+    "control_ratio_ci": {
+      "lo": 0.2615,
+      "hi": 0.4555,
+      "level": 0.9,
+      "n_boot": 2000,
+      "block_months": 24
+    },
+    "mean_drift": {
+      "member": 0.01702,
+      "plain": 0.0528,
+      "exposure_matched": 0.05389
+    },
+    "shortfall": {
+      "10.0": 0.001242,
+      "30.0": 0.001241
+    },
+    "shortfall_ci": {
+      "lo": -0.001672,
+      "hi": 0.004156,
+      "level": 0.9
+    },
+    "matched_equity_share": 0.679,
+    "mean_equity_weight": {
+      "member": 0.6939,
+      "plain": 0.714,
+      "exposure_matched": 0.6939
+    },
+    "legs": {
+      "10.0": {
+        "member": {
+          "money_weighted_return": 0.098328,
+          "wealth_per_contribution": 1.72367
+        },
+        "plain": {
+          "money_weighted_return": 0.100265,
+          "wealth_per_contribution": 1.74812
+        },
+        "exposure_matched": {
+          "money_weighted_return": 0.09957,
+          "wealth_per_contribution": 1.73849
+        }
+      },
+      "30.0": {
+        "member": {
+          "money_weighted_return": 0.097949,
+          "wealth_per_contribution": 1.72023
+        },
+        "plain": {
+          "money_weighted_return": 0.099885,
+          "wealth_per_contribution": 1.74462
+        },
+        "exposure_matched": {
+          "money_weighted_return": 0.09919,
+          "wealth_per_contribution": 1.73501
+        }
+      }
+    },
+    "control_ratio_by_half": {
+      "first": 0.3313,
+      "second": 0.3034
+    },
+    "control_ratio_by_plan": {
+      "median": 0.3222,
+      "worst": 0.4925
+    },
+    "received": {
+      "equity": 0.6096,
+      "bonds": 0.2435,
+      "gold": 0.1469
+    },
+    "sell_rebalanced": {
+      "control_ratio": 0.4244,
+      "gains_realized_per_plan": 9.0234
+    },
+    "halves": [
+      {
+        "first_start": "1973-01",
+        "last_start": "1990-01",
+        "control_ratio": 0.3213,
+        "shortfall": 0.000644
+      },
+      {
+        "first_start": "1991-01",
+        "last_start": "2008-01",
+        "control_ratio": 0.3232,
+        "shortfall": 0.001172
+      }
+    ]
+  },
+  "clauses": [
+    {
+      "kind": "late_control",
+      "passed": true,
+      "detail": "median control ratio over each plan's second half 0.303 across 36 plan(s); needs \u2264 0.75",
+      "cells": [
+        {
+          "name": "second_half",
+          "n_plans": 36
+        }
+      ]
+    }
+  ],
+  "floor": {
+    "episodes": 5
+  },
+  "verdict": "exploratory",
+  "reason": "the sample is not the sealed side; reported, cannot pass",
+  "inputs": {
+    "first_month": "1973-01",
+    "last_month": "2017-12",
+    "n_months": 540,
+    "dem_euro_overlap_months": 36,
+    "dem_euro_largest_gap": 3e-05
+  }
+}
