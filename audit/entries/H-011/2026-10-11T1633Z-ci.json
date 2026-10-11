@@ -1,0 +1,105 @@
+{
+  "schema": 1,
+  "hid": "H-011",
+  "audited_at": "2026-10-11T16:33:20+00:00",
+  "entry_fingerprint": "sha256:05aa6f912404bc7c10e5d1e673273d2c3729e6ed6404bf5f6c12664faae9a74d",
+  "bundle_sha256": "c888a352abda62bc7a9da11cd19b8b2f94134b5ec6ee94573ac79c92afdf4b74",
+  "instructions_sha256": "9a67c70db6ec52860893fd2906cf8725a4f4a72993f86cd4f0ae94a6a81efa14",
+  "canary_set_sha256": "14ca69a87a503470f311bebbbe3bfc5d2f203b1ad169d83a4f2100ff2601c040",
+  "certified_by": "audit/canaries/2026-10-04T0800Z-9a67c70d.json",
+  "tier": "ci",
+  "run": "https://github.com/GregsterBoe/Macro-Assist/actions/runs/38155901762",
+  "sources": {
+    "register": "HEAD 9f9a40f  2026-10-11T18:29:07+02:00",
+    "reports": "origin/output",
+    "shallow": "false"
+  },
+  "requested_model": "kimi-k3",
+  "provider": "moonshot",
+  "model": "kimi-k3",
+  "effort": "high",
+  "request_id": null,
+  "usage": {
+    "input_tokens": 205,
+    "output_tokens": 29541,
+    "cache_creation_input_tokens": 56320,
+    "cache_read_input_tokens": 0
+  },
+  "est_cost_usd": 0.6549,
+  "verdict": "no_blocking_finding",
+  "reasons": [],
+  "findings": [
+    {
+      "category": "number_mismatch",
+      "blocking": false,
+      "questions": [
+        3,
+        10
+      ],
+      "claim": "The entry quotes figures that no committed artifact in the bundle contains, so they cannot be verified against a receipt: the currency check 'the Deutsche Mark and euro rates agreeing to 0.003% over 36 months', and the build-time synthetic-market results 'ratio 1.2–1.6', 'no_control (0.61–0.78)' and '0.33–0.42'. Every verdict-relevant number (0.322 [0.262, 0.456]; 0.12 pp [−0.17, +0.42]; 0.303; 0.49; 1.7% vs 5.3% drift; 67.9%/69.4%/71.4% equity weights; 61/24/15 split; 0.424 sell-back; 9.02 contributions; both halves; 540 months; 36 plans; 13 drops; receipt timestamp, commit and report hash) matches report_h011.md and runs.jsonl exactly — only these check-level and synthetic diagnostics lack a committed source.",
+      "evidence": "Entry §2, ledger: 'after a dry run the same day that walked no leg: 540 months, 36 plans, 13 equity drops, the Deutsche Mark and euro rates agreeing to 0.003% over 36 months' — 0.003% and the 36-month overlap appear in neither results/explore_rules/report_h011.md nor results/explore_rules/runs.jsonl (bundle §4). Entry §2, 'The member, fixed before any look': 'On three synthetic markets that rule drifted *more* than plain buying ... (ratio 1.2–1.6) ... and read `no_control` (0.61–0.78) ... Splitting the money read 0.33–0.42 on the same markets' — no committed report in the bundle carries these numbers. None of them supports the claim; the claim's numbers all have receipts."
+    }
+  ],
+  "questions": [
+    {
+      "number": 1,
+      "status": "answered",
+      "note": "Every term maps to a quantity the code computes: control ratio, mean drift, money-weighted return, exposure_matched, plain, late_control (class_bars.MIX_RULE and mix_summary/mix_verdict), equity drops of ≥10% (risk_episodes on the equity leg). No term names more than one instrument."
+    },
+    {
+      "number": 2,
+      "status": "answered",
+      "note": "An allocation rule for new money — ADR-0026's sixth target type. It is scored on drift from a target mix with return only as a cost limit; it never sells, uses no signal and is never published as a call. No wording attaches a confidence to a direction."
+    },
+    {
+      "number": 3,
+      "status": "answered",
+      "note": "Strength is stated per stage with point, interval and limit (0.322 vs 0.5; 0.12 pp vs 0.25 with the interval's top past the limit disclosed; second half 0.303 vs 0.75; worst plan 0.49; 1.4% less money than plain). Nothing is rounded up; the weaknesses are stated next to the strengths."
+    },
+    {
+      "number": 4,
+      "status": "answered",
+      "note": "The mechanism predicts structure the skill number does not: control must not fade across each plan's second half (median late ratio ≤ 0.75), and the reported peak equity weights sit nearer 70% than plain's. The clause is the mechanism's own weak point — contributions shrink relative to the account."
+    },
+    {
+      "number": 5,
+      "status": "answered",
+      "note": "A rule could clear the 0.5 bar overall and still fade late (strong early, weak second half), so late_control discriminates. The entry itself names what the clause cannot rule out ('Control is mostly arithmetic'), bounding the claim rather than hiding the limitation."
+    },
+    {
+      "number": 6,
+      "status": "answered",
+      "note": "Six confounds named. The load-bearing one — holding less equity in a rise — has the ruling-out rival built into the bar: exposure_matched at the member's mean equity weight, shortfall 0.12 pp ≤ 0.25. Eras are addressed by the reported halves (0.321 / 0.323). Proxies, plan length, non-blindness and currency are named with the read's scope stated."
+    },
+    {
+      "number": 7,
+      "status": "answered",
+      "note": "Class mix_rule. The bar exists in code (class_bars.MIX_RULE), was accepted as written (resolved.md #38, commit 402a673, 2026-10-11T14:04Z) and built before any data look (first look 15:09Z). Bar precedes the member's read, as §5 requires."
+    },
+    {
+      "number": 8,
+      "status": "answered",
+      "note": "Floor fixed in the class bar before the sealed cell's size is known: ≥5 equity drops of ≥10% and a sealed plan of ≥96 months. The entry states the proposer 'has counted none' of the sealed drops and that underpowered is a live outcome."
+    },
+    {
+      "number": 9,
+      "status": "answered",
+      "note": "The slice is the whole sealed side: 2018-01 to the last month every series has complete when the read runs, end set by data availability, one plan from an empty account — matching the class seal (sealed_from 2018-01-01, sealed_until None). No window chosen after naming crises."
+    },
+    {
+      "number": 10,
+      "status": "answered",
+      "note": "The ledger carries the one counted look with its receipt (runs.jsonl 2026-10-11T15:09:33Z, commit 9d052cf, report hash 96e38e94… — all matching), the no-leg dry run, and the pre-data arm change on synthetic markets, flagged 'Changed at build, before any data'. The single commit touching report_h011.md is the ledger's look; no look is missing."
+    },
+    {
+      "number": 11,
+      "status": "answered",
+      "note": "'It spends the mix_rule class's one historical read. One read, and the result goes to the Knowledge Base whichever verdict fires' — the one-read commitment and the either-way KB outcome are in the entry's own text, and no sealed read has run."
+    }
+  ],
+  "brief": {
+    "case_against": "Nothing here breaks the rules; the strongest case against is about what a pass would mean. First, the benefit is close to arithmetic — any rule that buys whatever is below target narrows drift, and the entry says so itself. The genuinely uncertain half is the cost: measured at about an eighth of a percentage point a year, but its uncertainty band runs from minus a fifth to plus two-fifths of a point, well past the quarter-point limit, and the bar reads only the point estimate. A sealed pass certifies that the cost landed inside the limit on this one period, not that the cost is known to be small. Second, the sealed read is a single plan of roughly nine years; if euro-terms stock markets produce fewer than five falls of ten percent or more — only 2020 and 2022 clearly qualify — the answer comes back 'underpowered' and the class's one look at history is spent with no verdict at all. Third, the pre-registration was drafted after the explore look; the entry flags this and nothing in it moved, but the owner should know the sequence was look first, paperwork second.",
+    "what_it_claims": "The owner invests 500 euros a month across three funds — seventy percent world stocks, twenty percent euro government bonds, ten percent gold. The rule sends each month's money to whichever funds have fallen below their target share, rather than splitting every payment seventy/twenty/ten. On forty-five years of market history ending in 2017 (the practice period, not the sealed one), this kept the account's mix about three times closer to target than plain splitting — the test requires twice as close — while costing about an eighth of a percentage point a year against holding the same average amount of stock, inside the quarter-point limit. The control did not wear out in the later years of the ten-year savings plans tested. The rule never sells anything and never bets on which asset will rise.",
+    "what_would_change_it": "Only the sealed read itself settles the open questions; it runs once on 2018-to-today. It answers 'underpowered' — no verdict, the one read spent — if that period holds fewer than five stock-market falls of ten percent or more measured in euros, which the entry admits is a live possibility. It comes back negative if the rule's drift exceeds half of plain splitting's, if the return shortfall against the same-stock-exposure comparison exceeds a quarter point a year at either cost assumption, or if control fades in the plan's second half; any of those becomes a Knowledge Base negative. Nothing in the record would change my reading if the read passes — but a pass should be heard as 'worked on this period', not 'proven cheap', because the cost's uncertainty band is wide. Had any threshold, the arm, or the mix moved after the explore look, or a look been missing from the ledger, the verdict would differ; none had."
+  }
+}
