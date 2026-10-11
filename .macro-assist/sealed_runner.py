@@ -73,8 +73,10 @@ RESULTS = Path("results")
 
 # The classes this runner can walk. The gap → width class has no seal
 # (todo.md #33) and no scorer data (H-003's point-in-time errand); its walk is
-# written when it has both.
-WALKS = frozenset({"conditioner"})
+# written when it has both. The allocation-rule class (ADR-0026) walks its
+# member on the explore harness's own euro inputs, from the seal to the last
+# complete month (`explore_rules.sealed_mix_path`).
+WALKS = frozenset({"conditioner", "mix_rule"})
 WALKABLE = tuple(a for a in ec.ARMS if a != ec.BENCH)
 
 # What `explore_conditioner.build_panel` writes, label by label: the values a
@@ -111,6 +113,11 @@ def refusals(spec: dict) -> list[str]:
     if bar.name not in WALKS:
         return [f"the sealed runner walks the {', '.join(sorted(WALKS))} class; the {bar.name} class "
                 "has no walk yet"]
+    if isinstance(bar, cb.MixBar):
+        import explore_rules as er
+        if spec["arm"] not in er.MIX_ARMS:
+            return [f"arm `{spec['arm']}` is not one the harness walks ({', '.join(er.MIX_ARMS)})"]
+        return []
     out = []
     if spec["arm"] not in WALKABLE:
         out.append(f"arm `{spec['arm']}` is not one the harness walks ({', '.join(WALKABLE)})")
@@ -209,6 +216,14 @@ def obs_sha256(obs: list[dict]) -> str:
     return _sha(json.dumps(obs, sort_keys=True, default=str))
 
 
+def path_sha256(path: dict) -> str:
+    """A mix path's digest: its months, returns and targets — what was read.
+    The member's rule is code, held by the commit, not by this hash."""
+    view = {"months": path["months"], "targets": path["targets"], "equity": path["equity"],
+            "returns": {k: [round(float(x), 12) for x in v] for k, v in path["returns"].items()}}
+    return _sha(json.dumps(view, sort_keys=True))
+
+
 # ---------------------------------------------------------------------------
 # the records
 # ---------------------------------------------------------------------------
@@ -232,8 +247,10 @@ def make_claim(root: Path, hid: str, comment: str | None, *, now: datetime) -> d
                       "this read afterwards")
     return {
         "schema": 1, "kind": "claim", "hid": hid, "class": bar.name,
-        "arm": spec["arm"], "horizon": spec["horizon"], "pre_registration": spec,
-        "sealed_from": bar.sealed_from.isoformat(), "sealed_until": bar.sealed_until.isoformat(),
+        "arm": spec["arm"], "horizon": spec.get("horizon"), "pre_registration": spec,
+        "sealed_from": bar.sealed_from.isoformat(),
+        # None: to the last complete month with data at read time (ADR-0026)
+        "sealed_until": bar.sealed_until.isoformat() if bar.sealed_until else None,
         "claimed_at": now.astimezone(timezone.utc).isoformat(timespec="seconds"),
         **_run(), "commit": ra._git(root, "rev-parse", "HEAD"),
         "entry_stamp": f"sha256:{_sha(dp.stamped_text(entry))}",
@@ -255,18 +272,22 @@ def own_claim(root: Path, hid: str) -> dict | None:
     return mine[-1] if mine else None
 
 
-def make_result(root: Path, claim: dict, read: dict, obs: list[dict], report: str,
+def make_result(root: Path, claim: dict, read: dict, obs, report: str,
                 inputs_fetched: str | None, *, now: datetime) -> dict:
     s = read["summary"]
+    mix = "first_month" in s
     return {
         "schema": 1, "kind": "result", "hid": claim["hid"], "class": claim["class"],
-        "arm": claim["arm"], "horizon": claim["horizon"], "claim": claim["_path"],
+        "arm": claim["arm"], "horizon": claim.get("horizon"), "claim": claim["_path"],
         "read_at": now.astimezone(timezone.utc).isoformat(timespec="seconds"),
         **_run(), "commit": ra._git(root, "rev-parse", "HEAD"),
         "verdict": read["verdict"], "reason": read["reason"], "read": read,
-        "first_date": s["first_date"], "last_date": s["last_date"],
-        "n_report_dates": s["n_report_dates"], "n_obs": len(obs),
-        "inputs_fetched": inputs_fetched, "obs_sha256": obs_sha256(obs),
+        "first_date": s["first_month"] if mix else s["first_date"],
+        "last_date": s["last_month"] if mix else s["last_date"],
+        "n_report_dates": s["n_months"] if mix else s["n_report_dates"],
+        "n_obs": s["n_months"] if mix else len(obs),
+        "inputs_fetched": inputs_fetched,
+        "obs_sha256": path_sha256(obs) if mix else obs_sha256(obs),
         "report_sha256": _sha(report), "bar_fingerprint": ra.bar_fingerprint(root, claim["class"]),
     }
 
@@ -326,6 +347,63 @@ def render_report(claim: dict, read: dict, obs: list[dict]) -> str:
     L += ["", "## Reproduce", "",
           f"{len(obs)} observations, sha256 `{obs_sha256(obs)[:16]}…`, walked by "
           "`explore_conditioner.observations_on` on the sealed positions and read by "
+          "`class_bars.read(sealed=True)`. Nothing here is re-run: the slice is read."]
+    return "\n".join(L) + "\n"
+
+
+def render_mix_report(claim: dict, read: dict, path: dict, check: dict) -> str:
+    """The allocation-rule class's report, verdict first, every stage's number
+    whichever fired."""
+    s, bar = read["summary"], cb.BARS[claim["class"]]
+    ci, sci = s["control_ratio_ci"], s["shortfall_ci"]
+    mix = ", ".join(f"{a} {w:.0%}" for a, w in zip(s["assets"], s["targets"]))
+    pct = lambda x: "—" if x is None else f"{100 * x:.1f}%"
+    pp = lambda x: f"{100 * x:+.2f} pp"
+    L = [f"# Sealed read — {claim['hid']} ({claim['class']} class)", "",
+         f"**Verdict: `{read['verdict']}`** — {read['reason']}", "",
+         f"The {claim['class']} class's one read of its sealed side: {s['first_month']} → {s['last_month']}, "
+         f"the last complete month with data at read time ({s['n_months']} months, one plan from an "
+         f"empty account). Target mix: {mix}, in euros. It is read once for the whole class; no other "
+         "member of the class reads it again.", "",
+         f"Claimed {claim['claimed_at']} by [the run]({claim['run']}) at commit "
+         f"`{str(claim['commit'])[:12]}`, after {claim['approved_by']} turned the key. "
+         f"Class bar `{str(claim['bar_fingerprint'])[:19]}…`; entry text `{claim['entry_stamp'][:19]}…`.", "",
+         "The pre-registration, as the audit stamped it and `class_bars.validate` normalised it:", "",
+         "```json", json.dumps(claim["pre_registration"], indent=2, ensure_ascii=False), "```", "",
+         "## Every stage's number", "",
+         f"Order: {' → '.join(cb.MIX_VERDICTS)}. The first to fire is the verdict.", "",
+         "| stage | number | needs |", "|---|---|---|",
+         f"| power: equity drops of {bar.episode_depth:.0%} or more | {s['n_episodes']} | ≥ {read['floor']['episodes']} |",
+         f"| power: the plan's length | {s['plan_months']} months | ≥ {bar.min_sealed_months} |",
+         f"| inverted: control ratio | {s['control_ratio']:.3f} | below 1 |",
+         "| costly: behind `exposure_matched` "
+         f"(equity {pct(s['matched_equity_share'])}) | "
+         + ", ".join(f"{pp(v)} at {float(k):g} bps" for k, v in s["shortfall"].items())
+         + f"; interval [{pp(sci['lo'])}, {pp(sci['hi'])}], not read | ≤ {bar.max_shortfall * 100:.2f} pp at each |",
+         f"| control | {s['control_ratio']:.3f} [{ci['lo']:.3f}, {ci['hi']:.3f}] | ≤ {bar.max_ratio}, interval below 1 |"]
+    for c in read["clauses"]:
+        L.append(f"| clause `{c['kind']}` — {'held' if c['passed'] else 'failed'} | {c['detail']} | as stated |")
+    h, sr = s["control_ratio_by_half"], s["sell_rebalanced"]
+    L += ["", "## Reported, never read", "",
+          "- Mean drift: " + ", ".join(f"{k} {pct(v)}" for k, v in s["mean_drift"].items())
+          + "; mean equity weight: " + ", ".join(f"{k} {pct(v)}" for k, v in s["mean_equity_weight"].items()) + ".",
+          f"- Control ratio by half of the plan: first {h['first']}, second {h['second']}.",
+          "- Where the money went: " + ", ".join(f"{a} {pct(v)}" for a, v in s["received"].items()) + ".",
+          f"- An annual sell-back to target: control ratio {sr['control_ratio']}, gains realized "
+          f"{sr['gains_realized_per_plan']} contributions (taxable).", "",
+          "| leg | " + " | ".join(f"return / yr at {float(c):g} bps | wealth per contribution" for c in s["legs"])
+          + " |", "|---|" + "---|---|" * len(s["legs"])]
+    for k in cb.MIX_LEGS:
+        L.append(f"| {k} | " + " | ".join(
+            f"{pct(s['legs'][c][k]['money_weighted_return'])} | {s['legs'][c][k]['wealth_per_contribution']}"
+            for c in s["legs"]) + " |")
+    L += ["", "| equity drop: peak | trough | depth | member's equity weight at the peak | plain's |",
+          "|---|---|---|---|---|"]
+    L += [f"| {e['peak']} | {e['trough']} | {pct(e['depth'])} | {pct(e['equity_weight_member'])} | "
+          f"{pct(e['equity_weight_plain'])} |" for e in s["episodes"]]
+    L += ["", "## Reproduce", "",
+          f"The data checks before the walk: {json.dumps(check)}. The path's months, returns and targets "
+          f"hash to `{path_sha256(path)[:16]}…`; built by `explore_rules.sealed_mix_path` and read by "
           "`class_bars.read(sealed=True)`. Nothing here is re-run: the slice is read."]
     return "\n".join(L) + "\n"
 
@@ -399,8 +477,10 @@ def main(argv: list[str] | None = None) -> int:
         bad = refusals(spec)
         if bad:
             return _refuse("check", bad)
-        print(f"{hid}: the sealed runner can walk `{spec['arm']}` at h={spec['horizon']} under the "
-              f"{spec['class']} class, and every cell names labels the harness writes")
+        at = f" at h={spec['horizon']}" if spec.get("horizon") is not None else ""
+        tail = ("" if spec["class"] == "mix_rule"
+                else ", and every cell names labels the harness writes")
+        print(f"{hid}: the sealed runner can walk `{spec['arm']}`{at} under the {spec['class']} class{tail}")
         return 0
 
     if (a.fetch or a.read) and not a.inputs:
@@ -410,7 +490,13 @@ def main(argv: list[str] | None = None) -> int:
         return _refuse("fetch" if a.fetch else "claim" if a.claim else "read", bad)
 
     if a.fetch:
-        Path(a.inputs).write_bytes(pickle.dumps(ec.fetch_inputs()))
+        _, spec = _spec(root, hid)
+        if spec["class"] == "mix_rule":
+            import explore_rules as er
+            fetched = er.fetch_mix_raw()
+        else:
+            fetched = ec.fetch_inputs()
+        Path(a.inputs).write_bytes(pickle.dumps(fetched))
         print(f"{hid}: inputs fetched; nothing scored")
         return 0
 
@@ -436,6 +522,19 @@ def main(argv: list[str] | None = None) -> int:
     if spec != claim["pre_registration"]:
         return _refuse("read", ["the pre-registration differs from the one this run claimed with"])
     inputs = pickle.loads(Path(a.inputs).read_bytes())
+    if spec["class"] == "mix_rule":
+        import explore_rules as er
+        path, check = er.sealed_mix_path(inputs, spec["arm"])
+        if path["months"][0] < cb.BARS[spec["class"]].sealed_from.isoformat()[:7]:
+            raise RuntimeError(f"the walk left the sealed side: {path['months'][0]}")
+        read = read_walked(path, spec)
+        report = render_mix_report(claim, read, path, check)
+        stem = claim["_path"].removesuffix(".claim.json")
+        result = make_result(root, claim, read, path, report, inputs.get("fetched"), now=now)
+        _write(root, f"{stem}.json", json.dumps(result, indent=2, ensure_ascii=False, default=str) + "\n")
+        _write(root, f"{stem}.md", report)
+        sys.stdout.write(report)
+        return 0
     frame, fr = ec.build_panel(inputs)
     bar = cb.BARS[spec["class"]]
     pos = sealed_positions(frame, bar)

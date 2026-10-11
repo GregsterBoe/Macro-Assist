@@ -314,7 +314,7 @@ def _sealed_line(rec: dict, result: dict | None) -> str:
     m = _STEM_RE.match(stem)
     when = f"{m.group(1)} {m.group(2)}:{m.group(3)} UTC" if m else stem
     run = f"[run]({rec.get('run')})"
-    what = f"`{rec.get('arm')}` at h={rec.get('horizon')}"
+    what = f"`{rec.get('arm')}`" + (f" at h={rec.get('horizon')}" if rec.get("horizon") is not None else "")
     if result is None:
         return (f"- {when} · claimed by {run} · {what} · **no result recorded** — a lost read; "
                 "the slice counts as read")
@@ -333,7 +333,9 @@ def sealed_read_paragraph(records: list[dict]) -> str | None:
     c0 = claims[0]
     head = (f"**{SEALED_READ}.** Written by CI from its sealed-read records on `output`, never by "
             f"hand; `record_audit.py` holds this field to them (WP-23.B). The {c0.get('class')} "
-            f"class's read of report dates {c0.get('sealed_from')} → before {c0.get('sealed_until')}, "
+            f"class's read of report dates {c0.get('sealed_from')} → "
+            + (f"before {c0.get('sealed_until')}" if c0.get("sealed_until") else
+               "the last complete month with data at read time") + ", "
             "which is read once for the whole class.")
     return "\n".join([head, *(_sealed_line(c, results.get(c["_path"])) for c in claims)])
 

@@ -291,9 +291,70 @@ def test_a_bad_mix_pre_registration_is_refused(over, msg):
         cb.validate({**base, **over})
 
 
-def test_the_sealed_runner_refuses_a_mix_rule_until_it_has_a_walk():
+def test_the_sealed_runner_walks_the_harness_arm_and_refuses_any_other():
     import sealed_runner as sr
-    assert any("no walk yet" in r for r in sr.refusals(SPEC))
+    assert "mix_rule" in sr.WALKS
+    assert sr.refusals({**SPEC, "arm": er.ARM_H011}) == []
+    assert "not one the harness walks" in sr.refusals(SPEC)[0]      # arm "x"
+
+
+# ---------------------------------------------------------------------------
+# the sealed side (sealed_runner, in sealed_read.yml's key job)
+# ---------------------------------------------------------------------------
+
+def _raw(last_day="2026-09-15", last_month="2026-09"):
+    """A synthetic stand-in for the uncut series, explore side included."""
+    rng = np.random.default_rng(9)
+    ms = pd.date_range("1990-01-01", last_month + "-01", freq="MS")
+    days = pd.bdate_range("1990-01-01", last_day)
+    fac = pd.DataFrame({"Mkt-RF": rng.normal(0.0003, 0.01, len(days)), "RF": np.full(len(days), 0.0001)},
+                       index=days)
+    fx = pd.Series(1.1 + 0.05 * np.sin(np.arange(len(ms)) / 9), index=ms)
+    return {"factors": fac,
+            "gold_usd": pd.Series(400 * np.exp(np.cumsum(rng.normal(0, 0.04, len(ms)))), index=ms),
+            "bund_10y": pd.Series(3 + np.cumsum(rng.normal(0, 0.1, len(ms))).clip(-3, 3), index=ms),
+            "dem_per_usd": pd.Series(er.DEM_PER_EUR / fx[fx.index < "2002-01-01"]),
+            "usd_per_eur": fx[fx.index >= "1999-01-01"], "fetched": "test"}
+
+
+def test_the_sealed_path_starts_at_the_seal_and_stops_at_the_last_complete_month():
+    path, check = er.sealed_mix_path(_raw())
+    assert path["months"][0] == "2018-01"
+    assert path["months"][-1] == "2026-08"          # the daily factors stop mid-September
+    assert check["first_month"] == "2018-01" and check["dem_euro_largest_gap"] is None
+    assert path["allocate"] is er.fill_gaps
+
+
+def test_a_monthly_series_that_lags_ends_the_sealed_side_earlier():
+    raw = _raw(last_day="2026-09-30")
+    raw["bund_10y"] = raw["bund_10y"][raw["bund_10y"].index <= "2026-07-01"]
+    path, _ = er.sealed_mix_path(raw)
+    assert path["months"][-1] == "2026-07"
+
+
+def test_the_sealed_read_is_read_sealed_and_reports_every_stage():
+    import sealed_runner as sr
+    spec = cb.validate({**SPEC, "arm": er.ARM_H011})
+    path, check = er.sealed_mix_path(_raw())
+    read = sr.read_walked(path, spec)
+    assert read["verdict"] != "exploratory" and read["summary"]["plan_months"] == len(path["months"])
+    claim = {"hid": "H-011", "class": "mix_rule", "claimed_at": "t", "run": "u", "commit": "c" * 12,
+             "approved_by": "o", "bar_fingerprint": "sha256:" + "f" * 16, "entry_stamp": "sha256:" + "e" * 16,
+             "pre_registration": spec, "_path": "sealed_reads/H-011/x.claim.json", "arm": er.ARM_H011}
+    report = sr.render_mix_report(claim, read, path, check)
+    assert report.startswith("# Sealed read — H-011 (mix_rule class)")
+    assert f"**Verdict: `{read['verdict']}`**" in report and "control ratio" in report
+    assert sr.path_sha256(path) == sr.path_sha256({**path, "allocate": None})
+
+
+def test_the_ledger_line_needs_no_horizon_and_no_end_date():
+    import decision_packet as dp
+    claim = {"kind": "claim", "_path": "sealed_reads/H-011/2026-10-12T0900Z.claim.json", "class": "mix_rule",
+             "arm": er.ARM_H011, "horizon": None, "sealed_from": "2018-01-01", "sealed_until": None,
+             "run": "https://x"}
+    text = dp.sealed_read_paragraph([claim])
+    assert "the last complete month with data at read time" in text
+    assert "h=None" not in text and "before None" not in text
 
 
 def test_the_cli_prints_the_mix_bar(capsys):

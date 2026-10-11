@@ -453,18 +453,23 @@ def _fred_series(series_id: str) -> pd.Series:
     return s.astype(float)
 
 
-def fetch_mix_inputs() -> dict:
-    """The raw series, each cut at the seal on arrival: the Fama-French daily
-    factors, the Bund yield and the two dollar rates from FRED, and the World
-    Bank's monthly gold price."""
+def fetch_mix_raw() -> dict:
+    """The raw series, uncut: the Fama-French daily factors, the Bund yield and
+    the two dollar rates from FRED, and the World Bank's monthly gold price.
+    Only two callers: `fetch_mix_inputs`, which cuts at the seal on arrival,
+    and the sealed runner's fetch, in `sealed_read.yml`'s key job."""
     gold = pd.read_csv(GOLD_URL)
     g = pd.Series(pd.to_numeric(gold.iloc[:, 1], errors="coerce").to_numpy(),
                   index=_month_index(gold.iloc[:, 0])).dropna()
-    raw = {"factors": fetch_ff_factors(), "gold_usd": g,
-           **{k: _fred_series(v) for k, v in FRED_SERIES.items()}}
-    out = {k: before_seal(v) for k, v in raw.items()}
-    out["fetched"] = datetime.now().astimezone().isoformat(timespec="seconds")
-    return out
+    return {"factors": fetch_ff_factors(), "gold_usd": g,
+            **{k: _fred_series(v) for k, v in FRED_SERIES.items()},
+            "fetched": datetime.now().astimezone().isoformat(timespec="seconds")}
+
+
+def fetch_mix_inputs() -> dict:
+    """The raw series, each cut at the seal on arrival."""
+    raw = fetch_mix_raw()
+    return {k: (v if k == "fetched" else before_seal(v)) for k, v in raw.items()}
 
 
 def usd_per_eur(inputs: dict) -> pd.Series:
@@ -487,22 +492,38 @@ def bond_return(y0, y1, months: int = BOND_MONTHS):
     return c * annuity + disc - 1.0 + c
 
 
-def mix_levels(inputs: dict) -> pd.DataFrame:
+def last_complete_month(inputs: dict) -> pd.Timestamp:
+    """The last month every series has whole: a monthly series' last value,
+    and for the daily factors the last month whose final business day they
+    reach. The sealed side runs to it, as ADR-0026 fixes ("the last complete
+    month with data at read time")."""
+    fac = inputs["factors"].index
+    last_day = fac.max()
+    eq_last = last_day.to_period("M").to_timestamp()
+    if last_day < eq_last + pd.offsets.BMonthEnd(0) - pd.Timedelta(days=3):
+        eq_last -= pd.offsets.MonthBegin(1)
+    monthly = [inputs[k].index.max() for k in ("gold_usd", "bund_10y", "usd_per_eur")]
+    return min([eq_last, *monthly])
+
+
+def mix_levels(inputs: dict, start: str = MIX_START, end: pd.Timestamp | None = None) -> pd.DataFrame:
     """Month-end-to-month-end levels of the three holdings in euros, from
-    MIX_START to the last month before the seal. Equity compounds the daily
-    market return within each month; bonds rebuild a 10-year Bund's total
-    return from its yield; dollar assets are converted at the month's rate."""
+    `start` (MIX_START: the explore side) to `end` (default: the last month
+    before the seal). Equity compounds the daily market return within each
+    month; bonds rebuild a 10-year Bund's total return from its yield; dollar
+    assets are converted at the month's rate."""
     fac = inputs["factors"]
     eq_usd = (1.0 + fac["Mkt-RF"] + fac["RF"]).groupby(fac.index.to_period("M")).prod()
     eq_usd.index = eq_usd.index.to_timestamp()
     fx = usd_per_eur(inputs)
     y = inputs["bund_10y"] / 100.0
-    months = pd.date_range(MIX_START + "-01", pd.Timestamp(SEAL_START) - pd.offsets.MonthBegin(1), freq="MS")
+    end = pd.Timestamp(SEAL_START) - pd.offsets.MonthBegin(1) if end is None else end
+    months = pd.date_range(start + "-01", end, freq="MS")
     need = {"equity": eq_usd, "fx": fx, "bund": y, "gold": inputs["gold_usd"]}
     missing = {k: [m.strftime("%Y-%m") for m in months if m not in v.index] for k, v in need.items()}
     missing = {k: v for k, v in missing.items() if v}
     if missing:
-        raise ValueError(f"monthly series incomplete on {MIX_START} → {months[-1]:%Y-%m}: "
+        raise ValueError(f"monthly series incomplete on {start} → {months[-1]:%Y-%m}: "
                          + "; ".join(f"{k} lacks {v[:3]}{'…' if len(v) > 3 else ''}" for k, v in missing.items()))
     eq_usd, fx, y, gold = (v.reindex(months) for v in (eq_usd, fx, y, inputs["gold_usd"]))
     usd_lvl = eq_usd.cumprod() / eq_usd.iloc[0]          # the first month's own return is not used
@@ -511,11 +532,11 @@ def mix_levels(inputs: dict) -> pd.DataFrame:
                          "gold": (gold / fx).to_numpy()}, index=months)
 
 
-def check_mix_inputs(inputs: dict) -> dict:
+def check_mix_inputs(inputs: dict, start: str = MIX_START, end: pd.Timestamp | None = None) -> dict:
     """The data errand's checks, before any leg is walked: coverage, ranges,
     and the Deutsche Mark and euro rates agreeing where both exist. Reads no
     return of any holding."""
-    lv = mix_levels(inputs)
+    lv = mix_levels(inputs, start, end)
     y = inputs["bund_10y"]
     both = inputs["dem_per_usd"].index.intersection(inputs["usd_per_eur"].index)
     implied = DEM_PER_EUR / inputs["dem_per_usd"].reindex(both)
@@ -525,13 +546,14 @@ def check_mix_inputs(inputs: dict) -> dict:
         problems.append(f"Bund yield outside −2% … 15%: {y.min():.2f} … {y.max():.2f}")
     if (inputs["gold_usd"] <= 0).any() or (inputs["dem_per_usd"] <= 0).any() or (inputs["usd_per_eur"] <= 0).any():
         problems.append("a price or rate at or below zero")
-    if gap is None or gap > 0.01:
+    spliced = start < EURO_START          # the Deutsche Mark rate is used only before the euro
+    if spliced and (gap is None or gap > 0.01):
         problems.append(f"the Deutsche Mark and euro rates disagree by {gap} where both exist (1999–2001)")
     if problems:
         raise ValueError("; ".join(problems))
     return {"first_month": lv.index[1].strftime("%Y-%m"), "last_month": lv.index[-1].strftime("%Y-%m"),
             "n_months": len(lv) - 1, "dem_euro_overlap_months": len(both),
-            "dem_euro_largest_gap": round(gap, 5)}
+            "dem_euro_largest_gap": round(gap, 5) if gap is not None else None}
 
 
 def fill_gaps(values: np.ndarray, targets: np.ndarray, month=None) -> np.ndarray:
@@ -545,12 +567,35 @@ def fill_gaps(values: np.ndarray, targets: np.ndarray, month=None) -> np.ndarray
     return gap / gap.sum(axis=1, keepdims=True)
 
 
-def build_mix_path(inputs: dict) -> dict:
-    lv = mix_levels(inputs)
+MIX_ARMS = {ARM_H011: fill_gaps}           # what the sealed runner may walk under `mix_rule`
+
+
+def build_mix_path(inputs: dict, start: str = MIX_START, end: pd.Timestamp | None = None,
+                   arm: str = ARM_H011) -> dict:
+    lv = mix_levels(inputs, start, end)
     ret = lv.pct_change().iloc[1:]
     return {"months": [m.strftime("%Y-%m") for m in ret.index],
             "returns": {k: ret[k].to_numpy() for k in MIX_TARGETS},
-            "targets": dict(MIX_TARGETS), "equity": MIX_EQUITY, "allocate": fill_gaps}
+            "targets": dict(MIX_TARGETS), "equity": MIX_EQUITY, "allocate": MIX_ARMS[arm]}
+
+
+SEALED_LEVEL_MONTH = (pd.Timestamp(SEAL_START) - pd.offsets.MonthBegin(1)).strftime("%Y-%m")
+
+
+def sealed_mix_inputs(raw: dict) -> dict:
+    """The sealed side's inputs: every series from the month-end before the
+    seal (its level, never its return) on. Only the sealed runner calls this."""
+    cut = pd.Timestamp(SEALED_LEVEL_MONTH + "-01")
+    return {k: (v if k == "fetched" else v[v.index >= cut]) for k, v in raw.items()}
+
+
+def sealed_mix_path(raw: dict, arm: str = ARM_H011) -> tuple[dict, dict]:
+    """(the path, its checks) for the sealed read: 2018-01 to the last complete
+    month, in euros, the same build as the explore side's."""
+    inputs = sealed_mix_inputs(raw)
+    end = last_complete_month(inputs)
+    check = check_mix_inputs(inputs, SEALED_LEVEL_MONTH, end)
+    return build_mix_path(inputs, SEALED_LEVEL_MONTH, end, arm), check
 
 
 def look_h011(inputs: dict) -> tuple[dict, dict]:

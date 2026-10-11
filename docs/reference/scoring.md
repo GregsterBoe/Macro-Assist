@@ -433,7 +433,7 @@ matched equity share, the control ratio by half of a plan and by plan (median,
 worst), the share of the money each asset received, each equity drop with the
 plans running at its peak and each leg's equity weight there, the sell-back's
 control ratio and realized gains per plan, and the ratio and shortfall on each
-half of the plan starts. The sealed runner has no walk for it yet.
+half of the plan starts. The sealed runner walks it: `--fetch` takes `explore_rules.fetch_mix_raw` uncut, and `--read` builds one plan from 2018-01 to the last month every series has complete (`last_complete_month`), checks the data as the explore side does, and reports every stage (`render_mix_report`).
 
 ```json
 {"class": "mix_rule", "arm": "h011_fill_gaps", "floor": {"episodes": 5},
@@ -453,7 +453,7 @@ which is honest because `walk` checks that no observation left the sealed side.
 
 | Step | Where | Does |
 |---|---|---|
-| `--check` | anywhere, free | refuses a class with no walk (today: `gap_width`, `risk_rule`), an arm not in the harness's `ARMS`, a series that is not an asset, and a cell label or value the harness never writes (`LABELS`) — an empty cell would read `underpowered`. `seal_key.py`'s preflight runs it |
+| `--check` | anywhere, free | refuses a class with no walk (today: `gap_width`, `risk_rule`, `flow_rule`; `mix_rule` walks its member on `explore_rules.sealed_mix_path`, from 2018-01 to the last complete month), an arm not in the harness's `ARMS`, a series that is not an asset, and a cell label or value the harness never writes (`LABELS`) — an empty cell would read `underpowered`. `seal_key.py`'s preflight runs it |
 | `--fetch` | `sealed_read.yml` key job | the public inputs, to a file; nothing scored |
 | `--claim` | key job | `sealed_reads/<hid>/<stamp>.claim.json`: the entry's stamped and bar text hashes, its pre-registration, the class bar's fingerprint, the run and the owner's approval. Pushed before the read |
 | `--read` | key job | only once this run attempt's claim is on `output`: walk, read, write `<stamp>.json` (the verdict with every stage's number, the observations' sha256) and `<stamp>.md` (the report, verdict first) |

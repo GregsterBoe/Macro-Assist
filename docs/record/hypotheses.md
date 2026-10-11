@@ -1208,6 +1208,27 @@ is never published as a call. ADR-0026 was accepted on 2026-10-11.
 [H-010](#h-010) and its ledger · `class_bars.money_weighted_return`,
 `class_bars.risk_episodes` · `explore_rules.fetch_inputs`.
 
+
+**Pre-registration.** *Drafted by the assistant, the proposer, 2026-10-11; it does not judge it (§6).* **Written after the counted explore look** (ledger below), which this field states rather than hides. Nothing that look could have moved was moved by it. The class bar's numbers were accepted before any data (`resolved.md` #38). The clause's 0.75 and month 61 were in this entry's first draft. The arm was changed at build on synthetic markets, before any data. The mix was the owner's call before any data. This field adds no number of its own.
+- **Class `mix_rule`** (`class_bars.MIX_RULE`, [ADR-0026](../decisions/ADR-0026-a-buy-only-rebalancing-rule-is-read-on-drift-at-a-matched-exposure.md)). The disqualifiers come first:
+  - `underpowered`: fewer than 5 equity drops of 10% or more, or a plan shorter than 96 months.
+  - `inverted`: a control ratio of 1 or more.
+  - `costly`: more than 0.25 pp a year behind `exposure_matched` at 10 *or* 30 bps, on the point estimate.
+  - `no_control`: a control ratio above 0.5, or its 90% interval reaching 1.
+  - Then the clause.
+- **The slice is the whole sealed side.** It runs from 2018-01 to the last month that every series has complete when the read runs (`explore_rules.last_complete_month`), as one plan from an empty account. Its end is set by data availability, not chosen. In euros, built exactly as the explore side (`explore_rules.sealed_mix_path`), with the December 2017 month-end as the starting level and never a return.
+- **Arm `h011_fill_gaps`**, the 70/20/10 mix above. **How strong it was on the explore record:** control ratio 0.322, interval [0.262, 0.456]; 0.12 pp a year behind `exposure_matched`, interval [−0.17, +0.42]; second-half ratio 0.303. The worst single ten-year plan read 0.49, close to the 0.5 line.
+- **Floor: the class floor, stated.** 5 drops, written before the sealed side's drops are counted. The proposer expects about five in euro terms from the broad history of 2018–2026, and has counted none. `underpowered` is a live outcome.
+- **Mechanism clause: `late_control`.** The median control ratio over the plan's second half must be at most 0.75. The JSON names month 61 because validation ties the clause to a 120-month plan. On the sealed side's one shorter plan, the bar reads that plan's own second half, from its midpoint.
+- **What the clause does not rule out.** Control is mostly arithmetic: any rule that buys what is below target narrows drift. The uncertain claim is the cost, and the bar reads it on the point estimate only (ADR-0026 §3). A pass therefore says *control at a cost inside the limit on this slice*, not that the cost is known to be small.
+- **The sealed side is not blind in the broad sense.** The proposer knows the period's outline: the 2020 crash, the 2022 fall in bonds and stocks together, and gold's rise after it. No number of these holdings on it has been computed in this repo. A large one-way move in one holding is exactly where buy-only steering is weakest, so this history cuts against the claim rather than for it.
+- **What the read costs.** It spends the `mix_rule` class's one historical read. One read, and the result goes to the Knowledge Base whichever verdict fires.
+
+```json
+{"class": "mix_rule", "arm": "h011_fill_gaps", "floor": {"episodes": 5},
+ "clauses": [{"kind": "late_control", "from_month": 61, "max_ratio": 0.75}]}
+```
+
 **Explore-tier looks (ledger).** *2026-10-11* — **the first counted look**
 (*What would test it* step 4). `explore_rules.py --member h011` in CI
 (`explore_rules.yml`, run on `main` at commit `9d052cf`, clean receipt), after
@@ -1262,10 +1283,10 @@ any data; no variant was tried.
   - Not blind (confound e): the broad history of these assets since 1973 is
     common knowledge. A pass here is weaker evidence than a pass on 2018+.
 - **What it changes.** On the explore record H-011 clears every stage of its
-  class bar. The next step is the sealed read, and two things stand before
-  it. The entry needs its `Pre-registration` and a CI audit. The sealed
-  runner also has no walk for the `mix_rule` class yet. Whether to take
-  those steps is the owner's call.
+  class bar. The next step is the sealed read. The owner chose
+  to take it the same day. The `Pre-registration` above and a sealed walk for
+  the class (`sealed_runner.py`, built 2026-10-11 after this look) are in
+  place; the CI audit and the owner's key are not.
 
 Report: `results/explore_rules/report_h011.md` · receipt
 `results/explore_rules/runs.jsonl` (2026-10-11T15:09:33+00:00, `report_sha256`
