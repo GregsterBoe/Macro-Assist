@@ -50,7 +50,7 @@ have its sealed read.
 | [H-008](#h-008) | `closed` | Within a stressed drawdown bin, the OR flag's state widens the forward distribution beyond what drawdown depth explains — *closed on explore 2026-09-29 at the owner's call: the width held within vol terciles (8 of 9), but neither `dd_x_frag` nor the vol forecast widened by the state forecasts better; no KB entry, no sealed read spent* |
 | [H-009](#h-009) | `closed` | Halving equity exposure while the cross-section flag fires takes less of each market drop than holding less stock does — *the first member of the risk-rule class ([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md), accepted and built 2026-10-01, `resolved.md` #34); its clause settled before any look, `resolved.md` #35; closed on explore 2026-10-01 at the owner's call: too costly, no edge, and worse than the volatility rival; no KB entry, no sealed read spent* |
 | [H-010](#h-010) | `closed` | Investing more of the monthly contribution while the cross-section flag fires ends with more wealth than plain monthly buying, and than buying after a fall — *the first member of the contribution-rule class ([ADR-0025](../decisions/ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md), accepted and built 2026-10-11, `resolved.md` #37); closed on explore 2026-10-11 at the owner's call: `inverted` — 3.2% less money than plain buying, behind the drawdown rival, though the clause held; no KB entry, no sealed read spent* |
-| [H-011](#h-011) | `draft` | Sending each month's contribution to the holding furthest below its target keeps a stock–bond–gold mix at least twice as close to target as plain buying, at no material cost — *the first member of a proposed allocation-rule class ([ADR-0026](../decisions/ADR-0026-a-buy-only-rebalancing-rule-is-read-on-drift-at-a-matched-exposure.md), open, `todo.md` #38); no look run* |
+| [H-011](#h-011) | `draft` | Splitting each month's contribution across the holdings below their target keeps a stock–bond–gold mix at least twice as close to target as plain buying, at no material cost — *the first member of the allocation-rule class ([ADR-0026](../decisions/ADR-0026-a-buy-only-rebalancing-rule-is-read-on-drift-at-a-matched-exposure.md), accepted and built 2026-10-11, `resolved.md` #38, its rule changed at build before any data); no look run* |
 
 ---
 
@@ -1065,9 +1065,9 @@ Report: `results/explore_rules/report_h010.md` · receipt
 `results/explore_rules/runs.jsonl` (2026-10-11T10:30:42+00:00, `report_sha256`
 `62c6be58…`).
 
-## H-011 — Sending each month's contribution to the holding furthest below its target keeps a stock–bond–gold mix at least twice as close to target as plain buying, at no material cost {: #h-011 }
+## H-011 — Splitting each month's contribution across the holdings below their target keeps a stock–bond–gold mix at least twice as close to target as plain buying, at no material cost {: #h-011 }
 
-**Status:** `draft` — needs an independent audit before it is a hypothesis (§6, ADR-0022). Drafted 2026-10-11 at the owner's request, with its class bar [ADR-0026](../decisions/ADR-0026-a-buy-only-rebalancing-rule-is-read-on-drift-at-a-matched-exposure.md), which is not accepted yet (`todo.md` #38). No look has run and no data for these assets has been read in this repo.
+**Status:** `draft` — needs an independent audit before it is a hypothesis (§6, ADR-0022). Drafted 2026-10-11 at the owner's request, with its class bar [ADR-0026](../decisions/ADR-0026-a-buy-only-rebalancing-rule-is-read-on-drift-at-a-matched-exposure.md), accepted as written the same day with this mix (`resolved.md` #38) and built the same day (`class_bars.MIX_RULE`, `explore_rules.py --member h011`). **The rule was changed at build, before any data** (below). No look has run and no data for these assets has been read in this repo.
 
 **What was seen.** Nothing for this rule. It is proposed for the owner's goal 3
 ([What is worth doing §2](../concepts/what-is-worth-doing.md#2-the-standing-goals)),
@@ -1114,16 +1114,21 @@ choose it, and another mix is a new member and a counted look (ADR-0026 §2).
 
 **The member, fixed before any look.**
 
-- **Rule.** At each month-end *t*, value each holding at the close. The whole
-  contribution of 1 goes to the **one holding with the largest euro gap below
-  its target** (target value = *w\*<sub>i</sub>* × (account + 1) minus its
-  current value). Ties go in table order. If no holding is below target, the
-  contribution is split at *w\**. Bought at the next trading day's close.
-  Nothing is sold.
-- **Why one holding a month.** One order a month is what the owner can follow
-  by hand, and it keeps the purchase cost to one order. Splitting the money
-  to fill several gaps at once would be closer to target and is a different
-  member.
+- **Rule, `h011_fill_gaps`.** At each month-end *t*, value each holding. Each
+  holding's **gap** is its target value after the contribution
+  (*w\*<sub>i</sub>* × (account + 1)) minus its current value, floored at zero.
+  The contribution of 1 is split across the holdings in proportion to their
+  gaps. The gaps after a contribution of 1 always sum to at least 1, so some
+  holding is always below target. With monthly data the purchase is at the
+  month-end the rule reads. Nothing is sold or held back.
+- **Changed at build, before any data (`resolved.md` #38).** As drafted, the
+  whole contribution went to the one holding with the largest gap: one order
+  a month. On three synthetic markets that rule drifted *more* than plain
+  buying in a plan's first five years (ratio 1.2–1.6), because one lumpy
+  purchase moves a small account a lot, and read `no_control` (0.61–0.78)
+  whatever the market did. Splitting the money read 0.33–0.42 on the same
+  markets. The owner chose the split. It costs up to three orders a month
+  (an adjusted savings plan, or orders by hand).
 - **No other value is tried;** any other rule or mix is a counted look.
 
 **Mechanism it would imply.** Prices move apart, and an account that only
@@ -1167,22 +1172,24 @@ small enough, and close often enough, for the contributions to keep up.
 
 **What would test it.**
 
-1. The owner accepts ADR-0026 and the mix, with or without changes
-   (`todo.md` #38).
-2. **The data errand,** built and checked before any leg is walked:
-   - equity: Fama-French daily market and RF, already in `explore_rules.py`,
-     compounded to month-ends;
-   - Bund yield: OECD long-term German rate, monthly (FRED
-     `IRLTLT01DEM156N`);
-   - gold: London PM fix, US dollars (FRED's LBMA series stop around 2021;
-     the sealed side needs another source reaching today, chosen in the build
-     and checked against the first one where they overlap before 2018);
-   - currency: Deutsche Mark per dollar to 1998, then dollars per euro (FRED
-     `EXGEUS`, `EXUSEU`).
-   The series IDs are to be confirmed in the build. FRED needs the API key
-   CI holds; this session's network cannot reach it.
-3. Build `class_bars.MIX_RULE` and the allocation walk, each verdict driven
-   alone by a test on planted markets.
+1. ✅ The owner accepted ADR-0026 and the mix as written, 2026-10-11
+   (`resolved.md` #38).
+2. **The data errand,** built 2026-10-11 (`explore_rules.check_mix_inputs`
+   stops the look on a missing month, a value out of range, or the two
+   dollar rates disagreeing by more than 1% where both exist):
+   - equity: Fama-French daily market and RF, compounded within each month;
+   - Bund yield: OECD long-term German rate, monthly average (FRED
+     `IRLTLT01DEM156N`), rebuilt into a constant-maturity 10-year bond's
+     total return;
+   - gold: the World Bank's monthly average price (Pink Sheet), through the
+     `datasets/gold-prices` mirror, one source on both sides of the seal
+     (FRED's London series are gone);
+   - currency: Deutsche Mark per dollar at the fixed conversion rate before
+     1999, then dollars per euro (FRED `EXGEUS`, `EXUSEU`), monthly averages.
+   The look runs in CI (`explore_rules.yml`): this session's network reaches
+   neither FRED nor Kenneth French's library.
+3. ✅ `class_bars.MIX_RULE` and the allocation walk, each verdict driven alone
+   by a test on planted markets (`test_mix_rule.py`).
 4. Walk this member on the explore side, 1973-01 to 2017-12 (gold floats from
    the early 1970s), plans starting each January from 1973 to 2008. That is
    one counted look, and this entry's ledger opens with it.
@@ -1195,8 +1202,7 @@ The result goes to the KB either way.
 sixth target type, read on drift from the owner's mix, with return as a cost
 limit against an exposure-matched rival. It makes no claim that one asset
 will beat another, uses no signal, never sells, never holds back money, and
-is never published as a call. If ADR-0026 is not accepted, this entry is
-closed before it opens.
+is never published as a call. ADR-0026 was accepted on 2026-10-11.
 
 **Read first.** [ADR-0026](../decisions/ADR-0026-a-buy-only-rebalancing-rule-is-read-on-drift-at-a-matched-exposure.md) ·
 [ADR-0025](../decisions/ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md) ·

@@ -1,0 +1,91 @@
+name: Explore rules (Phase 23)
+
+# An explore-tier look at a goal-3 rule, on the pre-seal slice only
+# (ADR-0023, ADR-0025, ADR-0026). Runs `explore_rules.py --member <m>` on
+# GitHub's runner, which reaches FRED (with the repo's key), Kenneth French's
+# library and the gold mirror; a cloud session's network may not.
+#
+# MANUAL ONLY, and a look is COUNTED: it appends a receipt to
+# results/explore_rules/runs.jsonl and the register entry's ledger must name
+# it (record_audit.py `receipts`). `dry_run` (the default) fetches and checks
+# the data and prints the slice; it walks no leg and leaves no receipt.
+# Nothing here reads the sealed side: every input is cut at SEAL_START on
+# arrival.
+
+on:
+  workflow_dispatch:
+    inputs:
+      member:
+        description: "Which register entry to walk"
+        type: choice
+        options: [h011, h010, h009]
+        default: h011
+      dry_run:
+        description: "Fetch and check the data only; no look, no receipt"
+        type: boolean
+        default: true
+      publish:
+        description: "Commit the report and the receipt to the output branch"
+        type: boolean
+        default: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  look:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: .macro-assist/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r .macro-assist/requirements.txt
+
+      - name: Run the offline tests first
+        run: python -m pytest .macro-assist/tests/test_explore_rules.py .macro-assist/tests/test_mix_rule.py -q
+
+      - name: Mount output branch at results/
+        # the run log lives there; a look appends to it
+        run: bash .macro-assist/ci_mount_output.sh
+
+      - name: Dry run (the data, no leg walked)
+        if: ${{ inputs.dry_run }}
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          MEMBER: ${{ inputs.member }}
+        run: |
+          python .macro-assist/explore_rules.py --member "$MEMBER" --dry-run | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: The look (COUNTED)
+        if: ${{ !inputs.dry_run }}
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          MEMBER: ${{ inputs.member }}
+        run: |
+          python .macro-assist/explore_rules.py --member "$MEMBER" > /dev/null
+          case "$MEMBER" in
+            h009) R=report.md ;;
+            *)    R="report_${MEMBER}.md" ;;
+          esac
+          cat "results/explore_rules/$R" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish the report and the receipt to the output branch
+        if: ${{ !inputs.dry_run && inputs.publish }}
+        env:
+          MEMBER: ${{ inputs.member }}
+        run: |
+          # the fetched inputs (inputs*.pkl) go too: what the look read, as H-009's did
+          bash .macro-assist/ci_publish_results.sh \
+            "explore_rules: ${MEMBER} look $(date -u +%Y-%m-%d)"

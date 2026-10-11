@@ -596,6 +596,103 @@ prose is the point.
 
 ## Phase 23 — exploration tier
 
+### RESOLVED 2026-10-11 — #38 a rule for where new money goes is a target class, read on drift with return as a cost limit: accepted
+**Resolution: accept [ADR-0026](../decisions/ADR-0026-a-buy-only-rebalancing-rule-is-read-on-drift-at-a-matched-exposure.md)
+as written, and H-011's mix,** the same day both were drafted, on all five
+questions: the mix of 70% world equities, 20% euro government bonds and 10%
+physically backed gold; a signal-free rule as goal 3's member for this
+decision and the baseline a fragility-steered allocation must beat; the bar
+reading control (mean drift at most half of plain buying's, its interval
+below 1) with return a cost limit (no more than 0.25 pp a year behind a
+fixed mix at the member's mean equity share); ten-year plans with a sealed
+plan of at least 96 months and the drop floor of five; and the data errand.
+Goal 4's tension with any diversified mix was put to the owner in the
+question and the mix was accepted with it.
+
+**Why it was the owner's call.** The mix is a risk preference, and whether a
+rule with no fragility signal counts toward goal 3 is a reading of the
+owner's own goals. The bar and its first member were drafted the same day,
+which How we explore §5 warns against; no data for these assets had been
+read in this repo by either.
+
+**Built the same day, before any look:** `class_bars.MIX_RULE` with its reader
+(`mix_read`: drift and money-weighted return over plans, `exposure_matched`
+found by bisection on each draw, a 24-month moving-block bootstrap,
+`late_control` with its month fixed by the plan length), each verdict driven
+alone by a test and planted markets showing what passes; the data errand and
+the H-011 walk in `explore_rules.py --member h011`; and `explore_rules.yml`,
+dispatch-only, because this session's network reaches neither FRED nor
+Kenneth French's library. With monthly data a purchase is made at the
+month-end the decision reads, which uses nothing after it.
+
+**Building it found one property of the member, not of the bar, and the owner
+changed the member before any data.** On three synthetic markets the rule as
+drafted, the whole contribution into the one holding furthest below target,
+drifted *more* than plain buying in a plan's first five years (ratio 1.2–1.6):
+in a small account one lumpy purchase moves the weights a lot. Its whole-plan
+ratio, 0.61–0.78, would read `no_control` whatever the market did. Splitting
+the contribution across every holding below target, in proportion to each
+gap, read 0.33–0.42 on the same markets. Asked before any look, the owner
+chose the split: H-011's arm is `h011_fill_gaps`, and the entry says so. A
+test pins the finding (`test_one_lumpy_purchase_a_month_drifts_more_than_plain_early_in_a_plan`).
+**A second property, of the bar:** on the same synthetic markets an annual
+sell-back to target reached a control ratio of only 0.45–0.55, so the 0.5
+margin is demanding even for the control a taxable account pays for. The
+margin stays as accepted; the report gives the sell-back's ratio beside the
+member's.
+
+**Data, as built.** Equity: the Fama-French US market, daily returns
+compounded within each month. Bonds: a constant-maturity 10-year Bund, total
+return rebuilt from the OECD yield (FRED `IRLTLT01DEM156N`). Gold: the World
+Bank's monthly price via the `datasets/gold-prices` mirror, one source on both
+sides of the seal (FRED's London series are gone). Dollars per euro: `EXGEUS`
+at the fixed conversion rate before 1999, `EXUSEU` from 1999, checked to
+agree within 1% where both exist. The yield, the rates and gold are monthly
+averages; equity is month-end compounding. `check_mix_inputs` stops the look
+on a missing month, a value out of range or a rate mismatch.
+
+**The question as it stood:**
+
+**Opened 2026-10-11, at the owner's request.** The owner chose goal 3's third
+decision, rebalancing, with nothing ever sold, and left the holdings to the
+proposer. [ADR-0026](../decisions/ADR-0026-a-buy-only-rebalancing-rule-is-read-on-drift-at-a-matched-exposure.md)
+proposes a class bar for rules that choose *where* each month's contribution
+goes, and [H-011](hypotheses.md#h-011) a first member and a mix. Nothing is
+built and no data for these assets has been read. Five calls, in order of
+weight:
+
+1. **The mix.** 70% world equities, 20% euro government bonds, 10% gold
+   (physically backed ETC). It is a risk preference and the owner's to set;
+   it is fixed before any look and never tuned. **Goal 4** (beat the S&P 500
+   over two years) pulls against any mix with bonds and gold: in a year of
+   strong equities this mix will usually trail. Accept the mix, change it, or
+   say which goal wins.
+2. **Does a signal-free rule count toward goal 3?** Goal 3 asks for
+   *fragility-based* rules. H-011 uses no signal: it is the practical answer
+   for the decision and the baseline a fragility-steered allocation would
+   have to beat. Accept it as a goal-3 member, or as a baseline only.
+3. **The claim and the margins.** The bar reads control, not return: the
+   member's mean drift from the mix at most **half** of plain buying's, its
+   interval clear of 1; its money-weighted return no more than **0.25 pp a
+   year** behind a rival holding the same average equity share. No door
+   through ADR-0009 is needed (§2). Proposer's defaults.
+4. **The plans.** Ten-year plans from an empty account, one starting every
+   January on the explore side (1973–2008 starts); the sealed side is one
+   plan from 2018-01, read only if it has at least 96 months. Drop floor 5,
+   as in ADR-0023 and ADR-0025.
+5. **The data errand.** Euro-valued monthly series for the three holdings
+   from proxies (US market, 10-year Bund rebuilt from its yield, London gold;
+   H-011 *What would test it*). FRED needs CI's key; this session cannot
+   reach it, so the build fetches there or the network policy changes.
+
+*Lean, the proposer's:* accept as written, with the mix as the one call only
+the owner can make. **The honest prior is better than H-009's and H-010's**
+for the control claim, which is mostly arithmetic, and **uncertain for the
+cost**, which depends on whether the assets revert against each other. The
+main risk is `no_control` from fading in the plan's second half. On
+acceptance: the data errand, then `class_bars.MIX_RULE` and the allocation
+walk, then H-011's first counted look.
+
 ### RESOLVED 2026-10-11 — #37 a rule for new money is a target class, read on wealth at an equal budget: accepted
 **Resolution: accept [ADR-0025](../decisions/ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md)
 as written,** the same day it was drafted, on all four questions: the narrow
