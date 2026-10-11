@@ -472,6 +472,19 @@ What it does not do:
 - **It is not a second chance.** One sealed read at a time repo-wide, and one
   per class ever; `record_audit.py`'s `sealed-reads` check is the backstop.
 
+### explore_rules.yml — an explore-tier look at a goal-3 rule (Phase 23)
+
+Dispatch-only. It runs `.macro-assist/explore_rules.py --member <m>` (`h009`,
+`h010` or `h011`) on GitHub's runner, which reaches FRED with the repo's
+`FRED_API_KEY`, Kenneth French's library and the gold mirror. A cloud
+session's network may reach none of them. `dry_run` (the default) fetches,
+checks the data and prints the slice; it walks no leg and leaves no receipt.
+Without it the run is a **counted look**: it writes the member's report and
+summary under `results/explore_rules/`, with the fetched inputs, and appends a
+receipt to `runs.jsonl`. With `publish`, all of it is committed to `output`,
+and the register entry's ledger must then name the look (`record_audit.py`
+`receipts`). Every input is cut at `SEAL_START` on arrival.
+
 ### model_compare.yml — the main model, compared on saved days (IMP-8)
 
 Dispatch-only, and it **costs API money**: about $0.10 a day replayed on Opus
@@ -624,7 +637,8 @@ And what does **not** run on any schedule — dispatch-only, by choice:
 (the auditor's test, run when its instructions or canaries change — WP-25.A),
 `audit_entry.yml` (the promotion-tier audit of one entry — WP-25.C),
 `sealed_read.yml` (the owner's key before a sealed read — WP-25.D),
-`model_compare.yml` (saved days through the main analysis call on several models — IMP-8), `exo_slice_smoke.yml`
+`model_compare.yml` (saved days through the main analysis call on several models — IMP-8),
+`explore_rules.yml` (an explore-tier look at a goal-3 rule — Phase 23), `exo_slice_smoke.yml`
 and `kimi_arm_smoke.yml` (both arms soft-killed, [ADR-0015](../decisions/ADR-0015-soft-kill-convention.md)),
 and `macro_weekly_refit.yml` standalone, which is how a one-off refresh is done
 between Mondays. `docs.yml` and `record_audit.yml` trigger on pushes and pull

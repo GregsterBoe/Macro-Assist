@@ -9,7 +9,7 @@ adds only what its own entry states — its arm, its horizon, a stricter floor,
 and its mechanism clause — in a `Pre-registration` field the independent audit
 stamps with the rest of the entry (ADR-0022).
 
-Four classes
+Five classes
 ------------
     conditioner   a shadow conditioner vs `unconditional` (H-004, H-008).
                   Phase 22's bar as is — MIN_SKILL, a block-bootstrap interval
@@ -41,6 +41,16 @@ Four classes
                   verdict: underpowered → inverted → no_edge →
                   explained_by_rival → unexplained. Sealed side 2018-01-01 →
                   the last complete month, once.
+    mix_rule      a rule for where new money goes: which holding each
+                  month's contribution buys, all of it invested, nothing ever
+                  sold (ADR-0026, H-011). Read on drift from the owner's
+                  target mix against splitting every contribution at it
+                  (`plain`), with money-weighted return only a cost limit
+                  against a fixed mix at the member's mean equity weight
+                  (`exposure_matched`). Ten-year plans on the explore side;
+                  its own reader and verdict: underpowered → inverted →
+                  costly → no_control → unexplained. Sealed side one plan,
+                  2018-01 → the last complete month, once.
 
 The verdict (the quantile classes) — disqualifiers first, each returning its own verdict
 ---------------------------------------------------------------------
@@ -907,7 +917,7 @@ FLOW_RULE = FlowBar(
     sealed_from=SEALED_FROM, sealed_until=None,
 )
 
-BARS: dict[str, ClassBar | RiskBar | FlowBar] = {
+BARS: dict[str, "ClassBar | RiskBar | FlowBar | MixBar"] = {
     b.name: b for b in (CONDITIONER, GAP_WIDTH, RISK_RULE, FLOW_RULE)}
 
 FLOW_VERDICTS = ("exploratory", "underpowered", "inverted", "no_edge", "explained_by_rival",
@@ -1253,6 +1263,409 @@ def flow_read(path: dict, prereg: dict, *, sealed: bool) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# the allocation-rule class (ADR-0026): where each month's money goes
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class MixBar:
+    name: str
+    rival: str                   # every contribution split at the target mix, never rebalanced
+    second_rival: str            # the same, at the fixed equity share that matches the member's mean
+    episode_depth: float         # a drop of the equity asset, peak to trough, at least this deep
+    min_episodes: int
+    max_ratio: float             # the member's mean drift over `rival`'s, at most this
+    max_shortfall: float         # money-weighted return a year behind `second_rival`, at most this
+    cost_bps: tuple              # every purchase pays each in turn; costly fires on either
+    interval: float              # the two-sided moving-block bootstrap interval of the ratio
+    block_months: int
+    plan_months: int             # the explore side's plans, each from an empty account
+    min_sealed_months: int       # the sealed side's one plan, at least this long
+    sealed_from: date | None
+    sealed_until: date | None    # None: to the last complete month with data at read time
+
+
+MIX_RULE = MixBar(
+    name="mix_rule", rival="plain", second_rival="exposure_matched",
+    # Halving the drift is the least that changes what is held when a drop
+    # arrives; ADR-0025's 0.25 pp margin used as the most the control may
+    # cost. ADR-0023's drop, floor and costs, ADR-0025's 24-month blocks; ten-
+    # year plans, the sealed one at least eight. All as ADR-0026 proposed
+    # them and the owner accepted them (resolved.md #38).
+    max_ratio=0.5, max_shortfall=0.0025, min_episodes=5, episode_depth=0.10,
+    cost_bps=(10.0, 30.0), interval=0.90, block_months=24, plan_months=120,
+    min_sealed_months=96, sealed_from=SEALED_FROM, sealed_until=None,
+)
+
+BARS[MIX_RULE.name] = MIX_RULE
+
+MIX_VERDICTS = ("exploratory", "underpowered", "inverted", "costly", "no_control",
+                "unexplained", "edge")
+MIX_LEGS = ("member", "plain", "exposure_matched")
+
+
+def _check_mix_path(bar: MixBar, path: dict, sealed: bool) -> tuple[list[str], list[str], np.ndarray]:
+    """The path: `months` ("YYYY-MM", in order), one return per month and
+    asset in the owner's currency (`returns`, the month's change from the
+    month-end before it), the `targets` (summing to 1), which asset is the
+    `equity` one, and `allocate(values, targets, month)` — the member's split
+    of the contribution at each month-end, from the holdings' values there
+    and the month just ended. A plan's first contribution is made at the
+    month-end before its first month."""
+    months = list(path["months"])
+    if months != sorted(months) or len(set(months)) != len(months):
+        raise PreregError("the path's months must be distinct and in order")
+    assets = list(path["targets"])
+    w = np.array([path["targets"][a] for a in assets], float)
+    if len(assets) < 2 or w.min() < 0 or abs(w.sum() - 1.0) > 1e-9:
+        raise PreregError("the targets name at least two assets, none negative, summing to 1")
+    if path.get("equity") not in assets:
+        raise PreregError(f"`equity` must name one of {assets}, not {path.get('equity')!r}")
+    R = np.array([np.asarray(path["returns"][a], float) for a in assets]).T
+    if R.shape != (len(months), len(assets)) or not np.all(np.isfinite(R)) or R.min() <= -1:
+        raise PreregError("every asset needs one finite return above −100% per month")
+    if not callable(path.get("allocate")):
+        raise PreregError("the path carries no `allocate` rule for the member")
+    seal = bar.sealed_from.isoformat()[:7]
+    if sealed and months[0] < seal:
+        raise PreregError(f"a sealed read starts on the sealed side ({seal}), not {months[0]}")
+    if not sealed and months[-1] >= seal:
+        raise PreregError(f"an explore read stops before the seal ({seal}); this path runs to {months[-1]}")
+    return months, assets, R
+
+
+def _plan_starts(months: list[str], plan: int, sealed: bool) -> list[int]:
+    """Where each plan's first month sits: on the sealed side one plan, the
+    whole path; on the explore side every January whose `plan` months fit."""
+    if sealed:
+        return [0]
+    return [i for i, m in enumerate(months) if m.endswith("-01") and i + plan <= len(months)]
+
+
+def _mix_legs(R: np.ndarray, starts: list[int], plan: int, w: np.ndarray, eq: int, allocate,
+              e: np.ndarray | None, cost_bps: float, track: bool = False,
+              only: tuple | None = None) -> dict:
+    """Walk the member, `plain` and (with `e`, one equity share per resample)
+    `exposure_matched` over every plan. `R` is (boots × months × assets).
+    Drift and the equity weight are read at each of a plan's month-ends 1 …
+    `plan`, before any contribution there (month-end 0 is the empty account);
+    wealth at month-end `plan`."""
+    nb, _, A = R.shape
+    keep = 1.0 - cost_bps / 1e4
+    splits = {"member": None, "plain": np.broadcast_to(w, (nb, A))}
+    if e is not None:
+        rest = np.delete(w, eq)
+        rest = rest / rest.sum() if rest.sum() > 0 else np.full(A - 1, 1.0 / (A - 1))
+        sm = np.empty((nb, A))
+        sm[:, eq] = e
+        sm[:, [i for i in range(A) if i != eq]] = (1.0 - e)[:, None] * rest[None, :]
+        splits["exposure_matched"] = sm
+    out = {}
+    for leg, fixed in splits.items():
+        if only is not None and leg not in only:
+            continue
+        drift = np.zeros((nb, len(starts), plan))
+        eqw = np.zeros((nb, len(starts), plan))
+        wealth = np.zeros((nb, len(starts)))
+        got = np.zeros((nb, A))
+        for p, s in enumerate(starts):
+            V = np.zeros((nb, A))
+            for k in range(plan + 1):
+                if k:
+                    tot = V.sum(axis=1)
+                    drift[:, p, k - 1] = 0.5 * np.abs(V / tot[:, None] - w).sum(axis=1)
+                    eqw[:, p, k - 1] = V[:, eq] / tot
+                if k == plan:
+                    wealth[:, p] = tot
+                    break
+                x = (np.asarray(allocate(V, w, np.full(nb, s + k - 1)), float)
+                     if fixed is None else fixed)
+                if track:
+                    got += x
+                V = (V + x * keep) * (1.0 + R[:, s + k, :])
+        out[leg] = {"drift": drift, "equity_weight": eqw, "wealth": wealth,
+                    "received": got / (len(starts) * plan) if track else None}
+    return out
+
+
+def _match_equity(R: np.ndarray, starts: list[int], plan: int, w: np.ndarray, eq: int,
+                  target: np.ndarray, cost_bps: float, steps: int = 30) -> np.ndarray:
+    """The fixed equity share at which `exposure_matched`'s mean equity weight,
+    over every month of every plan, equals `target` — one per resample, by
+    bisection (the mean rises with the share)."""
+    lo, hi = np.zeros(R.shape[0]), np.ones(R.shape[0])
+    for _ in range(steps):
+        mid = 0.5 * (lo + hi)
+        got = _mix_legs(R, starts, plan, w, eq, None, mid, cost_bps, only=("exposure_matched",))
+        got = got["exposure_matched"]
+        m = got["equity_weight"].mean(axis=(1, 2))
+        lo, hi = np.where(m < target, mid, lo), np.where(m < target, hi, mid)
+    return 0.5 * (lo + hi)
+
+
+def _plan_mwr(wealth: np.ndarray, plan: int) -> np.ndarray:
+    """Each plan's money-weighted return a year: `plan` contributions, the
+    first at the start, valued a month after the last — the same as `plan + 1`
+    contributions with the last not yet invested."""
+    flat = wealth.reshape(-1) + 1.0
+    return money_weighted_return(flat, plan + 1).reshape(wealth.shape)
+
+
+def _sell_rebalanced(R: np.ndarray, months: list[str], starts: list[int], plan: int,
+                     w: np.ndarray, cost_bps: float) -> dict:
+    """Contributions at the target mix and, at every December month-end, a sale
+    back to it: the control a taxable account pays for. Reported, never read.
+    Drift is read as the other legs read it, before the month-end's trades;
+    gains realized are on an average-cost basis, in contributions."""
+    keep = 1.0 - cost_bps / 1e4
+    drift, gains = [], []
+    for s in starts:
+        V, basis, g, d = np.zeros(len(w)), np.zeros(len(w)), 0.0, []
+        for k in range(plan + 1):
+            if k:
+                tot = V.sum()
+                d.append(0.5 * np.abs(V / tot - w).sum())
+            if k == plan:
+                break
+            if k and months[s + k - 1].endswith("-12"):
+                trade = w * tot - V
+                sold = np.where(trade < 0, -trade, 0.0)
+                frac = np.divide(sold, V, out=np.zeros_like(V), where=V > 0)
+                g += float((sold - basis * frac).sum())
+                basis, V = basis * (1.0 - frac), V - sold
+                buy = np.where(trade > 0, trade, 0.0)
+                buy = buy / buy.sum() * sold.sum() * keep if buy.sum() > 0 else buy
+                V, basis = V + buy * keep, basis + buy
+            V, basis = V + w * keep, basis + w
+            V = V * (1.0 + R[s + k])
+        drift.append(np.mean(d))
+        gains.append(g)
+    return {"mean_drift": float(np.mean(drift)), "gains_per_plan": float(np.mean(gains))}
+
+
+def mix_summary(bar: MixBar, path: dict, arm: str, *, sealed: bool = False,
+                n_boot: int | None = None, seed: int = SEED) -> dict:
+    """Everything the mix verdict reads, and everything it only reports."""
+    n_boot = N_BOOT if n_boot is None else n_boot
+    months, assets, R = _check_mix_path(bar, path, sealed)
+    plan = len(months) if sealed else bar.plan_months
+    starts = _plan_starts(months, plan, sealed)
+    if not starts:
+        raise PreregError(f"no plan of {plan} months fits in {len(months)} months")
+    w = np.array([path["targets"][a] for a in assets], float)
+    eq = assets.index(path["equity"])
+    alloc = path["allocate"]
+    base = bar.cost_bps[0]
+    R1 = R[None]
+
+    legs, e = {}, {}
+    for c in bar.cost_bps:
+        mem = _mix_legs(R1, starts, plan, w, eq, alloc, None, c, only=("member",))["member"]
+        e[c] = _match_equity(R1, starts, plan, w, eq, mem["equity_weight"].mean(axis=(1, 2)), c)
+        legs[c] = _mix_legs(R1, starts, plan, w, eq, alloc, e[c], c, track=(c == base))
+    L = legs[base]
+    mean_drift = {k: float(L[k]["drift"].mean()) for k in MIX_LEGS}
+    ratio = mean_drift["member"] / mean_drift["plain"] if mean_drift["plain"] > 0 else float("inf")
+    mwr = {c: {k: float(_plan_mwr(legs[c][k]["wealth"], plan).mean()) for k in MIX_LEGS}
+           for c in bar.cost_bps}
+    shortfall = {str(c): round(mwr[c][bar.second_rival] - mwr[c]["member"], 6) for c in bar.cost_bps}
+
+    # the interval: months resampled in blocks, every asset's return together,
+    # every plan and leg re-run on each resample, the matched share re-found
+    bi = _boot_idx(len(months), bar.block_months, n_boot, seed)
+    Rb = R[bi]
+
+    def alloc_b(V, ww, k):
+        return alloc(V, ww, bi[np.arange(len(k)), np.maximum(k, 0)])
+
+    bm = _mix_legs(Rb, starts, plan, w, eq, alloc_b, None, base, only=("member",))
+    eb = _match_equity(Rb, starts, plan, w, eq, bm["member"]["equity_weight"].mean(axis=(1, 2)), base)
+    bl = _mix_legs(Rb, starts, plan, w, eq, alloc_b, eb, base)
+    r_boot = bl["member"]["drift"].mean(axis=(1, 2)) / np.maximum(bl["plain"]["drift"].mean(axis=(1, 2)), 1e-12)
+    s_boot = (_plan_mwr(bl["exposure_matched"]["wealth"], plan).mean(axis=1)
+              - _plan_mwr(bl["member"]["wealth"], plan).mean(axis=1))
+    tail = 50.0 * (1.0 - bar.interval)
+    r_lo, r_hi = np.percentile(r_boot, [tail, 100.0 - tail])
+    s_lo, s_hi = np.percentile(s_boot, [tail, 100.0 - tail])
+
+    level = np.r_[1.0, np.cumprod(1.0 + R[:, eq])]
+    eps = risk_episodes(level, bar.episode_depth)
+    half = plan // 2
+    per_plan = L["member"]["drift"][0].mean(axis=1) / np.maximum(L["plain"]["drift"][0].mean(axis=1), 1e-12)
+    late = (L["member"]["drift"][0][:, half:].mean(axis=1)
+            / np.maximum(L["plain"]["drift"][0][:, half:].mean(axis=1), 1e-12))
+    early = (L["member"]["drift"][0][:, :half].mean(axis=1)
+             / np.maximum(L["plain"]["drift"][0][:, :half].mean(axis=1), 1e-12))
+
+    at_peaks = []
+    for p, t in eps:                       # level position p is the month-end after month p − 1
+        rows = {k: [] for k in ("member", "plain")}
+        for j, s in enumerate(starts):
+            k = p - s                      # months into plan j at that month-end
+            if 1 <= k <= plan:
+                for leg in rows:
+                    rows[leg].append(float(L[leg]["equity_weight"][0, j, k - 1]))
+        at_peaks.append({"peak": months[p - 1] if p else "start", "trough": months[t - 1],
+                         "depth": round(1.0 - level[t] / level[p], 4), "plans": len(rows["member"]),
+                         **{f"equity_weight_{leg}": (round(float(np.mean(v)), 4) if v else None)
+                            for leg, v in rows.items()}})
+    sr = _sell_rebalanced(R, months, starts, plan, w, base)
+    out = {
+        "class": bar.name, "arm": arm, "first_month": months[0], "last_month": months[-1],
+        "n_months": len(months), "plan_months": plan, "n_plans": len(starts),
+        "assets": assets, "targets": [round(float(x), 4) for x in w], "equity": path["equity"],
+        "n_episodes": len(eps), "episodes": at_peaks,
+        "control_ratio": round(ratio, 4),
+        "control_ratio_ci": {"lo": round(float(r_lo), 4), "hi": round(float(r_hi), 4),
+                             "level": bar.interval, "n_boot": n_boot, "block_months": bar.block_months},
+        "mean_drift": {k: round(v, 5) for k, v in mean_drift.items()},
+        "shortfall": shortfall,
+        "shortfall_ci": {"lo": round(float(s_lo), 6), "hi": round(float(s_hi), 6), "level": bar.interval},
+        "matched_equity_share": round(float(e[base][0]), 4),
+        "mean_equity_weight": {k: round(float(L[k]["equity_weight"].mean()), 4) for k in MIX_LEGS},
+        "legs": {str(c): {k: {"money_weighted_return": round(mwr[c][k], 6),
+                              "wealth_per_contribution": round(float(legs[c][k]["wealth"].mean()) / plan, 5)}
+                          for k in MIX_LEGS} for c in bar.cost_bps},
+        "control_ratio_by_half": {"first": round(float(np.median(early)), 4),
+                                  "second": round(float(np.median(late)), 4)},
+        "control_ratio_by_plan": {"median": round(float(np.median(per_plan)), 4),
+                                  "worst": round(float(per_plan.max()), 4)},
+        "received": {a: round(float(x), 4) for a, x in zip(assets, L["member"]["received"][0])},
+        "sell_rebalanced": {"control_ratio": round(sr["mean_drift"] / mean_drift["plain"], 4)
+                            if mean_drift["plain"] > 0 else None,
+                            "gains_realized_per_plan": round(sr["gains_per_plan"], 4)},
+        "_plans": {"late": late},
+    }
+    out["halves"] = (_mix_halves(bar, path, months, starts, plan, w, eq, alloc)
+                     if not sealed and len(starts) >= 2 else None)
+    return out
+
+
+def _mix_halves(bar, path, months, starts, plan, w, eq, alloc) -> list[dict]:
+    """The control ratio and the shortfall on the first and second half of the
+    plan starts. Reported, never read."""
+    R = np.array([np.asarray(path["returns"][a], float) for a in path["targets"]]).T[None]
+    base = bar.cost_bps[0]
+    out = []
+    mid = len(starts) // 2
+    for part in (starts[:mid], starts[mid:]):
+        mem = _mix_legs(R, part, plan, w, eq, alloc, None, base, only=("member",))["member"]
+        e = _match_equity(R, part, plan, w, eq, mem["equity_weight"].mean(axis=(1, 2)), base)
+        L = _mix_legs(R, part, plan, w, eq, alloc, e, base)
+        r = L["member"]["drift"].mean() / max(L["plain"]["drift"].mean(), 1e-12)
+        s = (_plan_mwr(L["exposure_matched"]["wealth"], plan).mean()
+             - _plan_mwr(L["member"]["wealth"], plan).mean())
+        out.append({"first_start": months[part[0]], "last_start": months[part[-1]],
+                    "control_ratio": round(float(r), 4), "shortfall": round(float(s), 6)})
+    return out
+
+
+def mix_verdict(bar: MixBar, summary: dict, clauses: list[dict] | None, *,
+                sealed: bool, floor: dict | None = None) -> dict:
+    """ADR-0026's order: each disqualifier returns at once, every number is
+    carried whichever fires."""
+    floor = floor or {"episodes": bar.min_episodes}
+    clauses = clauses or []
+    out = {"class": bar.name, "summary": summary, "clauses": clauses, "floor": floor}
+
+    def done(v: str, reason: str) -> dict:
+        return {**out, "verdict": v, "reason": reason}
+
+    if not sealed:
+        return done("exploratory", "the sample is not the sealed side; reported, cannot pass")
+    if summary["n_episodes"] < floor["episodes"]:
+        return done("underpowered", f"{summary['n_episodes']} drops of {bar.episode_depth:.0%} "
+                                    f"< {floor['episodes']} required")
+    if summary["plan_months"] < bar.min_sealed_months:
+        return done("underpowered", f"the sealed plan has {summary['plan_months']} months "
+                                    f"< {bar.min_sealed_months} required")
+    r, ci = summary["control_ratio"], summary["control_ratio_ci"]
+    if r >= 1.0:
+        return done("inverted", f"control ratio {r:.3f}: the member drifts at least as far as `{bar.rival}`")
+    worst = max(summary["shortfall"].items(), key=lambda kv: kv[1])
+    if worst[1] > bar.max_shortfall:
+        return done("costly", f"{worst[1] * 100:+.3f} pp a year behind `{bar.second_rival}` at {worst[0]} bps; "
+                              f"at most {bar.max_shortfall * 100:.2f} pp allowed")
+    if r > bar.max_ratio or ci["hi"] >= 1.0:
+        return done("no_control", f"control ratio {r:.3f}, interval [{ci['lo']:.3f}, {ci['hi']:.3f}]; "
+                                  f"needs ≤ {bar.max_ratio} with the interval below 1")
+    if not clauses:
+        return done("unexplained", "the entry names no mechanism clause")
+    failed = [c for c in clauses if not c["passed"]]
+    if failed:
+        return done("unexplained", "; ".join(f"{c['kind']} failed: {c['detail']}" for c in failed))
+    return done("edge", f"control ratio {r:.3f} at a shortfall of {worst[1] * 100:+.3f} pp a year, "
+                        f"{len(clauses)} clause(s) held")
+
+
+MIX_KINDS = {
+    "late_control": {"required": {"kind", "from_month", "max_ratio"}, "optional": set()},
+}
+
+
+def evaluate_mix_clause(bar: MixBar, clause: dict, path: dict, summary: dict) -> dict:
+    """`late_control`: control does not fade as the account grows. Each plan's
+    control ratio over its months from `from_month` on; the median across
+    plans at most `max_ratio`. The bar computes the second half from the
+    plan's own length; a clause naming another month is refused at
+    validation, so what is read is what the entry states."""
+    half = summary["plan_months"] // 2 + 1
+    if int(clause["from_month"]) != half and summary["plan_months"] == bar.plan_months:
+        raise PreregError(f"late_control reads from month {half} of a {bar.plan_months}-month plan, "
+                          f"not {clause['from_month']}")
+    late = summary["_plans"]["late"]
+    med = float(np.median(late))
+    ok = bool(med <= float(clause["max_ratio"]))
+    detail = (f"median control ratio over each plan's second half {med:.3f} across {len(late)} plan(s); "
+              f"needs ≤ {clause['max_ratio']}")
+    return {"kind": clause["kind"], "passed": ok, "detail": detail,
+            "cells": [{"name": "second_half", "n_plans": int(len(late))}]}
+
+
+def _validate_mix(bar: MixBar, spec: dict) -> dict:
+    extra = set(spec) - {"class", "arm", "floor", "clauses"}
+    if extra:
+        raise PreregError(f"unknown key(s) {sorted(extra)} for the {bar.name} class")
+    arm = spec.get("arm")
+    if not isinstance(arm, str) or not arm or arm in MIX_LEGS[1:]:
+        raise PreregError(f"arm must name the candidate, not a rival: {arm!r}")
+    floor = {"episodes": bar.min_episodes}
+    for k, v in (spec.get("floor") or {}).items():
+        if k != "episodes" or not isinstance(v, int):
+            raise PreregError(f"floor takes integer episodes, not {k!r}: {v!r}")
+        if v < floor[k]:
+            raise PreregError(f"floor episodes = {v} is looser than the class floor {floor[k]}")
+        floor[k] = v
+    clauses = spec.get("clauses")
+    if not isinstance(clauses, list) or not clauses:
+        raise PreregError("clauses must be a non-empty list — an entry with no mechanism clause "
+                          "cannot pass the bar (How we explore §9, question 4)")
+    for i, c in enumerate(clauses):
+        kind = c.get("kind") if isinstance(c, dict) else None
+        if kind not in MIX_KINDS:
+            raise PreregError(f"clause {i}: kind must be one of {sorted(MIX_KINDS)}, not {kind!r}")
+        missing = MIX_KINDS[kind]["required"] - set(c)
+        unknown = set(c) - MIX_KINDS[kind]["required"] - MIX_KINDS[kind]["optional"]
+        if missing or unknown:
+            raise PreregError(f"clause {i} ({kind}): missing {sorted(missing)}, unknown {sorted(unknown)}")
+        fm, mr = c["from_month"], c["max_ratio"]
+        if not isinstance(fm, int) or isinstance(fm, bool) or fm != bar.plan_months // 2 + 1:
+            raise PreregError(f"clause {i}: from_month must be {bar.plan_months // 2 + 1}, "
+                              f"the second half of a {bar.plan_months}-month plan, not {fm!r}")
+        if not isinstance(mr, (int, float)) or isinstance(mr, bool) or not bar.max_ratio <= mr < 1.0:
+            raise PreregError(f"clause {i}: max_ratio must be at least the bar's {bar.max_ratio} and "
+                              f"below 1, not {mr!r}")
+    return {"class": bar.name, "arm": arm, "floor": floor, "clauses": clauses}
+
+
+def mix_read(path: dict, prereg: dict, *, sealed: bool) -> dict:
+    bar = BARS[prereg["class"]]
+    summary = mix_summary(bar, path, prereg["arm"], sealed=sealed)
+    clauses = [evaluate_mix_clause(bar, c, path, summary) for c in prereg["clauses"]]
+    summary.pop("_plans", None)
+    return mix_verdict(bar, summary, clauses, sealed=sealed, floor=prereg["floor"])
+
+
+# ---------------------------------------------------------------------------
 # the member's pre-registration, as its entry states it
 # ---------------------------------------------------------------------------
 
@@ -1282,6 +1695,8 @@ def validate(spec) -> dict:
         return _validate_risk(bar, spec)
     if isinstance(bar, FlowBar):
         return _validate_flow(bar, spec)
+    if isinstance(bar, MixBar):
+        return _validate_mix(bar, spec)
     arm = spec.get("arm")
     if not isinstance(arm, str) or not arm or arm in (bar.benchmark, bar.rival):
         raise PreregError(f"arm must name the candidate, not the benchmark or the rival: {arm!r}")
@@ -1345,6 +1760,8 @@ def read(obs: list[dict], prereg: dict, *, sealed: bool) -> dict:
         return risk_read(obs, prereg, sealed=sealed)
     if isinstance(bar, FlowBar):
         return flow_read(obs, prereg, sealed=sealed)
+    if isinstance(bar, MixBar):
+        return mix_read(obs, prereg, sealed=sealed)
     if sealed and bar.sealed_from is None:
         raise PreregError(f"the {bar.name} class has no decided seal; a sealed read is refused")
     summary = summarize(bar, obs, prereg["arm"], prereg["horizon"])
@@ -1354,7 +1771,25 @@ def read(obs: list[dict], prereg: dict, *, sealed: bool) -> dict:
 
 # ---------------------------------------------------------------------------
 
-def describe(bar: ClassBar | RiskBar | FlowBar) -> str:
+def describe(bar: ClassBar | RiskBar | FlowBar | MixBar) -> str:
+    if isinstance(bar, MixBar):
+        until = ("the last complete month with data at read time" if bar.sealed_until is None
+                 else f"before {bar.sealed_until}")
+        return "\n".join([
+            f"{bar.name}: vs `{bar.rival}` (every contribution at the target mix, never rebalanced), "
+            f"rival `{bar.second_rival}` (a fixed mix at the member's mean equity weight)",
+            "  every leg: 1 a month, all of it invested, never a sale; plans of "
+            f"{bar.plan_months} months from an empty account (sealed: one plan, ≥ {bar.min_sealed_months})",
+            f"  episodes: drops of the equity asset of ≥ {bar.episode_depth:.0%} peak to trough; "
+            f"≥ {bar.min_episodes} on the sealed side",
+            f"  costly: money-weighted return > {bar.max_shortfall * 100:.2f} pp a year behind "
+            f"`{bar.second_rival}` at " + " or ".join(f"{c:g}" for c in bar.cost_bps) + " bps",
+            f"  pass: mean drift ≤ {bar.max_ratio} × `{bar.rival}`'s, {bar.interval:.0%} moving-block "
+            f"({bar.block_months}-month) interval of the ratio below 1",
+            "  reported, never read: each leg's return and wealth, the ratio by half and by plan, "
+            "equity weights at each drop's peak, where the money went, an annual sell-back's drift and gains",
+            f"  seal: {bar.sealed_from} → {until}, read once",
+        ])
     if isinstance(bar, FlowBar):
         until = ("the last complete month with data at read time" if bar.sealed_until is None
                  else f"before {bar.sealed_until}")

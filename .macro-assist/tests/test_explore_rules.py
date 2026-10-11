@@ -179,3 +179,106 @@ def test_an_h010_dry_run_reads_no_rule(monkeypatch, tmp_path):
     info = er.dry_run(tmp_path, member="h010")
     assert info["balance_share"] == pytest.approx(0.2) and 0 <= info["share_high_months"] <= 1
     assert not (tmp_path / er.RUN_LOG).exists()
+
+
+# ---------------------------------------------------------------------------
+# H-011 (ADR-0026): three holdings in euros, monthly
+# ---------------------------------------------------------------------------
+
+def test_h011_is_the_entrys():
+    assert er.MIX_TARGETS == {"equity": 0.70, "bonds": 0.20, "gold": 0.10}
+    assert er.SPEC_H011["clauses"] == [{"kind": "late_control", "from_month": 61, "max_ratio": 0.75}]
+    assert er.ARM_H011 == "h011_fill_gaps" and er.MIX_START == "1972-12"
+
+
+def test_filling_gaps_invests_everything_and_only_below_target():
+    w = np.array([0.7, 0.2, 0.1])
+    V = np.array([[0.0, 0.0, 0.0], [80.0, 10.0, 10.0], [70.0, 20.0, 10.0]])
+    x = er.fill_gaps(V, w)
+    assert np.allclose(x.sum(axis=1), 1.0) and (x >= 0).all()
+    assert np.allclose(x[0], w)                       # an empty account buys the mix
+    assert x[1, 0] == 0.0 and x[1, 1] > x[1, 2] > 0   # equity is over target; bonds furthest under
+    assert np.allclose(x[2], w)                       # on target: the mix
+
+
+def test_a_bond_held_at_an_unchanged_yield_earns_its_coupon():
+    assert er.bond_return(0.06, 0.06) == pytest.approx(0.005)
+    assert er.bond_return(0.0, 0.0) == pytest.approx(0.0)
+    assert er.bond_return(0.05, 0.06) < 0 < er.bond_return(0.06, 0.05)
+
+
+def _mix_inputs(last="2019-06"):
+    """A synthetic stand-in for the monthly series and the daily factors,
+    running past the seal — so the cut is tested."""
+    rng = np.random.default_rng(5)
+    ms = pd.date_range("1970-01-01", last + "-01", freq="MS")
+    days = pd.bdate_range("1970-01-01", pd.Timestamp(last + "-01") + pd.offsets.MonthEnd(0))
+    fac = pd.DataFrame({"Mkt-RF": rng.normal(0.0003, 0.01, len(days)), "RF": np.full(len(days), 0.0001)},
+                       index=days)
+    dem = pd.Series(2.0 + 0.1 * np.sin(np.arange(len(ms)) / 12), index=ms)
+    dem = dem[dem.index < "2002-01-01"]
+    eur = pd.Series(er.DEM_PER_EUR / (2.0 + 0.1 * np.sin(np.arange(len(ms)) / 12)), index=ms)
+    eur = eur[eur.index >= "1999-01-01"]
+    return {"factors": fac, "gold_usd": pd.Series(300 * np.exp(np.cumsum(rng.normal(0, 0.04, len(ms)))), index=ms),
+            "bund_10y": pd.Series(6 + np.cumsum(rng.normal(0, 0.1, len(ms))).clip(-5, 5), index=ms),
+            "dem_per_usd": dem, "usd_per_eur": eur, "fetched": "test"}
+
+
+def test_h011_inputs_are_cut_at_the_seal_on_arrival(monkeypatch, tmp_path):
+    raw = _mix_inputs()
+    monkeypatch.setattr(er, "fetch_mix_inputs", lambda: raw)
+    got = er._inputs(tmp_path, cached=False, member="h011")
+    for k, v in got.items():
+        if k != "fetched":
+            assert v.index[-1] < pd.Timestamp("2018-01-01"), k
+    assert (tmp_path / "inputs_h011.pkl").exists() and not (tmp_path / "inputs.pkl").exists()
+
+
+def test_the_mix_path_is_in_euros_from_1973_and_stops_before_the_seal():
+    inputs = {k: (er.before_seal(v) if k != "fetched" else v) for k, v in _mix_inputs().items()}
+    path = er.build_mix_path(inputs)
+    assert path["months"][0] == "1973-01" and path["months"][-1] == "2017-12"
+    lv = er.mix_levels(inputs)
+    fx = er.usd_per_eur(inputs).reindex(lv.index)
+    fac = inputs["factors"]
+    jan = fac[(fac.index >= "1973-01-01") & (fac.index < "1973-02-01")]
+    usd = float((1 + jan["Mkt-RF"] + jan["RF"]).prod() - 1)
+    assert path["returns"]["equity"][0] == pytest.approx((1 + usd) * fx.iloc[0] / fx.iloc[1] - 1)
+
+
+def test_the_two_dollar_rates_are_spliced_at_the_euro():
+    inputs = _mix_inputs()
+    fx = er.usd_per_eur(inputs)
+    assert fx["1998-12-01"] == pytest.approx(er.DEM_PER_EUR / inputs["dem_per_usd"]["1998-12-01"])
+    assert fx["1999-01-01"] == pytest.approx(inputs["usd_per_eur"]["1999-01-01"])
+
+
+def test_a_gap_in_a_series_or_a_rate_mismatch_stops_the_errand():
+    inputs = {k: (er.before_seal(v) if k != "fetched" else v) for k, v in _mix_inputs().items()}
+    holed = dict(inputs, gold_usd=inputs["gold_usd"].drop(pd.Timestamp("1990-05-01")))
+    with pytest.raises(ValueError, match="gold lacks"):
+        er.check_mix_inputs(holed)
+    off = dict(inputs, usd_per_eur=inputs["usd_per_eur"] * 1.05)
+    with pytest.raises(ValueError, match="disagree"):
+        er.check_mix_inputs(off)
+
+
+def test_an_h011_look_is_exploratory_and_leaves_the_others_alone(monkeypatch, tmp_path):
+    monkeypatch.setattr(er, "fetch_mix_inputs", _mix_inputs)
+    monkeypatch.setattr(cb, "N_BOOT", 20)
+    result = er.run(tmp_path, member="h011")
+    assert result["verdict"] == "exploratory" and result["summary"]["last_month"] == "2017-12"
+    report = (tmp_path / "report_h011.md").read_text()
+    assert "Verdict: **exploratory**" in report and "sell-back" in report
+    assert not (tmp_path / "report.md").exists() and not (tmp_path / "report_h010.md").exists()
+    rec = json.loads((tmp_path / er.RUN_LOG).read_text().splitlines()[-1])
+    assert rec["arms"] == [er.ARM_H011] and rec["first_date"] == "1973-01" and rec["last_date"] == "2017-12"
+
+
+def test_an_h011_dry_run_walks_no_leg(monkeypatch, tmp_path):
+    monkeypatch.setattr(er, "fetch_mix_inputs", _mix_inputs)
+    monkeypatch.setattr(cb, "read", lambda *a, **k: pytest.fail("a dry run read the rule"))
+    monkeypatch.setattr(cb, "mix_summary", lambda *a, **k: pytest.fail("a dry run walked a leg"))
+    info = er.dry_run(tmp_path, member="h011")
+    assert info["n_plans"] == 36 and info["last_month"] == "2017-12"
+    assert not (tmp_path / er.RUN_LOG).exists()

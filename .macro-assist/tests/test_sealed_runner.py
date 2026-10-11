@@ -416,6 +416,13 @@ def test_the_flow_bar_moves_its_own_fingerprint_and_not_the_risk_bars(bar_repo):
     assert ra.bar_fingerprint(bar_repo, "risk_rule") == risk
 
 
+def test_the_mix_bar_moves_its_own_fingerprint_and_not_the_flow_bars(bar_repo):
+    mix, flow = ra.bar_fingerprint(bar_repo, "mix_rule"), ra.bar_fingerprint(bar_repo, "flow_rule")
+    _edit(bar_repo, "class_bars", "max_ratio=0.5, max_shortfall=0.0025", "max_ratio=0.6, max_shortfall=0.0025")
+    assert ra.bar_fingerprint(bar_repo, "mix_rule") != mix
+    assert ra.bar_fingerprint(bar_repo, "flow_rule") == flow
+
+
 def test_a_class_that_does_not_exist_has_no_fingerprint():
     assert ra.bar_fingerprint(ROOT, "conditioner") and ra.bar_fingerprint(ROOT, "gap_width")
     assert ra.bar_fingerprint(ROOT, "risk_rule") and ra.bar_fingerprint(ROOT, "flow_rule")

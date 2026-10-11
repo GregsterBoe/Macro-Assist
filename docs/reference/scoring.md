@@ -381,6 +381,65 @@ as the risk-rule class apply, and the sealed runner has no walk for it yet.
  "clauses": [{"kind": "forward_contrast", "signal": "panel_or", "window": 20, "months": 12}]}
 ```
 
+### The allocation-rule class (`MIX_RULE`, ADR-0026)
+
+A member decides which holdings each month's contribution buys. It invests
+all of it, never sells and never holds money back. Its claim is about
+**drift** from the owner's target mix *w\**, with return only a cost limit.
+`mix_read(path, spec, sealed=…)` takes a monthly path: `months` (`"YYYY-MM"`),
+one return per month and asset in the owner's currency (`returns`), the
+`targets`, which asset is the `equity` one, and `allocate(values, targets,
+month)`, the member's split of the contribution at a month-end from the
+holdings' values there. Each month's contribution of 1 is bought at that
+month-end's values and pays 10 bps (then 30). With monthly data the purchase
+is at the month-end the decision is made from, which uses nothing after it;
+ADR-0026's "next close" is the daily form of the same rule.
+
+| Leg | Each month's contribution | Role |
+|---|---|---|
+| `member` | its own split | the candidate |
+| `plain` | at *w\**, never rebalanced | the pass clause's comparator: "doing nothing" |
+| `exposure_matched` | a fixed mix whose equity share *e* is found (bisection) so its mean equity weight over every month of every plan equals the member's; the other assets keep their ratio from *w\** | the cost rival: "you just held a different amount of stock" |
+| sell-back | at *w\**, plus a sale back to *w\** at every December month-end | reported only, with the gains it realizes (average cost) |
+
+The read runs over **plans**, each from an empty account: on the explore side
+a 120-month plan starting every January that fits (`_plan_starts`), on the
+sealed side one plan, the whole path. **Drift** at a month-end, before its
+contribution, is ½ Σ |*w<sub>i</sub>* − *w\*<sub>i</sub>*|, read at month-ends 1
+… the plan's length. The **control ratio** is the member's mean drift over
+`plain`'s, pooled over plans and months. The **shortfall** is
+`exposure_matched`'s mean money-weighted return a year minus the member's
+(`money_weighted_return`, each plan valued a month after its last
+contribution). Both carry a 90% moving-block bootstrap of months (blocks of
+24, `N_BOOT` draws), every asset's return resampled together and every plan,
+leg and matched share re-run on each draw. Drops are `risk_episodes` on the
+equity asset's level.
+
+`mix_verdict` returns at the first that fires: `exploratory` → `underpowered`
+(< 5 drops of 10%, or the entry's stricter floor, or a sealed plan shorter
+than 96 months) → `inverted` (control ratio ≥ 1) → `costly` (shortfall above
+0.25 pp a year at 10 *or* 30 bps; the point estimate, no interval) →
+`no_control` (ratio above 0.5, or its interval reaching 1) → `unexplained` →
+`edge`.
+
+Its one clause kind, `late_control`, reads each plan's control ratio over its
+second half (from month 61 of a 120-month plan; validation refuses another
+month) and needs the median across plans at or below `max_ratio` (at least
+the bar's 0.5, below 1).
+
+Reported and never read: each leg's money-weighted return and wealth per
+contribution at both costs, mean drift and mean equity weight per leg, the
+matched equity share, the control ratio by half of a plan and by plan (median,
+worst), the share of the money each asset received, each equity drop with the
+plans running at its peak and each leg's equity weight there, the sell-back's
+control ratio and realized gains per plan, and the ratio and shortfall on each
+half of the plan starts. The sealed runner has no walk for it yet.
+
+```json
+{"class": "mix_rule", "arm": "h011_fill_gaps", "floor": {"episodes": 5},
+ "clauses": [{"kind": "late_control", "from_month": 61, "max_ratio": 0.75}]}
+```
+
 ## sealed_runner.py — the sealed read (WP-23.B)
 
 The research-tier module that feeds a class bar the sealed side, once per

@@ -66,6 +66,7 @@ source of truth for *why*.
 | [ADR-0015](ADR-0015-soft-kill-convention.md) | Soft-kill: deactivate, never delete | Accepted |
 | [ADR-0023](ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md) | A fragility rule for a real decision is a target class, read on drawdown against an exposure-matched rival | Accepted 2026-10-01 ([resolved.md](../record/resolved.md) #34) — built the same day |
 | [ADR-0025](ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md) | A rule for new money is a target class, read on wealth at an equal budget against a drawdown rival | Accepted 2026-10-11 ([resolved.md](../record/resolved.md) #37) — built the same day |
+| [ADR-0026](ADR-0026-a-buy-only-rebalancing-rule-is-read-on-drift-at-a-matched-exposure.md) | A rule for where new money goes is a target class, read on drift from the target mix, with return as a cost limit against an exposure-matched rival | Accepted 2026-10-11 ([resolved.md](../record/resolved.md) #38) — built the same day |
 
 ## Decisions that are still open
 
