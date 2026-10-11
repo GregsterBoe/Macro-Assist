@@ -50,7 +50,7 @@ have its sealed read.
 | [H-008](#h-008) | `closed` | Within a stressed drawdown bin, the OR flag's state widens the forward distribution beyond what drawdown depth explains — *closed on explore 2026-09-29 at the owner's call: the width held within vol terciles (8 of 9), but neither `dd_x_frag` nor the vol forecast widened by the state forecasts better; no KB entry, no sealed read spent* |
 | [H-009](#h-009) | `closed` | Halving equity exposure while the cross-section flag fires takes less of each market drop than holding less stock does — *the first member of the risk-rule class ([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md), accepted and built 2026-10-01, `resolved.md` #34); its clause settled before any look, `resolved.md` #35; closed on explore 2026-10-01 at the owner's call: too costly, no edge, and worse than the volatility rival; no KB entry, no sealed read spent* |
 | [H-010](#h-010) | `closed` | Investing more of the monthly contribution while the cross-section flag fires ends with more wealth than plain monthly buying, and than buying after a fall — *the first member of the contribution-rule class ([ADR-0025](../decisions/ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md), accepted and built 2026-10-11, `resolved.md` #37); closed on explore 2026-10-11 at the owner's call: `inverted` — 3.2% less money than plain buying, behind the drawdown rival, though the clause held; no KB entry, no sealed read spent* |
-| [H-011](#h-011) | `draft` | Splitting each month's contribution across the holdings below their target keeps a stock–bond–gold mix at least twice as close to target as plain buying, at no material cost — *the first member of the allocation-rule class ([ADR-0026](../decisions/ADR-0026-a-buy-only-rebalancing-rule-is-read-on-drift-at-a-matched-exposure.md), accepted and built 2026-10-11, `resolved.md` #38, its rule changed at build before any data); no look run* |
+| [H-011](#h-011) | `draft` | Splitting each month's contribution across the holdings below their target keeps a stock–bond–gold mix at least twice as close to target as plain buying, at no material cost — *the first member of the allocation-rule class ([ADR-0026](../decisions/ADR-0026-a-buy-only-rebalancing-rule-is-read-on-drift-at-a-matched-exposure.md), accepted and built 2026-10-11, `resolved.md` #38, its rule changed at build before any data); explore look 2026-10-11: clears every stage — control ratio 0.322, 0.12 pp a year behind the matched rival, the clause held* |
 
 ---
 
@@ -1067,7 +1067,7 @@ Report: `results/explore_rules/report_h010.md` · receipt
 
 ## H-011 — Splitting each month's contribution across the holdings below their target keeps a stock–bond–gold mix at least twice as close to target as plain buying, at no material cost {: #h-011 }
 
-**Status:** `draft` — needs an independent audit before it is a hypothesis (§6, ADR-0022). Drafted 2026-10-11 at the owner's request, with its class bar [ADR-0026](../decisions/ADR-0026-a-buy-only-rebalancing-rule-is-read-on-drift-at-a-matched-exposure.md), accepted as written the same day with this mix (`resolved.md` #38) and built the same day (`class_bars.MIX_RULE`, `explore_rules.py --member h011`). **The rule was changed at build, before any data** (below). No look has run and no data for these assets has been read in this repo.
+**Status:** `draft` — needs an independent audit before it is a hypothesis (§6, ADR-0022). Drafted 2026-10-11 at the owner's request, with its class bar [ADR-0026](../decisions/ADR-0026-a-buy-only-rebalancing-rule-is-read-on-drift-at-a-matched-exposure.md), accepted as written the same day with this mix (`resolved.md` #38) and built the same day (`class_bars.MIX_RULE`, `explore_rules.py --member h011`). **The rule was changed at build, before any data** (below). **One explore look, 2026-10-11** (ledger): on 1973–2017 it clears every stage of the bar. Control ratio 0.322 against the bar's 0.5, 0.12 pp a year behind the exposure-matched rival against the limit of 0.25, and the clause held. On the sealed side that would read `edge`; here it is `exploratory`.
 
 **What was seen.** Nothing for this rule. It is proposed for the owner's goal 3
 ([What is worth doing §2](../concepts/what-is-worth-doing.md#2-the-standing-goals)),
@@ -1190,9 +1190,8 @@ small enough, and close often enough, for the contributions to keep up.
    neither FRED nor Kenneth French's library.
 3. ✅ `class_bars.MIX_RULE` and the allocation walk, each verdict driven alone
    by a test on planted markets (`test_mix_rule.py`).
-4. Walk this member on the explore side, 1973-01 to 2017-12 (gold floats from
-   the early 1970s), plans starting each January from 1973 to 2008. That is
-   one counted look, and this entry's ledger opens with it.
+4. ✅ Walked on the explore side, 1973-01 to 2017-12, plans starting each
+   January from 1973 to 2008: one counted look, 2026-10-11 (ledger).
 5. Write the `Pre-registration` in the class's form, pass the CI audit, and
    the owner turns the key for the sealed side, read once.
 
@@ -1208,6 +1207,90 @@ is never published as a call. ADR-0026 was accepted on 2026-10-11.
 [ADR-0025](../decisions/ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md) ·
 [H-010](#h-010) and its ledger · `class_bars.money_weighted_return`,
 `class_bars.risk_episodes` · `explore_rules.fetch_inputs`.
+
+
+**Pre-registration.** *Drafted by the assistant, the proposer, 2026-10-11; it does not judge it (§6).* **Written after the counted explore look** (ledger below), which this field states rather than hides. Nothing that look could have moved was moved by it. The class bar's numbers were accepted before any data (`resolved.md` #38). The clause's 0.75 and month 61 were in this entry's first draft. The arm was changed at build on synthetic markets, before any data. The mix was the owner's call before any data. This field adds no number of its own.
+- **Class `mix_rule`** (`class_bars.MIX_RULE`, [ADR-0026](../decisions/ADR-0026-a-buy-only-rebalancing-rule-is-read-on-drift-at-a-matched-exposure.md)). The disqualifiers come first:
+  - `underpowered`: fewer than 5 equity drops of 10% or more, or a plan shorter than 96 months.
+  - `inverted`: a control ratio of 1 or more.
+  - `costly`: more than 0.25 pp a year behind `exposure_matched` at 10 *or* 30 bps, on the point estimate.
+  - `no_control`: a control ratio above 0.5, or its 90% interval reaching 1.
+  - Then the clause.
+- **The slice is the whole sealed side.** It runs from 2018-01 to the last month that every series has complete when the read runs (`explore_rules.last_complete_month`), as one plan from an empty account. Its end is set by data availability, not chosen. In euros, built exactly as the explore side (`explore_rules.sealed_mix_path`), with the December 2017 month-end as the starting level and never a return.
+- **Arm `h011_fill_gaps`**, the 70/20/10 mix above. **How strong it was on the explore record:** control ratio 0.322, interval [0.262, 0.456]; 0.12 pp a year behind `exposure_matched`, interval [−0.17, +0.42]; second-half ratio 0.303. The worst single ten-year plan read 0.49, close to the 0.5 line.
+- **Floor: the class floor, stated.** 5 drops, written before the sealed side's drops are counted. The proposer expects about five in euro terms from the broad history of 2018–2026, and has counted none. `underpowered` is a live outcome.
+- **Mechanism clause: `late_control`.** The median control ratio over the plan's second half must be at most 0.75. The JSON names month 61 because validation ties the clause to a 120-month plan. On the sealed side's one shorter plan, the bar reads that plan's own second half, from its midpoint.
+- **What the clause does not rule out.** Control is mostly arithmetic: any rule that buys what is below target narrows drift. The uncertain claim is the cost, and the bar reads it on the point estimate only (ADR-0026 §3). A pass therefore says *control at a cost inside the limit on this slice*, not that the cost is known to be small.
+- **The sealed side is not blind in the broad sense.** The proposer knows the period's outline: the 2020 crash, the 2022 fall in bonds and stocks together, and gold's rise after it. No number of these holdings on it has been computed in this repo. A large one-way move in one holding is exactly where buy-only steering is weakest, so this history cuts against the claim rather than for it.
+- **What the read costs.** It spends the `mix_rule` class's one historical read. One read, and the result goes to the Knowledge Base whichever verdict fires.
+
+```json
+{"class": "mix_rule", "arm": "h011_fill_gaps", "floor": {"episodes": 5},
+ "clauses": [{"kind": "late_control", "from_month": 61, "max_ratio": 0.75}]}
+```
+
+**Explore-tier looks (ledger).** *2026-10-11* — **the first counted look**
+(*What would test it* step 4). `explore_rules.py --member h011` in CI
+(`explore_rules.yml`, run on `main` at commit `9d052cf`, clean receipt), after
+a dry run the same day that walked no leg: 540 months, 36 plans, 13 equity
+drops, the Deutsche Mark and euro rates agreeing to 0.003% over 36 months.
+The member is exactly as fixed above, after the build-time change and before
+any data; no variant was tried.
+- **Sample.** 1973-01 → 2017-12 in euros, 36 ten-year plans (one starting each
+  January, 1973–2008), 13 equity drops of 10% or more against the floor of 5.
+- **What the bar would read, in its order.** Underpowered: no. Inverted: no.
+  - **Costly: no.** The member's money-weighted return is **0.12 pp a year
+    below** `exposure_matched`'s (a fixed mix at 67.9% equity, which matches
+    the member's mean equity weight of 69.4%), at 10 and at 30 bps; the
+    limit is 0.25. The interval is **[−0.17, +0.42] pp**: its upper end is
+    past the limit, which the bar does not read (ADR-0026 §3).
+  - **Control: yes.** The control ratio is **0.322**, interval [0.262,
+    0.456]: the member's mean drift from 70/20/10 was 1.7% of the account,
+    plain buying's 5.3%. The bar needs ≤ 0.5 with the interval below 1.
+  - **The clause held.** The median control ratio over each plan's second
+    half was 0.303 (≤ 0.75). Control did not fade within ten years: the
+    first half read 0.331.
+  - **Read on the sealed side, these numbers would be `edge`.** On the explore
+    side the verdict is `exploratory` by construction.
+- **Reported, never read.**
+  - Against plain buying the member ends with **1.4% less money** per plan
+    (−0.19 pp a year): it held 69.4% equity on average against plain's 71.4%.
+  - **At the peak before each drop, plain buying had drifted to 73–81%
+    equity; the member held 70–73%.** The largest gap was before 2000–2009:
+    81.2% against 72.4%.
+  - The money went 61% to equities, 24% to bonds, 15% to gold.
+  - **An annual sell-back to target controlled drift *worse* (ratio 0.424)
+    than monthly buying alone,** and realized taxable gains of about 9
+    months' contributions per ten-year plan.
+  - Each half of the plan starts: 1973–1990 ratio 0.321, shortfall +0.06 pp;
+    1991–2008 ratio 0.323, shortfall +0.12 pp. The worst single plan read
+    0.49.
+- **Easy to forget.**
+  - **The control is mostly arithmetic and was expected.** The uncertain
+    half was the cost, and its interval is wide: the point is inside the
+    limit, the upper end is not.
+  - **The cost is a small rebalancing *penalty*, not a bonus.** Buying what
+    fell behind did not earn extra here; over 1973–2017 equities mostly kept
+    winning, and the member kept steering money away from them.
+  - **Ten-year plans only.** A longer plan gives each contribution less pull.
+    The second half held at 0.30, but a twenty- or thirty-year plan was not
+    read.
+  - **Proxies and averages.** The US market stands in for the world index,
+    a 10-year Bund for a euro government bond fund, and the World Bank's
+    monthly average for a gold ETC. The yield, the rates and gold are monthly
+    averages, which smooth their moves and so understate drift a little for
+    every leg.
+  - Not blind (confound e): the broad history of these assets since 1973 is
+    common knowledge. A pass here is weaker evidence than a pass on 2018+.
+- **What it changes.** On the explore record H-011 clears every stage of its
+  class bar. The next step is the sealed read. The owner chose
+  to take it the same day. The `Pre-registration` above and a sealed walk for
+  the class (`sealed_runner.py`, built 2026-10-11 after this look) are in
+  place; the CI audit and the owner's key are not.
+
+Report: `results/explore_rules/report_h011.md` · receipt
+`results/explore_rules/runs.jsonl` (2026-10-11T15:09:33+00:00, `report_sha256`
+`96e38e94…`).
 
 ## Closed
 
