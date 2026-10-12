@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "kind": "claim",
+  "hid": "H-011",
+  "class": "mix_rule",
+  "arm": "h011_fill_gaps",
+  "horizon": null,
+  "pre_registration": {
+    "class": "mix_rule",
+    "arm": "h011_fill_gaps",
+    "floor": {
+      "episodes": 5
+    },
+    "clauses": [
+      {
+        "kind": "late_control",
+        "from_month": 61,
+        "max_ratio": 0.75
+      }
+    ]
+  },
+  "sealed_from": "2018-01-01",
+  "sealed_until": null,
+  "claimed_at": "2026-10-12T05:33:26+00:00",
+  "tier": "ci",
+  "run": "https://github.com/GregsterBoe/Macro-Assist/actions/runs/38177698877",
+  "run_id": "38177698877",
+  "run_attempt": "1",
+  "commit": "e755ca7a3f4e003e2a02eac4c9f0561d551dc15e",
+  "entry_stamp": "sha256:05aa6f912404bc7c10e5d1e673273d2c3729e6ed6404bf5f6c12664faae9a74d",
+  "entry_bar": "sha256:c4f02e4373a357fd58095907911e4651ef9e5e2de5cb1340c547b815ad1a3d1c",
+  "bar_fingerprint": "sha256:176c4e006b33bbea3efa5f07e674b29b02c4deb064751bc7c64c49b780cc1fa8",
+  "approved_by": "GregsterBoe",
+  "approval_comment": ""
+}
