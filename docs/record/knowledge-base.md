@@ -3541,3 +3541,95 @@ arguing it.
   calls (`filter_testing.alfred_leg`). The 40,000-call cost that motivated
   [ADR-0014] does not apply to them. A future input of this kind can be
   checked and built point in time cheaply.
+
+---
+
+## KB-037 — Buy-only rebalancing of a 70/20/10 euro mix, read once on 2018–2026: `underpowered` (4 drops of 10%, not 5). Past the floor, control was strong and the cost was not: it would have read `costly` (H-011, ADR-0026)
+
+**Date:** 2026-10-12 · **Branch:** `main` · **Source:**
+`results/sealed_reads/H-011/2026-10-12T0533Z.{md,json}` on `output`, claimed
+and read by [run 38177698877](https://github.com/GregsterBoe/Macro-Assist/actions/runs/38177698877)
+after the owner turned the seal key. Entry [H-011](hypotheses.md#h-011),
+class bar `class_bars.MIX_RULE` ([ADR-0026](../decisions/ADR-0026-a-buy-only-rebalancing-rule-is-read-on-drift-at-a-matched-exposure.md)),
+audited by `audit_entry.yml` (kimi-k3 / high, no blocking finding). Zero LLM
+cost for the read.
+
+**What we tested.** The first sealed read of a goal-3 rule. A monthly plan in
+euros that never sells holds 70% world equities, 20% euro government bonds and
+10% gold. Each month's contribution is split across the holdings below their
+target, in proportion to each gap (`h011_fill_gaps`). The bar reads control:
+mean drift from the mix against splitting every contribution at it (`plain`),
+at most 0.5, interval below 1. Return is only a cost limit: at most 0.25 pp a
+year behind a fixed mix holding the same average equity share
+(`exposure_matched`). The proxies are the US market, a 10-year Bund rebuilt from
+its yield, and World Bank gold. The read is one plan from an empty account,
+2018-01 → 2026-08 (104 months, the last month every series had complete).
+
+### Headline — `underpowered`, and the stages after it say *costly*
+
+The floor fired first: **4 equity drops of 10% or more in euros** (2018-Q4,
+early 2020, 2022, early 2025), against the 5 the class requires. The verdict
+is `underpowered`, and the class's one historical read is spent. The bar
+still reports every stage:
+
+| stage | sealed 2018–2026 | explore 1973–2017 (36 plans) | needs |
+|---|---|---|---|
+| drops of 10%+ | **4** | 13 | ≥ 5 |
+| plan length | 104 months | 120 | ≥ 96 |
+| control ratio | **0.212** [0.142, 0.291] | 0.322 [0.262, 0.456] | ≤ 0.5, interval below 1 |
+| behind `exposure_matched` | **+0.60 pp a year** [+0.23, +1.13] | +0.12 [−0.17, +0.42] | ≤ 0.25 |
+| `late_control` (second half) | 0.174 | 0.303 | ≤ 0.75 |
+
+Had the floor passed, the verdict would have been **`costly`**. The shortfall
+is 2.4 times the limit, and its interval sits wholly above zero. The read is
+`underpowered` by the bar's order, not "nearly an edge".
+
+**The nuance that is easy to forget.**
+
+- **The two halves of the claim split.** Control was even better than on the
+  explore record. Plain buying drifted to 77–79% equity before the 2022 and
+  2025 drops; the rule held 70.8–70.9%. The cost was five times the explore
+  estimate. The explore interval's upper end (+0.42) had already crossed the
+  limit, and the auditor's brief named exactly this: a pass would have meant
+  *worked on this period*, not *proven cheap*. The sealed period came in
+  above that end.
+- **Why it cost.** Buy-only rebalancing pays when the holdings revert against
+  each other and loses when one keeps trending. In 2018–2026 bonds fell hard
+  and stayed down while equities and gold rose. The rule sent 35.5% of the
+  money to bonds (target 20%) and 7.5% to gold (target 10%). It kept buying
+  the laggard and starving the leader. It ended 4.5% below plain buying per
+  unit contributed (1.733 against 1.816), and 2.7% below the matched mix.
+- **An annual sell-back controlled worse** (0.371) and would have realized
+  about 7.8 months' contributions of taxable gains. Buy-only steering beat it
+  on control, on both slices.
+- **The floor counted month-end drops**, which understate intramonth falls.
+  2020's fall reads 19.7% in euros at month-ends. A daily count could differ;
+  the floor was written for this reader and stays as read.
+- **Not blind in the broad sense.** The entry said the 2022 bond fall cut
+  against the claim before the read. The cost result is consistent with that
+  and does not depend on it.
+- **One plan, one period.** The cost is a single 104-month path; the explore
+  record's 36 overlapping plans averaged +0.12. Neither number is the rule's
+  cost "in general". Together they say it depends on whether the holdings
+  trend or revert, which nobody can call in advance.
+
+**What it changes.**
+
+- **H-011 is closed** on its sealed read: `underpowered`, with every later
+  stage reported. The `mix_rule` class's historical slice is spent. A second
+  member could be read only on a forward record.
+- **The project has no evidence that buy-only rebalancing is cheap.** Its
+  control is real and nearly arithmetic. Its cost ranged from +0.12 to +0.60 pp
+  a year across the two periods. A rule an owner follows for control should
+  be followed knowing it can cost about half a point a year when the holdings
+  trend apart.
+- **ADR-0026's revisit condition fired** ("if the first member reads
+  `underpowered`, revisit the drop floor and the 24-month block before a
+  second member is chosen, never to rescue the first"). Nothing is changed
+  for H-011. Any second member starts with that revisit.
+- **Goal 3 still has no rule that passed a sealed read.** Reducing risk
+  (H-009) and the pace of new money (H-010) failed on explore. Rebalancing
+  (H-011) was underpowered on its sealed read, with its cost over the limit.
+- **The money key is the owner's.** Whether to follow the rule anyway, for
+  its control and its tax saving, is a decision this entry informs and does
+  not make (how we explore §6).

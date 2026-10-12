@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | **Accepted** — drafted 2026-10-11 by the assistant at the owner's request, and accepted by the owner the same day as written, with H-011's mix ([`resolved.md`](../record/resolved.md) #38). Built the same day — `class_bars.MIX_RULE` and `explore_rules.py --member h011`, run in CI by `explore_rules.yml` ([Scoring](../reference/scoring.md#the-allocation-rule-class-mix_rule-adr-0026)) — and no member has been read |
+| **Status** | **Accepted** — drafted 2026-10-11 by the assistant at the owner's request, and accepted by the owner the same day as written, with H-011's mix ([`resolved.md`](../record/resolved.md) #38). Built the same day — `class_bars.MIX_RULE` and `explore_rules.py --member h011`, run in CI by `explore_rules.yml` ([Scoring](../reference/scoring.md#the-allocation-rule-class-mix_rule-adr-0026)) — and its first member, H-011, had the class's one sealed read on 2026-10-12: `underpowered` (4 drops, floor 5), and past the floor `costly` ([KB-037]). The first revisit condition below has fired |
 | **Decided** | 2026-10-11 |
 | **Related** | [What is worth doing §2](../concepts/what-is-worth-doing.md#2-the-standing-goals) (goals 3 and 4) · [How we explore §5, §7](../concepts/how-we-explore.md#7-the-target-space-never-a-signed-forecast) · [ADR-0009](ADR-0009-cut-the-directional-product.md) · [ADR-0023](ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md) · [ADR-0025](ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md) · the first member, [H-011](../record/hypotheses.md#h-011) |
 
