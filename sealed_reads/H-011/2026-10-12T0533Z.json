@@ -1,0 +1,177 @@
+{
+  "schema": 1,
+  "kind": "result",
+  "hid": "H-011",
+  "class": "mix_rule",
+  "arm": "h011_fill_gaps",
+  "horizon": null,
+  "claim": "sealed_reads/H-011/2026-10-12T0533Z.claim.json",
+  "read_at": "2026-10-12T05:33:29+00:00",
+  "tier": "ci",
+  "run": "https://github.com/GregsterBoe/Macro-Assist/actions/runs/38177698877",
+  "run_id": "38177698877",
+  "run_attempt": "1",
+  "commit": "e755ca7a3f4e003e2a02eac4c9f0561d551dc15e",
+  "verdict": "underpowered",
+  "reason": "4 drops of 10% < 5 required",
+  "read": {
+    "class": "mix_rule",
+    "summary": {
+      "class": "mix_rule",
+      "arm": "h011_fill_gaps",
+      "first_month": "2018-01",
+      "last_month": "2026-08",
+      "n_months": 104,
+      "plan_months": 104,
+      "n_plans": 1,
+      "assets": [
+        "equity",
+        "bonds",
+        "gold"
+      ],
+      "targets": [
+        0.7,
+        0.2,
+        0.1
+      ],
+      "equity": "equity",
+      "n_episodes": 4,
+      "episodes": [
+        {
+          "peak": "2018-08",
+          "trough": "2018-12",
+          "depth": 0.1301,
+          "plans": 1,
+          "equity_weight_member": 0.7114,
+          "equity_weight_plain": 0.7253
+        },
+        {
+          "peak": "2020-01",
+          "trough": "2020-03",
+          "depth": 0.1972,
+          "plans": 1,
+          "equity_weight_member": 0.6964,
+          "equity_weight_plain": 0.719
+        },
+        {
+          "peak": "2021-12",
+          "trough": "2022-06",
+          "depth": 0.1636,
+          "plans": 1,
+          "equity_weight_member": 0.7077,
+          "equity_weight_plain": 0.7753
+        },
+        {
+          "peak": "2025-01",
+          "trough": "2025-04",
+          "depth": 0.1546,
+          "plans": 1,
+          "equity_weight_member": 0.7094,
+          "equity_weight_plain": 0.7912
+        }
+      ],
+      "control_ratio": 0.2118,
+      "control_ratio_ci": {
+        "lo": 0.1421,
+        "hi": 0.2908,
+        "level": 0.9,
+        "n_boot": 2000,
+        "block_months": 24
+      },
+      "mean_drift": {
+        "member": 0.01166,
+        "plain": 0.05503,
+        "exposure_matched": 0.04782
+      },
+      "shortfall": {
+        "10.0": 0.005991,
+        "30.0": 0.005992
+      },
+      "shortfall_ci": {
+        "lo": 0.002319,
+        "hi": 0.011327,
+        "level": 0.9
+      },
+      "matched_equity_share": 0.647,
+      "mean_equity_weight": {
+        "member": 0.6981,
+        "plain": 0.7461,
+        "exposure_matched": 0.6981
+      },
+      "legs": {
+        "10.0": {
+          "member": {
+            "money_weighted_return": 0.123142,
+            "wealth_per_contribution": 1.73312
+          },
+          "plain": {
+            "money_weighted_return": 0.133393,
+            "wealth_per_contribution": 1.81559
+          },
+          "exposure_matched": {
+            "money_weighted_return": 0.129133,
+            "wealth_per_contribution": 1.78084
+          }
+        },
+        "30.0": {
+          "member": {
+            "money_weighted_return": 0.1227,
+            "wealth_per_contribution": 1.72965
+          },
+          "plain": {
+            "money_weighted_return": 0.132952,
+            "wealth_per_contribution": 1.81196
+          },
+          "exposure_matched": {
+            "money_weighted_return": 0.128692,
+            "wealth_per_contribution": 1.77728
+          }
+        }
+      },
+      "control_ratio_by_half": {
+        "first": 0.3182,
+        "second": 0.1738
+      },
+      "control_ratio_by_plan": {
+        "median": 0.2118,
+        "worst": 0.2118
+      },
+      "received": {
+        "equity": 0.5699,
+        "bonds": 0.3554,
+        "gold": 0.0747
+      },
+      "sell_rebalanced": {
+        "control_ratio": 0.3707,
+        "gains_realized_per_plan": 7.8493
+      },
+      "halves": null
+    },
+    "clauses": [
+      {
+        "kind": "late_control",
+        "passed": true,
+        "detail": "median control ratio over each plan's second half 0.174 across 1 plan(s); needs ≤ 0.75",
+        "cells": [
+          {
+            "name": "second_half",
+            "n_plans": 1
+          }
+        ]
+      }
+    ],
+    "floor": {
+      "episodes": 5
+    },
+    "verdict": "underpowered",
+    "reason": "4 drops of 10% < 5 required"
+  },
+  "first_date": "2018-01",
+  "last_date": "2026-08",
+  "n_report_dates": 104,
+  "n_obs": 104,
+  "inputs_fetched": "2026-10-12T05:33:26+00:00",
+  "obs_sha256": "2070735b3e6d938db250181ccf47d7430212d85da154ac3cce214d8248c0eca4",
+  "report_sha256": "cc740b56219b5c8b47f10196ece27399bb9167c6a8fc8e65c24f66048fb54449",
+  "bar_fingerprint": "sha256:176c4e006b33bbea3efa5f07e674b29b02c4deb064751bc7c64c49b780cc1fa8"
+}
