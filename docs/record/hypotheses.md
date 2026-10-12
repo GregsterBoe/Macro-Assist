@@ -1295,6 +1295,9 @@ Report: `results/explore_rules/report_h011.md` · receipt
 **Audit record.** Written by CI from its audit records on `output`, never by hand; `record_audit.py` holds this field to them (WP-25.C). 1 audit, 0 rejections.
 - 2026-10-11 16:33 UTC · `no_blocking_finding` · `kimi-k3` / `high` · text `sha256:05aa6f912404` · [run](https://github.com/GregsterBoe/Macro-Assist/actions/runs/38155901762) · brief `output:audit/entries/H-011/2026-10-11T1633Z-ci.md`
 
+**Sealed read (ledger).** Written by CI from its sealed-read records on `output`, never by hand; `record_audit.py` holds this field to them (WP-23.B). The mix_rule class's read of report dates 2018-01-01 → the last complete month with data at read time, which is read once for the whole class.
+- 2026-10-12 05:33 UTC · `underpowered` — 4 drops of 10% < 5 required · `h011_fill_gaps` · report `results/sealed_reads/H-011/2026-10-12T0533Z.md` · [run](https://github.com/GregsterBoe/Macro-Assist/actions/runs/38177698877)
+
 ## Closed
 
 A closed entry keeps its full text in place above — this is the index.
