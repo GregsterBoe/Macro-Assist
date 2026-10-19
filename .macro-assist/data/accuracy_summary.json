@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-12",
+  "generated_at": "2026-10-19",
   "arm": "market",
   "arm_composition": {
     "market": {
@@ -565,7 +565,7 @@
       }
     },
     "v2.2": {
-      "n_reports_in_pipeline": 7,
+      "n_reports_in_pipeline": 12,
       "n_reports_scored": 0,
       "windows": {
         "t5": {
