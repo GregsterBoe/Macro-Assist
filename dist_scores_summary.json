@@ -1,7 +1,7 @@
 {
   "generated": "2026-10-19",
-  "n_observations": 486,
-  "n_sealed": 96,
+  "n_observations": 487,
+  "n_sealed": 97,
   "n_exploratory": 390,
   "seal_start": "2026-09-07",
   "benchmark": "unconditional",
@@ -10,21 +10,21 @@
   "min_skill": 0.02,
   "horizons": {
     "t5": {
-      "n": 321,
-      "n_report_dates": 97,
+      "n": 322,
+      "n_report_dates": 98,
       "n_blocks": 5,
       "first_date": "2026-05-29",
-      "last_date": "2026-10-12",
-      "n_interval_claims": 96,
+      "last_date": "2026-10-13",
+      "n_interval_claims": 97,
       "interval_record_starts": "2026-09-07",
-      "coverage_iqr": 0.5312,
+      "coverage_iqr": 0.5361,
       "coverage_ci": {
         "lo": 0.5132,
-        "hi": 0.6,
+        "hi": 0.619,
         "n_boot": 2000,
         "n_blocks": 2
       },
-      "above_median": 0.4299,
+      "above_median": 0.4286,
       "above_median_ci": {
         "lo": 0.3175,
         "hi": 0.5329,
@@ -32,10 +32,10 @@
         "n_blocks": 5
       },
       "pit_histogram": {
-        "0": 0.2083,
-        "1": 0.3646,
-        "2": 0.1667,
-        "3": 0.2604
+        "0": 0.2062,
+        "1": 0.3711,
+        "2": 0.1649,
+        "3": 0.2577
       },
       "pooled_skill": {
         "skill": -0.0182,
@@ -57,24 +57,24 @@
         }
       },
       "pooled_skill_all_assets": {
-        "skill": -0.0182,
+        "skill": -0.0292,
         "arm": "published",
         "benchmark": "unconditional",
         "weighting": "equal per asset",
         "assets": [
           "SP500",
           "Gold",
-          "WTI Oil"
+          "WTI Oil",
+          "Bitcoin"
         ],
         "excluded": {
           "UST10Y": 1,
-          "DXY": 1,
-          "Bitcoin": 1
+          "DXY": 1
         },
         "min_pool_blocks": 2,
         "ci": {
-          "lo": -0.0615,
-          "hi": 0.0171,
+          "lo": -0.0648,
+          "hi": 0.0078,
           "n_boot": 2000,
           "n_blocks": 5
         }
@@ -349,45 +349,70 @@
           }
         },
         "Bitcoin": {
-          "n": 21,
-          "n_report_dates": 21,
-          "n_blocks": 1,
+          "n": 22,
+          "n_report_dates": 22,
+          "n_blocks": 2,
           "first_date": "2026-09-14",
-          "last_date": "2026-10-12",
-          "n_interval_claims": 21,
+          "last_date": "2026-10-13",
+          "n_interval_claims": 22,
           "interval_record_starts": "2026-09-14",
-          "coverage_iqr": 0.7619,
-          "coverage_ci": null,
-          "above_median": 0.4762,
-          "above_median_ci": null,
+          "coverage_iqr": 0.7727,
+          "coverage_ci": {
+            "lo": 0.7619,
+            "hi": 1.0,
+            "n_boot": 2000,
+            "n_blocks": 2
+          },
+          "above_median": 0.4545,
+          "above_median_ci": {
+            "lo": 0.0,
+            "hi": 0.4762,
+            "n_boot": 2000,
+            "n_blocks": 2
+          },
           "pit_histogram": {
             "0": 0.0,
-            "1": 0.5238,
-            "2": 0.2381,
-            "3": 0.2381
+            "1": 0.5455,
+            "2": 0.2273,
+            "3": 0.2273
           },
           "unit": "%",
           "mean_pinball": {
-            "published": 1.6126,
-            "unconditional": 1.5142,
-            "trailing_250": 1.4922,
-            "har_gaussian": 1.5471
+            "published": 1.5802,
+            "unconditional": 1.4875,
+            "trailing_250": 1.4524,
+            "har_gaussian": 1.5121
           },
           "skill_vs_unconditional": {
             "published": {
-              "skill": -0.065,
-              "n": 21,
-              "ci": null
+              "skill": -0.0623,
+              "n": 22,
+              "ci": {
+                "lo": -0.065,
+                "hi": 0.028,
+                "n_boot": 2000,
+                "n_blocks": 2
+              }
             },
             "trailing_250": {
-              "skill": 0.0145,
-              "n": 21,
-              "ci": null
+              "skill": 0.0236,
+              "n": 22,
+              "ci": {
+                "lo": 0.0145,
+                "hi": 0.3341,
+                "n_boot": 2000,
+                "n_blocks": 2
+              }
             },
             "har_gaussian": {
-              "skill": -0.0217,
-              "n": 21,
-              "ci": null
+              "skill": -0.0165,
+              "n": 22,
+              "ci": {
+                "lo": -0.0217,
+                "hi": 0.1623,
+                "n_boot": 2000,
+                "n_blocks": 2
+              }
             }
           }
         }
@@ -642,35 +667,57 @@
   },
   "sealed": {
     "t5": {
-      "n": 96,
-      "n_report_dates": 26,
+      "n": 97,
+      "n_report_dates": 27,
       "n_blocks": 2,
       "first_date": "2026-09-07",
-      "last_date": "2026-10-12",
-      "n_interval_claims": 96,
+      "last_date": "2026-10-13",
+      "n_interval_claims": 97,
       "interval_record_starts": "2026-09-07",
-      "coverage_iqr": 0.5312,
+      "coverage_iqr": 0.5361,
       "coverage_ci": {
         "lo": 0.5132,
-        "hi": 0.6,
+        "hi": 0.619,
         "n_boot": 2000,
         "n_blocks": 2
       },
-      "above_median": 0.4271,
+      "above_median": 0.4227,
       "above_median_ci": {
-        "lo": 0.25,
+        "lo": 0.2381,
         "hi": 0.4737,
         "n_boot": 2000,
         "n_blocks": 2
       },
       "pit_histogram": {
-        "0": 0.2083,
-        "1": 0.3646,
-        "2": 0.1667,
-        "3": 0.2604
+        "0": 0.2062,
+        "1": 0.3711,
+        "2": 0.1649,
+        "3": 0.2577
       },
       "pooled_skill": null,
-      "pooled_skill_all_assets": null,
+      "pooled_skill_all_assets": {
+        "skill": -0.0623,
+        "arm": "published",
+        "benchmark": "unconditional",
+        "weighting": "equal per asset",
+        "assets": [
+          "Bitcoin"
+        ],
+        "excluded": {
+          "SP500": 1,
+          "Gold": 1,
+          "WTI Oil": 1,
+          "UST10Y": 1,
+          "DXY": 1
+        },
+        "min_pool_blocks": 2,
+        "ci": {
+          "lo": -0.065,
+          "hi": 0.028,
+          "n_boot": 2000,
+          "n_blocks": 2
+        }
+      },
       "pooled_universe": [
         "Gold",
         "SP500",
