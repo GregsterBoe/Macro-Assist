@@ -1,6 +1,6 @@
 # Prediction Accuracy Report
 
-*Generated: 2026-10-12 | Arm: `market` | Reports scored: 119 | Feedback-loop reports (v0.3+): 103*
+*Generated: 2026-10-19 | Arm: `market` | Reports scored: 119 | Feedback-loop reports (v0.3+): 103*
 
 > **Scope: the `market` arm only.** Several prediction arms write score files
 > and sibling arms share a `report_date`, so a pooled figure would average
@@ -113,7 +113,7 @@ Use this to confirm that structural improvements translate into better predictio
 
 *No scored predictions yet — T+5 window has not closed on any v2.1 reports.*
 
-### v2.2  (0 scored / 7 total reports in this version)
+### v2.2  (0 scored / 12 total reports in this version)
 
 *No scored predictions yet — T+5 window has not closed on any v2.2 reports.*
 
