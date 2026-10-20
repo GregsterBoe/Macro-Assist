@@ -9,6 +9,23 @@ model: none
 conviction_floor: off
 base_rate_first: off
 prune_rules: off
+fragility: 13
+vix: 18.44
+sp500: 7690.73
+nasdaq: 26430.89
+gold: 4138.4
+wti_oil: 99.35
+dxy: 101.8
+bitcoin: 81637.23
+fed_funds: 3.75
+us10y: 5.09
+us2y: 4.74
+yield_curve: 0.35
+cpi_yoy: 4.02
+unemployment: 4.2
+real_yield_10y: 2.74
+breakeven_10y: 2.35
+nfci: -0.499
 tags: [macro, daily-note, economics]
 ---
 

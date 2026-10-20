@@ -3,6 +3,22 @@ date: 2026-05-08
 day: Friday
 type: macro-intelligence
 agent_version: v0.5
+vix: 17.21
+sp500: 7337.11
+nasdaq: 25806.2
+gold: 4717.9
+wti_oil: 95.3
+dxy: 98.12
+bitcoin: 79670.1
+fed_funds: 3.64
+us10y: 4.36
+us2y: 3.87
+yield_curve: 0.49
+cpi_yoy: 3.32
+unemployment: 4.3
+real_yield_10y: 1.94
+breakeven_10y: 2.45
+nfci: -0.51
 tags: [macro, daily-note, economics]
 ---
 

@@ -3,6 +3,20 @@ date: 2026-04-17
 day: Friday
 type: macro-intelligence
 agent_version: v0.4
+vix: 18.2
+sp500: 7041.28
+nasdaq: 24102.7
+gold: 4808.9
+wti_oil: 89.91
+dxy: 98.19
+fed_funds: 3.64
+us10y: 4.29
+us2y: 3.76
+yield_curve: 0.53
+cpi_yoy: 3.32
+unemployment: 4.3
+real_yield_10y: 1.9
+breakeven_10y: 2.39
 tags: [macro, daily-note, economics]
 ---
 

@@ -3,6 +3,18 @@ date: 2026-04-08
 day: Wednesday
 type: macro-intelligence
 agent_version: v0.4
+vix: 20.78
+sp500: 6616.85
+nasdaq: 22017.85
+gold: 4838.2
+wti_oil: 95.96
+dxy: 98.75
+fed_funds: 3.64
+us10y: 4.34
+us2y: 3.84
+yield_curve: 0.5
+cpi_yoy: 2.66
+unemployment: 4.3
 tags: [macro, daily-note, economics]
 ---
 

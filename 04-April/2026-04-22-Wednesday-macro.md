@@ -3,6 +3,20 @@ date: 2026-04-22
 day: Wednesday
 type: macro-intelligence
 agent_version: v0.4
+vix: 19.06
+sp500: 7064.01
+nasdaq: 24259.96
+gold: 4778.1
+wti_oil: 89.32
+dxy: 98.29
+fed_funds: 3.64
+us10y: 4.26
+us2y: 3.72
+yield_curve: 0.54
+cpi_yoy: 3.32
+unemployment: 4.3
+real_yield_10y: 1.91
+breakeven_10y: 2.38
 tags: [macro, daily-note, economics]
 ---
 

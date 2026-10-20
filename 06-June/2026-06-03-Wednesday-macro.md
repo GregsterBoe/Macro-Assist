@@ -3,6 +3,22 @@ date: 2026-06-03
 day: Wednesday
 type: macro-intelligence
 agent_version: v1.4
+vix: 16.09
+sp500: 7566.41
+nasdaq: 26874.59
+gold: 4476.3
+wti_oil: 95.98
+dxy: 99.52
+bitcoin: 65854.59
+fed_funds: 3.63
+us10y: 4.47
+us2y: 4.05
+yield_curve: 0.42
+cpi_yoy: 3.95
+unemployment: 4.3
+real_yield_10y: 2.07
+breakeven_10y: 2.39
+nfci: -0.494
 tags: [macro, daily-note, economics]
 ---
 

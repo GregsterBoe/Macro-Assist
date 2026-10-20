@@ -3,6 +3,22 @@ date: 2026-05-25
 day: Monday
 type: macro-intelligence
 agent_version: v1.0
+vix: 16.62
+sp500: 7473.47
+nasdaq: 26343.97
+gold: 4523.2
+wti_oil: 96.6
+dxy: 98.98
+bitcoin: 77402.25
+fed_funds: 3.64
+us10y: 4.57
+us2y: 4.08
+yield_curve: 0.49
+cpi_yoy: 3.95
+unemployment: 4.3
+real_yield_10y: 2.18
+breakeven_10y: 2.4
+nfci: -0.523
 tags: [macro, daily-note, economics]
 ---
 

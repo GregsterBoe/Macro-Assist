@@ -3,6 +3,22 @@ date: 2026-06-12
 day: Friday
 type: macro-intelligence
 agent_version: v1.4
+vix: 19.13
+sp500: 7394.3
+nasdaq: 25809.66
+gold: 4235.8
+wti_oil: 84.81
+dxy: 99.72
+bitcoin: 63613.98
+fed_funds: 3.63
+us10y: 4.55
+us2y: 4.13
+yield_curve: 0.42
+cpi_yoy: 4.27
+unemployment: 4.3
+real_yield_10y: 2.21
+breakeven_10y: 2.29
+nfci: -0.506
 tags: [macro, daily-note, economics]
 ---
 

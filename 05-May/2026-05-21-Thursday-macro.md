@@ -3,6 +3,22 @@ date: 2026-05-21
 day: Thursday
 type: macro-intelligence
 agent_version: v0.7
+vix: 17.19
+sp500: 7432.97
+nasdaq: 26270.36
+gold: 4531.6
+wti_oil: 97.78
+dxy: 99.14
+bitcoin: 77551.06
+fed_funds: 3.64
+us10y: 4.67
+us2y: 4.13
+yield_curve: 0.54
+cpi_yoy: 3.95
+unemployment: 4.3
+real_yield_10y: 2.18
+breakeven_10y: 2.44
+nfci: -0.523
 tags: [macro, daily-note, economics]
 ---
 

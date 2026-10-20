@@ -9,6 +9,22 @@ model: claude-opus-4-8
 conviction_floor: off
 base_rate_first: on
 prune_rules: on
+vix: 16.88
+sp500: 7499.36
+nasdaq: 26213.72
+gold: 3996.9
+wti_oil: 68.7
+dxy: 101.37
+bitcoin: 58653
+fed_funds: 3.63
+us10y: 4.38
+us2y: 4.1
+yield_curve: 0.28
+cpi_yoy: 4.27
+unemployment: 4.3
+real_yield_10y: 2.16
+breakeven_10y: 2.24
+nfci: -0.516
 tags: [macro, daily-note, economics]
 ---
 

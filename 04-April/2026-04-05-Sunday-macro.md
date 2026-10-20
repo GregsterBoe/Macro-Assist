@@ -3,6 +3,20 @@ date: 2026-04-05
 day: Sunday
 type: macro-intelligence
 agent_version: v0.3
+vix: 23.87
+sp500: 6582.69
+nasdaq: 21879.18
+gold: 4702.7
+wti_oil: 112.06
+dxy: 100.03
+fed_funds: 3.64
+us10y: 4.31
+us2y: 3.79
+yield_curve: 0.52
+cpi_yoy: 2.66
+unemployment: 4.3
+real_yield_10y: 1.97
+breakeven_10y: 2.36
 tags: [macro, daily-note, economics]
 ---
 

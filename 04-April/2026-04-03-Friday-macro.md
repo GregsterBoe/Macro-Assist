@@ -3,6 +3,18 @@ date: 2026-04-03
 day: Friday
 type: macro-intelligence
 agent_version: v0.2
+vix: 23.87
+sp500: 6582.69
+nasdaq: 21879.18
+gold: 4651.5
+wti_oil: 111.54
+dxy: 99.98
+fed_funds: 3.64
+us10y: 4.33
+us2y: 3.81
+yield_curve: 0.52
+cpi_yoy: 2.66
+unemployment: 4.4
 tags: [macro, daily-note, economics]
 ---
 
