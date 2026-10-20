@@ -40,6 +40,8 @@ PRODUCT: frozenset[str] = frozenset({
     "fragility", "fragility_or", "fragility_panel", "vol_forecast",
     "market_data", "fred_data", "calendar_events", "youtube_data",
     "parse_positions", "schemas", "assets", "versions",
+    # the note's table numbers copied into its frontmatter, for vault charts
+    "note_metrics",
     "pipeline_common", "pipeline_config",
     # the daily feed gate (pipeline job `feed_gate`, IMP-5.4) — reads the quant log
     # the note just wrote and fails the run on a feed that has stopped
@@ -74,6 +76,7 @@ RESEARCH: frozenset[str] = frozenset({
 
 TOOLING: frozenset[str] = frozenset({
     "bump_version", "tag_versions",
+    "backfill_note_metrics",        # one-off: note_metrics stamped onto past notes on `output`
     "record_audit",                 # the record layer's audit (Phase 24); reads docs and workflows, never the pipeline
     "orient",                       # what /orient prints at turn 1 (WP-24.G); reads record_audit and the docs, never writes
     "decision_packet",              # the §9 worksheet for a register entry; reads docs/ and git, measures nothing

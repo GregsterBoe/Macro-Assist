@@ -113,6 +113,26 @@ tags: [macro, daily-note, economics]
 ---
 ```
 
+### Metric keys, for vault charts
+
+Above `tags:`, a daily note also carries its headline numbers as plain numeric
+keys, copied from its own tables by `note_metrics.stamp()` so a vault tool
+(Obsidian properties, Dataview, Tracker) can chart them:
+
+```yaml
+fragility: 14        # Fragility Monitor composite, 0–100
+vix: 15.27           # market rows: vix, sp500, nasdaq, gold, wti_oil, dxy, bitcoin
+us10y: 5.24          # macro rows, in percent: fed_funds, us10y, us2y, yield_curve,
+nfci: -0.494         #   cpi_yoy, unemployment, real_yield_10y, breakeven_10y; nfci
+```
+
+They are a copy of the body, read off the rendered text, never re-derived. A
+number the body does not show — a `nan` feed, a row an older note lacks — is
+left out rather than written as zero. Nothing in the pipeline reads them back.
+Notes written before the keys existed were stamped by
+`backfill_note_metrics.py` (production daily notes only; arm notes untouched,
+as with `tag_versions.py`); it is idempotent and touches only the frontmatter.
+
 Score files (`results/scores/YYYY-MM-DD.json`) carry the same field immediately
 after `report_date`:
 
