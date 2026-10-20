@@ -202,3 +202,11 @@ class TestComputedNote:
         assert note_is_post_cut(note)
         for key in ("agent_version:", "conviction_floor:", "base_rate_first:", "prune_rules:"):
             assert key in note
+
+    def test_snapshot_numbers_reach_the_frontmatter(self):
+        note = ca.build_note(FRED, MARKET, ca.computed_analysis(QUANT_RAW, TODAY), TODAY,
+                             quant_raw=QUANT_RAW, llm=False)
+        front = note.split("\n---", 1)[0]
+        for line in ("fragility: 16", "sp500: 7651.54", "vix: 16.34", "gold: 4219.8",
+                     "us10y: 5.26", "yield_curve: 0.37", "cpi_yoy: 3.71"):
+            assert f"\n{line}\n" in front
