@@ -51,7 +51,7 @@ have its sealed read.
 | [H-009](#h-009) | `closed` | Halving equity exposure while the cross-section flag fires takes less of each market drop than holding less stock does — *the first member of the risk-rule class ([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md), accepted and built 2026-10-01, `resolved.md` #34); its clause settled before any look, `resolved.md` #35; closed on explore 2026-10-01 at the owner's call: too costly, no edge, and worse than the volatility rival; no KB entry, no sealed read spent* |
 | [H-010](#h-010) | `closed` | Investing more of the monthly contribution while the cross-section flag fires ends with more wealth than plain monthly buying, and than buying after a fall — *the first member of the contribution-rule class ([ADR-0025](../decisions/ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md), accepted and built 2026-10-11, `resolved.md` #37); closed on explore 2026-10-11 at the owner's call: `inverted` — 3.2% less money than plain buying, behind the drawdown rival, though the clause held; no KB entry, no sealed read spent* |
 | [H-011](#h-011) | `closed` | Splitting each month's contribution across the holdings below their target keeps a stock–bond–gold mix at least twice as close to target as plain buying, at no material cost — *the first member of the allocation-rule class ([ADR-0026](../decisions/ADR-0026-a-buy-only-rebalancing-rule-is-read-on-drift-at-a-matched-exposure.md), accepted and built 2026-10-11, `resolved.md` #38, its rule changed at build before any data); explore look 2026-10-11: clears every stage — control ratio 0.322, 0.12 pp a year behind the matched rival, the clause held; sealed read 2026-10-12: `underpowered` (4 drops, floor 5), and past the floor `costly` — control 0.212, 0.60 pp a year behind the matched rival → [KB-037]* |
-| [H-012](#h-012) | `draft` | Halving equity exposure while the past year's IPO count runs hot takes less of each market drop than holding less stock does, and than the volatility rule — *the second member of the risk-rule class ([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md)); drafted and built 2026-10-21, no look yet; its sealed side holds 4 drops, one under the floor (`todo.md` #39)* |
+| [H-012](#h-012) | `draft` | Halving equity exposure while the past year's IPO count runs hot takes less of each market drop than holding less stock does, and than the volatility rule — *the second member of the risk-rule class ([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md)); drafted and built 2026-10-21; explore look the same day: it would read `no_edge` — never cut at a peak, took all of 9 drops, behind the volatility rule in every one; closing is the owner's call; its sealed side holds 4 drops, one under the floor (`todo.md` #39)* |
 
 ---
 
@@ -1301,7 +1301,7 @@ Report: `results/explore_rules/report_h011.md` · receipt
 
 ## H-012 — Halving equity exposure while the past year's IPO count runs hot takes less of each market drop than holding less stock does, and than the volatility rule {: #h-012 }
 
-**Status:** `draft` · drafted 2026-10-21 · no look yet. It is the second member of the risk-rule class ([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md)), whose slice has been unspent since H-009 closed on explore. Built the same day: `explore_rules.py --member h012`. Its dry run (no rule read) runs 1986-01-31 → 2017-12-29, 384 months. The rule is cut in 16.4% of them, and the slice holds 9 buy-and-hold drops of 10% or more against the floor of 5. **Its sealed side holds 4 drops, one under the floor** ([KB-038], `todo.md` #39), so a sealed read waits for a fifth.
+**Status:** `draft` · drafted 2026-10-21 · one explore look 2026-10-21. **On 1986–2017 it would have read `no_edge`:** it was never cut at a drop's peak, took the whole of all 9 drops, and lost to the volatility rule in every one (ledger). Closing it is the owner's call. It is the second member of the risk-rule class ([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md)), whose slice has been unspent since H-009 closed on explore. Built the same day: `explore_rules.py --member h012`. Its dry run (no rule read) runs 1986-01-31 → 2017-12-29, 384 months. The rule is cut in 16.4% of them, and the slice holds 9 buy-and-hold drops of 10% or more against the floor of 5. **Its sealed side holds 4 drops, one under the floor** ([KB-038], `todo.md` #39), so a sealed read waits for a fifth.
 
 **What was seen.** Nothing for this rule. It is proposed for the owner's goal 3
 ([What is worth doing §2](../concepts/what-is-worth-doing.md#2-the-standing-goals)),
@@ -1431,7 +1431,54 @@ if it appears ([ADR-0009](../decisions/ADR-0009-cut-the-directional-product.md))
 (`parse_ipo_counts`, `ipo_hot`, `decision_months`, `build_ipo_path`) ·
 `todo.md` #39.
 
-**Explore-tier looks (ledger).** None yet.
+**Explore-tier looks (ledger).** *2026-10-21* — **the first counted look**
+(*What would test it* step 2). `explore_rules.py --member h012 --cached`, at
+commit `559b016`, with a clean receipt, on the inputs the dry run checked.
+The member is exactly as fixed above: no variant was tried, and none is tried
+after this number.
+- **Sample.** 1986-01-31 → 2017-12-29, 8,046 days and 384 months. The rule
+  was cut in 16.4% of them, a mean exposure of 0.918. There are 9 buy-and-hold
+  drops of 10% or more, against the floor of 5.
+- **What the bar would read, in its order.** Underpowered: no. Inverted: no,
+  but only just: the member took the **whole** of every drop (mean share 1.0).
+  - Too costly: no, barely. It returned 0.46 pp a year less than
+    `static_matched` at 10 bps and 0.48 at 30 (budget 0.5).
+  - **No edge. The bar would stop here.** The saving against
+    `static_matched` is −0.080 [−0.085, −0.076]: it took 8 points more of
+    each drop than holding the same average stock all the time.
+  - **Behind the rival too:** −0.115 against `vol_matched`, better in 0 of
+    9 drops.
+  - **The clause failed:** no drop was caught, 0 of 9.
+- **Why.** The rule was cut in 1986-08 → 1987-06, 1992-05 → 1992-11,
+  1993-09 → 1994-11, 1996-01 → 1997-05 and 2014-03 → 2015-03, and never at
+  a peak. Two of those stretches ran up to a drop and ended before it: two
+  months before the August 1987 peak and three months before June 2015's.
+  The 1999–2000 wave never fired. Its 476 net IPOs in 1999 fell short
+  because 1996's record of 675 sat in its 120-month window.
+- **Reported, never read.** The member's worst drop was buy-and-hold's,
+  54.6% (2007–09); `static_matched` 51.1%, `vol_matched` 46.0%. Tax brought
+  forward was 0.8% a year, against 0.6% for `static_matched`.
+- **Easy to forget.**
+  - The issuers were early, not wrong in kind. Issuance peaked months to
+    years before the market. A longer hold would have had the rule cut at
+    the 1987 and 2015 peaks, but that is a variant chosen after this number.
+    It would also have held half through more of the late-1990s rise.
+  - The window decided 2000. Against ten years, the 1999–2000 wave was not
+    "hot", because 1996 was hotter. The window was chosen before the look,
+    for a stated reason (the count's level is not stable), and it cost the
+    slice's largest drop.
+  - Not blind (confound c). That would have weakened a pass; it does not
+    weaken a fail.
+- **What it changes.** On the explore record H-012 fails the class bar at
+  `no_edge`, loses to the volatility rule in every drop, and its clause fails
+  with nothing caught. Writing its `Pre-registration` would spend an audit
+  on a read whose likely answer is already visible, and the sealed side is
+  `underpowered` anyway (`todo.md` #39). Whether to close it is the owner's
+  call. The risk-rule class's sealed slice stays unspent.
+
+Report: `results/explore_rules/report_h012.md` · receipt
+`results/explore_rules/runs.jsonl` (2026-10-21T20:32:10+02:00, `report_sha256`
+`1459e6d3…`).
 
 ## Closed
 
