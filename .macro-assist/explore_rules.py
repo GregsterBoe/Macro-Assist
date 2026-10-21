@@ -90,6 +90,22 @@ The inputs are fetched in CI (`explore_rules.yml`, which holds FRED's key);
 `check_mix_inputs` checks coverage, ranges and the two dollar rates before any
 leg is walked. Report and summary: `report_h011.md` / `summary_h011.json`.
 
+The member: H-012, `h012_ipo_hot_half` (`--member h012`, ADR-0023)
+-------------------------------------------------------------------
+A second risk rule, read by the `risk_rule` class bar on H-009's legs:
+
+    signal    `ipo_hot` — the net count of US IPOs (operating companies; Jay
+              Ritter's IPOALL file, from 1975-01) summed over the 12 months
+              to the month before t, at or above the 90th percentile of the
+              120 such sums strictly before it. A month that still has fewer
+              than 120 is dropped, not read as quiet.
+    rule      e = 0.5 from the month-end close of a firing month to the next
+              month-end, else 1.0; the class bar applies the one-day lag.
+    clause    `caught_split` on the days the rule is cut (`before_peak` 0:
+              the signal is the hold itself).
+
+Report and summary: `report_h012.md` / `summary_h012.json`.
+
 Run
 ---
     python explore_rules.py --dry-run     # fetch, build the flag, print the slice; reads no rule
@@ -98,6 +114,8 @@ Run
     python explore_rules.py --member h010 --dry-run   # H-010: the slice, the month-ends; reads no rule
     python explore_rules.py --member h010 --cached    # H-010's look — COUNTED
     python explore_rules.py --member h011 --dry-run   # H-011: fetch, check the data, the plans; walks no leg
+    python explore_rules.py --member h012 --dry-run   # H-012: the slice, the share of months cut; reads no rule
+    python explore_rules.py --member h012 --cached    # H-012's look — COUNTED
     python explore_rules.py --member h011             # H-011's look — COUNTED (in CI: explore_rules.yml)
 
 Writes `results/explore_rules/{report.md, summary.json}`, caches the fetched
@@ -110,9 +128,11 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 import pickle
 import subprocess
+import urllib.request
 from datetime import date, datetime
 from pathlib import Path
 
@@ -173,9 +193,20 @@ DEM_PER_EUR = 1.95583                           # the fixed conversion rate, 199
 EURO_START = "1999-01"
 BOND_MONTHS = 120                               # a constant-maturity 10-year bond
 
-MEMBERS = ("h009", "h010", "h011")
+# H-012 (ADR-0023): cut to half for the month while the past year's IPO count runs hot,
+# fixed before any look
+ARM_H012 = "h012_ipo_hot_half"
+SIGNAL_H012 = "ipo_hot"
+IPO_URL = "https://site.warrington.ufl.edu/ritter/files/IPOALL.xlsx"
+IPO_FIRST = "1975-01"                    # the net count (operating companies) starts here
+IPO_SUM_MONTHS, IPO_WINDOW, IPO_Q = 12, 120, 0.90
+CUT_H012 = 0.5
+SPEC_H012 = cb.validate({"class": "risk_rule", "arm": ARM_H012,
+                         "clauses": [{"kind": "caught_split", "signal": SIGNAL_H012, "before_peak": 0}]})
+
+MEMBERS = ("h009", "h010", "h011", "h012")
 _OUT = {"h009": ("report.md", "summary.json"), "h010": ("report_h010.md", "summary_h010.json"),
-        "h011": ("report_h011.md", "summary_h011.json")}
+        "h011": ("report_h011.md", "summary_h011.json"), "h012": ("report_h012.md", "summary_h012.json")}
 
 
 # ---------------------------------------------------------------------------
@@ -330,14 +361,27 @@ def _pct(x) -> str:
 
 
 def render(result: dict) -> str:
-    s, bar = result["summary"], cb.RISK_RULE
+    s = result["summary"]
     lines = [f"# Explore look — {ARM} (H-009)", "",
              f"Verdict: **{result['verdict']}** — {result['reason']}. Explore slice "
              f"{s['first_date']} → {s['last_date']} (< `SEAL_START` {SEAL_START}), {s['n_days']} days; "
              f"the flag's first reading {result['flag']['first_reading']}, fired on "
              f"{_pct(result['flag']['share_fired'])} of {result['flag']['n_readings']} grid readings. "
-             f"Member mean exposure {s['mean_exposure']}.", "",
-             "## What the bar would read", ""]
+             f"Member mean exposure {s['mean_exposure']}.", ""]
+    lines += _risk_read_lines(result)
+    a = result["alarm_split"]
+    lines += ["", "## Reported, never read", "",
+              f"Return, member minus `static_matched`, by day (pp a year, 10 bps; negative = behind): in the {a['n_windows_followed']} hold "
+              f"windows a 5% drop followed, {a['pp_per_year']['followed']:+.2f}; in the "
+              f"{a['n_windows_false_alarm']} false alarms, {a['pp_per_year']['false_alarm']:+.2f}; fully "
+              f"invested, {a['pp_per_year']['invested']:+.2f}.", ""]
+    return "\n".join(lines + _risk_detail_lines(s))
+
+
+def _risk_read_lines(result: dict) -> list[str]:
+    """What the risk bar would read, in its order, and the clauses."""
+    s, bar = result["summary"], cb.RISK_RULE
+    lines = ["## What the bar would read", ""]
     if s["n_episodes"]:
         sv, sav = s["saving_vs_vol"], s["saving"]
         lines += [f"- Episodes (buy-and-hold drops ≥ {bar.episode_depth:.0%}): **{s['n_episodes']}**",
@@ -353,12 +397,12 @@ def render(result: dict) -> str:
         lines += ["- No episode on this slice."]
     for c in result["clauses"]:
         lines.append(f"- Clause `{c['kind']}`: {'held' if c['passed'] else 'failed'} — {c['detail']}")
-    a = result["alarm_split"]
-    lines += ["", "## Reported, never read", "",
-              f"Return, member minus `static_matched`, by day (pp a year, 10 bps; negative = behind): in the {a['n_windows_followed']} hold "
-              f"windows a 5% drop followed, {a['pp_per_year']['followed']:+.2f}; in the "
-              f"{a['n_windows_false_alarm']} false alarms, {a['pp_per_year']['false_alarm']:+.2f}; fully "
-              f"invested, {a['pp_per_year']['invested']:+.2f}.", ""]
+    return lines
+
+
+def _risk_detail_lines(s: dict) -> list[str]:
+    """Reported, never read: each leg at each cost, every episode, the tax note."""
+    bar, lines = cb.RISK_RULE, []
     for c, legs in s["legs"].items():
         lines += [f"### Legs at {float(c):g} bps", "",
                   "| leg | worst drop | return / yr | vol / yr | time reduced | trades / yr | "
@@ -376,7 +420,7 @@ def render(result: dict) -> str:
     lines += ["", "Tax brought forward: realized gain on an average cost basis × "
                   f"{bar.tax_rate:.2%}, as a share of the portfolio at the year's start; the yearly allowance "
                   "is left out. An explore look is not a result: it goes to the register, never the KB.", ""]
-    return "\n".join(lines)
+    return lines
 
 
 def _pp(x) -> str:
@@ -658,6 +702,120 @@ def render_h011(result: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
+# H-012: the IPO count as a risk signal (ADR-0023)
+# ---------------------------------------------------------------------------
+
+def parse_ipo_counts(raw: pd.DataFrame) -> pd.Series:
+    """The net monthly IPO count from Ritter's IPOALL sheet, read with no
+    header: column 0 the month, 1 the two-digit year (60–99 → 19xx, 0–59 →
+    20xx), 4 the net count, which starts in 1975. The sheet's notes sit in
+    the same columns as text and are skipped. A gap, a blank or a negative
+    count after `IPO_FIRST` is an error, not a quiet month."""
+    m = pd.to_numeric(raw.iloc[:, 0], errors="coerce")
+    y = pd.to_numeric(raw.iloc[:, 1], errors="coerce")
+    keep = m.between(1, 12) & y.between(0, 99) & (m % 1 == 0) & (y % 1 == 0)
+    yy = y[keep].astype(int).to_numpy()
+    idx = pd.to_datetime(pd.DataFrame({"year": np.where(yy >= 60, 1900 + yy, 2000 + yy),
+                                       "month": m[keep].astype(int).to_numpy(), "day": 1}))
+    net = pd.to_numeric(raw.iloc[:, 4][keep], errors="coerce").to_numpy(dtype=float)
+    s = pd.Series(net, index=pd.DatetimeIndex(idx)).sort_index()
+    s = s[s.index >= pd.Timestamp(IPO_FIRST)]
+    if s.empty or s.index.duplicated().any():
+        raise ValueError("the IPO sheet has no net count from 1975, or a month twice")
+    missing = pd.date_range(s.index[0], s.index[-1], freq="MS").difference(s.index)
+    if len(missing) or s.isna().any() or (s < 0).any():
+        raise ValueError(f"the net IPO count is incomplete on {s.index[0]:%Y-%m} → {s.index[-1]:%Y-%m}: "
+                         f"{len(missing)} month(s) missing, {int(s.isna().sum())} blank, "
+                         f"{int((s < 0).sum())} negative")
+    return s
+
+
+def fetch_ipo_counts(url: str = IPO_URL) -> pd.Series:
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (macro-assist research)"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        return parse_ipo_counts(pd.read_excel(io.BytesIO(r.read()), header=None))
+
+
+def fetch_ipo_inputs() -> dict:
+    return {"factors": before_seal(fetch_ff_factors()), "ipo": before_seal(fetch_ipo_counts()),
+            "fetched": datetime.now().astimezone().isoformat(timespec="seconds")}
+
+
+def ipo_hot(counts: pd.Series, months: int = IPO_SUM_MONTHS, window: int = IPO_WINDOW,
+            q: float = IPO_Q) -> pd.Series:
+    """The decision at the end of each month t: cut if the count summed over
+    the `months` months to the month before t (one month's lag) is at or
+    above the q-quantile of the `window` such sums strictly before t. Months
+    without a full sum or a full window are dropped, not read as quiet."""
+    sums = counts.rolling(months).sum().shift(1).dropna()
+    v = sums.to_numpy(dtype=float)
+    fired = [bool(v[i] >= np.quantile(v[i - window:i], q)) for i in range(window, len(v))]
+    return pd.Series(fired, index=sums.index[window:], dtype=bool)
+
+
+def decision_months(days: pd.DatetimeIndex, last_month_complete: bool = True) -> pd.DatetimeIndex:
+    """For each day, the month whose decision stands at its close: a month's
+    decision is taken at its last trading day's close and stands until the
+    next month's. The last day is a month-end only when its month is known
+    complete."""
+    month = days.to_period("M")
+    end = np.r_[month[1:] != month[:-1], last_month_complete]
+    return (month - (~end).astype(int)).to_timestamp()
+
+
+def build_ipo_path(inputs: dict, fired: pd.Series) -> dict:
+    """H-012 on the daily calendar, from its first decision to the last day
+    before the seal: each day's decided exposure is CUT_H012 while the
+    standing month's decision is to cut, else 1."""
+    fac = inputs["factors"]
+    days = fac.index[fac.index < pd.Timestamp(SEAL_START)]
+    standing = fired.reindex(decision_months(days, SEAL_START.day == 1))
+    have = standing.notna().to_numpy()
+    if not have.any():
+        raise ValueError("no day has a standing decision")
+    a = int(np.argmax(have))
+    b = len(have) - int(np.argmax(have[::-1]))
+    if not have[a:b].all():
+        raise ValueError("the decisions have a gap inside the slice")
+    days, cut = days[a:b], standing.to_numpy()[a:b].astype(bool)
+    fac = fac.loc[days]
+    return {"dates": [d.date().isoformat() for d in days],
+            "equity": (fac["Mkt-RF"] + fac["RF"]).to_numpy(dtype=float),
+            "cash": fac["RF"].to_numpy(dtype=float),
+            "exposure": np.where(cut, CUT_H012, 1.0),
+            "signals": {SIGNAL_H012: cut}}
+
+
+def _ipo_info(inputs: dict, fired: pd.Series, path: dict) -> dict:
+    """The data and the signal's frequency over the path's months; reads no return."""
+    first, last = pd.Timestamp(path["dates"][0]), pd.Timestamp(path["dates"][-1])
+    on_path = fired[(fired.index >= first.to_period("M").to_timestamp()) & (fired.index <= last)]
+    return {"ipo_first_month": f"{inputs['ipo'].index[0]:%Y-%m}", "ipo_last_month": f"{inputs['ipo'].index[-1]:%Y-%m}",
+            "first_decision": f"{fired.index[0]:%Y-%m}", "n_months": int(len(on_path)),
+            "share_months_cut": round(float(on_path.mean()), 4)}
+
+
+def look_h012(inputs: dict) -> tuple[dict, dict]:
+    fired = ipo_hot(inputs["ipo"])
+    path = build_ipo_path(inputs, fired)
+    result = cb.read(path, SPEC_H012, sealed=False)
+    result["signal"] = _ipo_info(inputs, fired, path)
+    return result, path
+
+
+def render_h012(result: dict) -> str:
+    s, g = result["summary"], result["signal"]
+    lines = [f"# Explore look — {ARM_H012} (H-012)", "",
+             f"Verdict: **{result['verdict']}** — {result['reason']}. Explore slice "
+             f"{s['first_date']} → {s['last_date']} (< `SEAL_START` {SEAL_START}), {s['n_days']} days; "
+             f"the net IPO count from {g['ipo_first_month']}, the first decision at the end of "
+             f"{g['first_decision']}; cut in {_pct(g['share_months_cut'])} of {g['n_months']} months. "
+             f"Member mean exposure {s['mean_exposure']}.", ""]
+    return "\n".join(lines + _risk_read_lines(result) + ["", "## Reported, never read", ""]
+                     + _risk_detail_lines(s))
+
+
+# ---------------------------------------------------------------------------
 # the receipt
 # ---------------------------------------------------------------------------
 
@@ -687,12 +845,13 @@ def log_run(out_dir: Path, report: str, summary: dict, *, cached: bool, arm: str
 
 
 def _inputs(out_dir: Path, cached: bool, member: str = "h009") -> dict:
-    mix = member == "h011"
-    cache = out_dir / ("inputs_h011.pkl" if mix else "inputs.pkl")
+    own = {"h011": ("inputs_h011.pkl", fetch_mix_inputs), "h012": ("inputs_h012.pkl", fetch_ipo_inputs)}
+    name, fetch = own.get(member, ("inputs.pkl", fetch_inputs))
+    cache = out_dir / name
     if cached and cache.is_file():
         inputs = pickle.loads(cache.read_bytes())
     else:
-        inputs = fetch_mix_inputs() if mix else fetch_inputs()
+        inputs = fetch()
         cache.write_bytes(pickle.dumps(inputs))
     for k, v in list(inputs.items()):                        # a cache from anywhere is cut again
         if k != "fetched":
@@ -705,7 +864,8 @@ def dry_run(out_dir: Path = RESULTS_DIR, *, cached: bool = False, member: str = 
     also the month-ends and the share the member names its high multiple at —
     the flag's frequency, which decides whether its reserve can balance; it
     reads no return. For H-011 the data errand's checks, the months, the plans
-    and the equity drops the floor counts; no leg is walked."""
+    and the equity drops the floor counts; no leg is walked. For H-012 the
+    IPO data's span, the first decision and the share of months cut."""
     out_dir.mkdir(parents=True, exist_ok=True)
     inputs = _inputs(out_dir, cached, member)
     if member == "h011":
@@ -715,6 +875,15 @@ def dry_run(out_dir: Path = RESULTS_DIR, *, cached: bool = False, member: str = 
         info.update({"n_plans": len(cb._plan_starts(path["months"], cb.MIX_RULE.plan_months, False)),
                      "n_equity_episodes": len(cb.risk_episodes(level, cb.MIX_RULE.episode_depth)),
                      "targets": MIX_TARGETS})
+        print(json.dumps(info, indent=2))
+        return info
+    if member == "h012":
+        fired = ipo_hot(inputs["ipo"])
+        path = build_ipo_path(inputs, fired)
+        level = np.r_[1.0, np.cumprod(1.0 + path["equity"])]
+        info = {"first_date": path["dates"][0], "last_date": path["dates"][-1], "n_days": len(path["dates"]),
+                **_ipo_info(inputs, fired, path),
+                "n_buy_and_hold_episodes": len(cb.risk_episodes(level, cb.RISK_RULE.episode_depth))}
         print(json.dumps(info, indent=2))
         return info
     flag = pit_or(panel_channels(inputs["industries"]))
@@ -743,6 +912,9 @@ def run(out_dir: Path = RESULTS_DIR, *, cached: bool = False, member: str = "h00
     elif member == "h010":
         (result, _), arm = look_h010(inputs), ARM_H010
         report = render_h010(result)
+    elif member == "h012":
+        (result, _), arm = look_h012(inputs), ARM_H012
+        report = render_h012(result)
     else:
         (result, _), arm = look(inputs), ARM
         report = render(result)
@@ -760,7 +932,7 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--dry-run", action="store_true", help="build the slice and the flag; read no rule")
     ap.add_argument("--member", choices=MEMBERS, default="h009",
                     help="which register entry to walk (default h009; h010 is ADR-0025's first member, "
-                         "h011 ADR-0026's)")
+                         "h011 ADR-0026's, h012 ADR-0023's second)")
     a = ap.parse_args(argv)
     (dry_run if a.dry_run else run)(cached=a.cached, member=a.member)
 

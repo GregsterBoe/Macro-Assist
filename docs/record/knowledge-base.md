@@ -3633,3 +3633,116 @@ is 2.4 times the limit, and its interval sits wholly above zero. The read is
 - **The money key is the owner's.** Whether to follow the rule anyway, for
   its control and its tax saving, is a decision this entry informs and does
   not make (how we explore §6).
+
+## KB-038 — How good must a signal be? No realistic signal can pass the new-money bar; the reduce-risk bar has room, and what blocks a signal there is the volatility rival
+
+**Date:** 2026-10-21 · **Branch:** `main` · **Harness:**
+`.macro-assist/bar_headroom.py` (zero LLM/API cost, H-009's cached
+Fama-French inputs, cut at `SEAL_START` on load). Reproduce:
+`python .macro-assist/bar_headroom.py` (~25 min).
+
+**Why this is a KB entry and not a register block.** It ran on the explore
+slice, which usually means the register (convention 2). But it reads no
+conjecture and no member. It measures the two goal-3 instruments themselves:
+what a signal would have to know to pass them. The owner asked for it to be
+recorded here (2026-10-21). It came out of the owner's question whether
+following informed actors (corporate insiders, issuers) could feed a rule.
+No insider or issuance data was fetched.
+
+**What we tested.** Each class bar was fed a **synthetic** month-end signal.
+The signal sees the market's own future with correlation *ρ*, from 0.1 to 1
+(1 is perfect foresight). It fires in a fixed share of months, and each
+*ρ* < 1 is averaged over 20–30 fixed seeds.
+
+- **`flow_rule`** ([ADR-0025](../decisions/ADR-0025-a-contribution-rule-is-read-on-wealth-at-an-equal-budget.md)).
+  The signal sees the next 252 trading days' return. When it fires the
+  member invests the high multiple, otherwise the low one. H-010's multiples
+  (0.75 / 2.0) were run, and four other pairs at the share that balances
+  the reserve.
+- **`risk_rule`** ([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md)).
+  The signal sees the market's worst fall over the next 63 trading days.
+  When it fires the member holds 0.5 (or 0) in stock for the month,
+  otherwise 1.
+
+Both are read with the bars' own readers (`flow_summary`, `risk_summary`),
+stage by stage as the verdict would, ignoring only the `exploratory` gate.
+
+### Headline 1 — the new-money bar cannot be passed by any realistic signal
+
+Advantage over plain monthly buying, in pp a year (the bar needs **+0.25**),
+at H-010's multiples:
+
+| window | ρ = 0.3, fires 20% / 28.7% | perfect foresight, 20% / 28.7% | drops of 10%+ |
+|---|---|---|---|
+| 1932–2017 | −0.027 / +0.004 | −0.005 / +0.011 | 32 |
+| 2003–2017 | −0.119 / +0.053 | +0.122 / **+0.285** | 3 |
+| 2009–2017 (sealed-side length) | −0.403 / −0.188 | −0.451 / −0.223 | 4 |
+
+Across the four other reserve designs (0.5/2.0, 0.5/3.0, 0/3.0, 0.9/1.5):
+at ρ = 0.3 **all twelve window cells trail plain buying**. Perfect foresight
+never reaches +0.25; its best is +0.242.
+
+### Headline 2 — the reduce-risk bar has room; the volatility rival is what blocks a signal
+
+On 1932–2017 (32 drops), by the bar's stage:
+
+| stage | what it takes |
+|---|---|
+| `too_costly` (≤ 0.5 pp behind the same average stock) | Binds only for noise. From ρ ≈ 0.2 the member *earns more* than `static_matched` (+0.3 to +0.6 pp a year), because it is out before falls |
+| `no_edge` (saving ≥ 0.10 of each drop, interval clear of zero) | Reached at about **ρ = 0.5** (0.084–0.128). At ρ = 0.3 it is 0.04–0.05 |
+| `explained_by_rival` (beats `vol_matched` in ⅔ of drops) | **The binding stage.** At ρ = 0.5 the member beats the volatility rule in 51–59% of drops and passes in 0–15% of seeds. Even perfect foresight fails it when it cuts to half in 15% of months (wins 62%) |
+
+### The nuance that is easy to forget
+
+- **The new-money result is mechanical, not about any signal.** Money held
+  back in a rising market costs more than better timing can earn back.
+  Signal months come late and close together, and the reserve runs dry when
+  it matters. H-010's ledger saw this for one flag (its clause held and it
+  still lost 3.2% of final wealth). This shows it holds for foresight too.
+- **The 0.25 pp bar dilutes with the length of the slice.** A timing rule
+  gains a roughly fixed share per euro, and a money-weighted return spreads
+  that share over the average holding time. On 86 years 0.25 pp a year is
+  about 17% more final wealth; on nine years about 1%. An explore read of
+  this class over 1932–2017 can only speak to sign. The 2009–2017 row is the
+  sealed side's length but starts at a market bottom, which is the worst
+  case for holding money back.
+- **The synthetic signal flatters a real one.** Its noise is independent
+  month to month. A real signal is persistent and fires in runs, which
+  starves the reserve more and makes risk cuts later. Its *ρ* is also
+  measured against the exact target each bar rewards. A real signal's
+  correlation with that target would be lower than its headline accuracy.
+- **Three drops pass by luck.** On 2003–2017 (3 drops) the risk member
+  "passes" in up to 25% of seeds at ρ 0.1–0.5. That is noise on three
+  episodes, which is what the five-drop floor exists to stop.
+- **No outside ρ was measured.** The literature on aggregate insider buying
+  reports weak prediction of the market's next year. What *ρ* such a signal
+  would have against these targets is unknown here.
+
+### What it changes
+
+- **`flow_rule` should take no new member as it stands.** Its bar is out of
+  reach for any signal of realistic quality, and for foresight. A further
+  new-money rule would need a different mechanism or a different bar.
+  That is a change to ADR-0025, the owner's to open, and not a member. For
+  the owner's plan, plain monthly buying is the answer this class gives.
+- **`risk_rule` stays open, and its slice is unspent** (H-009 closed on
+  explore). A candidate has to know something the volatility rule does
+  not. The volatility rule is weakest where a fall starts from a calm
+  market, so a member worth drafting fires in calm markets. One that fires
+  after volatility rises duplicates the rival.
+- **Power.** Free machine-readable insider data starts around 2003. Its
+  explore side holds 3 drops of 10% or more (2007–2013 is one episode).
+  **The sealed side holds 4**, below the floor of 5, on the bar's own daily
+  series (Fama-French market total return, 2018-01-02 → 2026-08-31): 2018-Q4
+  (20.5%), 2020 (34.2%), 2022 (25.6%), 2025 (19.6%). The near misses are
+  February 2018 (9.85%) and January 2026 onward (9.46%). It was counted
+  2026-10-21 at the owner's call, from market prices only; no signal was
+  read. **Any `risk_rule` member read today comes back `underpowered`.**
+  Lowering the drop to 9% would add exactly the two near misses just seen,
+  so it would be a goalpost move. A member that passes its explore look
+  waits for a fifth drop.
+- **Taxes.** The reduce-risk bar reports tax brought forward and does not
+  read it ([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md),
+  `resolved.md` #34). The owner noted on 2026-10-21 that early in the plan,
+  with small gains, that cost is small. That weighs on the money key, not on
+  the bar.

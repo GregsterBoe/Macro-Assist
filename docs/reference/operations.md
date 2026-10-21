@@ -475,8 +475,9 @@ What it does not do:
 ### explore_rules.yml — an explore-tier look at a goal-3 rule (Phase 23)
 
 Dispatch-only. It runs `.macro-assist/explore_rules.py --member <m>` (`h009`,
-`h010` or `h011`) on GitHub's runner, which reaches FRED with the repo's
-`FRED_API_KEY`, Kenneth French's library and the gold mirror. A cloud
+`h010`, `h011` or `h012`) on GitHub's runner, which reaches FRED with the
+repo's `FRED_API_KEY`, Kenneth French's library, the gold mirror and Jay
+Ritter's IPO file. A cloud
 session's network may reach none of them. `dry_run` (the default) fetches,
 checks the data and prints the slice; it walks no leg and leaves no receipt.
 Without it the run is a **counted look**: it writes the member's report and

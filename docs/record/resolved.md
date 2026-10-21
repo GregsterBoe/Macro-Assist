@@ -18,6 +18,45 @@ questions.
 
 ## Pipeline / accuracy
 
+### RESOLVED 2026-10-21 — #39 the risk-rule class's sealed side holds 4 drops, one under its floor: wait for a fifth
+**Resolution: option 1, wait.** The owner chose it the same day. The floor
+of 5 and the 10% drop stay as ADR-0023 set them. A risk-rule member that
+passes its explore look writes its `Pre-registration` and passes the CI audit.
+Its sealed read waits until a fifth drop of 10% or more is in every input's
+data. Nothing in ADR-0023 changes. H-012, the member the count was made for,
+closed on its explore look the same day, so no member is waiting now.
+
+**Why it was the owner's call.** The other two options would have changed
+the bar after its sealed side's drops were counted. Waiting costs only time.
+
+The item as it was opened:
+
+**Opened 2026-10-21, before H-012's first look.** At the owner's call the
+drops on `risk_rule`'s sealed side were counted, from market prices only, on
+the bar's own daily series: **4** of 10% or more, 2018-01-02 → 2026-08-31
+([KB-038]). The floor is 5 ([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md)),
+so any member read today comes back `underpowered`, as H-011's did under its
+own class ([KB-037]). The near misses are February 2018 (9.85%) and January
+2026 onward (9.46%). ADR-0023's revisit section asks for the threshold and
+floor to be reconsidered before a second member is chosen. Its trigger was a
+first member reading `underpowered`, which H-009 never reached, but the
+reason is the same.
+
+1. **Wait.** A member that passes its explore look writes its
+   `Pre-registration`, passes the CI audit, and its sealed read waits until a
+   fifth drop lands in every input's data. H-012's IPO count is updated once a
+   year, each spring, so a drop is readable the spring after it.
+2. **Lower the drop to 9%.** That gives 6 episodes, but the number would be
+   chosen after seeing exactly the two drops it adds. That is a goalpost
+   move (convention 7).
+3. **Lower the floor to 4.** A member winning all four reaches p = 1/16 on
+   the sign test the floor was set from. That is weaker than the 1/32 the
+   owner accepted, and decided after the count.
+
+*Lean, the proposer's:* (1). Nothing is lost by drafting and looking now:
+the explore look is free, the sealed slice stays unspent, and a member fixed
+before the fifth drop is the cleanest test the class can get.
+
 ### RESOLVED 2026-10-10 — #26 the vol term structure's feed: keep it as it is
 **Resolution: the owner's call — no further change.** The feed stays on yfinance
 with the retry (`pipeline_common.yf_history_with_retry`), the CBOE fallback on

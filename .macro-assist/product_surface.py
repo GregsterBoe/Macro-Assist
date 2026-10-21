@@ -69,6 +69,7 @@ RESEARCH: frozenset[str] = frozenset({
     "explore_rules",                # explore-tier risk rules, read on drawdown (ADR-0023, H-009)
     "filter_testing",               # an outside input as a filter on the OR flag (IMP-9)
     "class_bars",                   # the class bars a promoted hypothesis is read against (WP-23.B)
+    "bar_headroom",                 # how good a synthetic signal must be to pass a goal-3 bar (KB-038)
     "sealed_runner",                # the sealed read itself, in sealed_read.yml's key job only (WP-23.B)
     "model_compare",                # the main analysis call on several models, same saved days, side by side
     "exogenous",                    # Phase 19 branch; its emitter is soft-killed
