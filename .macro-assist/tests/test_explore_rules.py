@@ -282,3 +282,77 @@ def test_an_h011_dry_run_walks_no_leg(monkeypatch, tmp_path):
     info = er.dry_run(tmp_path, member="h011")
     assert info["n_plans"] == 36 and info["last_month"] == "2017-12"
     assert not (tmp_path / er.RUN_LOG).exists()
+
+
+# ---------------------------------------------------------------------------
+# H-012: the IPO count (ADR-0023)
+# ---------------------------------------------------------------------------
+
+# Rows copied from Ritter's IPOALL.xlsx (fetched 2026-10-21), as read with no
+# header: month, two-digit year, first-day return, gross count, net count,
+# share above the midpoint — and one of the sheet's notes.
+_IPOALL_ROWS = [
+    [1, 60.0, 13.8, 16.0, "see 1975", "see 1980"],
+    [2, 60.0, 8, 16.0, np.nan, np.nan],
+    [12, 74.0, ".", 0.0, np.nan, np.nan],
+    [1, 75.0, -1.4, 1.0, 1, np.nan],
+    [2, 75.0, 5, 1.0, 0, np.nan],
+    [12, 99.0, 115.3, 41.0, 39, 89],
+    [1, 0.0, 92.3, 15.0, 13, 67],
+    ["the first column is the month", np.nan, np.nan, np.nan, "the second column is the year", np.nan],
+]
+
+
+def test_h012_is_the_entrys():
+    assert (er.CUT_H012, er.IPO_SUM_MONTHS, er.IPO_WINDOW, er.IPO_Q) == (0.5, 12, 120, 0.90)
+    assert er.IPO_FIRST == "1975-01"
+    assert er.SPEC_H012["class"] == "risk_rule"
+    assert er.SPEC_H012["clauses"] == [{"kind": "caught_split", "signal": er.SIGNAL_H012, "before_peak": 0}]
+
+
+def test_the_ipo_sheet_reads_two_digit_years_from_1975_and_skips_notes():
+    raw = pd.DataFrame([_IPOALL_ROWS[i] for i in (0, 1, 2, 3, 4, 7)])
+    s = er.parse_ipo_counts(raw)
+    assert list(s.index.strftime("%Y-%m")) == ["1975-01", "1975-02"] and list(s) == [1.0, 0.0]
+    s = er.parse_ipo_counts(pd.DataFrame([_IPOALL_ROWS[i] for i in (5, 6, 7)]))
+    assert list(s.index.strftime("%Y-%m")) == ["1999-12", "2000-01"] and list(s) == [39.0, 13.0]
+
+
+def test_a_gap_in_the_ipo_count_is_an_error():
+    with pytest.raises(ValueError, match="298 month"):                 # 1975-02 … 1999-11
+        er.parse_ipo_counts(pd.DataFrame([_IPOALL_ROWS[i] for i in (3, 5)]))
+
+
+def _counts(n=200, spike_at=None):
+    v = 1000.0 - np.arange(n)                       # falling: a sum never reaches its past's 90th percentile
+    if spike_at is not None:
+        v[spike_at] += 5000
+    return pd.Series(v, index=pd.date_range("1975-01-01", periods=n, freq="MS"))
+
+
+def test_the_ipo_signal_lags_a_month_and_reads_only_the_past():
+    fired = er.ipo_hot(_counts(spike_at=150))
+    assert fired.index[0] == pd.Timestamp("1986-01-01")      # 12-month sum, one month's lag, 120 prior sums
+    pos = {k: bool(fired[_counts().index[k]]) for k in (150, 151, 162, 163)}
+    assert pos == {150: False, 151: True, 162: True, 163: False}
+    assert not er.ipo_hot(_counts()).any()
+
+
+def test_a_months_decision_stands_from_its_last_trading_day_to_the_next():
+    days = pd.bdate_range("2000-01-27", "2000-02-03")
+    got = dict(zip(days.strftime("%m-%d"), er.decision_months(days, False).strftime("%Y-%m")))
+    assert got == {"01-27": "1999-12", "01-28": "1999-12", "01-31": "2000-01", "02-01": "2000-01",
+                   "02-02": "2000-01", "02-03": "2000-01"}
+    assert er.decision_months(days, True)[-1] == pd.Timestamp("2000-02-01")
+
+
+def test_the_h012_path_starts_at_its_first_decision_and_cuts_while_one_stands():
+    days = pd.bdate_range("1999-11-01", "2000-03-31")
+    fac = pd.DataFrame({"Mkt-RF": 0.001, "RF": 0.0001}, index=days)
+    fired = pd.Series([False, True, False, False],
+                      index=pd.to_datetime(["1999-12-01", "2000-01-01", "2000-02-01", "2000-03-01"]))
+    path = er.build_ipo_path({"factors": fac}, fired)
+    assert path["dates"][0] == "1999-12-31" and path["dates"][-1] == "2000-03-31"
+    cut = {d for d, e in zip(path["dates"], path["exposure"]) if e < 1}
+    assert min(cut) == "2000-01-31" and max(cut) == "2000-02-28" and "2000-02-29" not in cut
+    assert (path["signals"][er.SIGNAL_H012] == (path["exposure"] < 1)).all()

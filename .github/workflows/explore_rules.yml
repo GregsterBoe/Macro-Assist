@@ -3,7 +3,8 @@ name: Explore rules (Phase 23)
 # An explore-tier look at a goal-3 rule, on the pre-seal slice only
 # (ADR-0023, ADR-0025, ADR-0026). Runs `explore_rules.py --member <m>` on
 # GitHub's runner, which reaches FRED (with the repo's key), Kenneth French's
-# library and the gold mirror; a cloud session's network may not.
+# library, the gold mirror and Jay Ritter's IPO file; a cloud session's
+# network may not.
 #
 # MANUAL ONLY, and a look is COUNTED: it appends a receipt to
 # results/explore_rules/runs.jsonl and the register entry's ledger must name
@@ -18,8 +19,8 @@ on:
       member:
         description: "Which register entry to walk"
         type: choice
-        options: [h011, h010, h009]
-        default: h011
+        options: [h012, h011, h010, h009]
+        default: h012
       dry_run:
         description: "Fetch and check the data only; no look, no receipt"
         type: boolean
