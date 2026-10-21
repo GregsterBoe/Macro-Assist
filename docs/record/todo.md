@@ -14,7 +14,7 @@ Conventions:
   reasoning intact, and pull any "carry forward" caveat back up into this file
   as its own entry. A resolved item left here is noise; a lost caveat is worse.
 
-Last reviewed: 2026-10-21 — #39 opened (the risk-rule class's sealed side holds 4 drops; counted for H-012). Before that, 2026-10-11 — #38 opened and closed the same day → [`resolved.md`](resolved.md) (ADR-0026, the allocation-rule class for rebalancing with new money, accepted as written with H-011's mix). Earlier the same day, #37 opened and closed the same day → [`resolved.md`](resolved.md) (ADR-0025, the contribution-rule class for new money, accepted as written). Before that, 2026-10-10 — cleanup pass. Phase 20's four carried items (#5,
+Last reviewed: 2026-10-21 — #39 opened and closed the same day → [`resolved.md`](resolved.md) (the risk-rule class's sealed side holds 4 drops; the owner chose to wait for a fifth). Before that, 2026-10-11 — #38 opened and closed the same day → [`resolved.md`](resolved.md) (ADR-0026, the allocation-rule class for rebalancing with new money, accepted as written with H-011's mix). Earlier the same day, #37 opened and closed the same day → [`resolved.md`](resolved.md) (ADR-0025, the contribution-rule class for new money, accepted as written). Before that, 2026-10-10 — cleanup pass. Phase 20's four carried items (#5,
 #2b, #3b, #6b) closed → [`resolved.md`](resolved.md): the book is dormant, they
 constrain only a v2 sizer that has not been proposed, and #2b's object (a
 directional call) no longer exists. **#26** closed the same day (the vol feed stays
@@ -125,34 +125,6 @@ record.
 ---
 
 ## Phase 23 — exploration tier
-
-### Open decision #39 — the risk-rule class's sealed side holds 4 drops, one under its floor
-
-**Opened 2026-10-21, before H-012's first look.** At the owner's call the
-drops on `risk_rule`'s sealed side were counted, from market prices only, on
-the bar's own daily series: **4** of 10% or more, 2018-01-02 → 2026-08-31
-([KB-038]). The floor is 5 ([ADR-0023](../decisions/ADR-0023-a-risk-rule-is-read-on-drawdown-against-a-matched-rival.md)),
-so any member read today comes back `underpowered`, as H-011's did under its
-own class ([KB-037]). The near misses are February 2018 (9.85%) and January
-2026 onward (9.46%). ADR-0023's revisit section asks for the threshold and
-floor to be reconsidered before a second member is chosen. Its trigger was a
-first member reading `underpowered`, which H-009 never reached, but the
-reason is the same.
-
-1. **Wait.** A member that passes its explore look writes its
-   `Pre-registration`, passes the CI audit, and its sealed read waits until a
-   fifth drop lands in every input's data. H-012's IPO count is updated once a
-   year, each spring, so a drop is readable the spring after it.
-2. **Lower the drop to 9%.** That gives 6 episodes, but the number would be
-   chosen after seeing exactly the two drops it adds. That is a goalpost
-   move (convention 7).
-3. **Lower the floor to 4.** A member winning all four reaches p = 1/16 on
-   the sign test the floor was set from. That is weaker than the 1/32 the
-   owner accepted, and decided after the count.
-
-*Lean, the proposer's:* (1). Nothing is lost by drafting and looking now:
-the explore look is free, the sealed slice stays unspent, and a member fixed
-before the fifth drop is the cleanest test the class can get.
 
 ### Open decision #33 — which seal governs the gap → width class (H-003)?
 
