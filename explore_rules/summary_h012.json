@@ -1,0 +1,246 @@
+{
+  "class": "risk_rule",
+  "summary": {
+    "class": "risk_rule",
+    "arm": "h012_ipo_hot_half",
+    "first_date": "1986-01-31",
+    "last_date": "2017-12-29",
+    "n_days": 8046,
+    "mean_exposure": 0.9175,
+    "n_episodes": 9,
+    "episodes": [
+      {
+        "peak": "1987-08-25",
+        "trough": "1987-12-04",
+        "depth": 0.3311,
+        "open": false,
+        "r_member": 1.0,
+        "r_static_matched": 0.9235,
+        "r_vol_matched": 0.8745,
+        "r_buy_and_hold": 1.0,
+        "caught": false
+      },
+      {
+        "peak": "1989-10-09",
+        "trough": "1990-01-30",
+        "depth": 0.1095,
+        "open": false,
+        "r_member": 1.0,
+        "r_static_matched": 0.9038,
+        "r_vol_matched": 0.9652,
+        "r_buy_and_hold": 1.0,
+        "caught": false
+      },
+      {
+        "peak": "1990-07-16",
+        "trough": "1990-10-11",
+        "depth": 0.208,
+        "open": false,
+        "r_member": 1.0,
+        "r_static_matched": 0.9187,
+        "r_vol_matched": 0.9098,
+        "r_buy_and_hold": 1.0,
+        "caught": false
+      },
+      {
+        "peak": "1998-07-17",
+        "trough": "1998-10-08",
+        "depth": 0.2192,
+        "open": false,
+        "r_member": 1.0,
+        "r_static_matched": 0.9204,
+        "r_vol_matched": 0.797,
+        "r_buy_and_hold": 1.0,
+        "caught": false
+      },
+      {
+        "peak": "1999-07-16",
+        "trough": "1999-10-15",
+        "depth": 0.1133,
+        "open": false,
+        "r_member": 1.0,
+        "r_static_matched": 0.9113,
+        "r_vol_matched": 0.9443,
+        "r_buy_and_hold": 1.0,
+        "caught": false
+      },
+      {
+        "peak": "2000-03-24",
+        "trough": "2002-10-09",
+        "depth": 0.4923,
+        "open": false,
+        "r_member": 1.0,
+        "r_static_matched": 0.9261,
+        "r_vol_matched": 0.9334,
+        "r_buy_and_hold": 1.0,
+        "caught": false
+      },
+      {
+        "peak": "2007-10-09",
+        "trough": "2009-03-09",
+        "depth": 0.5457,
+        "open": false,
+        "r_member": 1.0,
+        "r_static_matched": 0.9357,
+        "r_vol_matched": 0.6178,
+        "r_buy_and_hold": 1.0,
+        "caught": false
+      },
+      {
+        "peak": "2012-04-02",
+        "trough": "2012-06-04",
+        "depth": 0.1011,
+        "open": false,
+        "r_member": 1.0,
+        "r_static_matched": 0.9203,
+        "r_vol_matched": 1.0,
+        "r_buy_and_hold": 1.0,
+        "caught": false
+      },
+      {
+        "peak": "2015-06-23",
+        "trough": "2016-02-11",
+        "depth": 0.1553,
+        "open": false,
+        "r_member": 1.0,
+        "r_static_matched": 0.9196,
+        "r_vol_matched": 0.9254,
+        "r_buy_and_hold": 1.0,
+        "caught": false
+      }
+    ],
+    "legs": {
+      "10.0": {
+        "member": {
+          "worst_drop": 0.5457,
+          "annual_return": 0.09673,
+          "annual_vol": 0.1713,
+          "time_reduced": 0.1651,
+          "trades_per_year": 0.31,
+          "turnover_per_year": 0.211,
+          "realized_gain_per_year": 0.04432,
+          "tax_brought_forward_per_year": 0.00818
+        },
+        "static_matched": {
+          "worst_drop": 0.5106,
+          "annual_return": 0.10137,
+          "annual_vol": 0.1614,
+          "time_reduced": 1.0,
+          "trades_per_year": 0.0,
+          "turnover_per_year": 0.14,
+          "realized_gain_per_year": 0.03383,
+          "tax_brought_forward_per_year": 0.00625
+        },
+        "vol_matched": {
+          "worst_drop": 0.4602,
+          "annual_return": 0.10307,
+          "annual_vol": 0.1356,
+          "time_reduced": 0.2995,
+          "trades_per_year": 10.72,
+          "turnover_per_year": 1.883,
+          "realized_gain_per_year": 0.06878,
+          "tax_brought_forward_per_year": 0.0127
+        },
+        "buy_and_hold": {
+          "worst_drop": 0.5457,
+          "annual_return": 0.10664,
+          "annual_vol": 0.1759,
+          "time_reduced": 0.0,
+          "trades_per_year": 0.0,
+          "turnover_per_year": 0.0,
+          "realized_gain_per_year": 0.0,
+          "tax_brought_forward_per_year": 0.0
+        }
+      },
+      "30.0": {
+        "member": {
+          "worst_drop": 0.5457,
+          "annual_return": 0.09627,
+          "annual_vol": 0.1713,
+          "time_reduced": 0.1651,
+          "trades_per_year": 0.31,
+          "turnover_per_year": 0.211,
+          "realized_gain_per_year": 0.04437,
+          "tax_brought_forward_per_year": 0.00819
+        },
+        "static_matched": {
+          "worst_drop": 0.511,
+          "annual_return": 0.10106,
+          "annual_vol": 0.1614,
+          "time_reduced": 1.0,
+          "trades_per_year": 0.0,
+          "turnover_per_year": 0.14,
+          "realized_gain_per_year": 0.03391,
+          "tax_brought_forward_per_year": 0.00626
+        },
+        "vol_matched": {
+          "worst_drop": 0.4735,
+          "annual_return": 0.09893,
+          "annual_vol": 0.1356,
+          "time_reduced": 0.2995,
+          "trades_per_year": 10.72,
+          "turnover_per_year": 1.884,
+          "realized_gain_per_year": 0.06866,
+          "tax_brought_forward_per_year": 0.01268
+        },
+        "buy_and_hold": {
+          "worst_drop": 0.5457,
+          "annual_return": 0.10664,
+          "annual_vol": 0.1759,
+          "time_reduced": 0.0,
+          "trades_per_year": 0.0,
+          "turnover_per_year": 0.0,
+          "realized_gain_per_year": 0.0,
+          "tax_brought_forward_per_year": 0.0
+        }
+      }
+    },
+    "shortfall": {
+      "10.0": -0.00464,
+      "30.0": -0.00479
+    },
+    "mean_r": 1.0,
+    "saving": {
+      "mean": -0.0801,
+      "ci": {
+        "lo": -0.0846,
+        "hi": -0.0758,
+        "level": 0.9,
+        "n_boot": 2000
+      }
+    },
+    "saving_vs_vol": {
+      "mean": -0.1147,
+      "share_better": 0.0
+    }
+  },
+  "clauses": [
+    {
+      "kind": "caught_split",
+      "passed": false,
+      "detail": "mean saving in 0 caught episode(s) +nan, in 9 missed -0.0801; needs both present and caught > missed",
+      "cells": [
+        {
+          "name": "caught",
+          "n_episodes": 0
+        },
+        {
+          "name": "missed",
+          "n_episodes": 9
+        }
+      ]
+    }
+  ],
+  "floor": {
+    "episodes": 5
+  },
+  "verdict": "exploratory",
+  "reason": "the sample is not the sealed side; reported, cannot pass",
+  "signal": {
+    "ipo_first_month": "1975-01",
+    "ipo_last_month": "2017-12",
+    "first_decision": "1986-01",
+    "n_months": 384,
+    "share_months_cut": 0.1641
+  }
+}
