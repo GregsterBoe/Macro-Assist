@@ -1,5 +1,5 @@
 source:  schedule-backstop
-asof:    2026-10-29
-landed:  2026-10-29T19:47:58Z
+asof:    2026-10-30
+landed:  2026-10-30T19:37:40Z
 trigger: schedule
-run:     https://github.com/GregsterBoe/Macro-Assist/actions/runs/40943277746
+run:     https://github.com/GregsterBoe/Macro-Assist/actions/runs/41116763899
