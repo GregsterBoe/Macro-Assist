@@ -1,0 +1,78 @@
+{
+  "report_date": "2026-11-02",
+  "scored_at": "2026-11-09",
+  "observations": [
+    {
+      "date": "2026-11-02",
+      "asset": "Bitcoin",
+      "note_name": "Bitcoin",
+      "unit": "%",
+      "horizon": 5,
+      "published_in_note": true,
+      "claim": "iqr",
+      "bucket": "NFCI:mid|YC:positive|CREDIT:tight",
+      "bucket_n": 741,
+      "eval_date": "2026-11-07",
+      "entry": 76677.2969,
+      "exit": 75747.5781,
+      "realized": -1.2125,
+      "pit_bin": 1,
+      "inside_iqr": true,
+      "above_median": false,
+      "arms": {
+        "published": {
+          "pinball": {
+            "0.25": 0.734373,
+            "0.5": 0.596254,
+            "0.75": 1.220627
+          },
+          "pinball_mean": 0.850418,
+          "quantiles": {
+            "0.25": -4.15,
+            "0.5": -0.02,
+            "0.75": 3.67
+          }
+        },
+        "unconditional": {
+          "pinball": {
+            "0.25": 0.433857,
+            "0.5": 0.829551,
+            "0.75": 1.454091
+          },
+          "pinball_mean": 0.905833,
+          "quantiles": {
+            "0.25": -2.9479,
+            "0.5": 0.4466,
+            "0.75": 4.6039
+          }
+        },
+        "trailing_250": {
+          "pinball": {
+            "0.25": 0.242194,
+            "0.5": 0.577262,
+            "0.75": 0.956692
+          },
+          "pinball_mean": 0.592049,
+          "quantiles": {
+            "0.25": -2.1813,
+            "0.5": -0.058,
+            "0.75": 2.6143
+          }
+        },
+        "har_gaussian": {
+          "pinball": {
+            "0.25": 0.567383,
+            "0.5": 0.606254,
+            "0.75": 1.173638
+          },
+          "pinball_mean": 0.782425,
+          "quantiles": {
+            "0.25": -3.482,
+            "0.5": 0.0,
+            "0.75": 3.482
+          }
+        }
+      }
+    }
+  ]
+}
