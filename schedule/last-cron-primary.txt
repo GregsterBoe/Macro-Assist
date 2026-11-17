@@ -1,5 +1,5 @@
 source:  cron-primary
-asof:    2026-11-16
-landed:  2026-11-16T06:23:21Z
+asof:    2026-11-17
+landed:  2026-11-17T06:23:23Z
 trigger: workflow_dispatch
-run:     https://github.com/GregsterBoe/Macro-Assist/actions/runs/43816387959
+run:     https://github.com/GregsterBoe/Macro-Assist/actions/runs/44030814652
