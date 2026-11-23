@@ -1,7 +1,7 @@
 {
   "generated": "2026-11-23",
-  "n_observations": 586,
-  "n_sealed": 196,
+  "n_observations": 587,
+  "n_sealed": 197,
   "n_exploratory": 390,
   "seal_start": "2026-09-07",
   "benchmark": "unconditional",
@@ -10,32 +10,32 @@
   "min_skill": 0.02,
   "horizons": {
     "t5": {
-      "n": 421,
-      "n_report_dates": 122,
+      "n": 422,
+      "n_report_dates": 123,
       "n_blocks": 6,
       "first_date": "2026-05-29",
-      "last_date": "2026-11-16",
-      "n_interval_claims": 196,
+      "last_date": "2026-11-17",
+      "n_interval_claims": 197,
       "interval_record_starts": "2026-09-07",
-      "coverage_iqr": 0.4745,
+      "coverage_iqr": 0.4721,
       "coverage_ci": {
-        "lo": 0.1795,
+        "lo": 0.175,
         "hi": 0.5802,
         "n_boot": 2000,
         "n_blocks": 3
       },
-      "above_median": 0.4062,
+      "above_median": 0.4052,
       "above_median_ci": {
-        "lo": 0.3158,
+        "lo": 0.3144,
         "hi": 0.5037,
         "n_boot": 2000,
         "n_blocks": 6
       },
       "pit_histogram": {
-        "0": 0.3265,
-        "1": 0.2959,
-        "2": 0.1786,
-        "3": 0.199
+        "0": 0.3299,
+        "1": 0.2944,
+        "2": 0.1777,
+        "3": 0.198
       },
       "pooled_skill": {
         "skill": -0.0146,
@@ -57,7 +57,7 @@
         }
       },
       "pooled_skill_all_assets": {
-        "skill": -0.0008,
+        "skill": 0.0,
         "arm": "published",
         "benchmark": "unconditional",
         "weighting": "equal per asset",
@@ -73,7 +73,7 @@
         "min_pool_blocks": 2,
         "ci": {
           "lo": -0.0295,
-          "hi": 0.0197,
+          "hi": 0.0207,
           "n_boot": 2000,
           "n_blocks": 6
         }
@@ -403,21 +403,21 @@
           }
         },
         "Bitcoin": {
-          "n": 46,
-          "n_report_dates": 46,
+          "n": 47,
+          "n_report_dates": 47,
           "n_blocks": 3,
           "first_date": "2026-09-14",
-          "last_date": "2026-11-16",
-          "n_interval_claims": 46,
+          "last_date": "2026-11-17",
+          "n_interval_claims": 47,
           "interval_record_starts": "2026-09-14",
-          "coverage_iqr": 0.6739,
+          "coverage_iqr": 0.6596,
           "coverage_ci": {
             "lo": 0.0,
             "hi": 0.7619,
             "n_boot": 2000,
             "n_blocks": 3
           },
-          "above_median": 0.3261,
+          "above_median": 0.3191,
           "above_median_ci": {
             "lo": 0.0,
             "hi": 0.4762,
@@ -425,32 +425,32 @@
             "n_blocks": 3
           },
           "pit_histogram": {
-            "0": 0.1957,
-            "1": 0.4783,
-            "2": 0.1957,
-            "3": 0.1304
+            "0": 0.2128,
+            "1": 0.4681,
+            "2": 0.1915,
+            "3": 0.1277
           },
           "unit": "%",
           "mean_pinball": {
-            "published": 1.7959,
-            "unconditional": 1.863,
-            "trailing_250": 1.7833,
-            "har_gaussian": 1.7786
+            "published": 1.8014,
+            "unconditional": 1.8785,
+            "trailing_250": 1.7966,
+            "har_gaussian": 1.7875
           },
           "skill_vs_unconditional": {
             "published": {
-              "skill": 0.036,
-              "n": 46,
+              "skill": 0.041,
+              "n": 47,
               "ci": {
                 "lo": -0.065,
-                "hi": 0.1285,
+                "hi": 0.1388,
                 "n_boot": 2000,
                 "n_blocks": 3
               }
             },
             "trailing_250": {
-              "skill": 0.0428,
-              "n": 46,
+              "skill": 0.0436,
+              "n": 47,
               "ci": {
                 "lo": 0.0145,
                 "hi": 0.0702,
@@ -459,11 +459,11 @@
               }
             },
             "har_gaussian": {
-              "skill": 0.0453,
-              "n": 46,
+              "skill": 0.0484,
+              "n": 47,
               "ci": {
                 "lo": -0.0217,
-                "hi": 0.0976,
+                "hi": 0.1047,
                 "n_boot": 2000,
                 "n_blocks": 3
               }
@@ -721,32 +721,32 @@
   },
   "sealed": {
     "t5": {
-      "n": 196,
-      "n_report_dates": 51,
+      "n": 197,
+      "n_report_dates": 52,
       "n_blocks": 3,
       "first_date": "2026-09-07",
-      "last_date": "2026-11-16",
-      "n_interval_claims": 196,
+      "last_date": "2026-11-17",
+      "n_interval_claims": 197,
       "interval_record_starts": "2026-09-07",
-      "coverage_iqr": 0.4745,
+      "coverage_iqr": 0.4721,
       "coverage_ci": {
-        "lo": 0.1795,
+        "lo": 0.175,
         "hi": 0.5802,
         "n_boot": 2000,
         "n_blocks": 3
       },
-      "above_median": 0.3776,
+      "above_median": 0.3756,
       "above_median_ci": {
-        "lo": 0.3077,
+        "lo": 0.3,
         "hi": 0.4737,
         "n_boot": 2000,
         "n_blocks": 3
       },
       "pit_histogram": {
-        "0": 0.3265,
-        "1": 0.2959,
-        "2": 0.1786,
-        "3": 0.199
+        "0": 0.3299,
+        "1": 0.2944,
+        "2": 0.1777,
+        "3": 0.198
       },
       "pooled_skill": {
         "skill": -0.0185,
@@ -768,7 +768,7 @@
         }
       },
       "pooled_skill_all_assets": {
-        "skill": -0.0028,
+        "skill": -0.0019,
         "arm": "published",
         "benchmark": "unconditional",
         "weighting": "equal per asset",
@@ -784,7 +784,7 @@
         "min_pool_blocks": 2,
         "ci": {
           "lo": -0.0406,
-          "hi": 0.0205,
+          "hi": 0.0216,
           "n_boot": 2000,
           "n_blocks": 3
         }
